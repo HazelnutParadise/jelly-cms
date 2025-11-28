@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DB_HOST=db
+      - DB_USER=jelly
+      - DB_PASSWORD=jellypassword
+      - DB_NAME=jellycms
+      - DB_PORT=5432
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=jelly
+      - POSTGRES_PASSWORD=jellypassword
+      - POSTGRES_DB=jellycms
+
+volumes:
+  db_data:
