@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/config"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/i18n"
 	"github.com/HazelnutParadise/jelly-cms/internal/server"
@@ -22,18 +22,16 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	// Database Connection (Basic check, real app should load from config)
-	dbHost := os.Getenv("DB_HOST")
-	if dbHost != "" {
-		err := data.Connect(
-			os.Getenv("DB_HOST"),
-			os.Getenv("DB_USER"),
-			os.Getenv("DB_PASSWORD"),
-			os.Getenv("DB_NAME"),
-			os.Getenv("DB_PORT"),
-		)
-		if err != nil {
-			log.Printf("Database connection failed (might be first run): %v", err)
+	// Load Config
+	cfg, err := config.Load()
+	if err != nil {
+		log.Printf("Config not found or invalid, starting in installation mode: %v", err)
+	}
+
+	// Database Connection
+	if cfg != nil {
+		if err := data.Connect(cfg.Database); err != nil {
+			log.Printf("Database connection failed: %v", err)
 		} else {
 			// Auto Migrate
 			if err := data.Migrate(); err != nil {

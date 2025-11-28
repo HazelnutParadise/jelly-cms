@@ -2,6 +2,8 @@ package server
 
 import (
 	"net/http"
+	"os"
+	"text/template"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/install"
@@ -15,7 +17,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager) {
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			// Allow static files and install routes
-			if c.Path() == "/install" || c.Path() == "/api/install" {
+			if c.Path() == "/install" || c.Path() == "/api/install" || c.Path() == "/api/install/test-db" {
 				return next(c)
 			}
 
@@ -31,7 +33,40 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager) {
 		if install.IsInstalled() {
 			return c.Redirect(http.StatusFound, "/")
 		}
-		return c.File("web/admin/install.html")
+
+		// Auto-fill from Env
+		data := map[string]string{
+			"DBHost":     os.Getenv("DB_HOST"),
+			"DBPort":     os.Getenv("DB_PORT"),
+			"DBUser":     os.Getenv("DB_USER"),
+			"DBPass":     os.Getenv("DB_PASSWORD"),
+			"DBName":     os.Getenv("DB_NAME"),
+			"DBTimezone": os.Getenv("DB_TIMEZONE"),
+		}
+		if data["DBTimezone"] == "" {
+			data["DBTimezone"] = "Asia/Taipei" // Default suggestion
+		}
+
+		// Render install.html with data
+		tmpl, err := template.ParseFiles("web/admin/install.html")
+		if err != nil {
+			return err
+		}
+
+		return tmpl.Execute(c.Response().Writer, data)
+	})
+
+	e.POST("/api/install/test-db", func(c echo.Context) error {
+		var req install.InstallRequest
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		}
+
+		if err := install.TestConnection(req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "Connection successful"})
 	})
 
 	e.POST("/api/install", func(c echo.Context) error {

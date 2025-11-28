@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/config"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -12,10 +13,10 @@ import (
 // DB is the global database instance.
 var DB *gorm.DB
 
-// Connect initializes the database connection.
-func Connect(host, user, password, dbName, port string) error {
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Taipei",
-		host, user, password, dbName, port)
+// Connect initializes the database connection using the provided config.
+func Connect(cfg config.DatabaseConfig) error {
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=%s",
+		cfg.Host, cfg.User, cfg.Password, cfg.Name, cfg.Port, cfg.Timezone)
 
 	var err error
 	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
