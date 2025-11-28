@@ -21,23 +21,62 @@ type User struct {
 
 // Post represents a content page or blog post.
 type Post struct {
-	ID           uint            `json:"id" gorm:"primaryKey"`
-	Title        string          `json:"title" gorm:"size:255"`
-	Slug         string          `json:"slug" gorm:"uniqueIndex;size:255"`
-	Content      string          `json:"content" gorm:"type:text"` // HTML or Markdown
-	Type         string          `json:"type" gorm:"index;default:post"` // post, page
-	Status       string          `json:"status" gorm:"index;default:draft"` // published, draft
-	AuthorID     uint            `json:"author_id"`
-	Author       User            `json:"author" gorm:"foreignKey:AuthorID"`
-	Template     string          `json:"template"` // Custom template file
-	Meta         json.RawMessage `json:"meta" gorm:"type:jsonb"` // Custom fields
-	PublishedAt  *time.Time      `json:"published_at"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
+	ID          uint            `json:"id" gorm:"primaryKey"`
+	Title       string          `json:"title" gorm:"size:255"`
+	Slug        string          `json:"slug" gorm:"uniqueIndex;size:255"`
+	Content     string          `json:"content" gorm:"type:text"`          // HTML or Markdown
+	Type        string          `json:"type" gorm:"index;default:post"`    // post, page
+	Status      string          `json:"status" gorm:"index;default:draft"` // published, draft
+	AuthorID    uint            `json:"author_id"`
+	Author      User            `json:"author" gorm:"foreignKey:AuthorID"`
+	Template    string          `json:"template"`               // Custom template file
+	Meta        json.RawMessage `json:"meta" gorm:"type:jsonb"` // Custom fields
+	PublishedAt *time.Time      `json:"published_at"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
 // Option represents global settings.
 type Option struct {
 	Key   string `json:"key" gorm:"primaryKey;size:100"`
 	Value string `json:"value" gorm:"type:text"`
+}
+
+// Product represents an e-commerce product.
+type Product struct {
+	ID          uint            `json:"id" gorm:"primaryKey"`
+	Title       string          `json:"title" gorm:"size:255"`
+	Slug        string          `json:"slug" gorm:"uniqueIndex;size:255"`
+	Description string          `json:"description" gorm:"type:text"`
+	Price       int64           `json:"price"` // In smallest currency unit (e.g., cents)
+	SKU         string          `json:"sku" gorm:"size:100"`
+	Stock       int             `json:"stock"`
+	Images      json.RawMessage `json:"images" gorm:"type:jsonb"`          // Array of image URLs
+	Status      string          `json:"status" gorm:"index;default:draft"` // active, draft, archived
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+}
+
+// Order represents a customer order.
+type Order struct {
+	ID              uint        `json:"id" gorm:"primaryKey"`
+	UserID          uint        `json:"user_id"`
+	User            User        `json:"user" gorm:"foreignKey:UserID"`
+	TotalAmount     int64       `json:"total_amount"`
+	Status          string      `json:"status" gorm:"index;default:pending"` // pending, paid, shipped, completed, cancelled
+	PaymentMethod   string      `json:"payment_method"`
+	ShippingAddress string      `json:"shipping_address" gorm:"type:text"`
+	Items           []OrderItem `json:"items" gorm:"foreignKey:OrderID"`
+	CreatedAt       time.Time   `json:"created_at"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+}
+
+// OrderItem represents an item in an order.
+type OrderItem struct {
+	ID        uint    `json:"id" gorm:"primaryKey"`
+	OrderID   uint    `json:"order_id"`
+	ProductID uint    `json:"product_id"`
+	Product   Product `json:"product" gorm:"foreignKey:ProductID"`
+	Quantity  int     `json:"quantity"`
+	Price     int64   `json:"price"` // Price at the time of purchase
 }

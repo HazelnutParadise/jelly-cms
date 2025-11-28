@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders - Jelly CMS</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            margin: 0;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background: #333;
+            color: white;
+            padding: 1rem;
+        }
+
+        .sidebar h2 {
+            margin-top: 0;
+        }
+
+        .sidebar a {
+            display: block;
+            color: #ddd;
+            text-decoration: none;
+            padding: 0.5rem 0;
+        }
+
+        .sidebar a:hover {
+            color: white;
+        }
+
+        .content {
+            flex: 1;
+            padding: 2rem;
+            background: #f4f4f4;
+            overflow-y: auto;
+        }
+
+        .card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th,
+        td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h2>Jelly CMS</h2>
+        <a href="/admin">Dashboard</a>
+        <a href="/admin/posts">Posts</a>
+        <a href="/admin/pages">Pages</a>
+        <a href="/admin/products">Products</a>
+        <a href="/admin/orders" style="color: white; font-weight: bold;">Orders</a>
+        <a href="/admin/media">Media</a>
+        <a href="/admin/themes">Themes</a>
+        <a href="/admin/plugins">Plugins</a>
+        <a href="/admin/settings">Settings</a>
+        <a href="/logout">Logout</a>
+    </div>
+    <div class="content">
+        <div class="header">
+            <h1>Orders</h1>
+        </div>
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>User</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="ordersList">
+                    <tr>
+                        <td colspan="6">Loading...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <script>
+        async function loadOrders() {
+            const res = await fetch('/api/admin/orders');
+            const orders = await res.json();
+            const tbody = document.getElementById('ordersList');
+            tbody.innerHTML = '';
+
+            orders.forEach(o => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>#${o.id}</td>
+                    <td>${o.user ? o.user.username : 'Guest'}</td>
+                    <td>$${(o.total_amount / 100).toFixed(2)}</td>
+                    <td>${o.status}</td>
+                    <td>${new Date(o.created_at).toLocaleDateString()}</td>
+                    <td>
+                        <button class="btn btn-sm">View</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        loadOrders();
+    </script>
+</body>
+
+</html>

@@ -28,6 +28,8 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager) {
 		}
 	})
 
+	e.Static("/uploads", "data/uploads")
+
 	// Install Routes
 	e.GET("/install", func(c echo.Context) error {
 		if install.IsInstalled() {
@@ -86,7 +88,8 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager) {
 	auth.RegisterRoutes(e)
 
 	// Admin Routes
-	RegisterAdminRoutes(e)
+	RegisterAdminRoutes(e, tm)
+	RegisterEcommerceRoutes(e)
 
 	e.GET("/admin", func(c echo.Context) error {
 		// TODO: Check authentication
@@ -103,6 +106,50 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager) {
 
 	e.GET("/admin/posts/:id", func(c echo.Context) error {
 		return c.File("web/admin/post_editor.html")
+	})
+
+	e.GET("/admin/pages", func(c echo.Context) error {
+		return c.File("web/admin/pages.html")
+	})
+
+	e.GET("/admin/pages/new", func(c echo.Context) error {
+		return c.File("web/admin/page_editor.html")
+	})
+
+	e.GET("/admin/pages/:id", func(c echo.Context) error {
+		return c.File("web/admin/page_editor.html")
+	})
+
+	e.GET("/admin/products", func(c echo.Context) error {
+		return c.File("web/admin/products.html")
+	})
+
+	e.GET("/admin/products/new", func(c echo.Context) error {
+		return c.File("web/admin/product_editor.html")
+	})
+
+	e.GET("/admin/products/:id", func(c echo.Context) error {
+		return c.File("web/admin/product_editor.html")
+	})
+
+	e.GET("/admin/orders", func(c echo.Context) error {
+		return c.File("web/admin/orders.html")
+	})
+
+	e.GET("/admin/media", func(c echo.Context) error {
+		return c.File("web/admin/media.html")
+	})
+
+	e.GET("/admin/themes", func(c echo.Context) error {
+		return c.File("web/admin/themes.html")
+	})
+
+	e.GET("/admin/plugins", func(c echo.Context) error {
+		return c.File("web/admin/plugins.html")
+	})
+
+	e.GET("/admin/settings", func(c echo.Context) error {
+		return c.File("web/admin/settings.html")
 	})
 
 	e.GET("/login", func(c echo.Context) error {

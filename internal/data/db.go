@@ -38,5 +38,8 @@ func Migrate() error {
 		&core.User{},
 		&core.Post{},
 		&core.Option{},
+		&core.Product{},
+		&core.Order{},
+		&core.OrderItem{},
 	)
 }
