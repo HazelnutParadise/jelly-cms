@@ -9,6 +9,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/install"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
+	"github.com/nicksnyder/go-i18n/v2/i18n"
 )
 
 // RegisterRoutes sets up the server routes.
@@ -28,6 +29,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager) {
 		}
 	})
 
+	e.Use(I18nMiddleware)
 	e.Static("/uploads", "data/uploads")
 
 	// Install Routes
@@ -91,65 +93,91 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager) {
 	RegisterAdminRoutes(e, tm)
 	RegisterEcommerceRoutes(e)
 
+	// Helper to render admin templates
+	renderAdmin := func(c echo.Context, file string, active string) error {
+		tmpl, err := template.New("base").Funcs(template.FuncMap{
+			"T": func(key string) string {
+				localizer, ok := c.Get("localizer").(*i18n.Localizer)
+				if !ok {
+					return key
+				}
+				result, err := localizer.Localize(&i18n.LocalizeConfig{
+					MessageID: key,
+				})
+				if err != nil {
+					return key
+				}
+				return result
+			},
+		}).ParseFiles("web/admin/layout.html", "web/admin/"+file)
+
+		if err != nil {
+			return err
+		}
+		return tmpl.ExecuteTemplate(c.Response().Writer, "base", map[string]interface{}{
+			"Active": active,
+		})
+	}
+
 	e.GET("/admin", func(c echo.Context) error {
 		// TODO: Check authentication
-		return c.File("web/admin/index.html")
+		return renderAdmin(c, "index.html", "dashboard")
 	})
 
 	e.GET("/admin/posts", func(c echo.Context) error {
-		return c.File("web/admin/posts.html")
+		return renderAdmin(c, "posts.html", "posts")
 	})
 
 	e.GET("/admin/posts/new", func(c echo.Context) error {
-		return c.File("web/admin/post_editor.html")
+		return renderAdmin(c, "post_editor.html", "posts")
 	})
 
 	e.GET("/admin/posts/:id", func(c echo.Context) error {
-		return c.File("web/admin/post_editor.html")
+		return renderAdmin(c, "post_editor.html", "posts")
 	})
 
 	e.GET("/admin/pages", func(c echo.Context) error {
-		return c.File("web/admin/pages.html")
+		return renderAdmin(c, "pages.html", "pages")
 	})
 
 	e.GET("/admin/pages/new", func(c echo.Context) error {
-		return c.File("web/admin/page_editor.html")
+		return renderAdmin(c, "page_editor.html", "pages")
 	})
 
 	e.GET("/admin/pages/:id", func(c echo.Context) error {
-		return c.File("web/admin/page_editor.html")
+		return renderAdmin(c, "page_editor.html", "pages")
 	})
 
 	e.GET("/admin/products", func(c echo.Context) error {
-		return c.File("web/admin/products.html")
+		return renderAdmin(c, "products.html", "products")
 	})
 
 	e.GET("/admin/products/new", func(c echo.Context) error {
-		return c.File("web/admin/product_editor.html")
+		return renderAdmin(c, "product_editor.html", "products")
 	})
 
 	e.GET("/admin/products/:id", func(c echo.Context) error {
-		return c.File("web/admin/product_editor.html")
+		return renderAdmin(c, "product_editor.html", "products")
 	})
 
 	e.GET("/admin/orders", func(c echo.Context) error {
-		return c.File("web/admin/orders.html")
+		return renderAdmin(c, "orders.html", "orders")
 	})
 
 	e.GET("/admin/media", func(c echo.Context) error {
-		return c.File("web/admin/media.html")
+		return renderAdmin(c, "media.html", "media")
 	})
 
 	e.GET("/admin/themes", func(c echo.Context) error {
-		return c.File("web/admin/themes.html")
+		return renderAdmin(c, "themes.html", "themes")
 	})
 
 	e.GET("/admin/plugins", func(c echo.Context) error {
-		return c.File("web/admin/plugins.html")
+		return renderAdmin(c, "plugins.html", "plugins")
 	})
 
 	e.GET("/admin/settings", func(c echo.Context) error {
-		return c.File("web/admin/settings.html")
+		return renderAdmin(c, "settings.html", "settings")
 	})
 
 	e.GET("/login", func(c echo.Context) error {

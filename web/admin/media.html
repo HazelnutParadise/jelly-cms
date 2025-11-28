@@ -1,165 +1,125 @@
-<!DOCTYPE html>
-<html lang="en">
+{{define "title"}}Media{{end}}
+{{define "styles"}}
+<style>
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media - Jelly CMS</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            display: flex;
-            margin: 0;
-            height: 100vh;
-        }
+    .grid-item {
+        border: 1px solid #ddd;
+        padding: 0.5rem;
+        border-radius: 8px;
+        text-align: center;
+        background: white;
+        transition: transform 0.2s;
+        position: relative;
+    }
 
-        .sidebar {
-            width: 250px;
-            background: #333;
-            color: white;
-            padding: 1rem;
-        }
+    .grid-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
 
-        .sidebar h2 {
-            margin-top: 0;
-        }
+    .grid-item img {
+        max-width: 100%;
+        height: 100px;
+        object-fit: cover;
+        display: block;
+        margin: 0 auto 0.5rem;
+        border-radius: 4px;
+    }
 
-        .sidebar a {
-            display: block;
-            color: #ddd;
-            text-decoration: none;
-            padding: 0.5rem 0;
-        }
+    .grid-item .actions {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
 
-        .sidebar a:hover {
-            color: white;
-        }
+    .btn-icon {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+    }
 
-        .content {
-            flex: 1;
-            padding: 2rem;
-            background: #f4f4f4;
-            overflow-y: auto;
-        }
-
-        .card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .grid-item {
-            border: 1px solid #ddd;
-            padding: 0.5rem;
-            border-radius: 4px;
-            text-align: center;
-        }
-
-        .grid-item img {
-            max-width: 100%;
-            height: auto;
-            display: block;
-            margin-bottom: 0.5rem;
-        }
-
-        .btn {
-            padding: 0.5rem 1rem;
-            background: #007bff;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            display: inline-block;
-            cursor: pointer;
-            border: none;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="sidebar">
-        <h2>Jelly CMS</h2>
-        <a href="/admin">Dashboard</a>
-        <a href="/admin/posts">Posts</a>
-        <a href="/admin/pages">Pages</a>
-        <a href="/admin/products">Products</a>
-        <a href="/admin/orders">Orders</a>
-        <a href="/admin/media" style="color: white; font-weight: bold;">Media</a>
-        <a href="/admin/themes">Themes</a>
-        <a href="/admin/plugins">Plugins</a>
-        <a href="/admin/settings">Settings</a>
-        <a href="/logout">Logout</a>
+    .btn-icon:hover {
+        background: #f0f0f0;
+    }
+</style>
+{{end}}
+{{define "content"}}
+<div class="header">
+    <h1>Media Library</h1>
+    <label class="btn">
+        Upload File
+        <input type="file" id="uploadInput" style="display: none;">
+    </label>
+</div>
+<div class="card">
+    <div class="grid" id="mediaGrid">
+        Loading...
     </div>
-    <div class="content">
-        <div class="header">
-            <h1>Media Library</h1>
-            <label class="btn">
-                Upload File
-                <input type="file" id="uploadInput" style="display: none;">
-            </label>
-        </div>
-        <div class="card">
-            <div class="grid" id="mediaGrid">
-                Loading...
-            </div>
-        </div>
-    </div>
-    <script>
-        async function loadMedia() {
-            const res = await fetch('/api/admin/media');
-            const files = await res.json();
-            const grid = document.getElementById('mediaGrid');
-            grid.innerHTML = '';
+</div>
+{{end}}
+{{define "scripts"}}
+<script>
+    async function loadMedia() {
+        const res = await fetch('/api/admin/media');
+        const files = await res.json();
+        const grid = document.getElementById('mediaGrid');
+        grid.innerHTML = '';
 
-            files.forEach(url => {
-                const div = document.createElement('div');
-                div.className = 'grid-item';
-                div.innerHTML = `
-                    <img src="${url}" alt="Image">
-                    <small>${url.split('/').pop()}</small>
-                `;
-                div.onclick = () => {
-                    prompt('Image URL:', window.location.origin + url);
-                };
-                grid.appendChild(div);
-            });
-        }
-
-        document.getElementById('uploadInput').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            const res = await fetch('/api/admin/media', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (res.ok) {
-                loadMedia();
-            } else {
-                alert('Upload failed');
-            }
+        files.forEach(url => {
+            body: JSON.stringify({ old_name: oldName, new_name: newName })
         });
 
-        loadMedia();
-    </script>
-</body>
+        if (res.ok) {
+            loadMedia();
+        } else {
+            const err = await res.json();
+            alert('Rename failed: ' + err.error);
+        }
+    }
 
-</html>
+    async function deleteFile(filename) {
+        if (!confirm(`Delete ${filename}? This cannot be undone.`)) return;
+
+        const res = await fetch(`/api/admin/media/${filename}`, {
+            method: 'DELETE'
+        });
+
+        if (res.ok) {
+            loadMedia();
+        } else {
+            const err = await res.json();
+            alert('Delete failed: ' + err.error);
+        }
+    }
+
+    document.getElementById('uploadInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const res = await fetch('/api/admin/media', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (res.ok) {
+            loadMedia();
+        } else {
+            alert('Upload failed');
+        }
+    });
+
+    loadMedia();
+</script>
+{{end}}

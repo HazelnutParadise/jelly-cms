@@ -112,6 +112,75 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 		return c.JSON(http.StatusOK, map[string]string{"url": "/uploads/" + file.Filename})
 	})
 
+	api.DELETE("/media/:filename", func(c echo.Context) error {
+		filename := c.Param("filename")
+		// Prevent directory traversal
+		if filepath.Base(filename) != filename {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
+		}
+
+		path := filepath.Join("data/uploads", filename)
+		if err := os.Remove(path); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"message": "Deleted"})
+	})
+
+	api.PUT("/media/:filename", func(c echo.Context) error {
+		filename := c.Param("filename")
+		// Prevent directory traversal
+		if filepath.Base(filename) != filename {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
+		}
+
+		file, err := c.FormFile("file")
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "No file uploaded"})
+		}
+		src, err := file.Open()
+		if err != nil {
+			return err
+		}
+		defer src.Close()
+
+		dstPath := filepath.Join("data/uploads", filename)
+		dst, err := os.Create(dstPath)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		defer dst.Close()
+
+		if _, err = io.Copy(dst, src); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "Replaced"})
+	})
+
+	api.POST("/media/rename", func(c echo.Context) error {
+		var req struct {
+			OldName string `json:"old_name"`
+			NewName string `json:"new_name"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		}
+
+		// Validation
+		if filepath.Base(req.OldName) != req.OldName || filepath.Base(req.NewName) != req.NewName {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
+		}
+
+		oldPath := filepath.Join("data/uploads", req.OldName)
+		newPath := filepath.Join("data/uploads", req.NewName)
+
+		if err := os.Rename(oldPath, newPath); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "Renamed"})
+	})
+
 	api.GET("/media", func(c echo.Context) error {
 		files, err := os.ReadDir("data/uploads")
 		if err != nil {

@@ -1,195 +1,97 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Product - Jelly CMS</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            display: flex;
-            margin: 0;
-            height: 100vh;
-        }
-
-        .sidebar {
-            width: 250px;
-            background: #333;
-            color: white;
-            padding: 1rem;
-        }
-
-        .sidebar h2 {
-            margin-top: 0;
-        }
-
-        .sidebar a {
-            display: block;
-            color: #ddd;
-            text-decoration: none;
-            padding: 0.5rem 0;
-        }
-
-        .sidebar a:hover {
-            color: white;
-        }
-
-        .content {
-            flex: 1;
-            padding: 2rem;
-            background: #f4f4f4;
-            overflow-y: auto;
-        }
-
-        .card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: bold;
-        }
-
-        input,
-        textarea,
-        select {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-
-        textarea {
-            height: 150px;
-        }
-
-        .btn {
-            padding: 0.75rem 1.5rem;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-
-        .btn:hover {
-            background: #0056b3;
-        }
-    </style>
-</head>
-
-<body>
-    <div class="sidebar">
-        <h2>Jelly CMS</h2>
-        <a href="/admin">Dashboard</a>
-        <a href="/admin/posts">Posts</a>
-        <a href="/admin/pages">Pages</a>
-        <a href="/admin/products" style="color: white; font-weight: bold;">Products</a>
-        <a href="/admin/orders">Orders</a>
-        <a href="/admin/media">Media</a>
-        <a href="/admin/themes">Themes</a>
-        <a href="/admin/plugins">Plugins</a>
-        <a href="/admin/settings">Settings</a>
-        <a href="/logout">Logout</a>
-    </div>
-    <div class="content">
-        <h1>Edit Product</h1>
-        <div class="card">
-            <form id="productForm">
-                <div class="form-group">
-                    <label>Title</label>
-                    <input type="text" name="title" required>
-                </div>
-                <div class="form-group">
-                    <label>Slug</label>
-                    <input type="text" name="slug">
-                </div>
-                <div class="form-group">
-                    <label>Description</label>
-                    <textarea name="description"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Price (Cents)</label>
-                    <input type="number" name="price" required>
-                </div>
-                <div class="form-group">
-                    <label>SKU</label>
-                    <input type="text" name="sku">
-                </div>
-                <div class="form-group">
-                    <label>Stock</label>
-                    <input type="number" name="stock" required>
-                </div>
-                <div class="form-group">
-                    <label>Status</label>
-                    <select name="status">
-                        <option value="draft">Draft</option>
-                        <option value="active">Active</option>
-                        <option value="archived">Archived</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn">Save Product</button>
-            </form>
+{{define "title"}}Edit Product{{end}}
+{{define "styles"}}
+<style>
+    textarea {
+        height: 150px;
+    }
+</style>
+{{end}}
+{{define "content"}}
+<h1>Edit Product</h1>
+<div class="card">
+    <form id="productForm">
+        <div class="form-group">
+            <label>Title</label>
+            <input type="text" name="title" required>
         </div>
-    </div>
-    <script>
-        const form = document.getElementById('productForm');
-        const id = window.location.pathname.split('/').pop();
-        const isNew = id === 'new';
+        <div class="form-group">
+            <label>Slug</label>
+            <input type="text" name="slug">
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea name="description"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Price (Cents)</label>
+            <input type="number" name="price" required>
+        </div>
+        <div class="form-group">
+            <label>SKU</label>
+            <input type="text" name="sku">
+        </div>
+        <div class="form-group">
+            <label>Stock</label>
+            <input type="number" name="stock" required>
+        </div>
+        <div class="form-group">
+            <label>Status</label>
+            <select name="status">
+                <option value="draft">Draft</option>
+                <option value="active">Active</option>
+                <option value="archived">Archived</option>
+            </select>
+        </div>
+        <button type="submit" class="btn">Save Product</button>
+    </form>
+</div>
+{{end}}
+{{define "scripts"}}
+<script>
+    const form = document.getElementById('productForm');
+    const id = window.location.pathname.split('/').pop();
+    const isNew = id === 'new';
 
-        if (!isNew) {
-            loadProduct();
+    if (!isNew) {
+        loadProduct();
+    }
+
+    async function loadProduct() {
+        const res = await fetch(`/api/admin/products/${id}`);
+        if (res.ok) {
+            const p = await res.json();
+            form.title.value = p.title;
+            form.slug.value = p.slug;
+            form.description.value = p.description;
+            form.price.value = p.price;
+            form.sku.value = p.sku;
+            form.stock.value = p.stock;
+            form.status.value = p.status;
         }
+    }
 
-        async function loadProduct() {
-            const res = await fetch(`/api/admin/products/${id}`);
-            if (res.ok) {
-                const p = await res.json();
-                form.title.value = p.title;
-                form.slug.value = p.slug;
-                form.description.value = p.description;
-                form.price.value = p.price;
-                form.sku.value = p.sku;
-                form.stock.value = p.stock;
-                form.status.value = p.status;
-            }
-        }
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        data.price = parseInt(data.price);
+        data.stock = parseInt(data.stock);
 
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData.entries());
-            data.price = parseInt(data.price);
-            data.stock = parseInt(data.stock);
+        const url = isNew ? '/api/admin/products' : `/api/admin/products/${id}`;
+        const method = isNew ? 'POST' : 'PUT';
 
-            const url = isNew ? '/api/admin/products' : `/api/admin/products/${id}`;
-            const method = isNew ? 'POST' : 'PUT';
-
-            const res = await fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-
-            if (res.ok) {
-                alert('Saved!');
-                if (isNew) window.location.href = '/admin/products';
-            } else {
-                alert('Error saving product');
-            }
+        const res = await fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
         });
-    </script>
-</body>
 
-</html>
+        if (res.ok) {
+            alert('Saved!');
+            window.location.href = '/admin/products';
+        } else {
+            alert('Error saving product');
+        }
+    });
+</script>
+{{end}}

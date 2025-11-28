@@ -1,0 +1,233 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}Jelly CMS{{end}} - Jelly CMS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #FF6B6B;
+            --secondary: #4ECDC4;
+            --dark: #2C3E50;
+            --light: #F7F9FC;
+            --sidebar-bg: #2C3E50;
+            --sidebar-active: rgba(255, 255, 255, 0.1);
+            --card-bg: #FFFFFF;
+            --text-main: #333333;
+            --text-muted: #777777;
+            --radius: 12px;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: 'Quicksand', sans-serif;
+            display: flex;
+            margin: 0;
+            height: 100vh;
+            background: var(--light);
+            color: var(--text-main);
+        }
+
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+
+        .sidebar h2 {
+            margin-top: 0;
+            margin-bottom: 2rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.8rem;
+        }
+
+        .sidebar a {
+            display: block;
+            color: #bdc3c7;
+            text-decoration: none;
+            padding: 0.8rem 1rem;
+            border-radius: var(--radius);
+            transition: all 0.3s ease;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .sidebar a:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .sidebar a.active {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            color: white;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .content {
+            flex: 1;
+            padding: 2.5rem;
+            overflow-y: auto;
+        }
+
+        h1 {
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 1.5rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(0, 0, 0, 0.02);
+        }
+
+        .btn {
+            padding: 0.6rem 1.2rem;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            display: inline-block;
+            cursor: pointer;
+            border: none;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 10px rgba(255, 107, 107, 0.2);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn-sm {
+            padding: 0.3rem 0.8rem;
+            font-size: 0.85rem;
+            border-radius: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        th {
+            text-align: left;
+            padding: 1rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            border-bottom: 2px solid #eee;
+        }
+
+        td {
+            background: white;
+            padding: 1rem;
+            border-top: 1px solid #f0f0f0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tr td:first-child {
+            border-left: 1px solid #f0f0f0;
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+        }
+
+        tr td:last-child {
+            border-right: 1px solid #f0f0f0;
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        input,
+        textarea,
+        select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--secondary);
+        }
+
+        /* Additional styles can be added here */
+            {
+                {
+                block "styles" .
+            }
+        }
+
+            {
+                {
+                end
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h2>Jelly CMS</h2>
+        <a href="/admin" class="{{if eq .Active " dashboard"}}active{{end}}">Dashboard</a>
+        <a href="/admin/posts" class="{{if eq .Active " posts"}}active{{end}}">Posts</a>
+        <a href="/admin/pages" class="{{if eq .Active " pages"}}active{{end}}">Pages</a>
+        <a href="/admin/products" class="{{if eq .Active " products"}}active{{end}}">Products</a>
+        <a href="/admin/orders" class="{{if eq .Active " orders"}}active{{end}}">Orders</a>
+        <a href="/admin/media" class="{{if eq .Active " media"}}active{{end}}">Media</a>
+        <a href="/admin/themes" class="{{if eq .Active " themes"}}active{{end}}">Themes</a>
+        <a href="/admin/plugins" class="{{if eq .Active " plugins"}}active{{end}}">Plugins</a>
+        <a href="/admin/settings" class="{{if eq .Active " settings"}}active{{end}}">Settings</a>
+        <div style="flex: 1;"></div>
+        <a href="/logout">Logout</a>
+    </div>
+    <div class="content">
+        {{template "content" .}}
+    </div>
+    {{block "scripts" .}}{{end}}
+</body>
+
+</html>
+{{end}}
