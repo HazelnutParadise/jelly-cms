@@ -14,7 +14,7 @@ var DB *gorm.DB
 
 // Connect initializes the database connection.
 func Connect(host, user, password, dbName, port string) error {
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Shanghai",
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable TimeZone=Asia/Taipei",
 		host, user, password, dbName, port)
 
 	var err error

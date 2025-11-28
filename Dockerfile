@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -9,6 +9,8 @@ COPY . .
 RUN go build -o jelly-cms ./cmd/server
 
 FROM alpine:latest
+
+RUN apk add --no-cache tzdata
 
 WORKDIR /app
 
