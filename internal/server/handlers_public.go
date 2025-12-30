@@ -118,7 +118,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 	// About page
 	e.GET("/about", func(c echo.Context) error {
 		var page core.Post
-		if err := data.DB.Where("slug = ? AND type = ?", "about", "page").First(&page).Error; err != nil {
+		if err := data.DB.Where("slug = ? AND type = ? AND status = ?", "about", "page", "published").First(&page).Error; err != nil {
 			// Create default about page if not exists
 			page = core.Post{
 				Title:   "關於我們",
@@ -136,11 +136,14 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 			"IsPage":    true,
 		}
 
+		// Try to render page.html first
 		html, err := tm.Render("page.html", data)
 		if err != nil {
+			// If page.html doesn't exist or fails, try index.html
 			html, err = tm.Render("index.html", data)
 			if err != nil {
-				return c.String(http.StatusInternalServerError, err.Error())
+				// If both fail, return error with details
+				return c.String(http.StatusInternalServerError, "Template render error: "+err.Error())
 			}
 		}
 		return c.HTMLBlob(http.StatusOK, html)

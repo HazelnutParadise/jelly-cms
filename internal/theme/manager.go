@@ -101,6 +101,12 @@ func (m *Manager) Render(templateName string, data interface{}) ([]byte, error) 
 		}
 
 		var err error
+		// Check if template file exists, if not, try to use layout only
+		if _, err := os.Stat(tmplPath); os.IsNotExist(err) {
+			// Template file doesn't exist, return error so handler can fallback
+			return nil, fmt.Errorf("template %s not found", templateName)
+		}
+
 		tmpl, err = template.New("layout").Funcs(funcMap).ParseFiles(layoutPath, tmplPath)
 		if err != nil {
 			return nil, err
