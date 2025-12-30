@@ -316,20 +316,269 @@ JellyCMS.registerHook('OnBoot', function(data) {
 
 ## 🎨 主題開發
 
-主題位於 `web/themes/` 目錄，每個主題需要包含：
+Jelly CMS 的主題系統支援完整的顏色和布局自訂，讓開發者可以輕鬆創建美觀且可客製化的主題。
 
-- `theme.json`: 主題配置檔案
-- `layout.html`: 布局模板
-- `index.html`: 首頁模板（或其他頁面模板）
+### 主題結構
 
-### theme.json 範例
+主題位於 `web/themes/` 目錄，每個主題需要包含以下檔案：
+
+```
+web/themes/my-theme/
+├── theme.json      # 主題配置檔案（必需）
+├── layout.html     # 布局模板（必需）
+├── index.html      # 首頁模板
+├── post.html       # 文章詳情頁模板
+├── posts.html      # 文章列表頁模板
+├── page.html       # 靜態頁面模板
+└── search.html     # 搜尋結果頁模板
+```
+
+### theme.json 配置
+
+`theme.json` 是主題的核心配置檔案，定義了主題的基本資訊、預設顏色和布局設定：
 
 ```json
 {
-  "name": "my-theme",
+  "name": "Jelly",
   "version": "1.0.0",
-  "description": "我的主題",
-  "author": "開發者名稱",
+  "description": "Default Jelly CMS Theme",
+  "author": "Jelly Team",
+  "colors": {
+    "primary": "#FF6B6B",
+    "secondary": "#4ECDC4",
+    "background": "#F7F9FC",
+    "text": "#333",
+    "text_muted": "#666",
+    "accent": "#FF6B6B",
+    "link": "#4ECDC4",
+    "link_hover": "#FF6B6B",
+    "border": "#e0e0e0",
+    "dark": "#2C3E50",
+    "success": "#28a745",
+    "warning": "#ffc107",
+    "error": "#dc3545"
+  },
+  "layout": {
+    "header_style": "sticky",
+    "sidebar": false,
+    "sidebar_position": "left",
+    "footer": true,
+    "container_width": "wide",
+    "post_layout": "grid"
+  }
+}
+```
+
+#### 顏色設定
+
+主題支援以下顏色設定，這些顏色可以在管理後台進行客製化：
+
+- `primary`: 主要顏色（按鈕、強調元素等）
+- `secondary`: 次要顏色（輔助元素）
+- `background`: 背景顏色
+- `text`: 主要文字顏色
+- `text_muted`: 次要文字顏色
+- `accent`: 強調色
+- `link`: 連結顏色
+- `link_hover`: 連結懸停顏色
+- `border`: 邊框顏色
+- `dark`: 深色（用於 footer 等）
+- `success`: 成功狀態顏色
+- `warning`: 警告狀態顏色
+- `error`: 錯誤狀態顏色
+
+#### Layout 設定
+
+- `header_style`: Header 位置樣式
+  - `"fixed"`: 固定定位，始終在頂部
+  - `"sticky"`: 粘性定位，滾動時固定在頂部
+  - `"static"`: 靜態定位，正常流動
+- `sidebar`: 是否顯示側邊欄（`true`/`false`）
+- `sidebar_position`: 側邊欄位置（`"left"`/`"right"`）
+- `footer`: 是否顯示頁腳（`true`/`false`）
+- `container_width`: 容器寬度
+  - `"full"`: 全寬
+  - `"wide"`: 寬版（1200px）
+  - `"narrow"`: 窄版（800px）
+- `post_layout`: 文章列表布局
+  - `"grid"`: 網格布局
+  - `"list"`: 列表布局
+  - `"single"`: 單欄布局
+
+### 模板文件
+
+#### layout.html
+
+`layout.html` 是主題的基礎布局模板，必須定義一個名為 `layout` 的模板：
+
+```html
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{if .Title}}{{.Title}} - {{end}}{{.SiteTitle}}</title>
+    <style>
+        :root {
+            --primary: {{themeColor .ThemeColors "primary" "#FF6B6B"}};
+            --secondary: {{themeColor .ThemeColors "secondary" "#4ECDC4"}};
+            --background: {{themeColor .ThemeColors "background" "#F7F9FC"}};
+            --text: {{themeColor .ThemeColors "text" "#333"}};
+            /* ... 更多顏色變數 ... */
+        }
+        
+        body {
+            background: var(--background);
+            color: var(--text);
+        }
+        
+        header {
+            {{$headerStyle := themeLayout .ThemeLayout "header_style" "sticky"}}
+            position: {{if eq $headerStyle "fixed"}}fixed{{else if eq $headerStyle "sticky"}}sticky{{else}}static{{end}};
+        }
+        
+        main {
+            {{$containerWidth := themeLayout .ThemeLayout "container_width" "wide"}}
+            max-width: {{if eq $containerWidth "full"}}100%{{else if eq $containerWidth "narrow"}}800px{{else}}1200px{{end}};
+        }
+        
+        footer {
+            {{$footer := themeLayout .ThemeLayout "footer" true}}
+            {{if eq $footer false}}display: none;{{end}}
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <!-- Header 內容 -->
+    </header>
+    <main>
+        {{template "content" .}}
+    </main>
+    <footer>
+        <!-- Footer 內容 -->
+    </footer>
+</body>
+</html>
+{{end}}
+```
+
+#### 頁面模板
+
+其他頁面模板（如 `index.html`、`post.html` 等）需要定義 `content` 模板：
+
+```html
+{{define "content"}}
+<div class="posts-grid">
+    {{range .Posts}}
+    <article class="post-card">
+        <h2><a href="/post/{{.Slug}}">{{.Title}}</a></h2>
+        <div class="post-content">
+            {{.Content | html}}
+        </div>
+    </article>
+    {{end}}
+</div>
+{{end}}
+```
+
+### 模板函數
+
+Jelly CMS 提供了兩個專用的模板函數來處理主題設定：
+
+#### themeColor
+
+用於取得主題顏色，如果找不到則使用預設值：
+
+```html
+{{themeColor .ThemeColors "primary" "#FF6B6B"}}
+```
+
+- 第一個參數：`.ThemeColors` - 主題顏色 map
+- 第二個參數：`"primary"` - 要查找的顏色鍵名
+- 第三個參數：`"#FF6B6B"` - 預設顏色值（如果找不到或為空）
+
+**範例：**
+
+```html
+<style>
+    :root {
+        --primary: {{themeColor .ThemeColors "primary" "#FF6B6B"}};
+        --secondary: {{themeColor .ThemeColors "secondary" "#4ECDC4"}};
+        --text: {{themeColor .ThemeColors "text" "#333"}};
+    }
+    
+    .btn {
+        background: var(--primary);
+        color: white;
+    }
+</style>
+```
+
+#### themeLayout
+
+用於取得主題布局設定，如果找不到則使用預設值：
+
+```html
+{{themeLayout .ThemeLayout "header_style" "sticky"}}
+```
+
+- 第一個參數：`.ThemeLayout` - 主題布局 map
+- 第二個參數：`"header_style"` - 要查找的布局鍵名
+- 第三個參數：`"sticky"` - 預設值（如果找不到）
+
+**範例：**
+
+```html
+<style>
+    header {
+        {{$headerStyle := themeLayout .ThemeLayout "header_style" "sticky"}}
+        position: {{if eq $headerStyle "fixed"}}fixed{{else if eq $headerStyle "sticky"}}sticky{{else}}static{{end}};
+    }
+    
+    main {
+        {{$containerWidth := themeLayout .ThemeLayout "container_width" "wide"}}
+        max-width: {{if eq $containerWidth "full"}}100%{{else if eq $containerWidth "narrow"}}800px{{else}}1200px{{end}};
+    }
+</style>
+```
+
+### 可用的模板數據
+
+在模板中，你可以使用以下數據：
+
+- `.SiteTitle`: 網站標題
+- `.Title`: 當前頁面標題
+- `.Posts`: 文章列表（首頁、文章列表頁）
+- `.Post`: 單篇文章（文章詳情頁）
+- `.Page`: 當前頁碼（分頁時）
+- `.TotalPages`: 總頁數（分頁時）
+- `.Query`: 搜尋關鍵字（搜尋頁）
+- `.ThemeColors`: 主題顏色 map（從資料庫讀取的自訂顏色）
+- `.ThemeLayout`: 主題布局 map（從資料庫讀取的自訂布局）
+- `.ThemeCustom`: 自訂欄位 map（如果有定義）
+
+### 其他模板函數
+
+除了主題相關的函數，還可以使用以下內建函數：
+
+- `{{substr .Content 0 150}}`: 截取字串
+- `{{add .Page 1}}`: 數字相加
+- `{{sub .Page 1}}`: 數字相減
+- `{{.Content | html}}`: HTML 轉義
+
+### 完整範例
+
+以下是一個完整的主題範例：
+
+**theme.json:**
+```json
+{
+  "name": "My Theme",
+  "version": "1.0.0",
+  "description": "我的自訂主題",
+  "author": "開發者",
   "colors": {
     "primary": "#007bff",
     "secondary": "#6c757d",
@@ -338,13 +587,87 @@ JellyCMS.registerHook('OnBoot', function(data) {
   },
   "layout": {
     "header_style": "sticky",
-    "sidebar": true,
-    "sidebar_position": "right",
     "footer": true,
     "container_width": "wide"
   }
 }
 ```
+
+**layout.html:**
+```html
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>{{if .Title}}{{.Title}} - {{end}}{{.SiteTitle}}</title>
+    <style>
+        :root {
+            --primary: {{themeColor .ThemeColors "primary" "#007bff"}};
+            --background: {{themeColor .ThemeColors "background" "#ffffff"}};
+            --text: {{themeColor .ThemeColors "text" "#212529"}};
+        }
+        body {
+            font-family: sans-serif;
+            background: var(--background);
+            color: var(--text);
+        }
+        .btn {
+            background: var(--primary);
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>{{.SiteTitle}}</h1>
+    </header>
+    <main>
+        {{template "content" .}}
+    </main>
+</body>
+</html>
+{{end}}
+```
+
+**index.html:**
+```html
+{{define "content"}}
+<h1>歡迎來到 {{.SiteTitle}}</h1>
+{{if .Posts}}
+    <div class="posts">
+        {{range .Posts}}
+        <article>
+            <h2><a href="/post/{{.Slug}}">{{.Title}}</a></h2>
+            <p>{{substr .Content 0 200 | html}}...</p>
+        </article>
+        {{end}}
+    </div>
+{{end}}
+{{end}}
+```
+
+### 主題客製化
+
+用戶可以在管理後台的「主題」頁面中：
+
+1. **選擇主題**：從已安裝的主題中選擇一個啟用
+2. **自訂顏色**：使用顏色選擇器修改主題顏色
+3. **調整布局**：修改 header 樣式、容器寬度、文章布局等
+4. **即時預覽**：修改後可以即時看到效果
+
+所有自訂設定都會儲存到資料庫，並在渲染模板時自動注入到模板數據中。
+
+### 最佳實踐
+
+1. **使用 CSS 變數**：將主題顏色定義為 CSS 變數，方便管理和覆蓋
+2. **提供預設值**：使用 `themeColor` 和 `themeLayout` 函數時，務必提供合理的預設值
+3. **響應式設計**：確保主題在不同裝置上都能正常顯示
+4. **語義化 HTML**：使用適當的 HTML 標籤，提升可訪問性
+5. **性能優化**：避免過多的嵌套和複雜的 CSS 選擇器
 
 ## 🔐 OAuth 設定
 
