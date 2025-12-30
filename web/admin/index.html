@@ -1,7 +1,151 @@
 {{define "title"}}Dashboard{{end}}
+{{define "styles"}}
+<style>
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: linear-gradient(135deg, var(--primary), var(--secondary));
+        color: white;
+        padding: 1.5rem;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+    }
+    .stat-card h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    .stat-card .value {
+        font-size: 2rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    .recent-activity {
+        margin-top: 2rem;
+    }
+</style>
+{{end}}
 {{define "content"}}
 <h1>Dashboard</h1>
-<div class="card">
-    <p>Welcome to Jelly CMS Admin Panel.</p>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <h3>Total Posts</h3>
+        <p class="value" id="postsCount">-</p>
+    </div>
+    <div class="stat-card" style="background: linear-gradient(135deg, #667eea, #764ba2);">
+        <h3>Total Products</h3>
+        <p class="value" id="productsCount">-</p>
+    </div>
+    <div class="stat-card" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+        <h3>Total Orders</h3>
+        <p class="value" id="ordersCount">-</p>
+    </div>
+    <div class="stat-card" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+        <h3>Active Theme</h3>
+        <p class="value" id="activeTheme" style="font-size: 1.2rem;">-</p>
+    </div>
 </div>
+
+<div class="card">
+    <h2>Quick Actions</h2>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
+        <a href="/admin/posts/new" class="btn">New Post</a>
+        <a href="/admin/pages/new" class="btn">New Page</a>
+        <a href="/admin/products/new" class="btn">New Product</a>
+        <a href="/admin/media" class="btn">Media Library</a>
+    </div>
+</div>
+
+<div class="card recent-activity">
+    <h2>Recent Posts</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="recentPosts">
+            <tr><td colspan="4">Loading...</td></tr>
+        </tbody>
+    </table>
+</div>
+{{end}}
+{{define "scripts"}}
+<script>
+    async function loadStats() {
+        // Load posts count
+        try {
+            const postsRes = await fetch('/api/admin/posts');
+            const posts = await postsRes.json();
+            document.getElementById('postsCount').textContent = posts.length;
+        } catch (e) {
+            console.error('Failed to load posts:', e);
+        }
+
+        // Load products count
+        try {
+            const productsRes = await fetch('/api/admin/products');
+            const products = await productsRes.json();
+            document.getElementById('productsCount').textContent = products.length;
+        } catch (e) {
+            console.error('Failed to load products:', e);
+        }
+
+        // Load orders count
+        try {
+            const ordersRes = await fetch('/api/admin/orders');
+            const orders = await ordersRes.json();
+            document.getElementById('ordersCount').textContent = orders.length;
+        } catch (e) {
+            console.error('Failed to load orders:', e);
+        }
+
+        // Load active theme
+        try {
+            const themesRes = await fetch('/api/admin/themes');
+            const themes = await themesRes.json();
+            // Get active theme from settings or default
+            document.getElementById('activeTheme').textContent = themes[0] || 'default';
+        } catch (e) {
+            console.error('Failed to load themes:', e);
+        }
+
+        // Load recent posts
+        try {
+            const postsRes = await fetch('/api/admin/posts');
+            const posts = await postsRes.json();
+            const tbody = document.getElementById('recentPosts');
+            tbody.innerHTML = '';
+
+            const recentPosts = posts.slice(0, 5);
+            if (recentPosts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4">No posts yet</td></tr>';
+                return;
+            }
+
+            recentPosts.forEach(post => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${post.title}</td>
+                    <td><span style="padding: 0.2rem 0.5rem; border-radius: 4px; background: ${post.status === 'published' ? '#28a745' : '#ffc107'}; color: white; font-size: 0.85rem;">${post.status}</span></td>
+                    <td>${new Date(post.created_at).toLocaleDateString()}</td>
+                    <td><a href="/admin/posts/${post.id}" class="btn btn-sm">Edit</a></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (e) {
+            console.error('Failed to load recent posts:', e);
+        }
+    }
+
+    loadStats();
+</script>
 {{end}}

@@ -23,8 +23,9 @@
             <textarea name="description"></textarea>
         </div>
         <div class="form-group">
-            <label>Price (Cents)</label>
-            <input type="number" name="price" required>
+            <label>Price (NT$)</label>
+            <input type="number" name="price" step="0.01" required placeholder="Enter price in dollars">
+            <small style="color: var(--text-muted); font-size: 0.85rem;">價格將自動轉換為分（cents）</small>
         </div>
         <div class="form-group">
             <label>SKU</label>
@@ -63,7 +64,7 @@
             form.title.value = p.title;
             form.slug.value = p.slug;
             form.description.value = p.description;
-            form.price.value = p.price;
+            form.price.value = (p.price / 100).toFixed(2);
             form.sku.value = p.sku;
             form.stock.value = p.stock;
             form.status.value = p.status;
@@ -74,7 +75,8 @@
         e.preventDefault();
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
-        data.price = parseInt(data.price);
+        // Convert price from dollars to cents
+        data.price = Math.round(parseFloat(data.price) * 100);
         data.stock = parseInt(data.stock);
 
         const url = isNew ? '/api/admin/products' : `/api/admin/products/${id}`;

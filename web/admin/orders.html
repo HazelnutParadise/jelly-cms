@@ -40,12 +40,36 @@
                     <td>${o.status}</td>
                     <td>${new Date(o.created_at).toLocaleDateString()}</td>
                     <td>
-                        <button class="btn btn-sm">View</button>
+                        <button class="btn btn-sm" onclick="viewOrder(${o.id})">View</button>
+                        <button class="btn btn-sm" onclick="updateOrderStatus(${o.id})" style="background: #17a2b8; margin-left: 0.5rem;">Update Status</button>
                     </td>
                 `;
             tbody.appendChild(tr);
         });
     }
+    function viewOrder(id) {
+        window.location.href = `/admin/orders/${id}`;
+    }
+
+    async function updateOrderStatus(id) {
+        const status = prompt('Enter new status (pending, processing, completed, cancelled):');
+        if (!status) return;
+
+        const res = await fetch(`/api/admin/orders/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+
+        if (res.ok) {
+            alert('Order status updated!');
+            loadOrders();
+        } else {
+            const err = await res.json();
+            alert('Failed to update: ' + (err.error || 'Unknown error'));
+        }
+    }
+
     loadOrders();
 </script>
 {{end}}

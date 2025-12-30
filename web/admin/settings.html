@@ -1,30 +1,208 @@
 {{define "title"}}Settings{{end}}
+{{define "styles"}}
+<style>
+    .tabs {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        border-bottom: 2px solid #eee;
+    }
+    .tab {
+        padding: 0.8rem 1.5rem;
+        cursor: pointer;
+        border: none;
+        background: none;
+        font-weight: 600;
+        color: var(--text-muted);
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s;
+    }
+    .tab:hover {
+        color: var(--dark);
+    }
+    .tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
+    .tab-content {
+        display: none;
+    }
+    .tab-content.active {
+        display: block;
+    }
+    .payment-gateway {
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+    }
+    .payment-gateway h3 {
+        margin-top: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 24px;
+    }
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 24px;
+    }
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+    }
+    input:checked + .slider {
+        background-color: var(--primary);
+    }
+    input:checked + .slider:before {
+        transform: translateX(26px);
+    }
+</style>
+{{end}}
 {{define "content"}}
 <h1>Settings</h1>
-<div class="card">
-    <form id="settingsForm">
-        <div class="form-group">
-            <label>Site Title</label>
-            <input type="text" name="site_title">
+
+<div class="tabs">
+    <button class="tab active" onclick="switchTab('general')">General</button>
+    <button class="tab" onclick="switchTab('payment')">Payment Gateways</button>
+</div>
+
+<!-- General Settings -->
+<div id="generalTab" class="tab-content active">
+    <div class="card">
+        <form id="settingsForm">
+            <div class="form-group">
+                <label>Site Title</label>
+                <input type="text" name="site_title">
+            </div>
+            <div class="form-group">
+                <label>Site Description</label>
+                <input type="text" name="site_description">
+            </div>
+            <div class="form-group">
+                <label>Language</label>
+                <select name="site_language">
+                    <option value="en">English</option>
+                    <option value="zh-TW">Traditional Chinese (繁體中文)</option>
+                </select>
+            </div>
+            <button type="submit" class="btn">Save Settings</button>
+        </form>
+    </div>
+</div>
+
+<!-- Payment Gateway Settings -->
+<div id="paymentTab" class="tab-content">
+    <!-- ECPay Settings -->
+    <div class="card">
+        <div class="payment-gateway">
+            <h3>
+                <span>綠界 ECPay</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="ecpayEnabled" onchange="toggleECPay()">
+                    <span class="slider"></span>
+                </label>
+            </h3>
+            <form id="ecpayForm" style="margin-top: 1rem;">
+                <div class="form-group">
+                    <label>商店代號 (Merchant ID)</label>
+                    <input type="text" id="ecpayMerchantID" required>
+                </div>
+                <div class="form-group">
+                    <label>Hash Key</label>
+                    <input type="text" id="ecpayHashKey" required>
+                </div>
+                <div class="form-group">
+                    <label>Hash IV</label>
+                    <input type="text" id="ecpayHashIV" required>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="ecpayTestMode">
+                        測試模式 (Test Mode)
+                    </label>
+                </div>
+                <button type="submit" class="btn">Save ECPay Settings</button>
+            </form>
         </div>
-        <div class="form-group">
-            <label>Site Description</label>
-            <input type="text" name="site_description">
+    </div>
+
+    <!-- NewebPay Settings -->
+    <div class="card" style="margin-top: 1.5rem;">
+        <div class="payment-gateway">
+            <h3>
+                <span>藍新 NewebPay</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="newebpayEnabled" onchange="toggleNewebPay()">
+                    <span class="slider"></span>
+                </label>
+            </h3>
+            <form id="newebpayForm" style="margin-top: 1rem;">
+                <div class="form-group">
+                    <label>商店代號 (Merchant ID)</label>
+                    <input type="text" id="newebpayMerchantID" required>
+                </div>
+                <div class="form-group">
+                    <label>Hash Key</label>
+                    <input type="text" id="newebpayHashKey" required>
+                </div>
+                <div class="form-group">
+                    <label>Hash IV</label>
+                    <input type="text" id="newebpayHashIV" required>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="newebpayTestMode">
+                        測試模式 (Test Mode)
+                    </label>
+                </div>
+                <button type="submit" class="btn">Save NewebPay Settings</button>
+            </form>
         </div>
-        <div class="form-group">
-            <label>Language</label>
-            <select name="site_language">
-                <option value="en">English</option>
-                <option value="zh-TW">Traditional Chinese (繁體中文)</option>
-            </select>
-        </div>
-        <!-- Add more settings as needed -->
-        <button type="submit" class="btn">Save Settings</button>
-    </form>
+    </div>
 </div>
 {{end}}
 {{define "scripts"}}
 <script>
+    function switchTab(tabName) {
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+
+        // Show selected tab
+        document.getElementById(tabName + 'Tab').classList.add('active');
+        event.target.classList.add('active');
+    }
+
     async function loadSettings() {
         const res = await fetch('/api/admin/settings');
         const options = await res.json();
@@ -34,6 +212,51 @@
             if (form[opt.key]) {
                 form[opt.key].value = opt.value;
             }
+        });
+    }
+
+    async function loadPaymentSettings() {
+        const res = await fetch('/api/admin/payment/gateways');
+        const configs = await res.json();
+
+        // ECPay
+        if (configs.ecpay) {
+            document.getElementById('ecpayEnabled').checked = configs.ecpay.enabled;
+            if (configs.ecpay.config) {
+                document.getElementById('ecpayMerchantID').value = configs.ecpay.config.payment_ecpay_merchant_id || '';
+                document.getElementById('ecpayHashKey').value = configs.ecpay.config.payment_ecpay_hash_key || '';
+                document.getElementById('ecpayHashIV').value = configs.ecpay.config.payment_ecpay_hash_iv || '';
+                document.getElementById('ecpayTestMode').checked = configs.ecpay.config.payment_ecpay_test_mode === 'true';
+            }
+            toggleECPay();
+        }
+
+        // NewebPay
+        if (configs.newebpay) {
+            document.getElementById('newebpayEnabled').checked = configs.newebpay.enabled;
+            if (configs.newebpay.config) {
+                document.getElementById('newebpayMerchantID').value = configs.newebpay.config.payment_newebpay_merchant_id || '';
+                document.getElementById('newebpayHashKey').value = configs.newebpay.config.payment_newebpay_hash_key || '';
+                document.getElementById('newebpayHashIV').value = configs.newebpay.config.payment_newebpay_hash_iv || '';
+                document.getElementById('newebpayTestMode').checked = configs.newebpay.config.payment_newebpay_test_mode === 'true';
+            }
+            toggleNewebPay();
+        }
+    }
+
+    function toggleECPay() {
+        const enabled = document.getElementById('ecpayEnabled').checked;
+        const form = document.getElementById('ecpayForm');
+        form.querySelectorAll('input[type="text"]').forEach(input => {
+            input.disabled = !enabled;
+        });
+    }
+
+    function toggleNewebPay() {
+        const enabled = document.getElementById('newebpayEnabled').checked;
+        const form = document.getElementById('newebpayForm');
+        form.querySelectorAll('input[type="text"]').forEach(input => {
+            input.disabled = !enabled;
         });
     }
 
@@ -49,12 +272,61 @@
         });
 
         if (res.ok) {
-            alert('Settings saved! Please refresh to see changes.');
+            alert('Settings saved!');
         } else {
             alert('Failed to save settings');
         }
     });
 
+    document.getElementById('ecpayForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+            enabled: document.getElementById('ecpayEnabled').checked,
+            merchant_id: document.getElementById('ecpayMerchantID').value,
+            hash_key: document.getElementById('ecpayHashKey').value,
+            hash_iv: document.getElementById('ecpayHashIV').value,
+            test_mode: document.getElementById('ecpayTestMode').checked
+        };
+
+        const res = await fetch('/api/admin/payment/gateways/ecpay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+            alert('ECPay settings saved!');
+        } else {
+            const err = await res.json();
+            alert('Failed to save: ' + (err.error || 'Unknown error'));
+        }
+    });
+
+    document.getElementById('newebpayForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+            enabled: document.getElementById('newebpayEnabled').checked,
+            merchant_id: document.getElementById('newebpayMerchantID').value,
+            hash_key: document.getElementById('newebpayHashKey').value,
+            hash_iv: document.getElementById('newebpayHashIV').value,
+            test_mode: document.getElementById('newebpayTestMode').checked
+        };
+
+        const res = await fetch('/api/admin/payment/gateways/newebpay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+            alert('NewebPay settings saved!');
+        } else {
+            const err = await res.json();
+            alert('Failed to save: ' + (err.error || 'Unknown error'));
+        }
+    });
+
     loadSettings();
+    loadPaymentSettings();
 </script>
 {{end}}

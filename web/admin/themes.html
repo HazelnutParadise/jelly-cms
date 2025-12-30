@@ -1,26 +1,130 @@
 {{define "title"}}Themes{{end}}
+{{define "styles"}}
+<style>
+    .themes-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    .theme-card {
+        border: 2px solid #e0e0e0;
+        border-radius: var(--radius);
+        overflow: hidden;
+        transition: all 0.3s;
+    }
+    .theme-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.2);
+    }
+    .theme-card.active {
+        border-color: var(--primary);
+        box-shadow: 0 4px 20px rgba(255, 107, 107, 0.3);
+    }
+    .theme-preview {
+        height: 150px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+    }
+    .theme-info {
+        padding: 1rem;
+    }
+    .theme-info h3 {
+        margin: 0 0 0.5rem 0;
+    }
+    .theme-info p {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        margin: 0.5rem 0;
+    }
+    .theme-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+</style>
+{{end}}
 {{define "content"}}
-<h1>Themes</h1>
-<div id="themesList">Loading...</div>
+<div class="header">
+    <h1>Themes</h1>
+</div>
+<div id="themesList" class="themes-grid">Loading...</div>
 {{end}}
 {{define "scripts"}}
 <script>
+    let activeTheme = '';
+
     async function loadThemes() {
         const res = await fetch('/api/admin/themes');
         const themes = await res.json();
         const container = document.getElementById('themesList');
         container.innerHTML = '';
 
-        themes.forEach(name => {
-            const div = document.createElement('div');
-            div.className = 'card';
-            div.style.marginBottom = '1rem';
-            div.innerHTML = `
-                    <h3>${name}</h3>
-                    <button class="btn" onclick="activateTheme('${name}')">Activate</button>
+        // Get active theme
+        try {
+            const settingsRes = await fetch('/api/admin/settings');
+            const settings = await settingsRes.json();
+            const activeThemeOpt = settings.find(s => s.key === 'active_theme');
+            if (activeThemeOpt) {
+                activeTheme = activeThemeOpt.value;
+            } else {
+                activeTheme = themes[0] || '';
+            }
+        } catch (e) {
+            activeTheme = themes[0] || '';
+        }
+
+        if (themes.length === 0) {
+            container.innerHTML = '<div class="card"><p>No themes installed.</p></div>';
+            return;
+        }
+
+        // Load theme configs
+        for (const name of themes) {
+            try {
+                const configRes = await fetch(`/api/admin/themes/${name}/config`);
+                const config = await configRes.json();
+                
+                const div = document.createElement('div');
+                div.className = `theme-card ${name === activeTheme ? 'active' : ''}`;
+                div.innerHTML = `
+                    <div class="theme-preview">${name}</div>
+                    <div class="theme-info">
+                        <h3>${config.name || name}</h3>
+                        <p>${config.description || 'No description'}</p>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Version: ${config.version || '1.0.0'} | Author: ${config.author || 'Unknown'}</p>
+                        <div class="theme-actions">
+                            <button class="btn btn-sm" onclick="activateTheme('${name}')" ${name === activeTheme ? 'disabled style="opacity: 0.5;"' : ''}>
+                                ${name === activeTheme ? 'Active' : 'Activate'}
+                            </button>
+                            <button class="btn btn-sm" onclick="customizeTheme('${name}')" style="background: #6c757d;">
+                                Customize
+                            </button>
+                        </div>
+                    </div>
                 `;
-            container.appendChild(div);
-        });
+                container.appendChild(div);
+            } catch (e) {
+                // Fallback if config not available
+                const div = document.createElement('div');
+                div.className = `theme-card ${name === activeTheme ? 'active' : ''}`;
+                div.innerHTML = `
+                    <div class="theme-preview">${name}</div>
+                    <div class="theme-info">
+                        <h3>${name}</h3>
+                        <div class="theme-actions">
+                            <button class="btn btn-sm" onclick="activateTheme('${name}')" ${name === activeTheme ? 'disabled style="opacity: 0.5;"' : ''}>
+                                ${name === activeTheme ? 'Active' : 'Activate'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(div);
+            }
+        }
     }
 
     async function activateTheme(name) {
@@ -31,8 +135,203 @@
         });
         if (res.ok) {
             alert('Theme activated!');
+            loadThemes();
         } else {
-            alert('Failed to activate theme');
+            const err = await res.json();
+            alert('Failed to activate theme: ' + (err.error || 'Unknown error'));
+        }
+    }
+
+    let currentCustomizingTheme = '';
+
+    async function customizeTheme(name) {
+        currentCustomizingTheme = name;
+        
+        // Load theme config and settings
+        try {
+            const [configRes, settingsRes] = await Promise.all([
+                fetch(`/api/admin/themes/${name}/config`),
+                fetch(`/api/admin/themes/${name}/settings`)
+            ]);
+            
+            const config = await configRes.json();
+            const settings = settingsRes.ok ? await settingsRes.json() : null;
+            
+            // Show customization modal
+            showCustomizeModal(config, settings);
+        } catch (e) {
+            alert('Failed to load theme configuration: ' + e.message);
+        }
+    }
+
+    function showCustomizeModal(config, settings) {
+        const modal = document.createElement('div');
+        modal.id = 'customizeModal';
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 1000;
+            display: flex; align-items: center; justify-content: center;
+        `;
+        
+        const colors = settings?.colors ? JSON.parse(settings.colors) : (config.colors || {});
+        const layout = settings?.layout ? JSON.parse(settings.layout) : (config.layout || {});
+        const custom = settings?.custom ? JSON.parse(settings.custom) : {};
+        
+        modal.innerHTML = `
+            <div style="background: white; padding: 2rem; border-radius: 12px; max-width: 600px; max-height: 90vh; overflow-y: auto; width: 90%;">
+                <h2 style="margin-top: 0;">Customize Theme: ${config.name || currentCustomizingTheme}</h2>
+                <form id="customizeForm">
+                    <h3>Colors</h3>
+                    ${generateColorFields(colors, config.colors)}
+                    
+                    <h3>Layout</h3>
+                    ${generateLayoutFields(layout, config.layout)}
+                    
+                    ${config.custom_fields ? `<h3>Custom Fields</h3>${generateCustomFields(custom, config.custom_fields)}` : ''}
+                    
+                    <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                        <button type="submit" class="btn">Save Settings</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeCustomizeModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        document.getElementById('customizeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await saveThemeCustomization();
+        });
+    }
+
+    function generateColorFields(current, defaults) {
+        const fields = ['primary', 'secondary', 'background', 'text', 'accent', 'link', 'link_hover', 'border', 'success', 'warning', 'error'];
+        return fields.map(field => {
+            const value = current[field] || defaults?.[field] || '#000000';
+            return `
+                <div class="form-group">
+                    <label>${field.charAt(0).toUpperCase() + field.slice(1).replace('_', ' ')}</label>
+                    <input type="color" name="color_${field}" value="${value}" style="width: 100px; height: 40px;">
+                </div>
+            `;
+        }).join('');
+    }
+
+    function generateLayoutFields(current, defaults) {
+        const fields = [
+            {id: 'header_style', type: 'select', options: ['fixed', 'sticky', 'static']},
+            {id: 'sidebar', type: 'checkbox'},
+            {id: 'sidebar_position', type: 'select', options: ['left', 'right']},
+            {id: 'footer', type: 'checkbox'},
+            {id: 'container_width', type: 'select', options: ['full', 'wide', 'narrow']},
+            {id: 'post_layout', type: 'select', options: ['single', 'grid', 'list']}
+        ];
+        
+        return fields.map(field => {
+            const value = current[field.id] !== undefined ? current[field.id] : (defaults?.[field.id] || '');
+            if (field.type === 'checkbox') {
+                return `
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="layout_${field.id}" ${value ? 'checked' : ''}>
+                            ${field.id.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </label>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="form-group">
+                        <label>${field.id.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</label>
+                        <select name="layout_${field.id}">
+                            ${field.options.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                        </select>
+                    </div>
+                `;
+            }
+        }).join('');
+    }
+
+    function generateCustomFields(current, customFields) {
+        if (!customFields || customFields.length === 0) return '';
+        return customFields.map(field => {
+            const value = current[field.id] !== undefined ? current[field.id] : (field.default || '');
+            if (field.type === 'select') {
+                return `
+                    <div class="form-group">
+                        <label>${field.label}</label>
+                        <select name="custom_${field.id}">
+                            ${field.options.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                        </select>
+                        ${field.description ? `<small style="color: var(--text-muted);">${field.description}</small>` : ''}
+                    </div>
+                `;
+            } else if (field.type === 'textarea') {
+                return `
+                    <div class="form-group">
+                        <label>${field.label}</label>
+                        <textarea name="custom_${field.id}">${value}</textarea>
+                        ${field.description ? `<small style="color: var(--text-muted);">${field.description}</small>` : ''}
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="form-group">
+                        <label>${field.label}</label>
+                        <input type="${field.type}" name="custom_${field.id}" value="${value}">
+                        ${field.description ? `<small style="color: var(--text-muted);">${field.description}</small>` : ''}
+                    </div>
+                `;
+            }
+        }).join('');
+    }
+
+    async function saveThemeCustomization() {
+        const form = document.getElementById('customizeForm');
+        const formData = new FormData(form);
+        
+        const colors = {};
+        const layout = {};
+        const custom = {};
+        
+        for (const [key, value] of formData.entries()) {
+            if (key.startsWith('color_')) {
+                colors[key.replace('color_', '')] = value;
+            } else if (key.startsWith('layout_')) {
+                const fieldId = key.replace('layout_', '');
+                if (fieldId === 'sidebar' || fieldId === 'footer') {
+                    layout[fieldId] = value === 'on';
+                } else {
+                    layout[fieldId] = value;
+                }
+            } else if (key.startsWith('custom_')) {
+                custom[key.replace('custom_', '')] = value;
+            }
+        }
+        
+        const res = await fetch(`/api/admin/themes/${currentCustomizingTheme}/settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                colors: JSON.stringify(colors),
+                layout: JSON.stringify(layout),
+                custom: JSON.stringify(custom)
+            })
+        });
+        
+        if (res.ok) {
+            alert('Theme settings saved!');
+            closeCustomizeModal();
+        } else {
+            const err = await res.json();
+            alert('Failed to save: ' + (err.error || 'Unknown error'));
+        }
+    }
+
+    function closeCustomizeModal() {
+        const modal = document.getElementById('customizeModal');
+        if (modal) {
+            modal.remove();
         }
     }
 

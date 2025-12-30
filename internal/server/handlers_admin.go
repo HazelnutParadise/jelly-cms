@@ -249,19 +249,56 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 	api.POST("/themes/:name/settings", func(c echo.Context) error {
 		themeName := c.Param("name")
 		var req struct {
-			Colors json.RawMessage `json:"colors"`
-			Layout json.RawMessage `json:"layout"`
-			Custom json.RawMessage `json:"custom"`
+			Colors interface{} `json:"colors"`
+			Layout interface{} `json:"layout"`
+			Custom interface{} `json:"custom"`
 		}
 		if err := c.Bind(&req); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 		}
 
+		// Convert to json.RawMessage
+		var colorsJSON, layoutJSON, customJSON json.RawMessage
+		var err error
+
+		if req.Colors != nil {
+			if str, ok := req.Colors.(string); ok {
+				colorsJSON = json.RawMessage(str)
+			} else {
+				colorsJSON, err = json.Marshal(req.Colors)
+				if err != nil {
+					return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid colors format"})
+				}
+			}
+		}
+
+		if req.Layout != nil {
+			if str, ok := req.Layout.(string); ok {
+				layoutJSON = json.RawMessage(str)
+			} else {
+				layoutJSON, err = json.Marshal(req.Layout)
+				if err != nil {
+					return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid layout format"})
+				}
+			}
+		}
+
+		if req.Custom != nil {
+			if str, ok := req.Custom.(string); ok {
+				customJSON = json.RawMessage(str)
+			} else {
+				customJSON, err = json.Marshal(req.Custom)
+				if err != nil {
+					return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid custom format"})
+				}
+			}
+		}
+
 		settings := &core.ThemeSettings{
 			ThemeName: themeName,
-			Colors:    req.Colors,
-			Layout:    req.Layout,
-			Custom:    req.Custom,
+			Colors:    colorsJSON,
+			Layout:    layoutJSON,
+			Custom:    customJSON,
 		}
 
 		if err := tm.SaveSettings(settings, data.DB); err != nil {

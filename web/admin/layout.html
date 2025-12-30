@@ -77,6 +77,22 @@
             box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
         }
 
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+        }
+
         .content {
             flex: 1;
             padding: 2.5rem;
@@ -194,34 +210,24 @@
         }
 
         /* Additional styles can be added here */
-            {
-                {
-                block "styles" .
-            }
-        }
-
-            {
-                {
-                end
-            }
-        }
+        {{block "styles" .}}{{end}}
     </style>
 </head>
 
 <body>
     <div class="sidebar">
         <h2>Jelly CMS</h2>
-        <a href="/admin" class="{{if eq .Active " dashboard"}}active{{end}}">Dashboard</a>
-        <a href="/admin/posts" class="{{if eq .Active " posts"}}active{{end}}">Posts</a>
-        <a href="/admin/pages" class="{{if eq .Active " pages"}}active{{end}}">Pages</a>
-        <a href="/admin/products" class="{{if eq .Active " products"}}active{{end}}">Products</a>
-        <a href="/admin/orders" class="{{if eq .Active " orders"}}active{{end}}">Orders</a>
-        <a href="/admin/media" class="{{if eq .Active " media"}}active{{end}}">Media</a>
-        <a href="/admin/themes" class="{{if eq .Active " themes"}}active{{end}}">Themes</a>
-        <a href="/admin/plugins" class="{{if eq .Active " plugins"}}active{{end}}">Plugins</a>
-        <a href="/admin/settings" class="{{if eq .Active " settings"}}active{{end}}">Settings</a>
+        <a href="/admin" class="{{if eq .Active "dashboard"}}active{{end}}">📊 Dashboard</a>
+        <a href="/admin/posts" class="{{if eq .Active "posts"}}active{{end}}">📝 Posts</a>
+        <a href="/admin/pages" class="{{if eq .Active "pages"}}active{{end}}">📄 Pages</a>
+        <a href="/admin/products" class="{{if eq .Active "products"}}active{{end}}">🛍️ Products</a>
+        <a href="/admin/orders" class="{{if eq .Active "orders"}}active{{end}}">🛒 Orders</a>
+        <a href="/admin/media" class="{{if eq .Active "media"}}active{{end}}">🖼️ Media</a>
+        <a href="/admin/themes" class="{{if eq .Active "themes"}}active{{end}}">🎨 Themes</a>
+        <a href="/admin/plugins" class="{{if eq .Active "plugins"}}active{{end}}">🔌 Plugins</a>
+        <a href="/admin/settings" class="{{if eq .Active "settings"}}active{{end}}">⚙️ Settings</a>
         <div style="flex: 1;"></div>
-        <a href="/logout">Logout</a>
+        <a href="#" onclick="event.preventDefault(); fetch('/auth/logout', {method: 'POST'}).then(() => window.location.href='/login');">🚪 Logout</a>
     </div>
     <div class="content">
         {{template "content" .}}
