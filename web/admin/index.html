@@ -1,81 +1,145 @@
-{{define "title"}}Dashboard{{end}}
+{{define "title"}}儀表板{{end}}
 {{define "styles"}}
 <style>
-    .stats-grid {
+    .stat-card-1 .stat-card-icon { background: linear-gradient(135deg, #667eea, #764ba2); }
+    .stat-card-2 .stat-card-icon { background: linear-gradient(135deg, #f093fb, #f5576c); }
+    .stat-card-3 .stat-card-icon { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+    .stat-card-4 .stat-card-icon { background: linear-gradient(135deg, var(--primary), var(--secondary)); }
+    
+    .quick-actions {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1.5rem;
+        gap: 1rem;
         margin-bottom: 2rem;
     }
-    .stat-card {
-        background: linear-gradient(135deg, var(--primary), var(--secondary));
-        color: white;
-        padding: 1.5rem;
+    
+    .quick-action-card {
+        background: white;
         border-radius: var(--radius);
+        padding: 1.5rem;
+        border: 1px solid var(--border-color);
         box-shadow: var(--shadow);
+        text-align: center;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        color: var(--text-main);
     }
-    .stat-card h3 {
-        margin: 0 0 0.5rem 0;
-        font-size: 0.9rem;
-        opacity: 0.9;
+    
+    .quick-action-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
+        border-color: var(--secondary);
     }
-    .stat-card .value {
+    
+    .quick-action-icon {
         font-size: 2rem;
-        font-weight: 700;
-        margin: 0;
+        margin-bottom: 0.75rem;
     }
-    .recent-activity {
-        margin-top: 2rem;
+    
+    .quick-action-title {
+        font-weight: 600;
+        font-size: 0.9375rem;
     }
 </style>
 {{end}}
 {{define "content"}}
-<h1>Dashboard</h1>
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>儀表板</h1>
+        <p class="page-description">歡迎回來，這是您的網站概況</p>
+    </div>
+</div>
 
 <div class="stats-grid">
-    <div class="stat-card">
-        <h3>Total Posts</h3>
-        <p class="value" id="postsCount">-</p>
+    <div class="stat-card stat-card-1">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-card-title">文章</div>
+                <div class="stat-card-value" id="postsCount">-</div>
+            </div>
+            <div class="stat-card-icon">📝</div>
+        </div>
+        <div class="stat-card-trend">總共發布的文章數</div>
     </div>
-    <div class="stat-card" style="background: linear-gradient(135deg, #667eea, #764ba2);">
-        <h3>Total Products</h3>
-        <p class="value" id="productsCount">-</p>
+    
+    <div class="stat-card stat-card-2">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-card-title">產品</div>
+                <div class="stat-card-value" id="productsCount">-</div>
+            </div>
+            <div class="stat-card-icon">🛍️</div>
+        </div>
+        <div class="stat-card-trend">商店中的產品總數</div>
     </div>
-    <div class="stat-card" style="background: linear-gradient(135deg, #f093fb, #f5576c);">
-        <h3>Total Orders</h3>
-        <p class="value" id="ordersCount">-</p>
+    
+    <div class="stat-card stat-card-3">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-card-title">訂單</div>
+                <div class="stat-card-value" id="ordersCount">-</div>
+            </div>
+            <div class="stat-card-icon">🛒</div>
+        </div>
+        <div class="stat-card-trend">待處理的訂單數</div>
     </div>
-    <div class="stat-card" style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
-        <h3>Active Theme</h3>
-        <p class="value" id="activeTheme" style="font-size: 1.2rem;">-</p>
+    
+    <div class="stat-card stat-card-4">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-card-title">啟用的主題</div>
+                <div class="stat-card-value" id="activeTheme" style="font-size: 1.25rem;">-</div>
+            </div>
+            <div class="stat-card-icon">🎨</div>
+        </div>
+        <div class="stat-card-trend">當前使用的主題</div>
     </div>
 </div>
 
 <div class="card">
-    <h2>Quick Actions</h2>
-    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1rem;">
-        <a href="/admin/posts/new" class="btn">New Post</a>
-        <a href="/admin/pages/new" class="btn">New Page</a>
-        <a href="/admin/products/new" class="btn">New Product</a>
-        <a href="/admin/media" class="btn">Media Library</a>
+    <div class="card-header">
+        <h2 class="card-title">快捷訪問</h2>
+    </div>
+    <div class="quick-actions">
+        <a href="/admin/posts/new" class="quick-action-card">
+            <div class="quick-action-icon">📝</div>
+            <div class="quick-action-title">創建文章</div>
+        </a>
+        <a href="/admin/pages/new" class="quick-action-card">
+            <div class="quick-action-icon">📄</div>
+            <div class="quick-action-title">創建頁面</div>
+        </a>
+        <a href="/admin/products/new" class="quick-action-card">
+            <div class="quick-action-icon">🛍️</div>
+            <div class="quick-action-title">創建產品</div>
+        </a>
+        <a href="/admin/media" class="quick-action-card">
+            <div class="quick-action-icon">🖼️</div>
+            <div class="quick-action-title">附件庫</div>
+        </a>
     </div>
 </div>
 
-<div class="card recent-activity">
-    <h2>Recent Posts</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Title</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody id="recentPosts">
-            <tr><td colspan="4">Loading...</td></tr>
-        </tbody>
-    </table>
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">最近文章</h2>
+        <a href="/admin/posts" class="btn btn-secondary btn-sm">查看全部</a>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>標題</th>
+                    <th>狀態</th>
+                    <th>日期</th>
+                    <th style="text-align: right;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="recentPosts">
+                <tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">載入中...</td></tr>
+            </tbody>
+        </table>
+    </div>
 </div>
 {{end}}
 {{define "scripts"}}
@@ -86,8 +150,34 @@
             const postsRes = await fetch('/api/admin/posts');
             const posts = await postsRes.json();
             document.getElementById('postsCount').textContent = posts.length;
+            
+            // Load recent posts
+            const tbody = document.getElementById('recentPosts');
+            tbody.innerHTML = '';
+            
+            const recentPosts = posts.slice(0, 5);
+            if (recentPosts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">還沒有文章</td></tr>';
+            } else {
+                recentPosts.forEach(post => {
+                    const tr = document.createElement('tr');
+                    const statusClass = post.status === 'published' ? 'success' : post.status === 'draft' ? 'warning' : 'info';
+                    const statusText = post.status === 'published' ? '已發布' : post.status === 'draft' ? '草稿' : post.status;
+                    
+                    tr.innerHTML = `
+                        <td style="font-weight: 500;">${post.title}</td>
+                        <td><span class="badge badge-${statusClass}">${statusText}</span></td>
+                        <td style="color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString('zh-TW')}</td>
+                        <td style="text-align: right;">
+                            <a href="/admin/posts/${post.id}" class="btn btn-secondary btn-sm">編輯</a>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
         } catch (e) {
             console.error('Failed to load posts:', e);
+            document.getElementById('postsCount').textContent = '0';
         }
 
         // Load products count
@@ -97,6 +187,7 @@
             document.getElementById('productsCount').textContent = products.length;
         } catch (e) {
             console.error('Failed to load products:', e);
+            document.getElementById('productsCount').textContent = '0';
         }
 
         // Load orders count
@@ -106,43 +197,18 @@
             document.getElementById('ordersCount').textContent = orders.length;
         } catch (e) {
             console.error('Failed to load orders:', e);
+            document.getElementById('ordersCount').textContent = '0';
         }
 
         // Load active theme
         try {
-            const themesRes = await fetch('/api/admin/themes');
-            const themes = await themesRes.json();
-            // Get active theme from settings or default
-            document.getElementById('activeTheme').textContent = themes[0] || 'default';
+            const settingsRes = await fetch('/api/admin/settings');
+            const settings = await settingsRes.json();
+            const activeTheme = settings.find(s => s.key === 'active_theme');
+            document.getElementById('activeTheme').textContent = activeTheme ? activeTheme.value : 'default';
         } catch (e) {
-            console.error('Failed to load themes:', e);
-        }
-
-        // Load recent posts
-        try {
-            const postsRes = await fetch('/api/admin/posts');
-            const posts = await postsRes.json();
-            const tbody = document.getElementById('recentPosts');
-            tbody.innerHTML = '';
-
-            const recentPosts = posts.slice(0, 5);
-            if (recentPosts.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4">No posts yet</td></tr>';
-                return;
-            }
-
-            recentPosts.forEach(post => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${post.title}</td>
-                    <td><span style="padding: 0.2rem 0.5rem; border-radius: 4px; background: ${post.status === 'published' ? '#28a745' : '#ffc107'}; color: white; font-size: 0.85rem;">${post.status}</span></td>
-                    <td>${new Date(post.created_at).toLocaleDateString()}</td>
-                    <td><a href="/admin/posts/${post.id}" class="btn btn-sm">Edit</a></td>
-                `;
-                tbody.appendChild(tr);
-            });
-        } catch (e) {
-            console.error('Failed to load recent posts:', e);
+            console.error('Failed to load active theme:', e);
+            document.getElementById('activeTheme').textContent = 'default';
         }
     }
 
