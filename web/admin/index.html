@@ -208,27 +208,45 @@
             document.getElementById('ordersCount').textContent = '0';
         }
 
-        // Load active theme - fetch from settings
+        // Load active theme - fetch from settings and get theme name from theme.json
         try {
             const settingsRes = await fetch('/api/admin/settings');
             const settings = await settingsRes.json();
             const activeThemeSetting = settings.find(s => s.key === 'active_theme');
             
             if (activeThemeSetting && activeThemeSetting.value) {
-                // Get theme config to display the theme name
-                const themeRes = await fetch(`/api/admin/themes/${activeThemeSetting.value}/config`);
-                if (themeRes.ok) {
-                    const themeConfig = await themeRes.json();
-                    document.getElementById('activeTheme').textContent = themeConfig.name || activeThemeSetting.value;
-                } else {
+                // Get theme config to display the theme name from theme.json
+                try {
+                    const themeRes = await fetch(`/api/admin/themes/${activeThemeSetting.value}/config`);
+                    if (themeRes.ok) {
+                        const themeConfig = await themeRes.json();
+                        // Use the name from theme.json
+                        document.getElementById('activeTheme').textContent = themeConfig.name || activeThemeSetting.value;
+                    } else {
+                        document.getElementById('activeTheme').textContent = activeThemeSetting.value;
+                    }
+                } catch (err) {
                     document.getElementById('activeTheme').textContent = activeThemeSetting.value;
                 }
             } else {
-                document.getElementById('activeTheme').textContent = 'default';
+                // No active_theme setting, try to get first theme
+                const themesRes = await fetch('/api/admin/themes');
+                const themes = await themesRes.json();
+                if (themes && themes.length > 0) {
+                    const themeRes = await fetch(`/api/admin/themes/${themes[0]}/config`);
+                    if (themeRes.ok) {
+                        const themeConfig = await themeRes.json();
+                        document.getElementById('activeTheme').textContent = themeConfig.name || themes[0];
+                    } else {
+                        document.getElementById('activeTheme').textContent = themes[0];
+                    }
+                } else {
+                    document.getElementById('activeTheme').textContent = 'Jelly';
+                }
             }
         } catch (e) {
             console.error('Failed to load active theme:', e);
-            document.getElementById('activeTheme').textContent = 'default';
+            document.getElementById('activeTheme').textContent = 'Jelly';
         }
     }
 

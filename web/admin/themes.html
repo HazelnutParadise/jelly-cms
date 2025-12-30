@@ -1,4 +1,4 @@
-{{define "title"}}Themes{{end}}
+{{define "title"}}{{.T.themes}}{{end}}
 {{define "styles"}}
 <style>
     .themes-grid {
@@ -49,12 +49,34 @@
 {{end}}
 {{define "content"}}
 <div class="header">
-    <h1>Themes</h1>
+    <h1>{{.T.themes}}</h1>
 </div>
 <div id="themesList" class="themes-grid">Loading...</div>
 {{end}}
 {{define "scripts"}}
 <script>
+    const T = {
+        customize: "{{.T.customize}}",
+        activate: "{{.T.activate}}",
+        customizeTheme: "{{.T.customizeTheme}}",
+        colors: "{{.T.colors}}",
+        layout: "{{.T.layout}}",
+        customFields: "{{.T.customFields}}",
+        saveSettings: "{{.T.saveSettings}}",
+        resetToDefaults: "{{.T.resetToDefaults}}",
+        cancel: "{{.T.cancel}}",
+        resetConfirm: "{{.T.resetConfirm}}",
+        themeSettingsSaved: "{{.T.themeSettingsSaved}}",
+        themeSettingsReset: "{{.T.themeSettingsReset}}",
+        failedToSave: "{{.T.failedToSave}}",
+        failedToReset: "{{.T.failedToReset}}",
+        themeActivated: "{{.T.themeActivated}}",
+        failedToActivate: "{{.T.failedToActivate}}",
+        noThemesInstalled: "{{.T.noThemesInstalled}}",
+        activeThemeBadge: "{{.T.activeThemeBadge}}",
+        view: "{{.T.view}}"
+    };
+
     let activeTheme = '';
 
     async function loadThemes() {
@@ -78,7 +100,7 @@
         }
 
         if (themes.length === 0) {
-            container.innerHTML = '<div class="card"><p>No themes installed.</p></div>';
+            container.innerHTML = `<div class="card"><p>${T.noThemesInstalled}</p></div>`;
             return;
         }
 
@@ -91,18 +113,17 @@
                 const div = document.createElement('div');
                 div.className = `theme-card ${name === activeTheme ? 'active' : ''}`;
                 div.innerHTML = `
-                    <div class="theme-preview">${name}</div>
+                    <div class="theme-preview">${escapeHtml(name)}</div>
                     <div class="theme-info">
-                        <h3>${config.name || name}</h3>
-                        <p>${config.description || 'No description'}</p>
-                        <p style="font-size: 0.8rem; color: var(--text-muted);">Version: ${config.version || '1.0.0'} | Author: ${config.author || 'Unknown'}</p>
+                        <h3>${escapeHtml(config.name || name)}</h3>
+                        <p>${escapeHtml(config.description || 'No description')}</p>
+                        <p style="font-size: 0.8rem; color: var(--text-muted);">Version: ${escapeHtml(config.version || '1.0.0')} | Author: ${escapeHtml(config.author || 'Unknown')}</p>
                         <div class="theme-actions">
-                            <button class="btn btn-sm" onclick="activateTheme('${name}')" ${name === activeTheme ? 'disabled style="opacity: 0.5;"' : ''}>
-                                ${name === activeTheme ? 'Active' : 'Activate'}
-                            </button>
-                            <button class="btn btn-sm" onclick="customizeTheme('${name}')" style="background: #6c757d;">
-                                Customize
-                            </button>
+                            ${name === activeTheme ? 
+                                `<span class="badge badge-success">${T.activeThemeBadge}</span>` : 
+                                `<button class="btn btn-sm" onclick="activateTheme('${escapeHtml(name)}')">${T.activate}</button>`
+                            }
+                            <button class="btn btn-sm btn-secondary" onclick="customizeTheme('${escapeHtml(name)}')">${T.customize}</button>
                         </div>
                     </div>
                 `;
@@ -134,15 +155,17 @@
             body: JSON.stringify({ name })
         });
         if (res.ok) {
-            alert('Theme activated!');
+            alert(T.themeActivated);
             loadThemes();
         } else {
             const err = await res.json();
-            alert('Failed to activate theme: ' + (err.error || 'Unknown error'));
+            alert(T.failedToActivate + ': ' + (err.error || 'Unknown error'));
         }
     }
 
     let currentCustomizingTheme = '';
+
+    let themeDefaults = {}; // Store default values
 
     async function customizeTheme(name) {
         currentCustomizingTheme = name;
@@ -156,6 +179,13 @@
             
             const config = await configRes.json();
             const settings = settingsRes.ok ? await settingsRes.json() : null;
+            
+            // Store defaults from config
+            themeDefaults = {
+                colors: config.colors || {},
+                layout: config.layout || {},
+                custom: {}
+            };
             
             // Show customization modal
             showCustomizeModal(config, settings);
@@ -173,22 +203,27 @@
             display: flex; align-items: center; justify-content: center;
         `;
         
-        // Parse settings - they might be strings or objects
-        let colors = config.colors || {};
-        let layout = config.layout || {};
+        // Use defaults from config
+        let colors = {...(config.colors || {})};
+        let layout = {...(config.layout || {})};
         let custom = {};
         
+        // Override with saved settings if they exist
         if (settings) {
             if (settings.colors) {
                 try {
-                    colors = typeof settings.colors === 'string' ? JSON.parse(settings.colors) : settings.colors;
+                    const savedColors = typeof settings.colors === 'string' ? JSON.parse(settings.colors) : settings.colors;
+                    // Merge with defaults, saved values take precedence
+                    colors = {...colors, ...savedColors};
                 } catch (e) {
                     console.error('Failed to parse colors:', e);
                 }
             }
             if (settings.layout) {
                 try {
-                    layout = typeof settings.layout === 'string' ? JSON.parse(settings.layout) : settings.layout;
+                    const savedLayout = typeof settings.layout === 'string' ? JSON.parse(settings.layout) : settings.layout;
+                    // Merge with defaults, saved values take precedence
+                    layout = {...layout, ...savedLayout};
                 } catch (e) {
                     console.error('Failed to parse layout:', e);
                 }
@@ -214,8 +249,9 @@
                     
                     ${config.custom_fields ? `<h3>Custom Fields</h3>${generateCustomFields(custom, config.custom_fields)}` : ''}
                     
-                    <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                    <div style="margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap;">
                         <button type="submit" class="btn">Save Settings</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetToDefaults()">Reset to Defaults</button>
                         <button type="button" class="btn btn-secondary" onclick="closeCustomizeModal()">Cancel</button>
                     </div>
                 </form>
@@ -376,11 +412,11 @@
         });
         
         if (res.ok) {
-            alert('Theme settings saved!');
+            alert(T.themeSettingsSaved);
             closeCustomizeModal();
         } else {
             const err = await res.json();
-            alert('Failed to save: ' + (err.error || 'Unknown error'));
+            alert(T.failedToSave + ': ' + (err.error || 'Unknown error'));
         }
     }
 
@@ -389,6 +425,43 @@
         if (modal) {
             modal.remove();
         }
+    }
+
+    async function resetToDefaults() {
+        if (!confirm(T.resetConfirm)) {
+            return;
+        }
+        
+        try {
+            // Reset to default values from theme.json
+            const res = await fetch(`/api/admin/themes/${currentCustomizingTheme}/settings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    colors: JSON.stringify(themeDefaults.colors),
+                    layout: JSON.stringify(themeDefaults.layout),
+                    custom: JSON.stringify(themeDefaults.custom || {})
+                })
+            });
+            
+            if (res.ok) {
+                alert(T.themeSettingsReset);
+                closeCustomizeModal();
+                // Reload the customization modal to show defaults
+                await customizeTheme(currentCustomizingTheme);
+            } else {
+                const err = await res.json();
+                alert(T.failedToReset + ': ' + (err.error || 'Unknown error'));
+            }
+        } catch (e) {
+            alert(T.failedToReset + ': ' + e.message);
+        }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     loadThemes();

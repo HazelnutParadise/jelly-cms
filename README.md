@@ -799,6 +799,51 @@ Authorization: Bearer <your-jwt-token>
 - `GET /api/payment/:gateway/return` - 支付返回
 - `GET /api/payment/order/:id/status` - 查詢訂單狀態
 
+## 🎨 後台組件系統
+
+Jelly CMS 提供了一套完整的可複用 UI 組件，讓後台頁面開發更加高效。
+
+### 可用組件
+
+- **基礎組件**：Button、Badge、Avatar、Alert、Loading
+- **容器組件**：Card、Modal、Grid
+- **數據展示**：Stat Card、Table、Empty State
+- **表單組件**：Form Group、Toggle、Search Box
+- **導航組件**：Page Header、Breadcrumb、Pagination、Tabs
+- **其他**：Dropdown、Quick Action Card
+
+### 使用範例
+
+```html
+{{define "content"}}
+{{/* 頁面標題 */}}
+{{template "page-header" dict 
+    "title" "文章管理" 
+    "description" "管理您的所有文章"
+    "actions" "<button class='btn'>新增文章</button>"
+}}
+
+{{/* 統計卡片 */}}
+<div class="stats-grid">
+    {{template "stat-card" dict 
+        "title" "總文章數"
+        "value" "123"
+        "icon" "📝"
+        "description" "已發布的文章"
+    }}
+</div>
+
+{{/* 數據表格 */}}
+{{template "card" dict 
+    "title" "文章列表"
+    "header" true
+    "content" "表格內容..."
+}}
+{{end}}
+```
+
+詳細文檔請參考 [web/admin/COMPONENTS.md](web/admin/COMPONENTS.md)
+
 ## 🛠️ 開發
 
 ### 專案結構

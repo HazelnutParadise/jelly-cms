@@ -137,7 +137,23 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 			}
 		}
 
-		tmpl, err := template.New("base").ParseFiles("web/admin/layout.html", "web/admin/"+file)
+		tmpl, err := template.New("base").Funcs(template.FuncMap{
+			"add": func(a, b int) int { return a + b },
+			"sub": func(a, b int) int { return a - b },
+			"dict": func(values ...interface{}) map[string]interface{} {
+				dict := make(map[string]interface{})
+				for i := 0; i < len(values); i += 2 {
+					if i+1 < len(values) {
+						key := values[i].(string)
+						dict[key] = values[i+1]
+					}
+				}
+				return dict
+			},
+			"list": func(items ...interface{}) []interface{} {
+				return items
+			},
+		}).ParseFiles("web/admin/components.html", "web/admin/layout.html", "web/admin/"+file)
 		if err != nil {
 			return err
 		}

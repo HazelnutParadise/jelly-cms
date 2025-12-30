@@ -285,17 +285,24 @@
     }
 
     async function loadSettings() {
-        const res = await fetch('/api/admin/settings');
-        const options = await res.json();
-        const form = document.getElementById('settingsForm');
+        try {
+            const res = await fetch('/api/admin/settings');
+            const options = await res.json();
+            const form = document.getElementById('settingsForm');
 
-        options.forEach(opt => {
-            if (form[opt.key]) {
-                form[opt.key].value = opt.value;
-                originalGeneralSettings[opt.key] = opt.value;
-            }
-        });
-        checkGeneralForm();
+            options.forEach(opt => {
+                const input = form.elements[opt.key];
+                if (input) {
+                    input.value = opt.value;
+                    originalGeneralSettings[opt.key] = opt.value;
+                }
+            });
+            
+            // Initialize the save button state
+            checkGeneralForm();
+        } catch (err) {
+            console.error('Failed to load settings:', err);
+        }
     }
 
     async function loadOAuthSettings() {

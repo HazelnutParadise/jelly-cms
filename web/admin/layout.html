@@ -78,6 +78,24 @@
             padding: 1.5rem 0;
             overflow-y: auto;
         }
+        
+        /* Custom scrollbar for sidebar */
+        .sidebar-nav::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
 
         .nav-section {
             margin-bottom: 1.5rem;
@@ -653,7 +671,7 @@
                 <input type="text" class="search-input" id="globalSearch" placeholder="{{.T.searchPlaceholder}}">
             </div>
             <div class="topbar-actions">
-                <select id="langSwitch" style="padding: 0.4rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: white; font-size: 0.875rem; cursor: pointer;">
+                <select id="langSwitch" style="padding: 0.4rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: white; font-size: 0.875rem; cursor: pointer; font-family: 'Inter', sans-serif;">
                     <option value="zh-TW" {{if eq .Lang "zh-TW"}}selected{{end}}>繁體中文</option>
                     <option value="en" {{if eq .Lang "en"}}selected{{end}}>English</option>
                 </select>

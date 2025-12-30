@@ -9,18 +9,17 @@ import (
 
 func I18nMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		// 1. Check query param ?lang=
-		lang := c.QueryParam("lang")
-
-		// 2. Check cookie
-		if lang == "" {
+		lang := ""
+		
+		// For admin routes, check cookie first (user preference)
+		if c.Path() != "" && len(c.Path()) >= 6 && c.Path()[:6] == "/admin" {
 			cookie, err := c.Cookie("lang")
 			if err == nil {
 				lang = cookie.Value
 			}
 		}
 
-		// 3. Check DB setting
+		// Check DB setting (site default language)
 		if lang == "" {
 			var opt core.Option
 			if err := data.DB.Where("key = ?", "site_language").First(&opt).Error; err == nil {
@@ -28,9 +27,14 @@ func I18nMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			}
 		}
 
-		// 4. Default
+		// Check query param ?lang= (override)
+		if queryLang := c.QueryParam("lang"); queryLang != "" {
+			lang = queryLang
+		}
+
+		// Default
 		if lang == "" {
-			lang = "en"
+			lang = "zh-TW"
 		}
 
 		// Set localizer in context using the internal manager

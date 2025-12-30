@@ -1,0 +1,602 @@
+{{define "components"}}{{end}}
+
+{{/* Stat Card Component */}}
+{{define "stat-card"}}
+<div class="stat-card {{.class}}">
+    <div class="stat-card-header">
+        <div>
+            <div class="stat-card-title">{{.title}}</div>
+            <div class="stat-card-value" id="{{.id}}">{{.value}}</div>
+        </div>
+        <div class="stat-card-icon">{{.icon}}</div>
+    </div>
+    <div class="stat-card-trend">{{.description}}</div>
+</div>
+{{end}}
+
+{{/* Empty State Component */}}
+{{define "empty-state"}}
+<div class="empty-state">
+    <div class="empty-icon">{{.icon}}</div>
+    <div class="empty-title">{{.title}}</div>
+    <div class="empty-description">{{.description}}</div>
+    {{if .action}}
+    <button class="btn" onclick="{{.action}}">{{.actionText}}</button>
+    {{end}}
+</div>
+{{end}}
+
+{{/* Card Component */}}
+{{define "card"}}
+<div class="card {{.class}}">
+    {{if .header}}
+    <div class="card-header">
+        <h2 class="card-title">{{.title}}</h2>
+        {{if .action}}
+        <a href="{{.actionLink}}" class="btn btn-secondary btn-sm">{{.actionText}}</a>
+        {{end}}
+    </div>
+    {{end}}
+    {{.content}}
+</div>
+{{end}}
+
+{{/* Badge Component */}}
+{{define "badge"}}
+<span class="badge badge-{{.type}}">{{.text}}</span>
+{{end}}
+
+{{/* Button Component */}}
+{{define "button"}}
+<button 
+    class="btn {{if .secondary}}btn-secondary{{end}} {{if .danger}}btn-danger{{end}} {{if .success}}btn-success{{end}} {{if .small}}btn-sm{{end}} {{.class}}"
+    {{if .onclick}}onclick="{{.onclick}}"{{end}}
+    {{if .type}}type="{{.type}}"{{end}}
+    {{if .disabled}}disabled{{end}}
+>
+    {{if .icon}}{{.icon}} {{end}}{{.text}}
+</button>
+{{end}}
+
+{{/* Link Button Component */}}
+{{define "link-button"}}
+<a 
+    href="{{.href}}" 
+    class="btn {{if .secondary}}btn-secondary{{end}} {{if .danger}}btn-danger{{end}} {{if .success}}btn-success{{end}} {{if .small}}btn-sm{{end}} {{.class}}"
+    {{if .target}}target="{{.target}}"{{end}}
+>
+    {{if .icon}}{{.icon}} {{end}}{{.text}}
+</a>
+{{end}}
+
+{{/* Modal Component */}}
+{{define "modal"}}
+<div id="{{.id}}" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>{{.title}}</h2>
+        </div>
+        {{.content}}
+    </div>
+</div>
+{{end}}
+
+{{/* Form Group Component */}}
+{{define "form-group"}}
+<div class="form-group">
+    <label {{if .for}}for="{{.for}}"{{end}}>
+        {{.label}}
+        {{if .required}}<span style="color: #ef4444;">*</span>{{end}}
+    </label>
+    {{.input}}
+    {{if .hint}}
+    <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;">{{.hint}}</small>
+    {{end}}
+</div>
+{{end}}
+
+{{/* Quick Action Card Component */}}
+{{define "quick-action-card"}}
+<a href="{{.href}}" class="quick-action-card">
+    <div class="quick-action-icon">{{.icon}}</div>
+    <div class="quick-action-title">{{.title}}</div>
+</a>
+{{end}}
+
+{{/* Table Component */}}
+{{define "table"}}
+<div class="table-wrapper">
+    <table>
+        <thead>
+            <tr>
+                {{range .headers}}
+                <th {{if .align}}style="text-align: {{.align}};"{{end}}>{{.text}}</th>
+                {{end}}
+            </tr>
+        </thead>
+        <tbody id="{{.id}}">
+            {{if .loading}}
+            <tr><td colspan="{{len .headers}}" style="text-align: center; padding: 2rem; color: var(--text-muted);">{{.loadingText}}</td></tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
+
+{{/* Page Header Component */}}
+{{define "page-header"}}
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.title}}</h1>
+        {{if .description}}
+        <p class="page-description">{{.description}}</p>
+        {{end}}
+    </div>
+    {{if .actions}}
+    <div class="page-actions">
+        {{.actions}}
+    </div>
+    {{end}}
+</div>
+{{end}}
+
+{{/* Alert Component */}}
+{{define "alert"}}
+<div class="alert alert-{{.type}}" {{if .id}}id="{{.id}}"{{end}}>
+    {{if .icon}}
+    <span class="alert-icon">{{.icon}}</span>
+    {{end}}
+    <div class="alert-content">
+        {{if .title}}
+        <div class="alert-title">{{.title}}</div>
+        {{end}}
+        <div class="alert-message">{{.message}}</div>
+    </div>
+    {{if .dismissible}}
+    <button class="alert-close" onclick="this.parentElement.remove()">×</button>
+    {{end}}
+</div>
+{{end}}
+
+{{/* Loading Spinner Component */}}
+{{define "loading"}}
+<div class="loading-spinner {{.class}}" {{if .id}}id="{{.id}}"{{end}}>
+    <div class="spinner"></div>
+    {{if .text}}
+    <p>{{.text}}</p>
+    {{end}}
+</div>
+{{end}}
+
+{{/* Tabs Component */}}
+{{define "tabs"}}
+<div class="tabs-container">
+    <div class="tabs-header">
+        {{range $index, $tab := .tabs}}
+        <button class="tab-button {{if eq $index 0}}active{{end}}" onclick="switchTab('{{$.id}}', {{$index}})">
+            {{$tab.label}}
+        </button>
+        {{end}}
+    </div>
+    <div class="tabs-content" id="{{.id}}">
+        {{range $index, $tab := .tabs}}
+        <div class="tab-pane {{if eq $index 0}}active{{end}}" data-tab="{{$index}}">
+            {{$tab.content}}
+        </div>
+        {{end}}
+    </div>
+</div>
+<script>
+function switchTab(containerId, tabIndex) {
+    const container = document.getElementById(containerId);
+    const buttons = container.previousElementSibling.querySelectorAll('.tab-button');
+    const panes = container.querySelectorAll('.tab-pane');
+    
+    buttons.forEach((btn, i) => {
+        if (i === tabIndex) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    
+    panes.forEach((pane, i) => {
+        if (i === tabIndex) {
+            pane.classList.add('active');
+        } else {
+            pane.classList.remove('active');
+        }
+    });
+}
+</script>
+{{end}}
+
+{{/* Dropdown Menu Component */}}
+{{define "dropdown"}}
+<div class="dropdown {{.class}}">
+    <button class="dropdown-trigger" onclick="toggleDropdown('{{.id}}')">
+        {{.trigger}}
+    </button>
+    <div class="dropdown-menu" id="{{.id}}">
+        {{range .items}}
+        <a href="{{.href}}" class="dropdown-item" {{if .onclick}}onclick="{{.onclick}}"{{end}}>
+            {{if .icon}}{{.icon}} {{end}}{{.text}}
+        </a>
+        {{end}}
+    </div>
+</div>
+<script>
+function toggleDropdown(id) {
+    const menu = document.getElementById(id);
+    menu.classList.toggle('active');
+}
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown-menu').forEach(menu => {
+            menu.classList.remove('active');
+        });
+    }
+});
+</script>
+{{end}}
+
+{{/* Grid Component */}}
+{{define "grid"}}
+<div class="grid" style="--columns: {{.columns}}; --gap: {{.gap}};">
+    {{.content}}
+</div>
+{{end}}
+
+{{/* Pagination Component */}}
+{{define "pagination"}}
+<div class="pagination">
+    {{if gt .currentPage 1}}
+    <a href="?page={{sub .currentPage 1}}" class="page-link">← {{.prevText}}</a>
+    {{end}}
+    
+    <span class="page-info">{{.pageText}} {{.currentPage}} / {{.totalPages}}</span>
+    
+    {{if lt .currentPage .totalPages}}
+    <a href="?page={{add .currentPage 1}}" class="page-link">{{.nextText}} →</a>
+    {{end}}
+</div>
+{{end}}
+
+{{/* Search Box Component */}}
+{{define "search-box"}}
+<div class="search-box {{.class}}">
+    <input 
+        type="text" 
+        class="search-input" 
+        id="{{.id}}"
+        placeholder="{{.placeholder}}"
+        {{if .onchange}}onchange="{{.onchange}}"{{end}}
+        {{if .oninput}}oninput="{{.oninput}}"{{end}}
+    >
+</div>
+{{end}}
+
+{{/* Toggle Switch Component */}}
+{{define "toggle"}}
+<label class="toggle-switch">
+    <input 
+        type="checkbox" 
+        id="{{.id}}"
+        {{if .checked}}checked{{end}}
+        {{if .onchange}}onchange="{{.onchange}}"{{end}}
+    >
+    <span class="slider"></span>
+    {{if .label}}
+    <span class="toggle-label">{{.label}}</span>
+    {{end}}
+</label>
+{{end}}
+
+{{/* Avatar Component */}}
+{{define "avatar"}}
+<div class="avatar {{if .large}}avatar-lg{{end}} {{if .small}}avatar-sm{{end}} {{.class}}" {{if .bg}}style="background: {{.bg}};"{{end}}>
+    {{if .src}}
+    <img src="{{.src}}" alt="{{.alt}}">
+    {{else}}
+    {{.initial}}
+    {{end}}
+</div>
+{{end}}
+
+{{/* Breadcrumb Component */}}
+{{define "breadcrumb"}}
+<nav class="breadcrumb">
+    {{range $index, $item := .items}}
+    {{if $index}}<span class="breadcrumb-separator">/</span>{{end}}
+    {{if .href}}
+    <a href="{{.href}}" class="breadcrumb-item">{{.text}}</a>
+    {{else}}
+    <span class="breadcrumb-item active">{{.text}}</span>
+    {{end}}
+    {{end}}
+</nav>
+{{end}}
+
+{{/* Component Styles */}}
+<style>
+/* Alert Styles */
+.alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1rem;
+    border: 1px solid;
+}
+
+.alert-success {
+    background: #d1fae5;
+    color: #065f46;
+    border-color: #6ee7b7;
+}
+
+.alert-warning {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fcd34d;
+}
+
+.alert-danger, .alert-error {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fca5a5;
+}
+
+.alert-info {
+    background: #dbeafe;
+    color: #1e40af;
+    border-color: #93c5fd;
+}
+
+.alert-icon {
+    font-size: 1.25rem;
+}
+
+.alert-content {
+    flex: 1;
+}
+
+.alert-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.alert-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.6;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.alert-close:hover {
+    opacity: 1;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Tabs */
+.tabs-container {
+    margin-bottom: 1.5rem;
+}
+
+.tabs-header {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 1.5rem;
+}
+
+.tab-button {
+    padding: 0.75rem 1.25rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-muted);
+    transition: all 0.2s;
+}
+
+.tab-button:hover {
+    color: var(--text-main);
+}
+
+.tab-button.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+/* Dropdown */
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-trigger {
+    cursor: pointer;
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.5rem;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    min-width: 180px;
+    display: none;
+    z-index: 1000;
+}
+
+.dropdown-menu.active {
+    display: block;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: var(--text-main);
+    text-decoration: none;
+    transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+    background: var(--light);
+}
+
+/* Grid */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(var(--columns, auto-fit), minmax(200px, 1fr));
+    gap: var(--gap, 1.5rem);
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    cursor: pointer;
+}
+
+.toggle-switch input {
+    display: none;
+}
+
+.slider {
+    width: 44px;
+    height: 24px;
+    background: #ccc;
+    border-radius: 24px;
+    position: relative;
+    transition: background 0.3s;
+}
+
+.slider::before {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.3s;
+}
+
+.toggle-switch input:checked + .slider {
+    background: var(--primary);
+}
+
+.toggle-switch input:checked + .slider::before {
+    transform: translateX(20px);
+}
+
+/* Avatar */
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: white;
+    background: var(--primary);
+}
+
+.avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.avatar-sm {
+    width: 32px;
+    height: 32px;
+    font-size: 0.875rem;
+}
+
+.avatar-lg {
+    width: 56px;
+    height: 56px;
+    font-size: 1.25rem;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.9375rem;
+}
+
+.breadcrumb-item {
+    color: var(--text-muted);
+    text-decoration: none;
+}
+
+.breadcrumb-item:hover {
+    color: var(--primary);
+}
+
+.breadcrumb-item.active {
+    color: var(--text-main);
+    font-weight: 500;
+}
+
+.breadcrumb-separator {
+    color: var(--text-muted);
+}
+</style>
+
