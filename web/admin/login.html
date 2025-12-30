@@ -62,12 +62,54 @@
     <div class="container">
         <h1>Jelly CMS</h1>
         <p style="color: #666; margin-bottom: 2rem;">請選擇登入方式</p>
+        
+        <!-- Local Login Form -->
+        <form id="localLoginForm" style="margin-bottom: 2rem;">
+            <div style="margin-bottom: 1rem;">
+                <input type="text" name="username" placeholder="用戶名或 Email" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; margin-bottom: 0.5rem;">
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <input type="password" name="password" placeholder="密碼" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+            </div>
+            <button type="submit" class="btn" style="width: 100%; background: linear-gradient(45deg, #FF6B6B, #4ECDC4);">🔐 本地登入</button>
+        </form>
+
+        <div style="text-align: center; margin: 1.5rem 0; color: #999; position: relative;">
+            <span style="background: white; padding: 0 1rem;">或</span>
+            <hr style="position: absolute; top: 50%; left: 0; right: 0; margin: 0; border: none; border-top: 1px solid #ddd; z-index: -1;">
+        </div>
+
+        <!-- OAuth Login -->
         <a href="/auth/google" class="btn btn-google">🔵 Login with Google</a>
         <a href="/auth/github" class="btn btn-github">🐙 Login with GitHub</a>
         <p style="margin-top: 2rem; font-size: 0.9rem; color: #999;">
-            首次登入將自動創建帳號
+            OAuth 首次登入將自動創建帳號
         </p>
     </div>
+    <script>
+        document.getElementById('localLoginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const res = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams(data)
+                });
+
+                if (res.ok) {
+                    window.location.href = '/admin';
+                } else {
+                    const err = await res.json();
+                    alert('登入失敗: ' + (err.error || '未知錯誤'));
+                }
+            } catch (err) {
+                alert('登入失敗: ' + err.message);
+            }
+        });
+    </script>
 </body>
 
 </html>

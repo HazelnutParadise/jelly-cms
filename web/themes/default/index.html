@@ -1,6 +1,56 @@
 {{define "content"}}
+{{if .IsHome}}
+<div class="hero">
+    <h1>歡迎來到 {{.SiteTitle}}</h1>
+    <p class="hero-subtitle">分享知識，記錄生活</p>
+    <div class="search-box">
+        <form action="/search" method="GET" style="display: flex; gap: 0.5rem; max-width: 500px; margin: 0 auto;">
+            <input type="text" name="q" placeholder="搜尋文章..." style="flex: 1; padding: 0.75rem; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem;">
+            <button type="submit" style="padding: 0.75rem 1.5rem; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem;">搜尋</button>
+        </form>
+    </div>
+</div>
+
+<div class="latest-posts">
+    <h2>最新文章</h2>
+    {{if .Posts}}
+        <div class="posts-grid">
+            {{range .Posts}}
+            <article class="post-card">
+                <h3><a href="/post/{{.Slug}}">{{.Title}}</a></h3>
+                <div class="post-meta">
+                    <time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">
+                        {{.CreatedAt.Format "2006年1月2日"}}
+                    </time>
+                    {{if .Author}}
+                    <span class="author">作者：{{.Author.Username}}</span>
+                    {{end}}
+                </div>
+                <div class="post-excerpt">
+                    {{if .Content}}
+                        {{$excerpt := .Content}}
+                        {{if gt (len $excerpt) 150}}
+                            {{substr $excerpt 0 150 | html}}...
+                        {{else}}
+                            {{$excerpt | html}}
+                        {{end}}
+                    {{end}}
+                </div>
+                <a href="/post/{{.Slug}}" class="read-more">閱讀更多 →</a>
+            </article>
+            {{end}}
+        </div>
+        <div class="view-all">
+            <a href="/posts" class="btn-primary">查看所有文章</a>
+        </div>
+    {{else}}
+        <p>目前還沒有文章，請到後台新增文章。</p>
+    {{end}}
+</div>
+{{else}}
 <h1>{{.Title}}</h1>
 <div class="content">
-    {{.Content}}
+    {{.Content | html}}
 </div>
+{{end}}
 {{end}}

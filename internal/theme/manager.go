@@ -74,13 +74,34 @@ func (m *Manager) Render(templateName string, data interface{}) ([]byte, error) 
 	m.mu.RUnlock()
 
 	if !ok {
-		// Parse template
+		// Parse template with custom functions
 		themeDir := filepath.Join(m.themesDir, active)
 		layoutPath := filepath.Join(themeDir, "layout.html")
 		tmplPath := filepath.Join(themeDir, templateName)
 
+		funcMap := template.FuncMap{
+			"substr": func(s string, start, end int) string {
+				if start < 0 {
+					start = 0
+				}
+				if end > len(s) {
+					end = len(s)
+				}
+				if start >= end {
+					return ""
+				}
+				return s[start:end]
+			},
+			"add": func(a, b int) int {
+				return a + b
+			},
+			"sub": func(a, b int) int {
+				return a - b
+			},
+		}
+
 		var err error
-		tmpl, err = template.ParseFiles(layoutPath, tmplPath)
+		tmpl, err = template.New("layout").Funcs(funcMap).ParseFiles(layoutPath, tmplPath)
 		if err != nil {
 			return nil, err
 		}

@@ -15,6 +15,7 @@ import (
 	"github.com/markbates/goth/gothic"
 	"github.com/markbates/goth/providers/github"
 	"github.com/markbates/goth/providers/google"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -111,18 +112,22 @@ func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
 	return nil, fmt.Errorf("invalid token")
 }
 
-// GetUserFromJWT extracts user information from JWT token in Authorization header
+// GetUserFromJWT extracts user information from JWT token in Authorization header or cookie
 func GetUserFromJWT(c echo.Context) (*core.User, error) {
-	authHeader := c.Request().Header.Get("Authorization")
-	if authHeader == "" {
-		return nil, fmt.Errorf("authorization header missing")
-	}
+	var tokenString string
 
-	// Extract token from "Bearer <token>"
-	if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
-		return nil, fmt.Errorf("invalid authorization header format")
+	// Try Authorization header first
+	authHeader := c.Request().Header.Get("Authorization")
+	if authHeader != "" && len(authHeader) >= 7 && authHeader[:7] == "Bearer " {
+		tokenString = authHeader[7:]
+	} else {
+		// Try cookie
+		cookie, err := c.Cookie("jwt_token")
+		if err != nil || cookie == nil {
+			return nil, fmt.Errorf("authorization header or cookie missing")
+		}
+		tokenString = cookie.Value
 	}
-	tokenString := authHeader[7:]
 
 	claims, err := ValidateJWT(tokenString)
 	if err != nil {
@@ -140,6 +145,73 @@ func GetUserFromJWT(c echo.Context) (*core.User, error) {
 	}
 
 	return &user, nil
+}
+
+// HandleLocalLogin handles local username/password login
+func HandleLocalLogin(c echo.Context) error {
+	var req struct {
+		Username string `json:"username" form:"username"`
+		Password string `json:"password" form:"password"`
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+	}
+
+	if req.Username == "" || req.Password == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Username and password are required"})
+	}
+
+	// Find user by username or email
+	var user core.User
+	result := data.DB.Where("username = ? OR email = ?", req.Username, req.Username).First(&user)
+	if result.Error != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
+	}
+
+	// Check if user is local user (has password)
+	if user.Provider != "local" || user.Password == "" {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "This account uses OAuth login. Please use OAuth to sign in."})
+	}
+
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
+	}
+
+	// Set session
+	if err := SetUserSession(c, user.ID); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to set session"})
+	}
+
+	// Generate JWT token
+	token, err := GenerateJWT(user.ID, user.Email, user.Role)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to generate token"})
+	}
+
+	// Set token in cookie for web requests
+	c.SetCookie(&http.Cookie{
+		Name:     "jwt_token",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   86400 * 7, // 7 days
+		HttpOnly: true,
+		Secure:   os.Getenv("APP_ENV") == "production",
+		SameSite: http.SameSiteLaxMode,
+	})
+
+	// Return JSON for API requests or redirect for web requests
+	if c.Request().Header.Get("Accept") == "application/json" {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "Login successful",
+			"user":    user,
+			"token":   token,
+		})
+	}
+
+	// Redirect to admin dashboard
+	return c.Redirect(http.StatusFound, "/admin")
 }
 
 func HandleAuth(c echo.Context) error {
