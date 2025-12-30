@@ -26,7 +26,38 @@ type Manager interface {
 type Hook string
 
 const (
-	HookOnRequest  Hook = "OnRequest"
-	HookOnPostSave Hook = "OnPostSave"
-	HookOnBoot     Hook = "OnBoot"
+	// Lifecycle Hooks
+	HookOnBoot     Hook = "OnBoot"     // Called when plugin is loaded
+	HookOnShutdown Hook = "OnShutdown" // Called when plugin is unloaded
+
+	// Request Hooks
+	HookOnRequest  Hook = "OnRequest"  // Called on each HTTP request (before processing)
+	HookOnResponse Hook = "OnResponse" // Called on each HTTP response (after processing)
+
+	// Content Hooks
+	HookOnPostSave   Hook = "OnPostSave"   // Called when a post is saved (created or updated)
+	HookOnPostDelete Hook = "OnPostDelete"  // Called when a post is deleted
+	HookOnPostView   Hook = "OnPostView"    // Called when a post is viewed
+
+	// Product Hooks
+	HookOnProductSave   Hook = "OnProductSave"   // Called when a product is saved
+	HookOnProductDelete Hook = "OnProductDelete" // Called when a product is deleted
+	HookOnProductView   Hook = "OnProductView"   // Called when a product is viewed
+
+	// Order Hooks
+	HookOnOrderCreate Hook = "OnOrderCreate" // Called when an order is created
+	HookOnOrderUpdate Hook = "OnOrderUpdate" // Called when an order status is updated
+	HookOnOrderPaid   Hook = "OnOrderPaid"   // Called when an order is paid
+
+	// User Hooks
+	HookOnUserLogin  Hook = "OnUserLogin"  // Called when a user logs in
+	HookOnUserLogout Hook = "OnUserLogout" // Called when a user logs out
+	HookOnUserCreate Hook = "OnUserCreate"  // Called when a user is created
+
+	// Payment Hooks
+	HookOnPaymentSuccess Hook = "OnPaymentSuccess" // Called when payment succeeds
+	HookOnPaymentFailed  Hook = "OnPaymentFailed"  // Called when payment fails
+
+	// Theme Hooks
+	HookOnThemeActivate Hook = "OnThemeActivate" // Called when a theme is activated
 )

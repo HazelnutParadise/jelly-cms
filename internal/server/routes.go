@@ -7,13 +7,14 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/install"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 )
 
 // RegisterRoutes sets up the server routes.
-func RegisterRoutes(e *echo.Echo, tm *theme.Manager) {
+func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runtime) {
 	// Installation Middleware
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -89,6 +90,9 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager) {
 	// Auth Routes
 	auth.RegisterRoutes(e)
 
+	// Payment Routes
+	RegisterPaymentRoutes(e)
+
 	// Admin Routes
 	RegisterAdminRoutes(e, tm)
 	RegisterEcommerceRoutes(e)
@@ -119,64 +123,65 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager) {
 		})
 	}
 
-	e.GET("/admin", func(c echo.Context) error {
-		// TODO: Check authentication
+	// Admin page routes with authentication
+	adminPages := e.Group("/admin", auth.RequireAuth)
+	adminPages.GET("", func(c echo.Context) error {
 		return renderAdmin(c, "index.html", "dashboard")
 	})
 
-	e.GET("/admin/posts", func(c echo.Context) error {
+	adminPages.GET("/posts", func(c echo.Context) error {
 		return renderAdmin(c, "posts.html", "posts")
 	})
 
-	e.GET("/admin/posts/new", func(c echo.Context) error {
+	adminPages.GET("/posts/new", func(c echo.Context) error {
 		return renderAdmin(c, "post_editor.html", "posts")
 	})
 
-	e.GET("/admin/posts/:id", func(c echo.Context) error {
+	adminPages.GET("/posts/:id", func(c echo.Context) error {
 		return renderAdmin(c, "post_editor.html", "posts")
 	})
 
-	e.GET("/admin/pages", func(c echo.Context) error {
+	adminPages.GET("/pages", func(c echo.Context) error {
 		return renderAdmin(c, "pages.html", "pages")
 	})
 
-	e.GET("/admin/pages/new", func(c echo.Context) error {
+	adminPages.GET("/pages/new", func(c echo.Context) error {
 		return renderAdmin(c, "page_editor.html", "pages")
 	})
 
-	e.GET("/admin/pages/:id", func(c echo.Context) error {
+	adminPages.GET("/pages/:id", func(c echo.Context) error {
 		return renderAdmin(c, "page_editor.html", "pages")
 	})
 
-	e.GET("/admin/products", func(c echo.Context) error {
+	adminPages.GET("/products", func(c echo.Context) error {
 		return renderAdmin(c, "products.html", "products")
 	})
 
-	e.GET("/admin/products/new", func(c echo.Context) error {
+	adminPages.GET("/products/new", func(c echo.Context) error {
 		return renderAdmin(c, "product_editor.html", "products")
 	})
 
-	e.GET("/admin/products/:id", func(c echo.Context) error {
+	adminPages.GET("/products/:id", func(c echo.Context) error {
 		return renderAdmin(c, "product_editor.html", "products")
 	})
 
-	e.GET("/admin/orders", func(c echo.Context) error {
+	adminPages.GET("/orders", func(c echo.Context) error {
 		return renderAdmin(c, "orders.html", "orders")
 	})
 
-	e.GET("/admin/media", func(c echo.Context) error {
+	adminPages.GET("/media", func(c echo.Context) error {
 		return renderAdmin(c, "media.html", "media")
 	})
 
-	e.GET("/admin/themes", func(c echo.Context) error {
+	adminPages.GET("/themes", func(c echo.Context) error {
 		return renderAdmin(c, "themes.html", "themes")
 	})
 
-	e.GET("/admin/plugins", func(c echo.Context) error {
+	adminPages.GET("/plugins", func(c echo.Context) error {
 		return renderAdmin(c, "plugins.html", "plugins")
 	})
 
-	e.GET("/admin/settings", func(c echo.Context) error {
+	adminPages.GET("/settings", func(c echo.Context) error {
 		return renderAdmin(c, "settings.html", "settings")
 	})
 

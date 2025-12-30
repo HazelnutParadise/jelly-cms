@@ -41,5 +41,6 @@ func Migrate() error {
 		&core.Product{},
 		&core.Order{},
 		&core.OrderItem{},
+		&core.ThemeSettings{},
 	)
 }

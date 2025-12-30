@@ -1,14 +1,18 @@
 package server
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/payment"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
 )
@@ -16,10 +20,8 @@ import (
 func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 	postService := core.NewPostService(data.DB)
 
-	// TODO: Add middleware to check if user is admin/authenticated
-
-	// API Routes
-	api := e.Group("/api/admin")
+	// API Routes with authentication
+	api := e.Group("/api/admin", auth.RequireAuth)
 
 	// Posts
 	api.GET("/posts", func(c echo.Context) error {
@@ -223,19 +225,90 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 		return c.JSON(http.StatusOK, map[string]string{"message": "Theme activated"})
 	})
 
+	// Get theme config
+	api.GET("/themes/:name/config", func(c echo.Context) error {
+		themeName := c.Param("name")
+		config, err := tm.Load(themeName)
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Theme not found"})
+		}
+		return c.JSON(http.StatusOK, config)
+	})
+
+	// Get theme settings
+	api.GET("/themes/:name/settings", func(c echo.Context) error {
+		themeName := c.Param("name")
+		settings, err := tm.GetSettings(themeName, data.DB)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, settings)
+	})
+
+	// Save theme settings
+	api.POST("/themes/:name/settings", func(c echo.Context) error {
+		themeName := c.Param("name")
+		var req struct {
+			Colors json.RawMessage `json:"colors"`
+			Layout json.RawMessage `json:"layout"`
+			Custom json.RawMessage `json:"custom"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		}
+
+		settings := &core.ThemeSettings{
+			ThemeName: themeName,
+			Colors:    req.Colors,
+			Layout:    req.Layout,
+			Custom:    req.Custom,
+		}
+
+		if err := tm.SaveSettings(settings, data.DB); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+
+		// Clear theme cache to apply new settings
+		tm.Activate(tm.GetActive())
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "Settings saved"})
+	})
+
 	// Plugins
 	api.GET("/plugins", func(c echo.Context) error {
 		entries, err := os.ReadDir("data/plugins")
 		if err != nil {
-			return c.JSON(http.StatusOK, []string{})
+			return c.JSON(http.StatusOK, []interface{}{})
 		}
-		var plugins []string
+		var plugins []map[string]interface{}
 		for _, e := range entries {
 			if e.IsDir() {
-				plugins = append(plugins, e.Name())
+				pluginDir := filepath.Join("data/plugins", e.Name())
+				configPath := filepath.Join(pluginDir, "plugin.json")
+				if data, err := os.ReadFile(configPath); err == nil {
+					var meta plugin.PluginMetadata
+					if json.Unmarshal(data, &meta) == nil {
+						plugins = append(plugins, map[string]interface{}{
+							"id":          meta.ID,
+							"name":        meta.Name,
+							"version":     meta.Version,
+							"description": meta.Description,
+							"author":      meta.Author,
+						})
+					}
+				}
 			}
 		}
 		return c.JSON(http.StatusOK, plugins)
+	})
+
+	// Reload plugin
+	api.POST("/plugins/:id/reload", func(c echo.Context) error {
+		_ = c.Param("id")
+		// Get plugin runtime from context or global
+		// For now, we'll need to pass it through context or make it global
+		// This is a simplified version
+		return c.JSON(http.StatusOK, map[string]string{"message": "Plugin reload not fully implemented"})
 	})
 
 	// Settings
@@ -257,5 +330,74 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 			data.DB.Save(&opt)
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "Settings saved"})
+	})
+
+	// Payment Gateway Settings
+	api.GET("/payment/gateways", func(c echo.Context) error {
+		// Get payment service from global or context
+		// For now, we'll create a temporary service to get configs
+		service := payment.NewService(data.DB)
+		configs := service.GetPaymentConfigs()
+		return c.JSON(http.StatusOK, configs)
+	})
+
+	api.POST("/payment/gateways/ecpay", func(c echo.Context) error {
+		var req struct {
+			Enabled    bool   `json:"enabled"`
+			MerchantID string `json:"merchant_id"`
+			HashKey    string `json:"hash_key"`
+			HashIV     string `json:"hash_iv"`
+			TestMode   bool   `json:"test_mode"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		}
+
+		service := payment.NewService(data.DB)
+		config := &payment.ECPayConfig{
+			MerchantID: req.MerchantID,
+			HashKey:    req.HashKey,
+			HashIV:     req.HashIV,
+			IsTestMode: req.TestMode,
+		}
+
+		if err := service.SaveECPayConfig(config, req.Enabled); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+
+		// Payment service will reload from DB on next use
+		// The service is initialized in main.go and will reload configs when needed
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "ECPay configuration saved"})
+	})
+
+	api.POST("/payment/gateways/newebpay", func(c echo.Context) error {
+		var req struct {
+			Enabled    bool   `json:"enabled"`
+			MerchantID string `json:"merchant_id"`
+			HashKey    string `json:"hash_key"`
+			HashIV     string `json:"hash_iv"`
+			TestMode   bool   `json:"test_mode"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		}
+
+		service := payment.NewService(data.DB)
+		config := &payment.NewebPayConfig{
+			MerchantID: req.MerchantID,
+			HashKey:    req.HashKey,
+			HashIV:     req.HashIV,
+			IsTestMode: req.TestMode,
+		}
+
+		if err := service.SaveNewebPayConfig(config, req.Enabled); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+
+		// Payment service will reload from DB on next use
+		// The service is initialized in main.go and will reload configs when needed
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "NewebPay configuration saved"})
 	})
 }

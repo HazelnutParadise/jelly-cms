@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
+	"gorm.io/gorm"
 )
 
 type Manager struct {
@@ -89,10 +90,45 @@ func (m *Manager) Render(templateName string, data interface{}) ([]byte, error) 
 		m.mu.Unlock()
 	}
 
+	// Theme settings will be injected by the handler
+	// This allows templates to access theme colors and layout settings
+
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "layout", data); err != nil {
 		return nil, err
 	}
 
 	return buf.Bytes(), nil
+}
+
+// GetSettings retrieves theme settings from database
+func (m *Manager) GetSettings(themeName string, db interface {
+	First(dest interface{}, conds ...interface{}) *gorm.DB
+}) (*core.ThemeSettings, error) {
+	var settings core.ThemeSettings
+	result := db.First(&settings, "theme_name = ?", themeName)
+	if result.Error != nil {
+		// Return default settings if not found
+		return &core.ThemeSettings{ThemeName: themeName}, nil
+	}
+	return &settings, nil
+}
+
+// SaveSettings saves theme settings to database
+func (m *Manager) SaveSettings(settings *core.ThemeSettings, db interface {
+	First(dest interface{}, conds ...interface{}) *gorm.DB
+	Save(value interface{}) *gorm.DB
+	Create(value interface{}) *gorm.DB
+}) error {
+	var existing core.ThemeSettings
+	result := db.First(&existing, "theme_name = ?", settings.ThemeName)
+	if result.Error != nil {
+		result = db.Create(settings)
+		return result.Error
+	}
+	existing.Colors = settings.Colors
+	existing.Layout = settings.Layout
+	existing.Custom = settings.Custom
+	result = db.Save(&existing)
+	return result.Error
 }

@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v4"
 	"github.com/markbates/goth"
@@ -15,14 +17,129 @@ import (
 	"github.com/markbates/goth/providers/google"
 )
 
+var (
+	sessionStore *sessions.CookieStore
+	jwtSecret    []byte
+)
+
 func Init() {
-	store := sessions.NewCookieStore([]byte(os.Getenv("SESSION_SECRET")))
-	gothic.Store = store
+	sessionSecret := os.Getenv("SESSION_SECRET")
+	if sessionSecret == "" {
+		sessionSecret = "jelly-cms-secret-key-change-in-production" // Default for development
+	}
+	sessionStore = sessions.NewCookieStore([]byte(sessionSecret))
+	gothic.Store = sessionStore
+
+	jwtSecretStr := os.Getenv("JWT_SECRET")
+	if jwtSecretStr == "" {
+		jwtSecretStr = sessionSecret // Use same secret if not specified
+	}
+	jwtSecret = []byte(jwtSecretStr)
 
 	goth.UseProviders(
 		github.New(os.Getenv("GITHUB_KEY"), os.Getenv("GITHUB_SECRET"), os.Getenv("APP_URL")+"/auth/github/callback"),
 		google.New(os.Getenv("GOOGLE_KEY"), os.Getenv("GOOGLE_SECRET"), os.Getenv("APP_URL")+"/auth/google/callback"),
 	)
+}
+
+// GetSession retrieves the session for the current request
+func GetSession(c echo.Context) (*sessions.Session, error) {
+	return sessionStore.Get(c.Request(), "jelly-cms-session")
+}
+
+// SetUserSession sets the user ID in the session
+func SetUserSession(c echo.Context, userID uint) error {
+	session, err := GetSession(c)
+	if err != nil {
+		return err
+	}
+	session.Values["user_id"] = userID
+	session.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   86400 * 7, // 7 days
+		HttpOnly: true,
+		Secure:   os.Getenv("APP_ENV") == "production",
+		SameSite: http.SameSiteLaxMode,
+	}
+	return session.Save(c.Request(), c.Response())
+}
+
+// GetUserIDFromSession retrieves the user ID from the session
+func GetUserIDFromSession(c echo.Context) (uint, error) {
+	session, err := GetSession(c)
+	if err != nil {
+		return 0, err
+	}
+	userID, ok := session.Values["user_id"].(uint)
+	if !ok {
+		return 0, fmt.Errorf("user not authenticated")
+	}
+	return userID, nil
+}
+
+// GenerateJWT generates a JWT token for the user
+func GenerateJWT(userID uint, email string, role string) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id": userID,
+		"email":   email,
+		"role":    role,
+		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(), // 7 days
+		"iat":     time.Now().Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(jwtSecret)
+}
+
+// ValidateJWT validates a JWT token and returns the claims
+func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return jwtSecret, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("invalid token")
+}
+
+// GetUserFromJWT extracts user information from JWT token in Authorization header
+func GetUserFromJWT(c echo.Context) (*core.User, error) {
+	authHeader := c.Request().Header.Get("Authorization")
+	if authHeader == "" {
+		return nil, fmt.Errorf("authorization header missing")
+	}
+
+	// Extract token from "Bearer <token>"
+	if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+		return nil, fmt.Errorf("invalid authorization header format")
+	}
+	tokenString := authHeader[7:]
+
+	claims, err := ValidateJWT(tokenString)
+	if err != nil {
+		return nil, err
+	}
+
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("invalid token claims")
+	}
+
+	var user core.User
+	if err := data.DB.First(&user, uint(userID)).Error; err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }
 
 func HandleAuth(c echo.Context) error {
@@ -74,10 +191,80 @@ func HandleCallback(c echo.Context) error {
 		}
 	}
 
-	// TODO: Issue JWT or set session cookie for the app
-	// For now, just return success
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"message": "Login successful",
-		"user":    dbUser,
+	// Set session
+	if err := SetUserSession(c, dbUser.ID); err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to set session")
+	}
+
+	// Generate JWT token
+	token, err := GenerateJWT(dbUser.ID, dbUser.Email, dbUser.Role)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to generate token")
+	}
+
+	// Redirect to admin or return JSON based on request
+	if c.Request().Header.Get("Accept") == "application/json" {
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "Login successful",
+			"user":    dbUser,
+			"token":   token,
+		})
+	}
+
+	// Set token in cookie for web requests
+	c.SetCookie(&http.Cookie{
+		Name:     "jwt_token",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   86400 * 7, // 7 days
+		HttpOnly: true,
+		Secure:   os.Getenv("APP_ENV") == "production",
+		SameSite: http.SameSiteLaxMode,
 	})
+
+	// Redirect to admin dashboard
+	return c.Redirect(http.StatusFound, "/admin")
+}
+
+// HandleLogout handles user logout
+func HandleLogout(c echo.Context) error {
+	// Clear session
+	session, err := GetSession(c)
+	if err == nil {
+		session.Values = make(map[interface{}]interface{})
+		session.Options.MaxAge = -1
+		session.Save(c.Request(), c.Response())
+	}
+
+	// Clear JWT cookie
+	c.SetCookie(&http.Cookie{
+		Name:     "jwt_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+	})
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "Logged out successfully"})
+}
+
+// GetCurrentUser retrieves the current authenticated user from session or JWT
+func GetCurrentUser(c echo.Context) (*core.User, error) {
+	// Try to get from JWT first (for API requests)
+	if user, err := GetUserFromJWT(c); err == nil {
+		return user, nil
+	}
+
+	// Try to get from session (for web requests)
+	userID, err := GetUserIDFromSession(c)
+	if err != nil {
+		return nil, err
+	}
+
+	var user core.User
+	if err := data.DB.First(&user, userID).Error; err != nil {
+		return nil, err
+	}
+
+	return &user, nil
 }

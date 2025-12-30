@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"os"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/config"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/i18n"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/server"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/goccy/go-json"
@@ -49,8 +53,30 @@ func main() {
 	// Initialize i18n
 	i18n.Init()
 
+	// Initialize auth
+	auth.Init()
+
+	// Initialize payment service
+	if cfg != nil && data.DB != nil {
+		server.InitPaymentService(data.DB)
+	}
+
+	// Initialize plugin runtime
+	pluginRuntime, err := plugin.NewRuntime()
+	if err != nil {
+		log.Printf("Failed to initialize plugin runtime: %v", err)
+	} else {
+		// Load all plugins if database is connected
+		if cfg != nil && data.DB != nil {
+			os.MkdirAll("data/plugins", 0755)
+			if err := pluginRuntime.LoadAll(context.Background(), "data/plugins"); err != nil {
+				log.Printf("Failed to load plugins: %v", err)
+			}
+		}
+	}
+
 	// Routes
-	server.RegisterRoutes(e, tm)
+	server.RegisterRoutes(e, tm, pluginRuntime)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }
