@@ -80,13 +80,47 @@
         </div>
 
         <!-- OAuth Login -->
-        <a href="/auth/google" class="btn btn-google">🔵 Login with Google</a>
-        <a href="/auth/github" class="btn btn-github">🐙 Login with GitHub</a>
-        <p style="margin-top: 2rem; font-size: 0.9rem; color: #999;">
-            OAuth 首次登入將自動創建帳號
-        </p>
+        <div id="oauthButtons" style="display: none;">
+            <a href="#" class="btn btn-google" id="googleBtn" style="display: none;" onclick="event.preventDefault(); window.location.href='/auth/google?redirect=' + encodeURIComponent(new URLSearchParams(window.location.search).get('redirect') || '/admin');">🔵 Login with Google</a>
+            <a href="#" class="btn btn-github" id="githubBtn" style="display: none;" onclick="event.preventDefault(); window.location.href='/auth/github?redirect=' + encodeURIComponent(new URLSearchParams(window.location.search).get('redirect') || '/admin');">🐙 Login with GitHub</a>
+            <p style="margin-top: 2rem; font-size: 0.9rem; color: #999;">
+                OAuth 首次登入將自動創建帳號
+            </p>
+        </div>
     </div>
     <script>
+        // Load OAuth settings
+        async function loadOAuthSettings() {
+            try {
+                const res = await fetch('/api/oauth/status');
+                const configs = await res.json();
+                
+                const oauthButtons = document.getElementById('oauthButtons');
+                const divider = document.querySelector('div[style*="text-align: center"]');
+                
+                if (configs.google || configs.github) {
+                    oauthButtons.style.display = 'block';
+                    if (divider) divider.style.display = 'block';
+                    
+                    if (configs.google) {
+                        document.getElementById('googleBtn').style.display = 'block';
+                    }
+                    if (configs.github) {
+                        document.getElementById('githubBtn').style.display = 'block';
+                    }
+                } else {
+                    oauthButtons.style.display = 'none';
+                    if (divider) divider.style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Failed to load OAuth settings:', err);
+            }
+        }
+
+        // Get redirect URL from query parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectURL = urlParams.get('redirect') || '/admin';
+
         document.getElementById('localLoginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
@@ -100,7 +134,7 @@
                 });
 
                 if (res.ok) {
-                    window.location.href = '/admin';
+                    window.location.href = redirectURL;
                 } else {
                     const err = await res.json();
                     alert('登入失敗: ' + (err.error || '未知錯誤'));
@@ -109,6 +143,8 @@
                 alert('登入失敗: ' + err.message);
             }
         });
+
+        loadOAuthSettings();
     </script>
 </body>
 

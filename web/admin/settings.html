@@ -31,11 +31,29 @@
         display: block;
     }
     .payment-gateway {
-        margin-bottom: 2rem;
+        margin-bottom: 0;
+        padding: 0;
+        background: transparent;
+        border-radius: 0;
+        border: none;
+    }
+    
+    .gateway-card {
+        background: white;
+        border: 2px solid #e0e0e0;
+        border-radius: 12px;
         padding: 1.5rem;
-        background: #f8f9fa;
-        border-radius: 8px;
-        border: 1px solid #e0e0e0;
+        margin-bottom: 1.5rem;
+        transition: all 0.3s;
+    }
+    
+    .gateway-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .gateway-card.disabled {
+        opacity: 0.6;
     }
     .payment-gateway h3 {
         margin-top: 0;
@@ -82,6 +100,17 @@
     input:checked + .slider:before {
         transform: translateX(26px);
     }
+    
+    .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+    
+    .gateway-card.disabled {
+        opacity: 0.6;
+        background: #f5f5f5;
+    }
 </style>
 {{end}}
 {{define "content"}}
@@ -89,6 +118,7 @@
 
 <div class="tabs">
     <button class="tab active" onclick="switchTab('general')">General</button>
+    <button class="tab" onclick="switchTab('oauth')">OAuth</button>
     <button class="tab" onclick="switchTab('payment')">Payment Gateways</button>
 </div>
 
@@ -111,24 +141,75 @@
                     <option value="zh-TW">Traditional Chinese (繁體中文)</option>
                 </select>
             </div>
-            <button type="submit" class="btn">Save Settings</button>
+            <button type="submit" class="btn" id="generalSaveBtn">Save Settings</button>
         </form>
+    </div>
+</div>
+
+<!-- OAuth Settings -->
+<div id="oauthTab" class="tab-content">
+    <!-- Google OAuth Settings -->
+    <div class="gateway-card" id="googleCard">
+        <div class="payment-gateway">
+            <h3 style="display: flex; align-items: center; justify-content: space-between; margin-top: 0; margin-bottom: 1.5rem;">
+                <span style="font-size: 1.2rem; font-weight: 600;">Google OAuth</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="googleEnabled" onchange="toggleGoogle()">
+                    <span class="slider"></span>
+                </label>
+            </h3>
+            <form id="googleForm">
+                <div class="form-group">
+                    <label>Client ID</label>
+                    <input type="text" id="googleClientID" required>
+                </div>
+                <div class="form-group">
+                    <label>Client Secret</label>
+                    <input type="text" id="googleClientSecret" required>
+                </div>
+                <button type="submit" class="btn" id="googleSaveBtn">Save Google OAuth Settings</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- GitHub OAuth Settings -->
+    <div class="gateway-card" id="githubCard">
+        <div class="payment-gateway">
+            <h3 style="display: flex; align-items: center; justify-content: space-between; margin-top: 0; margin-bottom: 1.5rem;">
+                <span style="font-size: 1.2rem; font-weight: 600;">GitHub OAuth</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="githubEnabled" onchange="toggleGitHub()">
+                    <span class="slider"></span>
+                </label>
+            </h3>
+            <form id="githubForm">
+                <div class="form-group">
+                    <label>Client ID</label>
+                    <input type="text" id="githubClientID" required>
+                </div>
+                <div class="form-group">
+                    <label>Client Secret</label>
+                    <input type="text" id="githubClientSecret" required>
+                </div>
+                <button type="submit" class="btn" id="githubSaveBtn">Save GitHub OAuth Settings</button>
+            </form>
+        </div>
     </div>
 </div>
 
 <!-- Payment Gateway Settings -->
 <div id="paymentTab" class="tab-content">
     <!-- ECPay Settings -->
-    <div class="card">
+    <div class="gateway-card" id="ecpayCard">
         <div class="payment-gateway">
-            <h3>
-                <span>綠界 ECPay</span>
+            <h3 style="display: flex; align-items: center; justify-content: space-between; margin-top: 0; margin-bottom: 1.5rem;">
+                <span style="font-size: 1.2rem; font-weight: 600;">綠界 ECPay</span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="ecpayEnabled" onchange="toggleECPay()">
                     <span class="slider"></span>
                 </label>
             </h3>
-            <form id="ecpayForm" style="margin-top: 1rem;">
+            <form id="ecpayForm">
                 <div class="form-group">
                     <label>商店代號 (Merchant ID)</label>
                     <input type="text" id="ecpayMerchantID" required>
@@ -147,22 +228,22 @@
                         測試模式 (Test Mode)
                     </label>
                 </div>
-                <button type="submit" class="btn">Save ECPay Settings</button>
+                <button type="submit" class="btn" id="ecpaySaveBtn">Save ECPay Settings</button>
             </form>
         </div>
     </div>
 
     <!-- NewebPay Settings -->
-    <div class="card" style="margin-top: 1.5rem;">
+    <div class="gateway-card" id="newebpayCard">
         <div class="payment-gateway">
-            <h3>
-                <span>藍新 NewebPay</span>
+            <h3 style="display: flex; align-items: center; justify-content: space-between; margin-top: 0; margin-bottom: 1.5rem;">
+                <span style="font-size: 1.2rem; font-weight: 600;">藍新 NewebPay</span>
                 <label class="toggle-switch">
                     <input type="checkbox" id="newebpayEnabled" onchange="toggleNewebPay()">
                     <span class="slider"></span>
                 </label>
             </h3>
-            <form id="newebpayForm" style="margin-top: 1rem;">
+            <form id="newebpayForm">
                 <div class="form-group">
                     <label>商店代號 (Merchant ID)</label>
                     <input type="text" id="newebpayMerchantID" required>
@@ -181,7 +262,7 @@
                         測試模式 (Test Mode)
                     </label>
                 </div>
-                <button type="submit" class="btn">Save NewebPay Settings</button>
+                <button type="submit" class="btn" id="newebpaySaveBtn">Save NewebPay Settings</button>
             </form>
         </div>
     </div>
@@ -211,8 +292,59 @@
         options.forEach(opt => {
             if (form[opt.key]) {
                 form[opt.key].value = opt.value;
+                originalGeneralSettings[opt.key] = opt.value;
             }
         });
+        checkGeneralForm();
+    }
+
+    async function loadOAuthSettings() {
+        const res = await fetch('/api/admin/oauth/providers');
+        const configs = await res.json();
+
+        // Google
+        if (configs.google) {
+            const clientID = configs.google.config?.oauth_google_client_id || '';
+            const clientSecret = configs.google.config?.oauth_google_client_secret || '';
+            const enabled = configs.google.enabled;
+            
+            originalValues.google = { clientID, clientSecret };
+            document.getElementById('googleClientID').value = clientID;
+            document.getElementById('googleClientSecret').value = clientSecret;
+            
+            // Auto-disable if enabled but missing required fields
+            if (enabled && (!clientID || !clientSecret)) {
+                document.getElementById('googleEnabled').checked = false;
+                // Save the disabled state
+                await saveGoogleOAuth(false, clientID, clientSecret);
+            } else {
+                document.getElementById('googleEnabled').checked = enabled;
+            }
+            toggleGoogle();
+            checkGoogleForm();
+        }
+
+        // GitHub
+        if (configs.github) {
+            const clientID = configs.github.config?.oauth_github_client_id || '';
+            const clientSecret = configs.github.config?.oauth_github_client_secret || '';
+            const enabled = configs.github.enabled;
+            
+            originalValues.github = { clientID, clientSecret };
+            document.getElementById('githubClientID').value = clientID;
+            document.getElementById('githubClientSecret').value = clientSecret;
+            
+            // Auto-disable if enabled but missing required fields
+            if (enabled && (!clientID || !clientSecret)) {
+                document.getElementById('githubEnabled').checked = false;
+                // Save the disabled state
+                await saveGitHubOAuth(false, clientID, clientSecret);
+            } else {
+                document.getElementById('githubEnabled').checked = enabled;
+            }
+            toggleGitHub();
+            checkGitHubForm();
+        }
     }
 
     async function loadPaymentSettings() {
@@ -221,26 +353,54 @@
 
         // ECPay
         if (configs.ecpay) {
-            document.getElementById('ecpayEnabled').checked = configs.ecpay.enabled;
-            if (configs.ecpay.config) {
-                document.getElementById('ecpayMerchantID').value = configs.ecpay.config.payment_ecpay_merchant_id || '';
-                document.getElementById('ecpayHashKey').value = configs.ecpay.config.payment_ecpay_hash_key || '';
-                document.getElementById('ecpayHashIV').value = configs.ecpay.config.payment_ecpay_hash_iv || '';
-                document.getElementById('ecpayTestMode').checked = configs.ecpay.config.payment_ecpay_test_mode === 'true';
+            const merchantID = configs.ecpay.config?.payment_ecpay_merchant_id || '';
+            const hashKey = configs.ecpay.config?.payment_ecpay_hash_key || '';
+            const hashIV = configs.ecpay.config?.payment_ecpay_hash_iv || '';
+            const testMode = configs.ecpay.config?.payment_ecpay_test_mode === 'true';
+            const enabled = configs.ecpay.enabled;
+            
+            originalValues.ecpay = { merchantID, hashKey, hashIV, testMode };
+            document.getElementById('ecpayMerchantID').value = merchantID;
+            document.getElementById('ecpayHashKey').value = hashKey;
+            document.getElementById('ecpayHashIV').value = hashIV;
+            document.getElementById('ecpayTestMode').checked = testMode;
+            
+            // Auto-disable if enabled but missing required fields
+            if (enabled && (!merchantID || !hashKey || !hashIV)) {
+                document.getElementById('ecpayEnabled').checked = false;
+                // Save the disabled state
+                await saveECPay(false, merchantID, hashKey, hashIV, testMode);
+            } else {
+                document.getElementById('ecpayEnabled').checked = enabled;
             }
             toggleECPay();
+            checkECPayForm();
         }
 
         // NewebPay
         if (configs.newebpay) {
-            document.getElementById('newebpayEnabled').checked = configs.newebpay.enabled;
-            if (configs.newebpay.config) {
-                document.getElementById('newebpayMerchantID').value = configs.newebpay.config.payment_newebpay_merchant_id || '';
-                document.getElementById('newebpayHashKey').value = configs.newebpay.config.payment_newebpay_hash_key || '';
-                document.getElementById('newebpayHashIV').value = configs.newebpay.config.payment_newebpay_hash_iv || '';
-                document.getElementById('newebpayTestMode').checked = configs.newebpay.config.payment_newebpay_test_mode === 'true';
+            const merchantID = configs.newebpay.config?.payment_newebpay_merchant_id || '';
+            const hashKey = configs.newebpay.config?.payment_newebpay_hash_key || '';
+            const hashIV = configs.newebpay.config?.payment_newebpay_hash_iv || '';
+            const testMode = configs.newebpay.config?.payment_newebpay_test_mode === 'true';
+            const enabled = configs.newebpay.enabled;
+            
+            originalValues.newebpay = { merchantID, hashKey, hashIV, testMode };
+            document.getElementById('newebpayMerchantID').value = merchantID;
+            document.getElementById('newebpayHashKey').value = hashKey;
+            document.getElementById('newebpayHashIV').value = hashIV;
+            document.getElementById('newebpayTestMode').checked = testMode;
+            
+            // Auto-disable if enabled but missing required fields
+            if (enabled && (!merchantID || !hashKey || !hashIV)) {
+                document.getElementById('newebpayEnabled').checked = false;
+                // Save the disabled state
+                await saveNewebPay(false, merchantID, hashKey, hashIV, testMode);
+            } else {
+                document.getElementById('newebpayEnabled').checked = enabled;
             }
             toggleNewebPay();
+            checkNewebPayForm();
         }
     }
 
@@ -260,6 +420,170 @@
         });
     }
 
+    // Store original values for comparison
+    let originalValues = {
+        google: { clientID: '', clientSecret: '' },
+        github: { clientID: '', clientSecret: '' },
+        ecpay: { merchantID: '', hashKey: '', hashIV: '', testMode: false },
+        newebpay: { merchantID: '', hashKey: '', hashIV: '', testMode: false }
+    };
+
+    function toggleGoogle() {
+        const enabled = document.getElementById('googleEnabled').checked;
+        const form = document.getElementById('googleForm');
+        const card = document.getElementById('googleCard');
+        form.querySelectorAll('input[type="text"]').forEach(input => {
+            input.disabled = !enabled;
+        });
+        if (!enabled) {
+            card.classList.add('disabled');
+        } else {
+            card.classList.remove('disabled');
+        }
+        checkGoogleForm();
+    }
+
+    function toggleGitHub() {
+        const enabled = document.getElementById('githubEnabled').checked;
+        const form = document.getElementById('githubForm');
+        const card = document.getElementById('githubCard');
+        form.querySelectorAll('input[type="text"]').forEach(input => {
+            input.disabled = !enabled;
+        });
+        if (!enabled) {
+            card.classList.add('disabled');
+        } else {
+            card.classList.remove('disabled');
+        }
+        checkGitHubForm();
+    }
+
+    function toggleECPay() {
+        const enabled = document.getElementById('ecpayEnabled').checked;
+        const form = document.getElementById('ecpayForm');
+        const card = document.getElementById('ecpayCard');
+        form.querySelectorAll('input[type="text"]').forEach(input => {
+            input.disabled = !enabled;
+        });
+        if (!enabled) {
+            card.classList.add('disabled');
+        } else {
+            card.classList.remove('disabled');
+        }
+        checkECPayForm();
+    }
+
+    function toggleNewebPay() {
+        const enabled = document.getElementById('newebpayEnabled').checked;
+        const form = document.getElementById('newebpayForm');
+        const card = document.getElementById('newebpayCard');
+        form.querySelectorAll('input[type="text"]').forEach(input => {
+            input.disabled = !enabled;
+        });
+        if (!enabled) {
+            card.classList.add('disabled');
+        } else {
+            card.classList.remove('disabled');
+        }
+        checkNewebPayForm();
+    }
+
+    function checkGoogleForm() {
+        const clientID = document.getElementById('googleClientID').value.trim();
+        const clientSecret = document.getElementById('googleClientSecret').value.trim();
+        const btn = document.getElementById('googleSaveBtn');
+        const enabled = document.getElementById('googleEnabled').checked;
+        
+        const hasChanges = clientID !== originalValues.google.clientID || 
+                          clientSecret !== originalValues.google.clientSecret;
+        const hasValues = clientID && clientSecret;
+        
+        btn.disabled = !hasValues || !hasChanges || !enabled;
+    }
+
+    function checkGitHubForm() {
+        const clientID = document.getElementById('githubClientID').value.trim();
+        const clientSecret = document.getElementById('githubClientSecret').value.trim();
+        const btn = document.getElementById('githubSaveBtn');
+        const enabled = document.getElementById('githubEnabled').checked;
+        
+        const hasChanges = clientID !== originalValues.github.clientID || 
+                          clientSecret !== originalValues.github.clientSecret;
+        const hasValues = clientID && clientSecret;
+        
+        btn.disabled = !hasValues || !hasChanges || !enabled;
+    }
+
+    function checkECPayForm() {
+        const merchantID = document.getElementById('ecpayMerchantID').value.trim();
+        const hashKey = document.getElementById('ecpayHashKey').value.trim();
+        const hashIV = document.getElementById('ecpayHashIV').value.trim();
+        const testMode = document.getElementById('ecpayTestMode').checked;
+        const btn = document.getElementById('ecpaySaveBtn');
+        const enabled = document.getElementById('ecpayEnabled').checked;
+        
+        const hasChanges = merchantID !== originalValues.ecpay.merchantID || 
+                          hashKey !== originalValues.ecpay.hashKey || 
+                          hashIV !== originalValues.ecpay.hashIV ||
+                          testMode !== originalValues.ecpay.testMode;
+        const hasValues = merchantID && hashKey && hashIV;
+        
+        btn.disabled = !hasValues || !hasChanges || !enabled;
+    }
+
+    function checkNewebPayForm() {
+        const merchantID = document.getElementById('newebpayMerchantID').value.trim();
+        const hashKey = document.getElementById('newebpayHashKey').value.trim();
+        const hashIV = document.getElementById('newebpayHashIV').value.trim();
+        const testMode = document.getElementById('newebpayTestMode').checked;
+        const btn = document.getElementById('newebpaySaveBtn');
+        const enabled = document.getElementById('newebpayEnabled').checked;
+        
+        const hasChanges = merchantID !== originalValues.newebpay.merchantID || 
+                          hashKey !== originalValues.newebpay.hashKey || 
+                          hashIV !== originalValues.newebpay.hashIV ||
+                          testMode !== originalValues.newebpay.testMode;
+        const hasValues = merchantID && hashKey && hashIV;
+        
+        btn.disabled = !hasValues || !hasChanges || !enabled;
+    }
+
+    async function saveGoogleOAuth(enabled, clientID, clientSecret) {
+        const data = { enabled, client_id: clientID, client_secret: clientSecret };
+        await fetch('/api/admin/oauth/providers/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+    }
+
+    async function saveGitHubOAuth(enabled, clientID, clientSecret) {
+        const data = { enabled, client_id: clientID, client_secret: clientSecret };
+        await fetch('/api/admin/oauth/providers/github', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+    }
+
+    async function saveECPay(enabled, merchantID, hashKey, hashIV, testMode) {
+        const data = { enabled, merchant_id: merchantID, hash_key: hashKey, hash_iv: hashIV, test_mode: testMode };
+        await fetch('/api/admin/payment/gateways/ecpay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+    }
+
+    async function saveNewebPay(enabled, merchantID, hashKey, hashIV, testMode) {
+        const data = { enabled, merchant_id: merchantID, hash_key: hashKey, hash_iv: hashIV, test_mode: testMode };
+        await fetch('/api/admin/payment/gateways/newebpay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+    }
+
     document.getElementById('settingsForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -272,19 +596,38 @@
         });
 
         if (res.ok) {
+            // Update original values
+            for (const key in data) {
+                originalGeneralSettings[key] = data[key];
+            }
             alert('Settings saved!');
+            checkGeneralForm();
         } else {
             alert('Failed to save settings');
         }
     });
 
+    // Add input listeners for general settings
+    function setupGeneralFormListeners() {
+        const form = document.getElementById('settingsForm');
+        if (form) {
+            ['site_title', 'site_description', 'site_language'].forEach(name => {
+                const input = form[name];
+                if (input) {
+                    input.addEventListener('input', checkGeneralForm);
+                    input.addEventListener('change', checkGeneralForm);
+                }
+            });
+        }
+    }
+
     document.getElementById('ecpayForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const data = {
             enabled: document.getElementById('ecpayEnabled').checked,
-            merchant_id: document.getElementById('ecpayMerchantID').value,
-            hash_key: document.getElementById('ecpayHashKey').value,
-            hash_iv: document.getElementById('ecpayHashIV').value,
+            merchant_id: document.getElementById('ecpayMerchantID').value.trim(),
+            hash_key: document.getElementById('ecpayHashKey').value.trim(),
+            hash_iv: document.getElementById('ecpayHashIV').value.trim(),
             test_mode: document.getElementById('ecpayTestMode').checked
         };
 
@@ -295,7 +638,14 @@
         });
 
         if (res.ok) {
+            originalValues.ecpay = {
+                merchantID: data.merchant_id,
+                hashKey: data.hash_key,
+                hashIV: data.hash_iv,
+                testMode: data.test_mode
+            };
             alert('ECPay settings saved!');
+            checkECPayForm();
         } else {
             const err = await res.json();
             alert('Failed to save: ' + (err.error || 'Unknown error'));
@@ -306,9 +656,9 @@
         e.preventDefault();
         const data = {
             enabled: document.getElementById('newebpayEnabled').checked,
-            merchant_id: document.getElementById('newebpayMerchantID').value,
-            hash_key: document.getElementById('newebpayHashKey').value,
-            hash_iv: document.getElementById('newebpayHashIV').value,
+            merchant_id: document.getElementById('newebpayMerchantID').value.trim(),
+            hash_key: document.getElementById('newebpayHashKey').value.trim(),
+            hash_iv: document.getElementById('newebpayHashIV').value.trim(),
             test_mode: document.getElementById('newebpayTestMode').checked
         };
 
@@ -319,14 +669,95 @@
         });
 
         if (res.ok) {
+            originalValues.newebpay = {
+                merchantID: data.merchant_id,
+                hashKey: data.hash_key,
+                hashIV: data.hash_iv,
+                testMode: data.test_mode
+            };
             alert('NewebPay settings saved!');
+            checkNewebPayForm();
         } else {
             const err = await res.json();
             alert('Failed to save: ' + (err.error || 'Unknown error'));
         }
     });
 
-    loadSettings();
+    document.getElementById('googleForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+            enabled: document.getElementById('googleEnabled').checked,
+            client_id: document.getElementById('googleClientID').value.trim(),
+            client_secret: document.getElementById('googleClientSecret').value.trim()
+        };
+
+        const res = await fetch('/api/admin/oauth/providers/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+            originalValues.google = {
+                clientID: data.client_id,
+                clientSecret: data.client_secret
+            };
+            alert('Google OAuth settings saved!');
+            checkGoogleForm();
+        } else {
+            const err = await res.json();
+            alert('Failed to save: ' + (err.error || 'Unknown error'));
+        }
+    });
+
+    document.getElementById('githubForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+            enabled: document.getElementById('githubEnabled').checked,
+            client_id: document.getElementById('githubClientID').value.trim(),
+            client_secret: document.getElementById('githubClientSecret').value.trim()
+        };
+
+        const res = await fetch('/api/admin/oauth/providers/github', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        if (res.ok) {
+            originalValues.github = {
+                clientID: data.client_id,
+                clientSecret: data.client_secret
+            };
+            alert('GitHub OAuth settings saved!');
+            checkGitHubForm();
+        } else {
+            const err = await res.json();
+            alert('Failed to save: ' + (err.error || 'Unknown error'));
+        }
+    });
+
+    // Add input listeners for form validation
+    ['googleClientID', 'googleClientSecret'].forEach(id => {
+        document.getElementById(id).addEventListener('input', checkGoogleForm);
+    });
+    ['githubClientID', 'githubClientSecret'].forEach(id => {
+        document.getElementById(id).addEventListener('input', checkGitHubForm);
+    });
+    ['ecpayMerchantID', 'ecpayHashKey', 'ecpayHashIV'].forEach(id => {
+        document.getElementById(id).addEventListener('input', checkECPayForm);
+    });
+    document.getElementById('ecpayTestMode').addEventListener('change', checkECPayForm);
+    ['newebpayMerchantID', 'newebpayHashKey', 'newebpayHashIV'].forEach(id => {
+        document.getElementById(id).addEventListener('input', checkNewebPayForm);
+    });
+    document.getElementById('newebpayTestMode').addEventListener('change', checkNewebPayForm);
+
+    // Setup listeners after forms are loaded
+    loadSettings().then(() => {
+        setupGeneralFormListeners();
+    });
+    loadOAuthSettings();
     loadPaymentSettings();
 </script>
 {{end}}

@@ -1,6 +1,29 @@
 {
-    "name": "default",
+    "name": "Jelly",
     "version": "1.0.0",
     "description": "Default Jelly CMS Theme",
-    "author": "Jelly Team"
+    "author": "Jelly Team",
+    "colors": {
+        "primary": "#FF6B6B",
+        "secondary": "#4ECDC4",
+        "background": "#F7F9FC",
+        "text": "#333",
+        "text_muted": "#666",
+        "accent": "#FF6B6B",
+        "link": "#4ECDC4",
+        "link_hover": "#FF6B6B",
+        "border": "#e0e0e0",
+        "dark": "#2C3E50",
+        "success": "#28a745",
+        "warning": "#ffc107",
+        "error": "#dc3545"
+    },
+    "layout": {
+        "header_style": "sticky",
+        "sidebar": false,
+        "sidebar_position": "left",
+        "footer": true,
+        "container_width": "wide",
+        "post_layout": "grid"
+    }
 }

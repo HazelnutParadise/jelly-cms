@@ -6,6 +6,8 @@ import (
 	"text/template"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
+	"github.com/HazelnutParadise/jelly-cms/internal/core"
+	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/install"
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
@@ -187,6 +189,30 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 
 	e.GET("/login", func(c echo.Context) error {
 		return c.File("web/admin/login.html")
+	})
+
+	// Public OAuth status endpoint (for login page)
+	e.GET("/api/oauth/status", func(c echo.Context) error {
+		result := make(map[string]bool)
+
+		if data.DB != nil {
+			var opt core.Option
+			if err := data.DB.Where("key = ?", "oauth_google_enabled").First(&opt).Error; err == nil {
+				result["google"] = opt.Value == "true"
+			} else {
+				result["google"] = false
+			}
+			if err := data.DB.Where("key = ?", "oauth_github_enabled").First(&opt).Error; err == nil {
+				result["github"] = opt.Value == "true"
+			} else {
+				result["github"] = false
+			}
+		} else {
+			result["google"] = false
+			result["github"] = false
+		}
+
+		return c.JSON(http.StatusOK, result)
 	})
 
 	// Public Routes (Catch-all should be last)

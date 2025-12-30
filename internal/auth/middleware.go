@@ -2,6 +2,7 @@ package auth
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/labstack/echo/v4"
@@ -12,7 +13,17 @@ func RequireAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		user, err := GetCurrentUser(c)
 		if err != nil {
-			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+			// Check if this is an API request
+			if c.Request().Header.Get("Accept") == "application/json" || 
+			   c.Request().Header.Get("Content-Type") == "application/json" {
+				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+			}
+			// For web requests, redirect to login with return URL
+			returnURL := c.Request().URL.Path
+			if c.Request().URL.RawQuery != "" {
+				returnURL += "?" + c.Request().URL.RawQuery
+			}
+			return c.Redirect(http.StatusFound, "/login?redirect="+url.QueryEscape(returnURL))
 		}
 		c.Set("user", user)
 		return next(c)

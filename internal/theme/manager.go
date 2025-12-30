@@ -60,12 +60,46 @@ func (m *Manager) GetActive() string {
 }
 
 func (m *Manager) Render(templateName string, data interface{}) ([]byte, error) {
+	return m.RenderWithDB(templateName, data, nil)
+}
+
+// RenderWithDB renders a template with theme settings injected from database
+func (m *Manager) RenderWithDB(templateName string, data interface{}, db interface {
+	First(dest interface{}, conds ...interface{}) *gorm.DB
+}) ([]byte, error) {
 	m.mu.RLock()
 	active := m.activeTheme
 	m.mu.RUnlock()
 
 	if active == "" {
 		return nil, fmt.Errorf("no active theme")
+	}
+
+	// Inject theme settings into data
+	if db != nil {
+		settings, err := m.GetSettings(active, db)
+		if err == nil && settings != nil {
+			// Parse settings and inject into data map
+			if dataMap, ok := data.(map[string]interface{}); ok {
+				var colors map[string]string
+				var layout map[string]interface{}
+				var custom map[string]interface{}
+
+				if len(settings.Colors) > 0 {
+					json.Unmarshal(settings.Colors, &colors)
+				}
+				if len(settings.Layout) > 0 {
+					json.Unmarshal(settings.Layout, &layout)
+				}
+				if len(settings.Custom) > 0 {
+					json.Unmarshal(settings.Custom, &custom)
+				}
+
+				dataMap["ThemeColors"] = colors
+				dataMap["ThemeLayout"] = layout
+				dataMap["ThemeCustom"] = custom
+			}
+		}
 	}
 
 	// Check cache
@@ -98,6 +132,24 @@ func (m *Manager) Render(templateName string, data interface{}) ([]byte, error) 
 			"sub": func(a, b int) int {
 				return a - b
 			},
+			"themeColor": func(colors map[string]string, key string, defaultValue string) string {
+				if colors == nil {
+					return defaultValue
+				}
+				if val, ok := colors[key]; ok && val != "" {
+					return val
+				}
+				return defaultValue
+			},
+			"themeLayout": func(layout map[string]interface{}, key string, defaultValue interface{}) interface{} {
+				if layout == nil {
+					return defaultValue
+				}
+				if val, ok := layout[key]; ok {
+					return val
+				}
+				return defaultValue
+			},
 		}
 
 		var err error
@@ -116,9 +168,6 @@ func (m *Manager) Render(templateName string, data interface{}) ([]byte, error) 
 		m.cache[templateName] = tmpl
 		m.mu.Unlock()
 	}
-
-	// Theme settings will be injected by the handler
-	// This allows templates to access theme colors and layout settings
 
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "layout", data); err != nil {

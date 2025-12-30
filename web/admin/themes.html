@@ -173,9 +173,34 @@
             display: flex; align-items: center; justify-content: center;
         `;
         
-        const colors = settings?.colors ? JSON.parse(settings.colors) : (config.colors || {});
-        const layout = settings?.layout ? JSON.parse(settings.layout) : (config.layout || {});
-        const custom = settings?.custom ? JSON.parse(settings.custom) : {};
+        // Parse settings - they might be strings or objects
+        let colors = config.colors || {};
+        let layout = config.layout || {};
+        let custom = {};
+        
+        if (settings) {
+            if (settings.colors) {
+                try {
+                    colors = typeof settings.colors === 'string' ? JSON.parse(settings.colors) : settings.colors;
+                } catch (e) {
+                    console.error('Failed to parse colors:', e);
+                }
+            }
+            if (settings.layout) {
+                try {
+                    layout = typeof settings.layout === 'string' ? JSON.parse(settings.layout) : settings.layout;
+                } catch (e) {
+                    console.error('Failed to parse layout:', e);
+                }
+            }
+            if (settings.custom) {
+                try {
+                    custom = typeof settings.custom === 'string' ? JSON.parse(settings.custom) : settings.custom;
+                } catch (e) {
+                    console.error('Failed to parse custom:', e);
+                }
+            }
+        }
         
         modal.innerHTML = `
             <div style="background: white; padding: 2rem; border-radius: 12px; max-width: 600px; max-height: 90vh; overflow-y: auto; width: 90%;">
@@ -199,6 +224,19 @@
         
         document.body.appendChild(modal);
         
+        // Sync color picker and text input
+        setTimeout(() => {
+            const colorInputs = modal.querySelectorAll('input[type="color"]');
+            colorInputs.forEach(colorInput => {
+                const textInput = modal.querySelector(`input[name="${colorInput.name}_text"]`);
+                if (textInput) {
+                    colorInput.addEventListener('input', () => {
+                        textInput.value = colorInput.value;
+                    });
+                }
+            });
+        }, 100);
+        
         document.getElementById('customizeForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             await saveThemeCustomization();
@@ -206,13 +244,31 @@
     }
 
     function generateColorFields(current, defaults) {
-        const fields = ['primary', 'secondary', 'background', 'text', 'accent', 'link', 'link_hover', 'border', 'success', 'warning', 'error'];
+        const fields = [
+            {key: 'primary', label: 'Primary Color'},
+            {key: 'secondary', label: 'Secondary Color'},
+            {key: 'background', label: 'Background Color'},
+            {key: 'text', label: 'Text Color'},
+            {key: 'accent', label: 'Accent Color'},
+            {key: 'link', label: 'Link Color'},
+            {key: 'link_hover', label: 'Link Hover Color'},
+            {key: 'border', label: 'Border Color'},
+            {key: 'success', label: 'Success Color'},
+            {key: 'warning', label: 'Warning Color'},
+            {key: 'error', label: 'Error Color'}
+        ];
         return fields.map(field => {
-            const value = current[field] || defaults?.[field] || '#000000';
+            const value = current[field.key] || defaults?.[field.key] || '#000000';
             return `
-                <div class="form-group">
-                    <label>${field.charAt(0).toUpperCase() + field.slice(1).replace('_', ' ')}</label>
-                    <input type="color" name="color_${field}" value="${value}" style="width: 100px; height: 40px;">
+                <div class="form-group" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                    <label style="min-width: 150px; margin-bottom: 0;">${field.label}</label>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+                        <input type="color" name="color_${field.key}" value="${value}" 
+                               style="width: 60px; height: 40px; border: 2px solid #ddd; border-radius: 6px; cursor: pointer;">
+                        <input type="text" name="color_${field.key}_text" value="${value}" 
+                               style="flex: 1; padding: 0.5rem; border: 2px solid #ddd; border-radius: 6px; font-family: monospace;"
+                               onchange="document.querySelector('input[name=\\'color_${field.key}\\']').value = this.value">
+                    </div>
                 </div>
             `;
         }).join('');
@@ -295,7 +351,7 @@
         const custom = {};
         
         for (const [key, value] of formData.entries()) {
-            if (key.startsWith('color_')) {
+            if (key.startsWith('color_') && !key.endsWith('_text')) {
                 colors[key.replace('color_', '')] = value;
             } else if (key.startsWith('layout_')) {
                 const fieldId = key.replace('layout_', '');

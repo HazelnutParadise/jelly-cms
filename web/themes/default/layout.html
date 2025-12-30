@@ -8,13 +8,19 @@
     <title>{{if .Title}}{{.Title}} - {{end}}{{.SiteTitle}}</title>
     <style>
         :root {
-            --primary: #FF6B6B;
-            --secondary: #4ECDC4;
-            --dark: #2C3E50;
-            --light: #F7F9FC;
-            --text-main: #333;
-            --text-muted: #666;
-            --border: #e0e0e0;
+            --primary: {{themeColor .ThemeColors "primary" "#FF6B6B"}};
+            --secondary: {{themeColor .ThemeColors "secondary" "#4ECDC4"}};
+            --dark: {{themeColor .ThemeColors "dark" "#2C3E50"}};
+            --light: {{themeColor .ThemeColors "background" "#F7F9FC"}};
+            --text-main: {{themeColor .ThemeColors "text" "#333"}};
+            --text-muted: {{themeColor .ThemeColors "text_muted" "#666"}};
+            --border: {{themeColor .ThemeColors "border" "#e0e0e0"}};
+            --accent: {{themeColor .ThemeColors "accent" "#FF6B6B"}};
+            --link: {{themeColor .ThemeColors "link" "#4ECDC4"}};
+            --link-hover: {{themeColor .ThemeColors "link_hover" "#FF6B6B"}};
+            --success: {{themeColor .ThemeColors "success" "#28a745"}};
+            --warning: {{themeColor .ThemeColors "warning" "#ffc107"}};
+            --error: {{themeColor .ThemeColors "error" "#dc3545"}};
         }
 
         * {
@@ -33,7 +39,8 @@
         header {
             background: white;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            position: sticky;
+            {{$headerStyle := themeLayout .ThemeLayout "header_style" "sticky"}}
+            position: {{if eq $headerStyle "fixed"}}fixed{{else if eq $headerStyle "sticky"}}sticky{{else}}static{{end}};
             top: 0;
             z-index: 100;
         }
@@ -92,7 +99,8 @@
         }
 
         main {
-            max-width: 1200px;
+            {{$containerWidth := themeLayout .ThemeLayout "container_width" "wide"}}
+            max-width: {{if eq $containerWidth "full"}}100%{{else if eq $containerWidth "narrow"}}800px{{else}}1200px{{end}};
             margin: 0 auto;
             padding: 2rem;
             min-height: calc(100vh - 200px);
@@ -119,7 +127,8 @@
         }
 
         .posts-grid {
-            display: grid;
+            {{$postLayout := themeLayout .ThemeLayout "post_layout" "grid"}}
+            display: {{if or (eq $postLayout "list") (eq $postLayout "single")}}block{{else}}grid{{end}};
             grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 2rem;
             margin: 2rem 0;
@@ -130,6 +139,7 @@
             padding: 1.5rem;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: 1px solid var(--border);
             transition: transform 0.3s, box-shadow 0.3s;
         }
 
@@ -213,6 +223,7 @@
             padding: 2rem;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: 1px solid var(--border);
         }
 
         .post-header {
@@ -281,11 +292,13 @@
             color: white;
             text-decoration: none;
             border-radius: 8px;
-            transition: background 0.3s;
+            transition: background 0.3s, transform 0.2s;
         }
 
         .btn-primary:hover {
-            background: #ff5252;
+            background: var(--link-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
 
         .search-header {
@@ -298,6 +311,8 @@
         }
 
         footer {
+            {{$footer := themeLayout .ThemeLayout "footer" true}}
+            {{if eq $footer false}}display: none;{{end}}
             background: var(--dark);
             color: white;
             text-align: center;

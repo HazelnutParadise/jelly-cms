@@ -37,10 +37,53 @@ func Init() {
 	}
 	jwtSecret = []byte(jwtSecretStr)
 
-	goth.UseProviders(
-		github.New(os.Getenv("GITHUB_KEY"), os.Getenv("GITHUB_SECRET"), os.Getenv("APP_URL")+"/auth/github/callback"),
-		google.New(os.Getenv("GOOGLE_KEY"), os.Getenv("GOOGLE_SECRET"), os.Getenv("APP_URL")+"/auth/google/callback"),
-	)
+	// Load OAuth providers from database
+	ReloadOAuthProviders()
+}
+
+// ReloadOAuthProviders reloads OAuth provider configurations from database
+func ReloadOAuthProviders() {
+	// Clear existing providers
+	goth.ClearProviders()
+
+	// Get app URL
+	appURL := os.Getenv("APP_URL")
+	if appURL == "" {
+		appURL = "http://localhost:8080"
+	}
+
+	// Load from database if available
+	if data.DB != nil {
+		var opt core.Option
+
+		// Google OAuth
+		if err := data.DB.Where("key = ?", "oauth_google_enabled").First(&opt).Error; err == nil && opt.Value == "true" {
+			var clientID, clientSecret string
+			if err := data.DB.Where("key = ?", "oauth_google_client_id").First(&opt).Error; err == nil {
+				clientID = opt.Value
+			}
+			if err := data.DB.Where("key = ?", "oauth_google_client_secret").First(&opt).Error; err == nil {
+				clientSecret = opt.Value
+			}
+			if clientID != "" && clientSecret != "" {
+				goth.UseProviders(google.New(clientID, clientSecret, appURL+"/auth/google/callback"))
+			}
+		}
+
+		// GitHub OAuth
+		if err := data.DB.Where("key = ?", "oauth_github_enabled").First(&opt).Error; err == nil && opt.Value == "true" {
+			var clientID, clientSecret string
+			if err := data.DB.Where("key = ?", "oauth_github_client_id").First(&opt).Error; err == nil {
+				clientID = opt.Value
+			}
+			if err := data.DB.Where("key = ?", "oauth_github_client_secret").First(&opt).Error; err == nil {
+				clientSecret = opt.Value
+			}
+			if clientID != "" && clientSecret != "" {
+				goth.UseProviders(github.New(clientID, clientSecret, appURL+"/auth/github/callback"))
+			}
+		}
+	}
 }
 
 // GetSession retrieves the session for the current request
@@ -210,14 +253,31 @@ func HandleLocalLogin(c echo.Context) error {
 		})
 	}
 
-	// Redirect to admin dashboard
-	return c.Redirect(http.StatusFound, "/admin")
+	// Get redirect URL from query parameter or default to admin
+	redirectURL := c.QueryParam("redirect")
+	if redirectURL == "" {
+		redirectURL = "/admin"
+	}
+
+	// Redirect to stored URL or admin dashboard
+	return c.Redirect(http.StatusFound, redirectURL)
 }
 
 func HandleAuth(c echo.Context) error {
 	provider := c.Param("provider")
 	if provider == "" {
 		return c.String(http.StatusBadRequest, "Provider not specified")
+	}
+
+	// Store redirect URL in session
+	redirectURL := c.QueryParam("redirect")
+	if redirectURL == "" {
+		redirectURL = "/admin"
+	}
+	session, err := GetSession(c)
+	if err == nil {
+		session.Values["oauth_redirect"] = redirectURL
+		session.Save(c.Request(), c.Response())
 	}
 
 	// Hack to make gothic work with Echo
@@ -294,8 +354,19 @@ func HandleCallback(c echo.Context) error {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	// Redirect to admin dashboard
-	return c.Redirect(http.StatusFound, "/admin")
+	// Get redirect URL from session
+	redirectURL := "/admin"
+	session, err := GetSession(c)
+	if err == nil {
+		if storedRedirect, ok := session.Values["oauth_redirect"].(string); ok && storedRedirect != "" {
+			redirectURL = storedRedirect
+			delete(session.Values, "oauth_redirect")
+			session.Save(c.Request(), c.Response())
+		}
+	}
+
+	// Redirect to stored URL or admin dashboard
+	return c.Redirect(http.StatusFound, redirectURL)
 }
 
 // HandleLogout handles user logout

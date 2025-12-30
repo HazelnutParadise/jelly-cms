@@ -1,12 +1,15 @@
 package server
 
 import (
+	"archive/zip"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
@@ -222,6 +225,17 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 		if err := tm.Activate(req.Name); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
+
+		// Save active theme to database
+		var opt core.Option
+		result := data.DB.Where("key = ?", "active_theme").First(&opt)
+		if result.Error != nil {
+			opt = core.Option{Key: "active_theme", Value: req.Name}
+		} else {
+			opt.Value = req.Name
+		}
+		data.DB.Save(&opt)
+
 		return c.JSON(http.StatusOK, map[string]string{"message": "Theme activated"})
 	})
 
@@ -339,6 +353,120 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 		return c.JSON(http.StatusOK, plugins)
 	})
 
+	// Upload plugin
+	api.POST("/plugins/upload", func(c echo.Context) error {
+		file, err := c.FormFile("plugin")
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "No file uploaded"})
+		}
+
+		// Check file extension
+		if !strings.HasSuffix(strings.ToLower(file.Filename), ".zip") {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Only ZIP files are supported"})
+		}
+
+		// Open uploaded file
+		src, err := file.Open()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to open uploaded file"})
+		}
+		defer src.Close()
+
+		// Create temporary file
+		tmpPath := filepath.Join(os.TempDir(), file.Filename)
+		dst, err := os.Create(tmpPath)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create temporary file"})
+		}
+		defer dst.Close()
+		defer os.Remove(tmpPath) // Clean up temp file
+
+		// Copy uploaded file to temp
+		if _, err = io.Copy(dst, src); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save uploaded file"})
+		}
+		dst.Close()
+
+		// Extract ZIP file
+		pluginsDir := "data/plugins"
+		os.MkdirAll(pluginsDir, 0755)
+
+		// Use archive/zip to extract
+		r, err := zip.OpenReader(tmpPath)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ZIP file: " + err.Error()})
+		}
+		defer r.Close()
+
+		// Find plugin.json to determine plugin directory name
+		var pluginID string
+		var pluginJSONFound bool
+		for _, f := range r.File {
+			if f.Name == "plugin.json" || strings.HasSuffix(f.Name, "/plugin.json") {
+				// Read plugin.json to get plugin ID
+				rc, err := f.Open()
+				if err != nil {
+					continue
+				}
+				var meta plugin.PluginMetadata
+				if json.NewDecoder(rc).Decode(&meta) == nil {
+					pluginID = meta.ID
+					pluginJSONFound = true
+				}
+				rc.Close()
+				break
+			}
+		}
+
+		if !pluginJSONFound {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin.json not found in ZIP file"})
+		}
+
+		if pluginID == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid plugin.json: ID field is required"})
+		}
+
+		// Extract to plugin directory
+		pluginDir := filepath.Join(pluginsDir, pluginID)
+		os.MkdirAll(pluginDir, 0755)
+
+		for _, f := range r.File {
+			// Skip directories and hidden files
+			if f.FileInfo().IsDir() || strings.HasPrefix(f.Name, ".") || strings.Contains(f.Name, "..") {
+				continue
+			}
+
+			// Get relative path from ZIP root
+			relPath := f.Name
+			if idx := strings.Index(relPath, "/"); idx >= 0 {
+				relPath = relPath[idx+1:]
+			}
+			if relPath == "" {
+				continue
+			}
+
+			destPath := filepath.Join(pluginDir, relPath)
+			os.MkdirAll(filepath.Dir(destPath), 0755)
+
+			rc, err := f.Open()
+			if err != nil {
+				continue
+			}
+
+			dstFile, err := os.Create(destPath)
+			if err != nil {
+				rc.Close()
+				continue
+			}
+
+			io.Copy(dstFile, rc)
+			rc.Close()
+			dstFile.Close()
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "Plugin uploaded and extracted successfully", "plugin_id": pluginID})
+	})
+
 	// Reload plugin
 	api.POST("/plugins/:id/reload", func(c echo.Context) error {
 		_ = c.Param("id")
@@ -436,5 +564,123 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 		// The service is initialized in main.go and will reload configs when needed
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "NewebPay configuration saved"})
+	})
+
+	// OAuth Provider Settings
+	api.GET("/oauth/providers", func(c echo.Context) error {
+		result := make(map[string]interface{})
+
+		// Google OAuth config
+		var opt core.Option
+		googleEnabled := false
+		if err := data.DB.Where("key = ?", "oauth_google_enabled").First(&opt).Error; err == nil {
+			googleEnabled = opt.Value == "true"
+		}
+
+		googleConfig := make(map[string]string)
+		if googleEnabled {
+			keys := []string{"oauth_google_client_id", "oauth_google_client_secret"}
+			for _, key := range keys {
+				if err := data.DB.Where("key = ?", key).First(&opt).Error; err == nil {
+					googleConfig[key] = opt.Value
+				}
+			}
+		}
+		result["google"] = map[string]interface{}{
+			"enabled": googleEnabled,
+			"config":  googleConfig,
+		}
+
+		// GitHub OAuth config
+		githubEnabled := false
+		if err := data.DB.Where("key = ?", "oauth_github_enabled").First(&opt).Error; err == nil {
+			githubEnabled = opt.Value == "true"
+		}
+
+		githubConfig := make(map[string]string)
+		if githubEnabled {
+			keys := []string{"oauth_github_client_id", "oauth_github_client_secret"}
+			for _, key := range keys {
+				if err := data.DB.Where("key = ?", key).First(&opt).Error; err == nil {
+					githubConfig[key] = opt.Value
+				}
+			}
+		}
+		result["github"] = map[string]interface{}{
+			"enabled": githubEnabled,
+			"config":  githubConfig,
+		}
+
+		return c.JSON(http.StatusOK, result)
+	})
+
+	api.POST("/oauth/providers/google", func(c echo.Context) error {
+		var req struct {
+			Enabled      bool   `json:"enabled"`
+			ClientID     string `json:"client_id"`
+			ClientSecret string `json:"client_secret"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		}
+
+		settings := map[string]string{
+			"oauth_google_enabled":       fmt.Sprintf("%v", req.Enabled),
+			"oauth_google_client_id":     req.ClientID,
+			"oauth_google_client_secret": req.ClientSecret,
+		}
+
+		for k, v := range settings {
+			var opt core.Option
+			result := data.DB.Where("key = ?", k).First(&opt)
+			if result.Error != nil {
+				opt = core.Option{Key: k, Value: v}
+			} else {
+				opt.Value = v
+			}
+			if err := data.DB.Save(&opt).Error; err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+		}
+
+		// Reload OAuth providers
+		auth.ReloadOAuthProviders()
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "Google OAuth configuration saved"})
+	})
+
+	api.POST("/oauth/providers/github", func(c echo.Context) error {
+		var req struct {
+			Enabled      bool   `json:"enabled"`
+			ClientID     string `json:"client_id"`
+			ClientSecret string `json:"client_secret"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+		}
+
+		settings := map[string]string{
+			"oauth_github_enabled":       fmt.Sprintf("%v", req.Enabled),
+			"oauth_github_client_id":     req.ClientID,
+			"oauth_github_client_secret": req.ClientSecret,
+		}
+
+		for k, v := range settings {
+			var opt core.Option
+			result := data.DB.Where("key = ?", k).First(&opt)
+			if result.Error != nil {
+				opt = core.Option{Key: k, Value: v}
+			} else {
+				opt.Value = v
+			}
+			if err := data.DB.Save(&opt).Error; err != nil {
+				return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			}
+		}
+
+		// Reload OAuth providers
+		auth.ReloadOAuthProviders()
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "GitHub OAuth configuration saved"})
 	})
 }

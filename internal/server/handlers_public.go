@@ -10,12 +10,14 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
+
+	datapkg "github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/labstack/echo/v4"
 )
 
 func getSiteTitle() string {
 	var option core.Option
-	if err := data.DB.Where("key = ?", "site_title").First(&option).Error; err == nil {
+	if err := datapkg.DB.Where("key = ?", "site_title").First(&option).Error; err == nil {
 		return option.Value
 	}
 	return "Jelly CMS"
@@ -25,7 +27,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 	// Home page - show latest posts
 	e.GET("/", func(c echo.Context) error {
 		var posts []core.Post
-		data.DB.Where("type = ? AND status = ?", "post", "published").
+		datapkg.DB.Where("type = ? AND status = ?", "post", "published").
 			Preload("Author").
 			Order("created_at DESC").
 			Limit(10).
@@ -38,7 +40,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 			"IsHome":    true,
 		}
 
-		html, err := tm.Render("index.html", data)
+		html, err := tm.RenderWithDB("index.html", data, datapkg.DB)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, err.Error())
 		}
@@ -56,13 +58,13 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 
 		var posts []core.Post
 		var total int64
-		data.DB.Where("type = ? AND status = ?", "post", "published").
+		datapkg.DB.Where("type = ? AND status = ?", "post", "published").
 			Preload("Author").
 			Order("created_at DESC").
 			Limit(pageSize).
 			Offset(offset).
 			Find(&posts)
-		data.DB.Model(&core.Post{}).Where("type = ? AND status = ?", "post", "published").Count(&total)
+		datapkg.DB.Model(&core.Post{}).Where("type = ? AND status = ?", "post", "published").Count(&total)
 
 		totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
 
@@ -75,10 +77,10 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 			"IsPosts":    true,
 		}
 
-		html, err := tm.Render("posts.html", data)
+		html, err := tm.RenderWithDB("posts.html", data, datapkg.DB)
 		if err != nil {
 			// Fallback to index if posts.html doesn't exist
-			html, err = tm.Render("index.html", data)
+			html, err = tm.RenderWithDB("index.html", data, datapkg.DB)
 			if err != nil {
 				return c.String(http.StatusInternalServerError, err.Error())
 			}
@@ -90,7 +92,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 	e.GET("/post/:slug", func(c echo.Context) error {
 		slug := c.Param("slug")
 		var post core.Post
-		if err := data.DB.Where("slug = ? AND type = ? AND status = ?", slug, "post", "published").
+		if err := datapkg.DB.Where("slug = ? AND type = ? AND status = ?", slug, "post", "published").
 			Preload("Author").
 			First(&post).Error; err != nil {
 			return c.String(http.StatusNotFound, "Post not found")
@@ -103,11 +105,11 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 			"IsPost":    true,
 		}
 
-		html, err := tm.Render("post.html", data)
+		html, err := tm.RenderWithDB("post.html", data, datapkg.DB)
 		if err != nil {
 			// Fallback to index if post.html doesn't exist
 			data["Content"] = template.HTML(post.Content)
-			html, err = tm.Render("index.html", data)
+			html, err = tm.RenderWithDB("index.html", data, datapkg.DB)
 			if err != nil {
 				return c.String(http.StatusInternalServerError, err.Error())
 			}
@@ -118,7 +120,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 	// About page
 	e.GET("/about", func(c echo.Context) error {
 		var page core.Post
-		if err := data.DB.Where("slug = ? AND type = ? AND status = ?", "about", "page", "published").First(&page).Error; err != nil {
+		if err := datapkg.DB.Where("slug = ? AND type = ? AND status = ?", "about", "page", "published").First(&page).Error; err != nil {
 			// Create default about page if not exists
 			page = core.Post{
 				Title:   "關於我們",
@@ -137,10 +139,10 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		}
 
 		// Try to render page.html first
-		html, err := tm.Render("page.html", data)
+		html, err := tm.RenderWithDB("page.html", data, datapkg.DB)
 		if err != nil {
 			// If page.html doesn't exist or fails, try index.html
-			html, err = tm.Render("index.html", data)
+			html, err = tm.RenderWithDB("index.html", data, datapkg.DB)
 			if err != nil {
 				// If both fail, return error with details
 				return c.String(http.StatusInternalServerError, "Template render error: "+err.Error())
@@ -170,9 +172,9 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 			"IsSearch":  true,
 		}
 
-		html, err := tm.Render("search.html", data)
+		html, err := tm.RenderWithDB("search.html", data, datapkg.DB)
 		if err != nil {
-			html, err = tm.Render("index.html", data)
+			html, err = tm.RenderWithDB("index.html", data, datapkg.DB)
 			if err != nil {
 				return c.String(http.StatusInternalServerError, err.Error())
 			}
@@ -235,7 +237,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		}
 
 		var post core.Post
-		if err := data.DB.Where("slug = ? AND status = ?", slug, "published").First(&post).Error; err != nil {
+		if err := datapkg.DB.Where("slug = ? AND status = ?", slug, "published").First(&post).Error; err != nil {
 			return c.String(http.StatusNotFound, "Page not found")
 		}
 
@@ -246,9 +248,9 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 			"IsPage":    true,
 		}
 
-		html, err := tm.Render("page.html", data)
+		html, err := tm.RenderWithDB("page.html", data, datapkg.DB)
 		if err != nil {
-			html, err = tm.Render("index.html", data)
+			html, err = tm.RenderWithDB("index.html", data, datapkg.DB)
 			if err != nil {
 				return c.String(http.StatusInternalServerError, err.Error())
 			}
