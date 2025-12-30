@@ -1,4 +1,4 @@
-{{define "title"}}Plugins{{end}}
+{{define "title"}}{{.T.plugins}}{{end}}
 {{define "styles"}}
 <style>
     .plugins-grid {
@@ -7,14 +7,17 @@
         gap: 1.5rem;
     }
     .plugin-card {
-        border: 2px solid #e0e0e0;
+        background: white;
+        border: 1px solid var(--border-color);
         border-radius: var(--radius);
         padding: 1.5rem;
-        transition: all 0.3s;
+        transition: all 0.2s;
+        box-shadow: var(--shadow);
     }
     .plugin-card:hover {
-        border-color: var(--primary);
-        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.2);
+        border-color: var(--secondary);
+        box-shadow: var(--shadow-lg);
+        transform: translateY(-2px);
     }
     .plugin-header {
         display: flex;
@@ -24,49 +27,131 @@
     }
     .plugin-header h3 {
         margin: 0;
+        font-size: 1.125rem;
+        font-weight: 600;
     }
     .plugin-badge {
-        padding: 0.2rem 0.6rem;
+        padding: 0.25rem 0.75rem;
         border-radius: 12px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        background: #28a745;
-        color: white;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        background: #d1fae5;
+        color: #065f46;
     }
     .plugin-info {
         color: var(--text-muted);
-        font-size: 0.9rem;
-        margin: 0.5rem 0;
+        font-size: 0.9375rem;
+        margin: 0.75rem 0;
+        line-height: 1.6;
+    }
+    .plugin-meta {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--border-color);
+    }
+    .plugin-meta-item {
+        margin-bottom: 0.5rem;
+    }
+    .plugin-meta-item strong {
+        color: var(--text-main);
+        font-weight: 500;
     }
     .plugin-actions {
         display: flex;
         gap: 0.5rem;
         margin-top: 1rem;
     }
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+    .empty-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.3;
+    }
+    .empty-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 0.75rem;
+    }
+    .empty-description {
+        color: var(--text-muted);
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+    }
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    .modal-content {
+        background: white;
+        padding: 2rem;
+        border-radius: var(--radius);
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    .modal-header {
+        margin-bottom: 1.5rem;
+    }
+    .modal-header h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+    .modal-footer {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
 </style>
 {{end}}
 {{define "content"}}
-<div class="header">
-    <h1>Plugins</h1>
-    <button class="btn" onclick="document.getElementById('uploadModal').style.display='flex'">📦 Upload Plugin</button>
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.plugins}}</h1>
+        <p class="page-description">{{.T.noPluginsDesc}}</p>
+    </div>
+    <button class="btn" onclick="document.getElementById('uploadModal').style.display='flex'">
+        📦 {{.T.uploadPlugin}}
+    </button>
 </div>
-<div id="pluginsList" class="plugins-grid">Loading...</div>
+
+<div class="card">
+    <div id="pluginsList">
+        <div style="text-align: center; padding: 2rem; color: var(--text-muted);">{{.T.loading}}</div>
+    </div>
+</div>
 
 <!-- Upload Modal -->
-<div id="uploadModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
-    <div style="background: white; padding: 2rem; border-radius: 12px; max-width: 500px; width: 90%;">
-        <h2 style="margin-top: 0;">Upload Plugin</h2>
+<div id="uploadModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>{{.T.uploadPluginTitle}}</h2>
+        </div>
         <form id="uploadForm" enctype="multipart/form-data">
             <div class="form-group">
-                <label>Plugin ZIP File</label>
+                <label>{{.T.pluginZipFile}}</label>
                 <input type="file" name="plugin" accept=".zip" required style="padding: 0.5rem;">
                 <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;">
-                    Upload a ZIP file containing your plugin files (must include plugin.json)
+                    {{.T.pluginZipDesc}}
                 </small>
             </div>
-            <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
-                <button type="submit" class="btn">Upload</button>
-                <button type="button" class="btn btn-secondary" onclick="document.getElementById('uploadModal').style.display='none'">Cancel</button>
+            <div class="modal-footer">
+                <button type="submit" class="btn">{{.T.upload}}</button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('uploadModal').style.display='none'">{{.T.cancel}}</button>
             </div>
         </form>
         <div id="uploadStatus" style="margin-top: 1rem;"></div>
@@ -75,22 +160,43 @@
 {{end}}
 {{define "scripts"}}
 <script>
+    const T = {
+        noPlugins: "{{.T.noPlugins}}",
+        noPluginsDesc: "{{.T.noPluginsDesc}}",
+        uploadPlugin: "{{.T.uploadPlugin}}",
+        reload: "{{.T.reload}}",
+        reloadConfirm: "{{.T.reloadConfirm}}",
+        pluginReloaded: "{{.T.pluginReloaded}}",
+        reloadFailed: "{{.T.reloadFailed}}",
+        uploading: "{{.T.uploading}}",
+        uploadSuccess: "{{.T.uploadSuccess}}",
+        uploadError: "{{.T.uploadError}}"
+    };
+
     async function loadPlugins() {
         const container = document.getElementById('pluginsList');
         
         try {
             const res = await fetch('/api/admin/plugins');
-            if (!res.ok) {
-                throw new Error('Failed to load plugins');
-            }
+            if (!res.ok) throw new Error('Failed to load plugins');
+            
             const plugins = await res.json();
             container.innerHTML = '';
 
             if (!plugins || plugins.length === 0) {
-                container.innerHTML = '<div class="card"><p>No plugins installed. Place your plugins in <code>data/plugins/</code> directory.</p></div>';
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔌</div>
+                        <div class="empty-title">${T.noPlugins}</div>
+                        <div class="empty-description">${T.noPluginsDesc}</div>
+                    </div>
+                `;
                 return;
             }
 
+            const grid = document.createElement('div');
+            grid.className = 'plugins-grid';
+            
             plugins.forEach(plugin => {
                 const div = document.createElement('div');
                 div.className = 'plugin-card';
@@ -100,21 +206,29 @@
                         <span class="plugin-badge">Active</span>
                     </div>
                     <p class="plugin-info">${escapeHtml(plugin.description || 'No description available')}</p>
-                    <div class="plugin-info">
-                        <strong>ID:</strong> ${escapeHtml(plugin.id)}<br>
-                        <strong>Version:</strong> ${escapeHtml(plugin.version || '1.0.0')}<br>
-                        <strong>Author:</strong> ${escapeHtml(plugin.author || 'Unknown')}
+                    <div class="plugin-meta">
+                        <div class="plugin-meta-item"><strong>ID:</strong> ${escapeHtml(plugin.id)}</div>
+                        <div class="plugin-meta-item"><strong>Version:</strong> ${escapeHtml(plugin.version || '1.0.0')}</div>
+                        <div class="plugin-meta-item"><strong>Author:</strong> ${escapeHtml(plugin.author || 'Unknown')}</div>
                     </div>
                     <div class="plugin-actions">
-                        <button class="btn btn-sm" onclick="reloadPlugin('${escapeHtml(plugin.id)}')" style="background: #17a2b8;">
-                            Reload
+                        <button class="btn btn-sm btn-secondary" onclick="reloadPlugin('${escapeHtml(plugin.id)}')">
+                            ${T.reload}
                         </button>
                     </div>
                 `;
-                container.appendChild(div);
+                grid.appendChild(div);
             });
+            
+            container.appendChild(grid);
         } catch (err) {
-            container.innerHTML = '<div class="card"><p style="color: #dc3545;">Error loading plugins: ' + escapeHtml(err.message) + '</p></div>';
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">⚠️</div>
+                    <div class="empty-title">Error</div>
+                    <div class="empty-description">${escapeHtml(err.message)}</div>
+                </div>
+            `;
         }
     }
 
@@ -125,17 +239,21 @@
     }
 
     async function reloadPlugin(id) {
-        if (!confirm(`Reload plugin "${id}"?`)) return;
+        if (!confirm(`${T.reloadConfirm} "${id}"?`)) return;
         
-        const res = await fetch(`/api/admin/plugins/${id}/reload`, {
-            method: 'POST'
-        });
-        
-        if (res.ok) {
-            alert('Plugin reloaded!');
-        } else {
-            const err = await res.json();
-            alert('Failed to reload plugin: ' + (err.error || 'Unknown error'));
+        try {
+            const res = await fetch(`/api/admin/plugins/${id}/reload`, {
+                method: 'POST'
+            });
+            
+            if (res.ok) {
+                alert(T.pluginReloaded);
+            } else {
+                const err = await res.json();
+                alert(T.reloadFailed + ': ' + (err.error || 'Unknown error'));
+            }
+        } catch (err) {
+            alert(T.reloadFailed + ': ' + err.message);
         }
     }
 
@@ -143,7 +261,7 @@
         e.preventDefault();
         const formData = new FormData(e.target);
         const statusDiv = document.getElementById('uploadStatus');
-        statusDiv.innerHTML = '<p style="color: var(--primary);">Uploading...</p>';
+        statusDiv.innerHTML = '<p style="color: var(--primary);">' + T.uploading + '</p>';
 
         try {
             const res = await fetch('/api/admin/plugins/upload', {
@@ -153,7 +271,7 @@
 
             const result = await res.json();
             if (res.ok) {
-                statusDiv.innerHTML = '<p style="color: #28a745;">Plugin uploaded successfully!</p>';
+                statusDiv.innerHTML = '<p style="color: #10b981;">' + T.uploadSuccess + '</p>';
                 setTimeout(() => {
                     document.getElementById('uploadModal').style.display = 'none';
                     document.getElementById('uploadForm').reset();
@@ -161,10 +279,10 @@
                     loadPlugins();
                 }, 1500);
             } else {
-                statusDiv.innerHTML = '<p style="color: #dc3545;">Error: ' + escapeHtml(result.error || 'Unknown error') + '</p>';
+                statusDiv.innerHTML = '<p style="color: #ef4444;">' + T.uploadError + ': ' + escapeHtml(result.error || 'Unknown error') + '</p>';
             }
         } catch (err) {
-            statusDiv.innerHTML = '<p style="color: #dc3545;">Error: ' + escapeHtml(err.message) + '</p>';
+            statusDiv.innerHTML = '<p style="color: #ef4444;">' + T.uploadError + ': ' + escapeHtml(err.message) + '</p>';
         }
     });
 

@@ -1,4 +1,4 @@
-{{define "title"}}儀表板{{end}}
+{{define "title"}}{{.T.dashboard}}{{end}}
 {{define "styles"}}
 <style>
     .stat-card-1 .stat-card-icon { background: linear-gradient(135deg, #667eea, #764ba2); }
@@ -45,8 +45,8 @@
 {{define "content"}}
 <div class="page-header">
     <div class="page-title-wrapper">
-        <h1>儀表板</h1>
-        <p class="page-description">歡迎回來，這是您的網站概況</p>
+        <h1>{{.T.dashboard}}</h1>
+        <p class="page-description">{{.T.welcomeBack}}</p>
     </div>
 </div>
 
@@ -54,89 +54,89 @@
     <div class="stat-card stat-card-1">
         <div class="stat-card-header">
             <div>
-                <div class="stat-card-title">文章</div>
+                <div class="stat-card-title">{{.T.totalPosts}}</div>
                 <div class="stat-card-value" id="postsCount">-</div>
             </div>
             <div class="stat-card-icon">📝</div>
         </div>
-        <div class="stat-card-trend">總共發布的文章數</div>
+        <div class="stat-card-trend">{{.T.totalPostsDesc}}</div>
     </div>
     
     <div class="stat-card stat-card-2">
         <div class="stat-card-header">
             <div>
-                <div class="stat-card-title">產品</div>
+                <div class="stat-card-title">{{.T.totalProducts}}</div>
                 <div class="stat-card-value" id="productsCount">-</div>
             </div>
             <div class="stat-card-icon">🛍️</div>
         </div>
-        <div class="stat-card-trend">商店中的產品總數</div>
+        <div class="stat-card-trend">{{.T.totalProductsDesc}}</div>
     </div>
     
     <div class="stat-card stat-card-3">
         <div class="stat-card-header">
             <div>
-                <div class="stat-card-title">訂單</div>
+                <div class="stat-card-title">{{.T.totalOrders}}</div>
                 <div class="stat-card-value" id="ordersCount">-</div>
             </div>
             <div class="stat-card-icon">🛒</div>
         </div>
-        <div class="stat-card-trend">待處理的訂單數</div>
+        <div class="stat-card-trend">{{.T.totalOrdersDesc}}</div>
     </div>
     
     <div class="stat-card stat-card-4">
         <div class="stat-card-header">
             <div>
-                <div class="stat-card-title">啟用的主題</div>
+                <div class="stat-card-title">{{.T.activeTheme}}</div>
                 <div class="stat-card-value" id="activeTheme" style="font-size: 1.25rem;">-</div>
             </div>
             <div class="stat-card-icon">🎨</div>
         </div>
-        <div class="stat-card-trend">當前使用的主題</div>
+        <div class="stat-card-trend">{{.T.activeThemeDesc}}</div>
     </div>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <h2 class="card-title">快捷訪問</h2>
+        <h2 class="card-title">{{.T.quickActions}}</h2>
     </div>
     <div class="quick-actions">
         <a href="/admin/posts/new" class="quick-action-card">
             <div class="quick-action-icon">📝</div>
-            <div class="quick-action-title">創建文章</div>
+            <div class="quick-action-title">{{.T.createPost}}</div>
         </a>
         <a href="/admin/pages/new" class="quick-action-card">
             <div class="quick-action-icon">📄</div>
-            <div class="quick-action-title">創建頁面</div>
+            <div class="quick-action-title">{{.T.createPage}}</div>
         </a>
         <a href="/admin/products/new" class="quick-action-card">
             <div class="quick-action-icon">🛍️</div>
-            <div class="quick-action-title">創建產品</div>
+            <div class="quick-action-title">{{.T.createProduct}}</div>
         </a>
         <a href="/admin/media" class="quick-action-card">
             <div class="quick-action-icon">🖼️</div>
-            <div class="quick-action-title">附件庫</div>
+            <div class="quick-action-title">{{.T.mediaLibrary}}</div>
         </a>
     </div>
 </div>
 
 <div class="card">
     <div class="card-header">
-        <h2 class="card-title">最近文章</h2>
-        <a href="/admin/posts" class="btn btn-secondary btn-sm">查看全部</a>
+        <h2 class="card-title">{{.T.recentPosts}}</h2>
+        <a href="/admin/posts" class="btn btn-secondary btn-sm">{{.T.viewAll}}</a>
     </div>
     <div class="table-wrapper">
         <table>
             <thead>
                 <tr>
-                    <th>標題</th>
-                    <th>狀態</th>
-                    <th>日期</th>
-                    <th style="text-align: right;">操作</th>
+                    <th>{{.T.title}}</th>
+                    <th>{{.T.status}}</th>
+                    <th>{{.T.date}}</th>
+                    <th style="text-align: right;">{{.T.actions}}</th>
                 </tr>
             </thead>
             <tbody id="recentPosts">
-                <tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">載入中...</td></tr>
+                <tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">{{.T.loading}}</td></tr>
             </tbody>
         </table>
     </div>
@@ -144,6 +144,14 @@
 {{end}}
 {{define "scripts"}}
 <script>
+    const T = {
+        noPosts: "{{.T.noPosts}}",
+        published: "{{.T.published}}",
+        draft: "{{.T.draft}}",
+        pending: "{{.T.pending}}",
+        edit: "{{.T.edit}}"
+    };
+
     async function loadStats() {
         // Load posts count
         try {
@@ -157,19 +165,19 @@
             
             const recentPosts = posts.slice(0, 5);
             if (recentPosts.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">還沒有文章</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">' + T.noPosts + '</td></tr>';
             } else {
                 recentPosts.forEach(post => {
                     const tr = document.createElement('tr');
                     const statusClass = post.status === 'published' ? 'success' : post.status === 'draft' ? 'warning' : 'info';
-                    const statusText = post.status === 'published' ? '已發布' : post.status === 'draft' ? '草稿' : post.status;
+                    const statusText = post.status === 'published' ? T.published : post.status === 'draft' ? T.draft : T.pending;
                     
                     tr.innerHTML = `
                         <td style="font-weight: 500;">${post.title}</td>
                         <td><span class="badge badge-${statusClass}">${statusText}</span></td>
-                        <td style="color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString('zh-TW')}</td>
+                        <td style="color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</td>
                         <td style="text-align: right;">
-                            <a href="/admin/posts/${post.id}" class="btn btn-secondary btn-sm">編輯</a>
+                            <a href="/admin/posts/${post.id}" class="btn btn-secondary btn-sm">${T.edit}</a>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -200,12 +208,24 @@
             document.getElementById('ordersCount').textContent = '0';
         }
 
-        // Load active theme
+        // Load active theme - fetch from settings
         try {
             const settingsRes = await fetch('/api/admin/settings');
             const settings = await settingsRes.json();
-            const activeTheme = settings.find(s => s.key === 'active_theme');
-            document.getElementById('activeTheme').textContent = activeTheme ? activeTheme.value : 'default';
+            const activeThemeSetting = settings.find(s => s.key === 'active_theme');
+            
+            if (activeThemeSetting && activeThemeSetting.value) {
+                // Get theme config to display the theme name
+                const themeRes = await fetch(`/api/admin/themes/${activeThemeSetting.value}/config`);
+                if (themeRes.ok) {
+                    const themeConfig = await themeRes.json();
+                    document.getElementById('activeTheme').textContent = themeConfig.name || activeThemeSetting.value;
+                } else {
+                    document.getElementById('activeTheme').textContent = activeThemeSetting.value;
+                }
+            } else {
+                document.getElementById('activeTheme').textContent = 'default';
+            }
         } catch (e) {
             console.error('Failed to load active theme:', e);
             document.getElementById('activeTheme').textContent = 'default';

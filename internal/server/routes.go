@@ -101,28 +101,54 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 
 	// Helper to render admin templates
 	renderAdmin := func(c echo.Context, file string, active string) error {
-		tmpl, err := template.New("base").Funcs(template.FuncMap{
-			"T": func(key string) string {
-				localizer, ok := c.Get("localizer").(*i18n.Localizer)
-				if !ok {
-					return key
-				}
+		// Get localizer from context
+		localizer, _ := c.Get("localizer").(*i18n.Localizer)
+		lang := c.Get("lang").(string)
+		
+		// Load translations for this language
+		translations := make(map[string]string)
+		translationKeys := []string{
+			"dashboard", "posts", "pages", "products", "orders", "media", "themes", "plugins", "settings",
+			"logout", "search", "searchPlaceholder", "viewSite", "welcomeBack",
+			"totalPosts", "totalProducts", "totalOrders", "activeTheme",
+			"totalPostsDesc", "totalProductsDesc", "totalOrdersDesc", "activeThemeDesc",
+			"quickActions", "createPost", "createPage", "createProduct", "mediaLibrary",
+			"recentPosts", "viewAll", "title", "status", "date", "actions", "edit", "delete",
+			"loading", "noPosts", "published", "draft", "pending",
+			"noPlugins", "noPluginsDesc", "uploadPlugin", "uploadPluginTitle",
+			"pluginZipFile", "pluginZipDesc", "upload", "cancel", "uploading",
+			"uploadSuccess", "uploadError", "reload", "reloadConfirm",
+			"pluginReloaded", "reloadFailed",
+			"content", "shop", "appearance", "system", "administrator",
+		}
+		
+		for _, key := range translationKeys {
+			if localizer != nil {
 				result, err := localizer.Localize(&i18n.LocalizeConfig{
 					MessageID: key,
 				})
-				if err != nil {
-					return key
+				if err == nil {
+					translations[key] = result
+				} else {
+					translations[key] = key
 				}
-				return result
-			},
-		}).ParseFiles("web/admin/layout.html", "web/admin/"+file)
+			} else {
+				translations[key] = key
+			}
+		}
 
+		tmpl, err := template.New("base").ParseFiles("web/admin/layout.html", "web/admin/"+file)
 		if err != nil {
 			return err
 		}
-		return tmpl.ExecuteTemplate(c.Response().Writer, "base", map[string]interface{}{
+
+		data := map[string]interface{}{
 			"Active": active,
-		})
+			"Lang":   lang,
+			"T":      translations,
+		}
+		
+		return tmpl.ExecuteTemplate(c.Response().Writer, "base", data)
 	}
 
 	// Admin page routes with authentication
