@@ -120,6 +120,10 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 			"uploadSuccess", "uploadError", "reload", "reloadConfirm",
 			"pluginReloaded", "reloadFailed",
 			"content", "shop", "appearance", "system", "administrator",
+			"customize", "activate", "customizeTheme", "colors", "layout", "customFields",
+			"saveSettings", "resetToDefaults", "resetConfirm",
+			"themeSettingsSaved", "themeSettingsReset", "failedToSave", "failedToReset",
+			"themeActivated", "failedToActivate", "noThemesInstalled", "activeThemeBadge", "view",
 		}
 		
 		for _, key := range translationKeys {

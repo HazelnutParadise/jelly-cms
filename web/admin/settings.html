@@ -141,7 +141,7 @@
                     <option value="zh-TW">Traditional Chinese (繁體中文)</option>
                 </select>
             </div>
-            <button type="submit" class="btn" id="generalSaveBtn">Save Settings</button>
+            <button type="submit" class="btn" id="generalSaveBtn" disabled>Save Settings</button>
         </form>
     </div>
 </div>
@@ -428,12 +428,16 @@
     }
 
     // Store original values for comparison
+    // Track original values for each form
     let originalValues = {
         google: { clientID: '', clientSecret: '' },
         github: { clientID: '', clientSecret: '' },
         ecpay: { merchantID: '', hashKey: '', hashIV: '', testMode: false },
         newebpay: { merchantID: '', hashKey: '', hashIV: '', testMode: false }
     };
+    
+    // Track original general settings
+    let originalGeneralSettings = {};
 
     function toggleGoogle() {
         const enabled = document.getElementById('googleEnabled').checked;
@@ -493,6 +497,25 @@
             card.classList.remove('disabled');
         }
         checkNewebPayForm();
+    }
+
+    function checkGeneralForm() {
+        const form = document.getElementById('settingsForm');
+        const btn = document.getElementById('generalSaveBtn');
+        
+        if (!form || !btn) return;
+        
+        let hasChanges = false;
+        const formData = new FormData(form);
+        
+        for (const [key, value] of formData.entries()) {
+            if (originalGeneralSettings[key] !== value) {
+                hasChanges = true;
+                break;
+            }
+        }
+        
+        btn.disabled = !hasChanges;
     }
 
     function checkGoogleForm() {
@@ -596,21 +619,32 @@
         const formData = new FormData(e.target);
         const data = Object.fromEntries(formData.entries());
 
-        const res = await fetch('/api/admin/settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
+        try {
+            const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
 
-        if (res.ok) {
-            // Update original values
-            for (const key in data) {
-                originalGeneralSettings[key] = data[key];
+            if (res.ok) {
+                // Update original values
+                for (const key in data) {
+                    originalGeneralSettings[key] = data[key];
+                }
+                alert('Settings saved!');
+                checkGeneralForm();
+                
+                // Reload page if language changed
+                if (data.site_language) {
+                    setTimeout(() => window.location.reload(), 500);
+                }
+            } else {
+                const error = await res.json();
+                alert('Failed to save settings: ' + (error.error || 'Unknown error'));
             }
-            alert('Settings saved!');
-            checkGeneralForm();
-        } else {
-            alert('Failed to save settings');
+        } catch (err) {
+            console.error('Failed to save settings:', err);
+            alert('Failed to save settings: ' + err.message);
         }
     });
 
