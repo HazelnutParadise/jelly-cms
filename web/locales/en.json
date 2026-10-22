@@ -12,6 +12,7 @@
     "plugins": "Plugins",
     "settings": "Settings",
     "logout": "Logout",
+    "logoutError": "Unable to log out. Please try again.",
     "search": "Search",
     "searchPlaceholder": "Search Ctrl+K",
     "viewSite": "View Site",
