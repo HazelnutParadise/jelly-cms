@@ -3,7 +3,7 @@
 Epic：帳號與存取
 User Story：登入後只可操作自己被授權的資料與功能。
 Blocked by：01 的可用資料庫與登入流程。
-Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已完成本機驗證，待 CI 交付）
+Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已透過 PR #9 合併，登入嘗試限制已完成本機驗證，待 CI 交付）
 
 ## 流程與驗收
 
@@ -89,7 +89,7 @@ Session 另保存 `login_expires_at`（int64 Unix 秒），簽發時固定為七
 
 桌面側欄與手機頂部提供可見的登出按鈕，共用處理中狀態；請求未完成時停用兩個入口，失敗後恢復重試。非成功回應與網路錯誤顯示繁中／英文的可見提示，只有成功才前往登入頁。此次只補齊手機登出入口，整體手機導覽留待介面整合段落驗收。
 
-跨站請求保護、登入限流、重新導向與 OAuth 身分連結仍是本工作單後續段落，不以本段測試取代。
+跨站請求保護、登入限流、重新導向與 OAuth 身分連結各有獨立驗收，不以本段測試取代。
 
 ## Cookie 寫入請求保護
 
@@ -141,3 +141,25 @@ Session 另保存 `login_expires_at`（int64 Unix 秒），簽發時固定為七
 | 既有失敗 | 錯誤密碼、來源拒絕、離線 | 不導向成功頁或站外，不額外簽發登入 | HTTP 與畫面負向驗證 |
 
 Go 回歸測試新增在 `internal/server/auth_redirect_integration_test.go`，使用既有 `newAccessHarness` 與真實 RegisterRoutes，不以測試專用 production 開關取代。OAuth 僅可透過 Goth 本來提供的 provider/session 接縫提供固定回應；不得改 production 以繞過 state 或連外交換授權。測試先重現，再由不同代理實作。瀏覽器腳本置於暫存目錄，以本機另一連接埠模擬站外目的地，禁止真正傳送帳密到外部網站。測試草稿、帳號與程序的清理僅限本次建立的內容。
+
+
+## 登入嘗試限制
+
+流程：POST /auth/login → 既有瀏覽器來源檢查 → 同一連線來源的嘗試次數檢查 → 既有帳密驗證。每個來源在第一次嘗試開始的固定 60 秒內最多 30 次；成功、錯誤帳密與不合法輸入均計數。第 31 次起回 JSON 429，附正整數秒數的 Retry-After，錯誤訊息也顯示等待秒數，不查詢帳號、不比對密碼、不簽發或清除登入 Cookie。拒絕不延長原本的到期時間，到期後可重新嘗試。前端沿用既有登入錯誤提示，不能導向成功頁。
+
+共用入口 `ProtectLoginAttempts(next echo.HandlerFunc) echo.HandlerFunc` 置於新的認證檔案；RegisterRoutes 註冊一次，位於 ProtectBrowserWrites 內層。每次建立路由有獨立的限制狀態，不使用 Init 重設，也不在每次請求重建。來源取實際 Request.RemoteAddr 的 IP，忽略 X-Forwarded-For、X-Real-IP、Forwarded 與 Echo 的預設 RealIP；連接埠變動、IPv6 等價寫法與 IPv4-mapped IPv6 不得重建額度。無效或缺少連線位址使用單一共用來源，不能用任意字串增加記憶體紀錄。
+
+狀態只保留在此程序記憶體，最多 4096 個來源，鎖內檢查與增加次數以支援並行。過期紀錄隨請求清理，不建立背景程序。容量滿且仍有有效紀錄時拒絕新來源，不淘汰仍有效的紀錄以恢復額度；已存在的來源可依剩餘次數操作。依到期順序移除過期來源，避免每個拒絕請求掃描整張表。可重用標準函式庫，不新增依賴、資料表、環境選項或永久帳號鎖定。
+
+這是單程序的來源限制，重新啟動會重設。反向代理後會以代理連線位址共用額度，多程序與分散來源攻擊須由入口代理提供額外限制；此段不信任未設定信任範圍的轉送標頭。未新增全站帳號鎖定，以避免第三方連續嘗試就鎖住管理員帳號。此取捨依 [OWASP 登入限制及帳號鎖定的拒絕服務風險](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#login-throttling)。
+
+| 操作 | 失敗或邊界 | 預期結果 | 驗證 |
+|---|---|---|---|
+| 同一來源登入 | 30 次以內與第 31 次、輪替帳號與變更連接埠 | 額度內保留原結果，超量 429、無登入 Cookie | 真實 RegisterRoutes 與隔離 PostgreSQL |
+| 偽造來源 | XFF、X-Real-IP、Forwarded、IPv6 等價或 mapped IPv4 | 仍使用同一實際連線來源的額度 | 原始 HTTP 請求 |
+| 到期與重試 | 期間內多次被拒絕、正好到期 | Retry-After 合法，不延長等待；到期恢復 | Go testing/synctest 的公開路由測試，不實際等待一分鐘 |
+| 並行與容量 | 同來源同時超量、4096 個有效來源、新來源 | 恰好 30 次進入下游；滿容量拒絕新來源且不重設舊來源 | 無 DB 的不合法 JSON 路由回應與競態測試 |
+| 隔離 | 不同連線來源、新路由實例、首頁與已登入 API | 不共用錯誤額度，不影響其他功能 | 真實 HTTP 正負對照 |
+| 瀏覽器 | 連續錯誤密碼後送出正確密碼 | 429 留在登入頁顯示錯誤，期限後可登入與登出 | Chrome 桌面與手機，僅專用驗收帳號 |
+
+測試先新增 `internal/auth/login_attempts_test.go` 與 `internal/server/login_attempts_integration_test.go`。前者從公開 RegisterRoutes 送不合法 JSON，使用標準 testing/synctest 驗證時間、容量、來源與並行，不使用測試專用 production 開關。後者使用 newAccessHarness、真實帳密與 DB 回查；每個獨立測試重建路由。既有測試若超過額度，須先回報其語意與必要調整，不可削弱斷言。瀏覽器腳本只寫暫存目錄，由主代理執行，測試代理不得操作服務或瀏覽器。

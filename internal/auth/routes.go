@@ -4,7 +4,7 @@ import "github.com/labstack/echo/v4"
 
 func RegisterRoutes(e *echo.Echo) {
 	// Local login
-	e.POST("/auth/login", ProtectBrowserWrites(HandleLocalLogin))
+	e.POST("/auth/login", ProtectBrowserWrites(ProtectLoginAttempts(HandleLocalLogin)))
 
 	// OAuth routes
 	e.GET("/auth/:provider", HandleAuth)
