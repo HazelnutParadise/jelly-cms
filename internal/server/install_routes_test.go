@@ -110,6 +110,10 @@ func callRoute(t *testing.T, e *echo.Echo, method, target, body string) routeRes
 		reader = strings.NewReader(body)
 	}
 	req := httptest.NewRequest(method, target, reader)
+	if method != http.MethodGet && method != http.MethodHead && method != http.MethodOptions {
+		// This trusted in-process fixture supplies the request's source evidence.
+		req.Header.Set("X-Jelly-CSRF", "1")
+	}
 	if body != "" {
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	}

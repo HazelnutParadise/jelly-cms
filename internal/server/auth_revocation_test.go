@@ -99,6 +99,10 @@ func revocationRequest(h *accessHarness, method, path string, cookies []*http.Co
 		r = httptest.NewRequest(method, path, strings.NewReader(body))
 		r.Header.Set(echo.HeaderContentType, "application/json")
 	}
+	if method != http.MethodGet && method != http.MethodHead && method != http.MethodOptions {
+		// This trusted in-process fixture supplies the request's source evidence.
+		r.Header.Set("X-Jelly-CSRF", "1")
+	}
 	r.Header.Set(echo.HeaderAccept, "application/json")
 	for _, c := range cookies {
 		if c != nil {

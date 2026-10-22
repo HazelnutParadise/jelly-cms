@@ -555,6 +555,9 @@ func HandleLogout(c echo.Context) error {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Failed to revoke login"})
 		}
 	}
+	if !hasValid && !hasLoginCookie(c.Request()) {
+		return c.JSON(http.StatusOK, map[string]string{"message": "Logged out successfully"})
+	}
 
 	session, err := GetSession(c)
 	if err == nil {

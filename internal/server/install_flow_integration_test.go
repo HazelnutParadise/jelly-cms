@@ -225,6 +225,10 @@ func (h *installFlowHarness) do(method, target, body string) installFlowResult {
 	}
 	req := httptest.NewRequest(method, target, reader)
 	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
+	if method != http.MethodGet && method != http.MethodHead && method != http.MethodOptions {
+		// This trusted in-process fixture supplies the request's source evidence.
+		req.Header.Set("X-Jelly-CSRF", "1")
+	}
 	if body != "" {
 		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	}

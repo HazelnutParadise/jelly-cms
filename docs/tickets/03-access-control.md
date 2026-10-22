@@ -3,7 +3,7 @@
 Epic：帳號與存取
 User Story：登入後只可操作自己被授權的資料與功能。
 Blocked by：01 的可用資料庫與登入流程。
-Status：in_progress（HTTP 權限與金鑰保存已分別透過 PR #2、#3 合併；單次登入撤銷通過本機驗收與複審，等待 CI 交付）
+Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護通過本機驗收與複審，等待 CI 交付）
 
 ## 流程與驗收
 
@@ -83,10 +83,40 @@ Status：in_progress（HTTP 權限與金鑰保存已分別透過 PR #2、#3 合�
 | 舊版憑證 | 簽章有效但無登入 ID | HTTP 認證拒絕，重新登入取得新憑證 | 已知測試秘密簽章的舊格式 |
 | 瀏覽器登出 | 離線或非成功回應 | 留在原頁顯示可重試錯誤，不導向登入頁假裝成功 | 實際瀏覽器失敗與成功操作 |
 
-驗收接縫使用真實 `/auth/login`、`/auth/logout`、`/api/auth/me` 與現有獨立 PostgreSQL fixture。新增測試先重現漏洞再實作。一般憑證解碼測試保持無資料庫；HTTP 認證與撤銷測試使用真實資料庫。未登入登出可以冪等回 200 並清除本機 Cookie，不能因此新增未驗證憑證的撤銷資料。已驗證登入的撤銷失敗不可回 200。
+驗收接縫使用真實 `/auth/login`、`/auth/logout`、`/api/auth/me` 與現有獨立 PostgreSQL fixture。新增測試先重現漏洞再實作。一般憑證解碼測試保持無資料庫；HTTP 認證與撤銷測試使用真實資料庫。未登入登出可以冪等回 200；沒有登入 Cookie 且沒有有效登入 ID 時不送出登入 Cookie 的 Set-Cookie，不能新增未驗證憑證的撤銷資料。已驗證登入的撤銷失敗不可回 200。
 
 Session 另保存 `login_expires_at`（int64 Unix 秒），簽發時固定為七天後；HTTP 認證拒絕缺少、型別錯誤、零或已到期的值。OAuth 入口等流程重新儲存 Cookie 時不得延長此時間，避免舊 Cookie 重簽後跨過撤銷紀錄的保留期限。空的 JWT Cookie 仍屬明確提供憑證，不能退回 Session。
 
 桌面側欄與手機頂部提供可見的登出按鈕，共用處理中狀態；請求未完成時停用兩個入口，失敗後恢復重試。非成功回應與網路錯誤顯示繁中／英文的可見提示，只有成功才前往登入頁。此次只補齊手機登出入口，整體手機導覽留待介面整合段落驗收。
 
 跨站請求保護、登入限流、重新導向與 OAuth 身分連結仍是本工作單後續段落，不以本段測試取代。
+
+## Cookie 寫入請求保護
+
+流程：瀏覽器送出寫入 → 既有權限檢查 → 確認同源證據 → 執行寫入。登入與安裝尚未有登入身分，仍須在處理帳密、連線或安裝前檢查。GET、HEAD、OPTIONS 保持讀取行為；OAuth 的 GET 與付款通知沿用各自的 state／簽章驗證，分別在後續段落驗收。
+
+採用同源來源標頭與 AJAX 自訂標頭，不新增 token 儲存、資料表或依賴。依據為 [OWASP 的來源檢查與 AJAX 防護方法](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)。Go 1.25 的 [CrossOriginProtection](https://go.dev/src/net/http/csrf.go) 可作語義對照，但專案維持 Go 1.24.1，且不沿用其無來源證據仍放行的政策。
+
+共用實作置於 `internal/auth/request_protection.go`。`ProtectBrowserWrites(echo.HandlerFunc) echo.HandlerFunc` 保護登入與兩個安裝 POST。`ProtectCookieWrites(echo.HandlerFunc) echo.HandlerFunc` 在 RequireAuth、RequireAdmin、RequireRole 完成身分／角色檢查後包住後續處理器，僅在請求帶有 `jwt_token` 或 `jelly-cms-session` Cookie（包含空值）時要求來源證據。無 Cookie 的 Bearer API 仍由原有認證驗證，不能只憑字首宣稱身分有效。登入與安裝不得使用 Cookie 缺少的豁免。
+
+登出使用獨立的 `ProtectLogoutWrites(echo.HandlerFunc) echo.HandlerFunc`。請求帶有登入 Cookie，或任何 Origin、Referer、Sec-Fetch-Site 時，都執行完整來源檢查。只有 Cookie 與來源標頭皆無時才保留無來源 API 相容性；HandleLogout 在沒有登入 Cookie 且未驗證到任何登入 ID 時，冪等回 200，但不送出登入 Cookie 的 Set-Cookie。合法純 Bearer 登出仍撤銷其登入 ID。這樣可避免跨站頂層 POST 不帶 Lax Cookie，卻藉回應刪除 Cookie 的登出攻擊；[Cookie 規格](https://httpwg.org/http-extensions/draft-ietf-httpbis-rfc6265bis.html#section-5.6.7.2) 允許頂層導覽回應設定 Cookie，因此不能只檢查請求 Cookie。
+
+來源判斷採負面證據優先：拒絕重複、多值、格式錯誤的 Origin、Referer、Sec-Fetch-Site。`same-site`、`cross-site` 及未知 metadata 值拒絕；`none` 單獨不足以放行。已提供 Origin 時必須是 HTTP(S) 的完整同源網址，拒絕 null、帳密、路徑、查詢及片段；不得因 Origin 失敗改讀 Referer 或自訂標頭。Referer 存在時也須同源，網址的路徑與查詢不參與來源比較。矛盾的來源證據拒絕。
+
+有效證據為同源 Origin、同源 Referer 或 `Sec-Fetch-Site: same-origin`。三者皆無有效證據時，只接受單一 `X-Jelly-CSRF: 1`；這個非簡單請求標頭依賴瀏覽器的跨來源預檢與本服務不開放 CORS 的條件。固定值不當成秘密。明確的外站或不合法來源不得用此標頭覆蓋。既有瀏覽器請求會帶來源證據，不另修改每頁 fetch 或新增前端 token 狀態；來源標頭被移除的自訂客戶端須明確提供此標頭。
+
+目標來源優先採明確的 `APP_URL`，僅接受 HTTP(S) scheme、host 與可選的根路徑 `/`，不得有帳密、查詢或片段。未設定時使用實際 TLS 狀態與 Request.Host，不採用 X-Forwarded-*、Forwarded、X-URL-Scheme。正規化大小寫、預設連接埠與等價 IPv6 寫法，保留不同 scheme、主機或有效連接埠的區別。IPv4 與 IPv4-mapped IPv6 是不同網址主機，不得合併為同源。反向代理終止 HTTPS 時，須以 APP_URL 指定公開來源；錯誤設定回 JSON 503，不能退回放行。一般來源拒絕回 JSON 403，不洩漏帳密、Cookie 或來源設定。
+
+| 操作 | 失敗或邊界 | 預期結果 | 驗證 |
+|---|---|---|---|
+| Cookie 寫入 | 外站、兄弟網域、null、缺少證據、矛盾或重複來源 | 403，資料與 Cookie 不變 | 真實路由、資料庫前後回查 |
+| Cookie 寫入 | 同源 Origin／Referer／metadata，或來源皆缺但有正確自訂標頭 | 依原有權限完成寫入 | 同一 API 正負對照 |
+| 目標來源 | TLS、非預設連接埠、IPv6、APP_URL、偽造轉送標頭 | 正確比較來源，設定無效時 503 | 獨立 HTTP fixture |
+| Bearer API | 合法／不合法 token，沒有登入 Cookie | 保留原有成功／401，偽字首不能授權 | 不加來源證據的 HTTP 請求 |
+| 混合登入 | Bearer 加 Cookie | 仍須來源檢查，不能藉 Bearer 豁免 Cookie 操作 | 登出與受保護寫入 |
+| 無 Cookie 登出 | 外站來源，或完全無憑證／來源 | 外站回 403；完全無憑證冪等 200 且不送清除 Cookie | 原始 HTTP 與跨站頂層表單 |
+| 登入與安裝 | 無 Cookie 的外站表單 | 403，不簽發登入、不測試 DB、不寫入安裝 | 完整註冊路由與暫存資料夾 |
+| 付款通知 | 外部 POST callback | 不套 Cookie 保護，保留獨立驗簽；不能豁免 create | 失敗通知無訂單變更 |
+| 瀏覽器 | 登入、發文、登出、另一來源發送寫入 | 合法流程可用，外站寫入拒絕 | 實際 Chrome 與 360px／1280px |
+
+測試新增於 `internal/server/browser_write_protection_test.go`。沿用真實 RegisterRoutes、隔離 PostgreSQL 與暫存資料夾，不以測試專用 production 開關或假路由取代。新負向測試直接建立原始 HTTP 請求，不使用自動加來源的 fixture；既有合法流程 fixture 只補齊來源證據，保留原斷言。來源檢查不改內容格式，multipart、JSON 與表單皆須保持。
