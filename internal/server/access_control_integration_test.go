@@ -184,6 +184,10 @@ func (h *accessHarness) request(method, path, body, token, accept, contentType s
 func (h *accessHarness) requestReader(method, path string, r io.Reader, token, accept, contentType string) accessResult {
 	h.t.Helper()
 	req := httptest.NewRequest(method, path, r)
+	if method != http.MethodGet && method != http.MethodHead && method != http.MethodOptions {
+		// This trusted in-process fixture supplies the request's source evidence.
+		req.Header.Set("X-Jelly-CSRF", "1")
+	}
 	if accept != "" {
 		req.Header.Set(echo.HeaderAccept, accept)
 	}
