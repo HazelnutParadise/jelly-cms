@@ -140,6 +140,7 @@ func MigrateDB(db *gorm.DB) error {
 		&core.Order{},
 		&core.OrderItem{},
 		&core.ThemeSettings{},
+		&core.RevokedLogin{},
 	)
 }
 

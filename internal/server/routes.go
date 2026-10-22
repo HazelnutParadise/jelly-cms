@@ -44,7 +44,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 		translations := make(map[string]string)
 		translationKeys := []string{
 			"dashboard", "posts", "pages", "products", "orders", "media", "themes", "plugins", "settings",
-			"logout", "search", "searchPlaceholder", "viewSite", "welcomeBack",
+			"logout", "logoutError", "search", "searchPlaceholder", "viewSite", "welcomeBack",
 			"totalPosts", "totalProducts", "totalOrders", "activeTheme",
 			"totalPostsDesc", "totalProductsDesc", "totalOrdersDesc", "activeThemeDesc",
 			"quickActions", "createPost", "createPage", "createProduct", "mediaLibrary",

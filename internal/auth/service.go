@@ -52,6 +52,7 @@ func Init() error {
 	}
 
 	sessionStore = sessions.NewCookieStore(sessionBytes)
+	sessionStore.MaxAge(604800)
 	gothic.Store = sessionStore
 	jwtSecret = jwtBytes
 
@@ -107,16 +108,39 @@ func ReloadOAuthProviders() {
 
 // GetSession retrieves the session for the current request
 func GetSession(c echo.Context) (*sessions.Session, error) {
+	if sessionStore == nil {
+		return nil, fmt.Errorf("session store not initialized")
+	}
 	return sessionStore.Get(c.Request(), "jelly-cms-session")
 }
 
 // SetUserSession sets the user ID in the session
 func SetUserSession(c echo.Context, userID uint) error {
-	session, err := GetSession(c)
+	loginID, err := newLoginID()
 	if err != nil {
 		return err
 	}
+	return setUserSessionWithLoginID(c, userID, loginID)
+}
+
+func setUserSessionWithLoginID(c echo.Context, userID uint, loginID string) error {
+	if sessionStore == nil {
+		return fmt.Errorf("session store not initialized")
+	}
+	if userID == 0 || !validLoginID(loginID) {
+		return fmt.Errorf("invalid login")
+	}
+
+	session, err := sessionStore.Get(c.Request(), "jelly-cms-session")
+	if err != nil {
+		session = sessions.NewSession(sessionStore, "jelly-cms-session")
+		opts := *sessionStore.Options
+		session.Options = &opts
+		session.IsNew = true
+	}
 	session.Values["user_id"] = userID
+	session.Values["login_id"] = loginID
+	session.Values["login_expires_at"] = time.Now().Add(7 * 24 * time.Hour).Unix()
 	session.Options = &sessions.Options{
 		Path:     "/",
 		MaxAge:   86400 * 7, // 7 days
@@ -142,12 +166,24 @@ func GetUserIDFromSession(c echo.Context) (uint, error) {
 
 // GenerateJWT generates a JWT token for the user
 func GenerateJWT(userID uint, email string, role string) (string, error) {
+	loginID, err := newLoginID()
+	if err != nil {
+		return "", err
+	}
+	return generateJWTWithLoginID(userID, email, role, loginID)
+}
+
+func generateJWTWithLoginID(userID uint, email string, role string, loginID string) (string, error) {
 	const maxSafeUserID = 9007199254740991 // 2^53 - 1
 	if userID == 0 || uint64(userID) > maxSafeUserID {
 		return "", fmt.Errorf("invalid user ID")
 	}
+	if !validLoginID(loginID) {
+		return "", fmt.Errorf("invalid login ID")
+	}
 
 	claims := jwt.MapClaims{
+		"jti":     loginID,
 		"user_id": userID,
 		"email":   email,
 		"role":    role,
@@ -219,18 +255,27 @@ func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
 // GetUserFromJWT extracts user information from JWT token in Authorization header or cookie
 func GetUserFromJWT(c echo.Context) (*core.User, error) {
 	var tokenString string
+	provided := false
 
 	// Try Authorization header first
 	authHeader := c.Request().Header.Get("Authorization")
-	if authHeader != "" && len(authHeader) >= 7 && authHeader[:7] == "Bearer " {
+	if authHeader != "" {
+		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+			return nil, fmt.Errorf("invalid authorization header")
+		}
 		tokenString = authHeader[7:]
+		provided = true
 	} else {
 		// Try cookie
 		cookie, err := c.Cookie("jwt_token")
-		if err != nil || cookie == nil {
-			return nil, fmt.Errorf("authorization header or cookie missing")
+		if err == nil && cookie != nil && cookie.Value != "" {
+			tokenString = cookie.Value
+			provided = true
 		}
-		tokenString = cookie.Value
+	}
+
+	if !provided || tokenString == "" {
+		return nil, fmt.Errorf("authorization header or cookie missing")
 	}
 
 	claims, err := ValidateJWT(tokenString)
@@ -238,11 +283,31 @@ func GetUserFromJWT(c echo.Context) (*core.User, error) {
 		return nil, err
 	}
 
+	loginID, ok := claims["jti"].(string)
+	if !ok || !validLoginID(loginID) {
+		return nil, fmt.Errorf("invalid login ID")
+	}
+
 	userIDValue, ok := claims["user_id"].(float64)
 	if !ok {
 		return nil, fmt.Errorf("invalid token claims")
 	}
 	userID := uint(userIDValue)
+	if userID == 0 {
+		return nil, fmt.Errorf("invalid user ID")
+	}
+
+	if data.DB == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	revoked, err := isLoginRevoked(loginID)
+	if err != nil {
+		return nil, err
+	}
+	if revoked {
+		return nil, fmt.Errorf("login revoked")
+	}
 
 	var user core.User
 	if err := data.DB.First(&user, userID).Error; err != nil {
@@ -250,6 +315,25 @@ func GetUserFromJWT(c echo.Context) (*core.User, error) {
 	}
 
 	return &user, nil
+}
+
+// issueLogin creates one login ID and issues the paired JWT and session.
+func issueLogin(c echo.Context, user core.User) (string, error) {
+	loginID, err := newLoginID()
+	if err != nil {
+		return "", err
+	}
+
+	token, err := generateJWTWithLoginID(user.ID, user.Email, user.Role, loginID)
+	if err != nil {
+		return "", err
+	}
+
+	if err := setUserSessionWithLoginID(c, user.ID, loginID); err != nil {
+		return "", err
+	}
+
+	return token, nil
 }
 
 // HandleLocalLogin handles local username/password login
@@ -284,13 +368,9 @@ func HandleLocalLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
 	}
 
-	// Set session
-	if err := SetUserSession(c, user.ID); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to set session"})
-	}
-
-	// Generate JWT token
-	token, err := GenerateJWT(user.ID, user.Email, user.Role)
+	// Issue the paired login credentials. Prepare the JWT before saving the
+	// session so both carry the same login ID.
+	token, err := issueLogin(c, user)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to generate token"})
 	}
@@ -385,13 +465,9 @@ func HandleCallback(c echo.Context) error {
 		}
 	}
 
-	// Set session
-	if err := SetUserSession(c, dbUser.ID); err != nil {
-		return c.String(http.StatusInternalServerError, "Failed to set session")
-	}
-
-	// Generate JWT token
-	token, err := GenerateJWT(dbUser.ID, dbUser.Email, dbUser.Role)
+	// Issue the paired login credentials. Prepare the JWT before saving the
+	// session so both carry the same login ID.
+	token, err := issueLogin(c, dbUser)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to generate token")
 	}
@@ -433,21 +509,80 @@ func HandleCallback(c echo.Context) error {
 
 // HandleLogout handles user logout
 func HandleLogout(c echo.Context) error {
-	// Clear session
+	collected := make([]string, 0)
+	hasValid := false
+
+	authHeader := c.Request().Header.Get("Authorization")
+	if authHeader != "" {
+		if len(authHeader) >= 7 && authHeader[:7] == "Bearer " {
+			if claims, err := ValidateJWT(authHeader[7:]); err == nil {
+				if loginID, ok := claims["jti"].(string); ok && validLoginID(loginID) {
+					collected = append(collected, loginID)
+					hasValid = true
+				}
+			}
+		}
+	}
+
+	if cookie, err := c.Cookie("jwt_token"); err == nil && cookie != nil && cookie.Value != "" {
+		if claims, err := ValidateJWT(cookie.Value); err == nil {
+			if loginID, ok := claims["jti"].(string); ok && validLoginID(loginID) {
+				collected = append(collected, loginID)
+				hasValid = true
+			}
+		}
+	}
+
+	if session, err := GetSession(c); err == nil {
+		if loginID, ok := session.Values["login_id"].(string); ok && validLoginID(loginID) {
+			collected = append(collected, loginID)
+			hasValid = true
+		}
+	}
+
+	unique := make([]string, 0, len(collected))
+	seen := make(map[string]bool)
+	for _, id := range collected {
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		unique = append(unique, id)
+	}
+
+	if hasValid {
+		if err := revokeLoginIDs(unique); err != nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Failed to revoke login"})
+		}
+	}
+
 	session, err := GetSession(c)
 	if err == nil {
 		session.Values = make(map[interface{}]interface{})
 		session.Options.MaxAge = -1
-		session.Save(c.Request(), c.Response())
+		if err := session.Save(c.Request(), c.Response()); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to clear session"})
+		}
+	} else {
+		c.SetCookie(&http.Cookie{
+			Name:     "jelly-cms-session",
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   os.Getenv("APP_ENV") == "production",
+			SameSite: http.SameSiteLaxMode,
+		})
 	}
 
-	// Clear JWT cookie
 	c.SetCookie(&http.Cookie{
 		Name:     "jwt_token",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
+		Secure:   os.Getenv("APP_ENV") == "production",
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Logged out successfully"})
@@ -455,15 +590,44 @@ func HandleLogout(c echo.Context) error {
 
 // GetCurrentUser retrieves the current authenticated user from session or JWT
 func GetCurrentUser(c echo.Context) (*core.User, error) {
-	// Try to get from JWT first (for API requests)
-	if user, err := GetUserFromJWT(c); err == nil {
-		return user, nil
+	authHeader := c.Request().Header.Get("Authorization")
+	jwtCookie, cookieErr := c.Cookie("jwt_token")
+	jwtProvided := authHeader != "" || (cookieErr == nil && jwtCookie != nil)
+
+	if jwtProvided {
+		return GetUserFromJWT(c)
 	}
 
-	// Try to get from session (for web requests)
-	userID, err := GetUserIDFromSession(c)
+	session, err := GetSession(c)
 	if err != nil {
 		return nil, err
+	}
+
+	userID, ok := session.Values["user_id"].(uint)
+	if !ok || userID == 0 {
+		return nil, fmt.Errorf("user not authenticated")
+	}
+
+	expiresAt, ok := session.Values["login_expires_at"].(int64)
+	if !ok || expiresAt <= time.Now().Unix() {
+		return nil, fmt.Errorf("session expired")
+	}
+
+	loginID, _ := session.Values["login_id"].(string)
+	if !validLoginID(loginID) {
+		return nil, fmt.Errorf("invalid login ID")
+	}
+
+	if data.DB == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	revoked, err := isLoginRevoked(loginID)
+	if err != nil {
+		return nil, err
+	}
+	if revoked {
+		return nil, fmt.Errorf("login revoked")
 	}
 
 	var user core.User
