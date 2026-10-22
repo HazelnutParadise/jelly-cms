@@ -180,7 +180,7 @@ Jelly CMS 是一個使用 Go 語言開發的開源 CMS 系統，目標是比 Wor
 ## 技術架構
 
 ### 後端
-- **語言**: Go 1.24.1
+- **語言**: Go 1.27.3
 - **框架**: Echo v4
 - **資料庫**: PostgreSQL (GORM)
 - **JSON**: goccy/go-json
