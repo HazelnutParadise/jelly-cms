@@ -6,10 +6,10 @@
         <p class="page-description">{{.T.welcomeBack}}</p>
     </div>
     <div class="page-actions">
-        <a href="/admin/posts/new" class="btn btn-primary">+ {{.T.createPost}}</a>
-        <a href="/admin/pages/new" class="btn btn-secondary">{{.T.createPage}}</a>
-        <a href="/admin/products/new" class="btn btn-secondary">{{.T.createProduct}}</a>
-        <a href="/admin/media" class="btn btn-text">{{.T.mediaLibrary}}</a>
+        <a href="/admin/posts/new" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>{{.T.createPost}}</a>
+        <a href="/admin/pages/new" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#i-layout"/></svg>{{.T.createPage}}</a>
+        <a href="/admin/products/new" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#i-box"/></svg>{{.T.createProduct}}</a>
+        <a href="/admin/media" class="btn btn-text"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>{{.T.mediaLibrary}}</a>
     </div>
 </div>
 
@@ -39,7 +39,7 @@
 <section class="section">
     <div class="section-head">
         <h2>{{.T.recentPosts}}</h2>
-        <a href="/admin/posts" class="btn btn-text btn-sm">{{.T.viewAll}} →</a>
+        <a href="/admin/posts" class="btn btn-text btn-sm">{{.T.viewAll}}<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
     </div>
     <div class="table-wrapper">
         <table>
@@ -99,7 +99,7 @@
                         <td><span class="badge badge-${statusClass}">${statusText}</span></td>
                         <td class="cell-muted">${new Date(post.created_at).toLocaleDateString()}</td>
                         <td class="actions">
-                            <a href="/admin/posts/${post.id}" class="btn btn-secondary btn-sm">${T.edit}</a>
+                            <a href="/admin/posts/${post.id}" class="btn btn-secondary btn-sm btn-icon" title="${T.edit}" aria-label="${T.edit}"><svg class="icon" aria-hidden="true"><use href="#i-pencil"/></svg></a>
                         </td>
                     `;
                     tbody.appendChild(tr);

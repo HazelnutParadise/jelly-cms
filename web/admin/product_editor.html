@@ -34,8 +34,8 @@
             <label for="productSku">SKU</label>
             <input type="text" id="productSku" name="sku" autocomplete="off">
         </div>
-        <button type="submit" class="btn btn-primary">Save Product</button>
-        <a href="/admin/products" class="btn btn-text">← {{.T.products}}</a>
+        <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save Product</button>
+        <a href="/admin/products" class="btn btn-text"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>{{.T.products}}</a>
     </aside>
 </form>
 {{end}}

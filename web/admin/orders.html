@@ -55,8 +55,8 @@
                     <td><span class="badge badge-${STATUS_BADGE[o.status] || 'info'}">${escapeHtml(o.status)}</span></td>
                     <td class="cell-muted">${new Date(o.created_at).toLocaleDateString()}</td>
                     <td class="actions">
-                        <button class="btn btn-secondary btn-sm" onclick="viewOrder(${o.id})">View</button>
-                        <button class="btn btn-text btn-sm" onclick="updateOrderStatus(${o.id})">Update Status</button>
+                        <button class="btn btn-secondary btn-sm btn-icon" onclick="viewOrder(${o.id})" title="View" aria-label="View"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></button>
+                        <button class="btn btn-text btn-sm" onclick="updateOrderStatus(${o.id})"><svg class="icon" aria-hidden="true"><use href="#i-pencil"/></svg>Update Status</button>
                     </td>
                 `;
             tbody.appendChild(tr);

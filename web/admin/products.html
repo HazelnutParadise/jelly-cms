@@ -5,7 +5,7 @@
         <h1>{{.T.products}}</h1>
     </div>
     <div class="page-actions">
-        <a href="/admin/products/new" class="btn btn-primary">+ New Product</a>
+        <a href="/admin/products/new" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>New Product</a>
     </div>
 </div>
 <div class="table-wrapper">
@@ -58,8 +58,8 @@
                     <td class="cell-mono">${p.stock}</td>
                     <td><span class="badge badge-${STATUS_BADGE[p.status] || 'info'}">${escapeHtml(p.status)}</span></td>
                     <td class="actions">
-                        <a href="/admin/products/${p.id}" class="btn btn-secondary btn-sm">${T.edit}</a>
-                        <button onclick="deleteProduct(${p.id})" class="btn btn-text btn-sm">${T.delete}</button>
+                        <a href="/admin/products/${p.id}" class="btn btn-secondary btn-sm btn-icon" title="${T.edit}" aria-label="${T.edit}"><svg class="icon" aria-hidden="true"><use href="#i-pencil"/></svg></a>
+                        <button onclick="deleteProduct(${p.id})" class="btn btn-text btn-sm btn-icon" title="${T.delete}" aria-label="${T.delete}"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg></button>
                     </td>
                 `;
             tbody.appendChild(tr);

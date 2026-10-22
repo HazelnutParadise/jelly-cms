@@ -63,7 +63,7 @@
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        html { scroll-padding-top: 5rem; }
+        html { scroll-padding-top: 5rem; overflow-x: clip; }
 
         body {
             font-family: var(--font);
@@ -100,6 +100,33 @@
         .display { font-size: clamp(3rem, 9vw, 6.5rem); line-height: .98; letter-spacing: -.035em; }
         .label { font-size: .75rem; font-weight: 700; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
         .lede { font-size: clamp(1.0625rem, 1.6vw, 1.25rem); color: var(--muted); max-width: 30em; line-height: 1.6; }
+
+
+        /* ---------- 裝飾線：賽車塗裝式的斜切三色短線 ---------- */
+        .stripes, .page-head::before, .section-head h2::before, .article-head::before, .rail-block h2::before, .colophon .label::before {
+            content: "";
+            display: block;
+            width: 3.5rem;
+            height: 3px;
+            transform: skewX(-32deg);
+            transform-origin: left bottom;
+            background: linear-gradient(90deg, var(--primary) 0 52%, transparent 52% 60%, var(--secondary) 60% 82%, transparent 82% 88%, var(--accent) 88% 100%);
+        }
+        .page-head::before, .article-head::before { margin-bottom: .25rem; }
+        .section-head h2::before { width: 2.5rem; height: 2px; margin-bottom: .5rem; }
+        .rail-block h2::before { width: 2rem; height: 2px; margin-bottom: .5rem; }
+        .colophon .label::before { width: 2rem; height: 2px; margin-bottom: .6rem; }
+        /* 最頂端一條三色細線 */
+        .masthead::before { content: ""; display: block; height: 3px; background: linear-gradient(90deg, var(--primary) 0 64%, var(--secondary) 64% 86%, var(--accent) 86% 100%); }
+        /* hero 底板的速度線 */
+        .hero-art::before, .hero-art::after { content: ""; position: absolute; left: -20%; width: 140%; height: 1px; background: var(--ink); opacity: .09; transform: rotate(-32deg); pointer-events: none; }
+        .hero-art::before { top: 28%; }
+        .hero-art::after { top: 36%; }
+        .hero-copy .label::before { content: ""; display: block; width: 3.5rem; height: 3px; margin-bottom: .75rem; transform: skewX(-32deg); transform-origin: left bottom; background: linear-gradient(90deg, var(--primary) 0 52%, transparent 52% 60%, var(--secondary) 60% 82%, transparent 82% 88%, var(--accent) 88% 100%); }
+
+        .icon { width: 1.1em; height: 1.1em; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: square; stroke-linejoin: miter; flex: 0 0 auto; display: inline-block; vertical-align: -.18em; }
+        .button .icon { width: 1.05rem; height: 1.05rem; }
+        .button-icon { padding-inline: 0; width: 3rem; }
 
         /* ---------- 控制項 ---------- */
         .field {
@@ -209,18 +236,25 @@
         /* ---------- 首頁刊頭 ---------- */
         .hero {
             display: grid;
-            grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-            gap: .75rem;
-            margin-bottom: clamp(2rem, 5vw, 4rem);
+            grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+            gap: 0;
+            margin-bottom: clamp(2.5rem, 6vw, 5rem);
+            align-items: center;
         }
-        .hero-copy { padding: clamp(1.5rem, 4vw, 3rem) 0; display: grid; gap: 1.5rem; align-content: center; }
+        .hero-copy { position: relative; z-index: 1; padding: clamp(1.5rem, 4vw, 3rem) 0; display: grid; gap: 1.5rem; align-content: center; margin-right: -4rem; }
         .hero-copy .search-form { max-width: 30rem; }
         /* 果凍丁拼盤：不同口味，一塊歪掉 */
-        .hero-art { position: relative; aspect-ratio: 1; overflow: hidden; background: var(--surface-low); border-radius: var(--r-lg); }
-        .hero-art i { position: absolute; display: block; width: 38%; aspect-ratio: 1; border-radius: 0 24% 0 24%; }
+        /* 果凍丁拼盤：延伸到視窗右緣，慢慢漂 */
+        .hero-art { position: relative; aspect-ratio: 1; overflow: hidden; background: var(--surface-low); border-radius: 0 0 0 clamp(2rem, 6vw, 5rem); margin-right: calc(50% - 50vw); }
+        .hero-art i { position: absolute; display: block; width: 38%; aspect-ratio: 1; border-radius: 0 24% 0 24%; animation: drift 9s ease-in-out infinite; }
+        .hero-art i:nth-child(2) { animation-delay: -3s; animation-duration: 11s; }
+        .hero-art i:nth-child(3) { animation-delay: -6s; animation-duration: 10s; }
+        .hero-art i:nth-child(4) { animation-delay: -2s; }
+        .hero-art i:nth-child(5) { animation-delay: -5s; animation-duration: 13s; }
+        @keyframes drift { 0%, 100% { translate: 0 0; } 50% { translate: 0 -1.5%; } }
         .hero-art i:nth-child(1) { left: 10%; top: 10%; background: var(--secondary); opacity: .82; }
         .hero-art i:nth-child(2) { left: 30%; top: 26%; background: var(--accent); opacity: .85; }
-        .hero-art i:nth-child(3) { left: 50%; top: 46%; background: var(--primary); opacity: .92; transform: rotate(-7deg); }
+        .hero-art i:nth-child(3) { left: 50%; top: 46%; background: var(--primary); opacity: .92; rotate: -7deg; }
         .hero-art i:nth-child(4) { width: 18%; left: 12%; top: 66%; background: var(--warning); opacity: .95; }
         .hero-art i:nth-child(5) { width: 14%; left: 72%; top: 18%; background: var(--ink); opacity: .9; }
 
@@ -228,9 +262,16 @@
         .section-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
         .section-head h2 { font-size: clamp(1.5rem, 3vw, 2rem); }
 
-        .entries { list-style: none; }
-        .entry { position: relative; background: var(--surface-low); border-radius: var(--r-md); padding: 1.5rem; display: flex; flex-direction: column; gap: .75rem; transition: background-color .15s ease, border-radius .25s ease; }
-        .entry:hover { background: var(--surface-mid); border-radius: var(--r-md-hover); }
+        .entries { list-style: none; counter-reset: entry; }
+        .entry { position: relative; background: var(--surface); box-shadow: inset 0 0 0 1px var(--outline); border-radius: var(--r-md); padding: 1.5rem; display: flex; flex-direction: column; gap: .75rem; overflow: hidden; transition: box-shadow .15s ease, border-radius .25s ease, background-color .15s ease; }
+        .entry:hover { box-shadow: inset 0 0 0 2px var(--ink); border-radius: var(--r-md-hover); }
+        /* 口味方塊：每張卡片一顆，顏色輪流 */
+        .entry-flavor { width: .85rem; height: .85rem; border-radius: 0 .3rem 0 .3rem; background: var(--primary); flex: 0 0 auto; }
+        .entry:nth-child(4n+2) .entry-flavor { background: var(--secondary); }
+        .entry:nth-child(4n+3) .entry-flavor { background: var(--accent); }
+        .entry:nth-child(4n+4) .entry-flavor { background: var(--warning); }
+        .entry-cover { aspect-ratio: 16 / 9; width: calc(100% + 3rem); margin: -1.5rem -1.5rem .25rem; object-fit: cover; background: var(--surface-low); }
+        .entry-art { display: none; }
         .entry-head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
         .entry-title { font-size: 1.375rem; }
         .entry-title a { color: var(--ink); }
@@ -240,16 +281,44 @@
         .entry-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: auto; padding-top: .5rem; }
         .entry-meta .by { color: var(--muted); font-size: .875rem; margin-right: auto; }
         .entry-more { font-weight: 700; font-size: .9375rem; color: var(--ink); display: inline-flex; align-items: center; gap: .35rem; }
-        .entry-more::after { content: "→"; transition: transform .15s ease; }
-        .entry:hover .entry-more::after { transform: translateX(.3rem); }
+        .entry-more .icon { transition: transform .15s ease; }
+        .entry:hover .entry-more .icon { transform: translateX(.3rem); }
 
         .entries.layout-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: .75rem; }
         .entries.layout-grid .entry { min-height: 15rem; }
+        /* 主打：第一篇佔兩格，墨色底 */
+        .entries.layout-grid .entry.is-featured { grid-column: span 2; min-height: 22rem; background: var(--dark); color: var(--on-dark); box-shadow: none; padding: clamp(1.5rem, 3vw, 2.5rem); justify-content: flex-end; }
+        .entries.layout-grid .entry.is-featured:hover { box-shadow: none; background: color-mix(in srgb, var(--dark) 92%, var(--primary)); }
+        .entry.is-featured .entry-title { font-size: clamp(1.75rem, 3.2vw, 2.75rem); max-width: 18em; }
+        .entry.is-featured .entry-title a, .entry.is-featured .entry-more, .entry.is-featured .by { color: inherit; }
+        .entry.is-featured:hover .entry-title a { color: var(--primary-container); }
+        .entry.is-featured .entry-excerpt { color: color-mix(in srgb, var(--on-dark) 70%, transparent); max-width: 36em; }
+        .entry.is-featured .chip { background: color-mix(in srgb, var(--on-dark) 14%, transparent); color: inherit; }
+        .entry.is-featured .entry-art { display: block; position: absolute; right: -4%; top: -10%; width: 42%; aspect-ratio: 1; pointer-events: none; }
+        .entry.is-featured .entry-art i { position: absolute; display: block; width: 46%; aspect-ratio: 1; border-radius: 0 24% 0 24%; }
+        .entry.is-featured .entry-art i:nth-child(1) { left: 0; top: 10%; background: var(--secondary); opacity: .75; }
+        .entry.is-featured .entry-art i:nth-child(2) { left: 24%; top: 32%; background: var(--accent); opacity: .8; }
+        .entry.is-featured .entry-art i:nth-child(3) { left: 48%; top: 54%; background: var(--primary); opacity: .9; rotate: -7deg; }
+        .entry.is-featured .entry-cover { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: .55; }
+        .entry.is-featured > :not(.entry-cover):not(.entry-art) { position: relative; }
+        .entry.is-featured .entry-cover ~ .entry-art { display: none; }
+        @media (max-width: 720px) { .entries.layout-grid .entry.is-featured { grid-column: span 1; min-height: 18rem; } }
 
-        .entries.layout-list { display: grid; gap: .75rem; }
-        .entries.layout-list .entry { padding: 1.75rem; gap: .5rem; }
+        .entries.layout-list { display: grid; gap: 0; }
+        .entries.layout-list .entry { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: .35rem 1.5rem; padding: 1.75rem 1.25rem 1.75rem 0; background: transparent; box-shadow: none; border-radius: 0; border-top: 1px solid var(--outline); }
+        .entries.layout-list .entry:last-child { border-bottom: 1px solid var(--outline); }
+        .entries.layout-list .entry:hover { box-shadow: none; background: var(--surface-low); border-radius: 0 var(--r-md); padding-left: 1.25rem; }
+        .entries.layout-list .entry > * { grid-column: 2; }
+        .entries.layout-list .entry > .entry-date { grid-column: 1; grid-row: 1 / span 4; }
         .entries.layout-list .entry-title { font-size: 1.625rem; max-width: 40rem; }
         .entries.layout-list .entry-excerpt { max-width: var(--measure); }
+        .entries.layout-list .entry-head .chip { display: none; }
+        /* 大日期 */
+        .entry-date { display: grid; align-content: start; line-height: 1; }
+        .entry-date b { font-family: var(--font-display); font-size: 2.75rem; font-weight: 800; letter-spacing: -.04em; }
+        .entry-date span { font-size: .8125rem; font-weight: 600; color: var(--muted); margin-top: .35rem; }
+        .entry:not(.layout-list .entry) .entry-date { display: none; }
+        .entries.layout-grid .entry-date, .entries.layout-single .entry-date { display: none; }
 
         .entries.layout-single { display: grid; gap: .75rem; }
         .entries.layout-single .entry { padding: clamp(1.75rem, 4vw, 3rem); gap: 1rem; }
@@ -297,8 +366,13 @@
         .pagination { display: flex; justify-content: center; align-items: center; gap: .5rem; margin-top: 2.5rem; }
         .pagination .page-info { padding: 0 1rem; font-weight: 700; color: var(--muted); }
 
+        /* 閱讀進度：三色細線 */
+        .progress { position: fixed; left: 0; top: 0; height: 3px; width: 100%; z-index: 120; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, var(--primary) 0 64%, var(--secondary) 64% 86%, var(--accent) 86% 100%); pointer-events: none; }
+
         /* ---------- 頁尾 ---------- */
-        .colophon { {{if eq $footer false}}display: none;{{end}} background: var(--dark); color: var(--on-dark); margin-top: auto; border-radius: 0 clamp(2rem, 6vw, 5rem) 0 clamp(2rem, 6vw, 5rem); }
+        .colophon { {{if eq $footer false}}display: none;{{end}} position: relative; overflow: hidden; background: var(--dark); color: var(--on-dark); margin-top: auto; border-radius: 0 clamp(2rem, 6vw, 5rem) 0 0; }
+        .colophon-mark { position: absolute; right: -2vw; bottom: -4vw; font-family: var(--font-display); font-size: clamp(6rem, 22vw, 20rem); font-weight: 800; letter-spacing: -.05em; line-height: 1; color: var(--on-dark); opacity: .05; white-space: nowrap; pointer-events: none; user-select: none; }
+        .colophon-inner, .colophon-base { position: relative; }
         .colophon-inner { max-width: var(--container); margin: 0 auto; padding: clamp(2.5rem, 5vw, 4rem) var(--gutter); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 2rem; }
         .colophon .brand { color: inherit; }
         .colophon p { font-size: .9375rem; opacity: .7; max-width: 28em; margin-top: .75rem; }
@@ -329,7 +403,13 @@
             .hero-copy .search-form { flex-wrap: wrap; }
             .hero-copy .search-form .field { flex-basis: 100%; }
             .hero-copy .search-form .button { width: 100%; }
-            .entries.layout-list .entry { padding: 1.5rem; }
+            .entries.layout-list .entry { grid-template-columns: 1fr; padding: 1.5rem 0; }
+            .entries.layout-list .entry > * { grid-column: 1; }
+            .entries.layout-list .entry > .entry-date { grid-row: auto; }
+            .entries.layout-list .entry:hover { padding-left: 0; background: transparent; }
+            .entries.layout-list .entry-head .chip { display: inline-flex; }
+            .entry-date { display: none !important; }
+            .hero-copy { margin-right: 0; }
             .article-foot { flex-direction: column; align-items: stretch; }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -339,6 +419,7 @@
 </head>
 
 <body>
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol><symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></symbol><symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8 11l8-5M8 13l8 5"/></symbol><symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M19 14v6H4V5h6"/></symbol></svg>
     <a class="skip-link" href="#main">跳到主要內容</a>
 
     <header class="masthead">
@@ -355,7 +436,7 @@
             <form class="search-form" role="search" action="/search" method="GET">
                 <label class="visually-hidden" for="masthead-q">搜尋</label>
                 <input class="field" id="masthead-q" type="search" name="q" placeholder="搜尋" {{with .Query}}value="{{.}}"{{end}}>
-                <button class="button button-tonal" type="submit">搜尋</button>
+                <button class="button button-tonal button-icon" type="submit" aria-label="搜尋" title="搜尋"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
             </form>
         </div>
     </header>
@@ -369,6 +450,7 @@
     </div>
 
     <footer class="colophon">
+        <div class="colophon-mark" aria-hidden="true">{{.SiteTitle}}</div>
         <div class="colophon-inner">
             <div>
                 <a href="/" class="brand">
@@ -409,7 +491,7 @@
         <h2>搜尋</h2>
         <form class="search-form" role="search" action="/search" method="GET">
             <input class="field" type="search" name="q" placeholder="關鍵字" aria-label="搜尋關鍵字">
-            <button class="button button-tonal" type="submit">找</button>
+            <button class="button button-tonal button-icon" type="submit" aria-label="搜尋" title="搜尋"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
         </form>
     </div>
     <div class="rail-block">

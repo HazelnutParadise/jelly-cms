@@ -9,12 +9,16 @@
 <ol class="entries layout-list">
     {{range $post := .Posts}}
     <li class="entry">
+        <div class="entry-date" aria-hidden="true"><b>{{$post.CreatedAt.Format "02"}}</b><span>{{$post.CreatedAt.Format "2006.01"}}</span></div>
+        <div class="entry-head">
+            <time class="chip" datetime="{{$post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.CreatedAt.Format "2006.01.02"}}</time>
+            <span class="entry-flavor" aria-hidden="true"></span>
+        </div>
         <h2 class="entry-title"><a href="/post/{{$post.Slug}}">{{$post.Title}}</a></h2>
         <p class="entry-excerpt">{{excerpt $post.Content 160}}</p>
         <div class="entry-meta">
-            <time class="chip" datetime="{{$post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.CreatedAt.Format "2006.01.02"}}</time>
             {{if $post.Author.Username}}<span class="by">{{$post.Author.Username}}</span>{{end}}
-            <a class="entry-more" href="/post/{{$post.Slug}}">閱讀全文</a>
+            <a class="entry-more" href="/post/{{$post.Slug}}">閱讀全文<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
         </div>
     </li>
     {{end}}
@@ -29,11 +33,11 @@
 {{if and .Page .TotalPages (gt .TotalPages 1)}}
 <nav class="pagination" aria-label="分頁">
     {{if gt .Page 1}}
-    <a href="/posts?page={{sub .Page 1}}" class="button button-tonal">← 上一頁</a>
+    <a href="/posts?page={{sub .Page 1}}" class="button button-tonal"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>上一頁</a>
     {{end}}
     <span class="page-info">{{.Page}} / {{.TotalPages}}</span>
     {{if lt .Page .TotalPages}}
-    <a href="/posts?page={{add .Page 1}}" class="button button-tonal">下一頁 →</a>
+    <a href="/posts?page={{add .Page 1}}" class="button button-tonal">下一頁<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
     {{end}}
 </nav>
 {{end}}

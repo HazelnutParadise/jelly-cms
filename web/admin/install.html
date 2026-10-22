@@ -47,6 +47,8 @@
         .cubes i:nth-child(2) { left: 19%; top: 19%; background: var(--accent); opacity: .8; }
         .cubes i:nth-child(3) { right: 0; bottom: 0; background: var(--primary); opacity: .92; }
         .brand { margin: 0 0 .35rem; font-family: var(--font-display); font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+        .brand::before { content: ""; display: block; width: 3.5rem; height: 3px; margin-bottom: .75rem; transform: skewX(-32deg); transform-origin: left bottom; background: linear-gradient(90deg, var(--primary) 0 52%, transparent 52% 60%, var(--secondary) 60% 82%, transparent 82% 88%, var(--accent) 88% 100%); }
+        .panel h2::before { content: ""; display: block; width: 2rem; height: 2px; margin-bottom: .5rem; transform: skewX(-32deg); transform-origin: left bottom; background: linear-gradient(90deg, var(--primary) 0 52%, transparent 52% 60%, var(--secondary) 60% 82%, transparent 82% 88%, var(--accent) 88% 100%); }
         .intro { max-width: 38rem; margin: 0; color: var(--muted); }
 
         .language-toggle { flex: 0 0 auto; min-height: 2.5rem; padding: .4rem 1rem; border: 0; border-radius: var(--r-sm); background: var(--surface-mid); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; transition: background-color .12s ease, color .12s ease, border-radius .2s ease; }
@@ -79,6 +81,11 @@
         input:focus, select:focus { outline: none; border-bottom-color: var(--secondary); box-shadow: 0 1.5px 0 0 var(--secondary); }
         button:focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; }
 
+        .icon { width: 1.1em; height: 1.1em; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: square; stroke-linejoin: miter; flex: 0 0 auto; display: inline-block; vertical-align: -.18em; }
+        .btn .icon { width: 1.05rem; height: 1.05rem; }
+        .btn-icon { padding: 0; width: 2.5rem; min-width: 2.5rem; }
+        .btn-icon.btn-sm { width: 2rem; min-width: 2rem; min-height: 2rem; }
+        .language-toggle, .action { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; }
         .hint { margin: .3rem 0 0; color: var(--muted); font-size: .8125rem; line-height: 1.45; }
         .action { width: 100%; min-height: 2.75rem; padding: .5rem 1rem; border: 0; border-radius: var(--r-sm); font: inherit; font-weight: 700; cursor: pointer; transition: background-color .12s ease, color .12s ease, border-radius .2s ease; }
         .action:not(:disabled):hover { border-radius: 0 1rem 0 1rem; }
@@ -110,6 +117,7 @@
     </style>
 </head>
 <body>
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol><symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></symbol></svg>
     <main class="page">
         <header class="page-header">
             <div>
@@ -117,7 +125,7 @@
                 <h1 class="brand" data-i18n="title">安裝 Jelly CMS</h1>
                 <p class="intro" data-i18n="intro">設定資料庫與網站管理者，即可開始使用 Jelly CMS。</p>
             </div>
-            <button class="language-toggle" id="languageToggle" type="button" lang="en" aria-label="Switch language to English">English</button>
+            <button class="language-toggle" id="languageToggle" type="button" lang="en" aria-label="Switch language to English"><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg><span>English</span></button>
         </header>
 
         <form id="installForm" novalidate>
@@ -163,7 +171,7 @@
                         </select>
                     </div>
 
-                    <button id="testButton" class="action action-secondary" type="button" data-i18n="testButton">測試資料庫連線</button>
+                    <button id="testButton" class="action action-secondary" type="button"><svg class="icon" aria-hidden="true"><use href="#i-plug"/></svg><span data-i18n="testButton">測試資料庫連線</span></button>
                     <p id="connectionStatus" class="status" role="status" aria-live="polite" aria-atomic="true"></p>
                 </section>
 
@@ -192,7 +200,7 @@
                         <p class="hint" id="adminPasswordHint" data-i18n="adminPasswordHint">需為 12 至 72 位元組，且不能全為空白；中文字會依 UTF-8 位元組數計算。</p>
                     </div>
 
-                    <button id="installButton" class="action action-primary" type="submit" data-i18n="installButton" disabled>安裝 Jelly CMS</button>
+                    <button id="installButton" class="action action-primary" type="submit" disabled><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="installButton">安裝 Jelly CMS</span></button>
                     <p id="installStatus" class="status" role="status" aria-live="polite" aria-atomic="true"></p>
                 </section>
             </div>
@@ -257,10 +265,10 @@
                 const key = element.dataset.i18n;
                 element.textContent = copy[key];
             });
-            languageToggle.textContent = copy.switchText;
+            languageToggle.querySelector('span').textContent = copy.switchText;
             languageToggle.setAttribute('aria-label', copy.switchLabel);
-            testButton.textContent = busy && activeAction === 'test' ? copy.testBusy : copy.testButton;
-            installButton.textContent = busy && activeAction === 'install' ? copy.installBusy : copy.installButton;
+            testButton.querySelector('span').textContent = busy && activeAction === 'test' ? copy.testBusy : copy.testButton;
+            installButton.querySelector('span').textContent = busy && activeAction === 'install' ? copy.installBusy : copy.installButton;
             renderStatus(document.getElementById('connectionStatus'), statusState.connection);
             renderStatus(document.getElementById('installStatus'), statusState.install);
         }

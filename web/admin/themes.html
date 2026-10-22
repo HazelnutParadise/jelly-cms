@@ -114,10 +114,10 @@
                     <div class="theme-actions">
                         ${isActive ?
                             `<span class="badge badge-primary">${T.activeThemeBadge}</span>` :
-                            `<button class="btn btn-primary btn-sm" onclick="activateTheme('${escapeHtml(name)}')">${T.activate}</button>`
+                            `<button class="btn btn-primary btn-sm" onclick="activateTheme('${escapeHtml(name)}')"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>${T.activate}</button>`
                         }
-                        <button class="btn btn-sm btn-secondary" onclick="customizeTheme('${escapeHtml(name)}')">${T.customize}</button>
-                        ${isActive ? `<a class="btn btn-sm btn-text" href="/" target="_blank">${T.view} ↗</a>` : ''}
+                        <button class="btn btn-sm btn-secondary" onclick="customizeTheme('${escapeHtml(name)}')"><svg class="icon" aria-hidden="true"><use href="#i-sliders"/></svg>${T.customize}</button>
+                        ${isActive ? `<a class="btn btn-sm btn-text btn-icon" href="/" target="_blank" title="${T.view}" aria-label="${T.view}"><svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>` : ''}
                     </div>
                 </div>
             `;
@@ -226,9 +226,9 @@
                     ${config.custom_fields ? `<div class="modal-section">${T.customFields}</div>${generateCustomFields(custom, config.custom_fields)}` : ''}
 
                     <div class="modal-footer">
-                        <button type="submit" class="btn btn-primary">${T.saveSettings}</button>
-                        <button type="button" class="btn btn-secondary" onclick="resetToDefaults()">${T.resetToDefaults}</button>
-                        <button type="button" class="btn btn-text" onclick="closeCustomizeModal()">${T.cancel}</button>
+                        <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>${T.saveSettings}</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetToDefaults()"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg>${T.resetToDefaults}</button>
+                        <button type="button" class="btn btn-text btn-icon" onclick="closeCustomizeModal()" title="${T.cancel}" aria-label="${T.cancel}"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
                     </div>
                 </form>
             </div>

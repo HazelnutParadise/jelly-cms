@@ -10,7 +10,7 @@
     .media-actions { display: flex; gap: .25rem; opacity: 0; transition: opacity .12s ease; }
     .media-item:hover .media-actions, .media-item:focus-within .media-actions { opacity: 1; }
     @media (hover: none) { .media-actions { opacity: 1; } }
-    .media-actions .btn { flex: 1; }
+    .media-actions .btn:first-child { flex: 1; }
 </style>
 {{end}}
 {{define "content"}}
@@ -20,7 +20,7 @@
     </div>
     <div class="page-actions">
         <label class="btn btn-primary">
-            + Upload File
+            <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>Upload File
             <input type="file" id="uploadInput" style="display: none;">
         </label>
     </div>
@@ -60,8 +60,8 @@
                 <div class="media-body">
                     <div class="media-name">${escapeHtml(filename)}</div>
                     <div class="media-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="copyUrl(${JSON.stringify(url)})" title="Copy URL">Copy URL</button>
-                        <button class="btn btn-text btn-sm" onclick="deleteFile(${JSON.stringify(filename)})" title="Delete">Delete</button>
+                        <button class="btn btn-secondary btn-sm" onclick="copyUrl(${JSON.stringify(url)})" title="Copy URL"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>Copy URL</button>
+                        <button class="btn btn-text btn-sm btn-icon" onclick="deleteFile(${JSON.stringify(filename)})" title="Delete" aria-label="Delete"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg></button>
                     </div>
                 </div>
             `;

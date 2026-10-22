@@ -39,6 +39,20 @@ func TestInitial(t *testing.T) {
 	}
 }
 
+func TestFirstImage(t *testing.T) {
+	cases := map[string]string{
+		`<p>text</p><img src="/uploads/a.jpg" alt="a"><img src="/b.png">`: "/uploads/a.jpg",
+		`<IMG alt="x" SRC='/c.webp'>`:                                     "/c.webp",
+		`<p>no image</p>`:                                                 "",
+		"":                                                                "",
+	}
+	for in, want := range cases {
+		if got := FirstImage(in); got != want {
+			t.Fatalf("FirstImage(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestRenderTemplateFuncs(t *testing.T) {
 	dir := t.TempDir()
 	themeDir := filepath.Join(dir, "demo")

@@ -7,7 +7,7 @@
         <p class="lede">{{themeLayout .ThemeCustom "tagline" "寫下來，才算數。"}}</p>
         <form class="search-form" role="search" action="/search" method="GET">
             <input class="field" type="search" name="q" placeholder="搜尋文章" aria-label="搜尋文章">
-            <button class="button button-primary" type="submit">搜尋</button>
+            <button class="button button-primary" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>搜尋</button>
         </form>
     </div>
     <div class="hero-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
@@ -20,22 +20,26 @@
     </div>
     {{if .Posts}}
     <ol class="entries layout-{{themeLayout .ThemeLayout "post_layout" "grid"}}">
-        {{range $post := .Posts}}
-        <li class="entry">
+        {{range $i, $post := .Posts}}
+        <li class="entry{{if eq $i 0}} is-featured{{end}}">
+            {{with firstImage $post.Content}}<img class="entry-cover" src="{{.}}" alt="" loading="lazy">{{end}}
+            <span class="entry-art" aria-hidden="true"><i></i><i></i><i></i></span>
+            <div class="entry-date" aria-hidden="true"><b>{{$post.CreatedAt.Format "02"}}</b><span>{{$post.CreatedAt.Format "2006.01"}}</span></div>
             <div class="entry-head">
                 <time class="chip" datetime="{{$post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.CreatedAt.Format "2006.01.02"}}</time>
+                <span class="entry-flavor" aria-hidden="true"></span>
             </div>
             <h3 class="entry-title"><a href="/post/{{$post.Slug}}">{{$post.Title}}</a></h3>
             <p class="entry-excerpt">{{excerpt $post.Content 110}}</p>
             <div class="entry-meta">
                 {{if $post.Author.Username}}<span class="by">{{$post.Author.Username}}</span>{{end}}
-                <a class="entry-more" href="/post/{{$post.Slug}}">閱讀全文</a>
+                <a class="entry-more" href="/post/{{$post.Slug}}">閱讀全文<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
             </div>
         </li>
         {{end}}
     </ol>
     <div class="view-all">
-        <a href="/posts" class="button button-tonal">所有文章</a>
+        <a href="/posts" class="button button-tonal">所有文章<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
     </div>
     {{else}}
     <div class="empty">

@@ -68,6 +68,11 @@
         .notice { padding: .75rem 1rem; border-radius: var(--r-sm); background: color-mix(in srgb, var(--success) 12%, var(--surface)); color: color-mix(in srgb, var(--success) 80%, var(--ink)); font-weight: 500; }
         .notice[hidden] { display: none; }
 
+        .container > div:first-child::before { content: ""; display: block; width: 3.5rem; height: 3px; margin-bottom: 1rem; transform: skewX(-32deg); transform-origin: left bottom; background: linear-gradient(90deg, var(--primary) 0 52%, transparent 52% 60%, var(--secondary) 60% 82%, transparent 82% 88%, var(--accent) 88% 100%); }
+        .icon { width: 1.1em; height: 1.1em; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: square; stroke-linejoin: miter; flex: 0 0 auto; display: inline-block; vertical-align: -.18em; }
+        .btn .icon { width: 1.05rem; height: 1.05rem; }
+        .btn-icon { padding: 0; width: 2.5rem; min-width: 2.5rem; }
+        .btn-icon.btn-sm { width: 2rem; min-width: 2rem; min-height: 2rem; }
         form { display: grid; gap: 1.1rem; }
         label { display: block; margin-bottom: .1rem; font-weight: 600; font-size: .8125rem; color: var(--muted); }
         input[type="text"], input[type="password"] { width: 100%; min-height: 2.6rem; padding: .4rem 0; background: transparent; border: 0; border-bottom: 1.5px solid var(--outline); transition: border-color .12s ease, box-shadow .12s ease; }
@@ -103,6 +108,7 @@
 </head>
 
 <body>
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol><symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l3 3"/></symbol><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol></svg>
     <aside class="art" aria-hidden="true">
         <i></i><i></i><i></i><i></i><i></i>
         <div class="art-brand"><img class="mark" src="/admin/assets/jelly-mark.svg" alt="" aria-hidden="true"><span>Jelly CMS</span></div>
@@ -127,15 +133,15 @@
                     <label for="loginPassword">密碼</label>
                     <input type="password" id="loginPassword" name="password" placeholder="••••••••••••" autocomplete="current-password" required>
                 </div>
-                <button type="submit" class="btn">登入</button>
+                <button type="submit" class="btn"><svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg>登入</button>
             </form>
 
             <div class="divider" id="oauthDivider" style="display: none;">或</div>
 
             <!-- OAuth Login -->
             <div id="oauthButtons" style="display: none;">
-                <a href="#" class="btn btn-tonal" id="googleBtn" style="display: none;" onclick="event.preventDefault(); window.location.href='/auth/google?redirect=' + encodeURIComponent(new URLSearchParams(window.location.search).get('redirect') || '/admin');">使用 Google 登入</a>
-                <a href="#" class="btn btn-tonal" id="githubBtn" style="display: none;" onclick="event.preventDefault(); window.location.href='/auth/github?redirect=' + encodeURIComponent(new URLSearchParams(window.location.search).get('redirect') || '/admin');">使用 GitHub 登入</a>
+                <a href="#" class="btn btn-tonal" id="googleBtn" style="display: none;" onclick="event.preventDefault(); window.location.href='/auth/google?redirect=' + encodeURIComponent(new URLSearchParams(window.location.search).get('redirect') || '/admin');"><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg>使用 Google 登入</a>
+                <a href="#" class="btn btn-tonal" id="githubBtn" style="display: none;" onclick="event.preventDefault(); window.location.href='/auth/github?redirect=' + encodeURIComponent(new URLSearchParams(window.location.search).get('redirect') || '/admin');"><svg class="icon" aria-hidden="true"><use href="#i-key"/></svg>使用 GitHub 登入</a>
                 <p class="oauth-note">OAuth 首次登入將自動創建帳號</p>
             </div>
         </div>

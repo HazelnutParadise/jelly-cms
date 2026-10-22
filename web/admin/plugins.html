@@ -20,7 +20,7 @@
         <p class="page-description">{{.T.noPluginsDesc}}</p>
     </div>
     <div class="page-actions">
-        <button class="btn btn-primary" type="button" onclick="document.getElementById('uploadModal').classList.add('open')">+ {{.T.uploadPlugin}}</button>
+        <button class="btn btn-primary" type="button" onclick="document.getElementById('uploadModal').classList.add('open')"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>{{.T.uploadPlugin}}</button>
     </div>
 </div>
 
@@ -43,8 +43,8 @@
             </div>
             <div id="uploadStatus"></div>
             <div class="modal-footer">
-                <button type="submit" class="btn btn-primary">{{.T.upload}}</button>
-                <button type="button" class="btn btn-text" onclick="document.getElementById('uploadModal').classList.remove('open')">{{.T.cancel}}</button>
+                <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>{{.T.upload}}</button>
+                <button type="button" class="btn btn-text" onclick="document.getElementById('uploadModal').classList.remove('open')"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>{{.T.cancel}}</button>
             </div>
         </form>
     </div>
@@ -99,7 +99,7 @@
                     </div>
                     <div class="plugin-meta">${escapeHtml(plugin.id)} · v${escapeHtml(plugin.version || '1.0.0')} · ${escapeHtml(plugin.author || 'Unknown')}</div>
                     <div class="plugin-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="reloadPlugin('${escapeHtml(plugin.id)}')">${T.reload}</button>
+                        <button class="btn btn-secondary btn-sm" onclick="reloadPlugin('${escapeHtml(plugin.id)}')"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>${T.reload}</button>
                     </div>
                 `;
                 container.appendChild(div);

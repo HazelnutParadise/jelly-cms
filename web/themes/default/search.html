@@ -9,7 +9,7 @@
     {{end}}
     <form class="search-form" role="search" action="/search" method="GET" style="max-width: 32rem; margin-top: .75rem;">
         <input class="field" type="search" name="q" value="{{.Query}}" placeholder="搜尋文章" aria-label="搜尋文章" autofocus>
-        <button class="button button-primary" type="submit">搜尋</button>
+        <button class="button button-primary" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>搜尋</button>
     </form>
 </header>
 
@@ -17,12 +17,16 @@
 <ol class="entries layout-list">
     {{range $post := .Posts}}
     <li class="entry">
+        <div class="entry-date" aria-hidden="true"><b>{{$post.CreatedAt.Format "02"}}</b><span>{{$post.CreatedAt.Format "2006.01"}}</span></div>
+        <div class="entry-head">
+            <time class="chip" datetime="{{$post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.CreatedAt.Format "2006.01.02"}}</time>
+            <span class="entry-flavor" aria-hidden="true"></span>
+        </div>
         <h2 class="entry-title"><a href="/post/{{$post.Slug}}">{{$post.Title}}</a></h2>
         <p class="entry-excerpt">{{excerpt $post.Content 160}}</p>
         <div class="entry-meta">
-            <time class="chip" datetime="{{$post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.CreatedAt.Format "2006.01.02"}}</time>
             {{if $post.Author.Username}}<span class="by">{{$post.Author.Username}}</span>{{end}}
-            <a class="entry-more" href="/post/{{$post.Slug}}">閱讀全文</a>
+            <a class="entry-more" href="/post/{{$post.Slug}}">閱讀全文<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
         </div>
     </li>
     {{end}}

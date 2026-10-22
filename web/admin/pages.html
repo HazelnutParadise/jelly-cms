@@ -5,7 +5,7 @@
         <h1>{{.T.pages}}</h1>
     </div>
     <div class="page-actions">
-        <a href="/admin/pages/new" class="btn btn-primary">+ New Page</a>
+        <a href="/admin/pages/new" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>New Page</a>
     </div>
 </div>
 <div class="table-wrapper">
@@ -56,8 +56,8 @@
                     <td><span class="badge badge-${statusClass}">${statusText}</span></td>
                     <td class="cell-muted">${new Date(p.created_at).toLocaleDateString()}</td>
                     <td class="actions">
-                        <a href="/admin/pages/${p.id}" class="btn btn-secondary btn-sm">${T.edit}</a>
-                        <a href="/${encodeURIComponent(p.slug)}" target="_blank" class="btn btn-text btn-sm">${T.view} ↗</a>
+                        <a href="/admin/pages/${p.id}" class="btn btn-secondary btn-sm btn-icon" title="${T.edit}" aria-label="${T.edit}"><svg class="icon" aria-hidden="true"><use href="#i-pencil"/></svg></a>
+                        <a href="/${encodeURIComponent(p.slug)}" target="_blank" class="btn btn-text btn-sm btn-icon" title="${T.view}" aria-label="${T.view}"><svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
                     </td>
                 `;
             tbody.appendChild(tr);

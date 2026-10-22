@@ -323,16 +323,16 @@ document.addEventListener('click', function(e) {
 {{define "md-editor"}}
 <div class="md" data-md-editor="{{.id}}">
     <div class="md-toolbar" role="toolbar" aria-label="Markdown">
-        <button type="button" class="md-tool" data-md="bold" title="粗體 (Ctrl+B)"><b>B</b></button>
-        <button type="button" class="md-tool" data-md="italic" title="斜體 (Ctrl+I)"><i>I</i></button>
-        <button type="button" class="md-tool" data-md="heading" title="標題">H</button>
-        <button type="button" class="md-tool" data-md="quote" title="引用">❝</button>
-        <button type="button" class="md-tool" data-md="code" title="程式碼">&lt;/&gt;</button>
-        <button type="button" class="md-tool" data-md="list" title="清單">•</button>
-        <button type="button" class="md-tool" data-md="link" title="連結 (Ctrl+K)">🔗</button>
-        <button type="button" class="md-tool" data-md="image" title="圖片">▣</button>
+        <button type="button" class="md-tool" data-md="bold" title="粗體 (Ctrl+B)" aria-label="粗體"><svg class="icon" aria-hidden="true"><use href="#i-bold"/></svg></button>
+        <button type="button" class="md-tool" data-md="italic" title="斜體 (Ctrl+I)" aria-label="斜體"><svg class="icon" aria-hidden="true"><use href="#i-italic"/></svg></button>
+        <button type="button" class="md-tool" data-md="heading" title="標題" aria-label="標題"><svg class="icon" aria-hidden="true"><use href="#i-heading"/></svg></button>
+        <button type="button" class="md-tool" data-md="quote" title="引用" aria-label="引用"><svg class="icon" aria-hidden="true"><use href="#i-quote"/></svg></button>
+        <button type="button" class="md-tool" data-md="code" title="程式碼" aria-label="程式碼"><svg class="icon" aria-hidden="true"><use href="#i-code"/></svg></button>
+        <button type="button" class="md-tool" data-md="list" title="清單" aria-label="清單"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg></button>
+        <button type="button" class="md-tool" data-md="link" title="連結 (Ctrl+K)" aria-label="連結"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg></button>
+        <button type="button" class="md-tool" data-md="image" title="圖片" aria-label="圖片"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg></button>
         <span class="md-spacer"></span>
-        <button type="button" class="md-tool md-preview-toggle" data-md="preview" aria-pressed="false">預覽</button>
+        <button type="button" class="md-tool md-preview-toggle" data-md="preview" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg>預覽</button>
     </div>
     <div class="md-panes">
         <textarea id="{{.id}}" name="{{.name}}" class="doc-body md-source" placeholder="{{.placeholder}}" spellcheck="false"></textarea>
