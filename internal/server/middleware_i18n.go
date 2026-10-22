@@ -10,7 +10,7 @@ import (
 func I18nMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		lang := ""
-		
+
 		// For admin routes, check cookie first (user preference)
 		if c.Path() != "" && len(c.Path()) >= 6 && c.Path()[:6] == "/admin" {
 			cookie, err := c.Cookie("lang")
@@ -20,7 +20,7 @@ func I18nMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		// Check DB setting (site default language)
-		if lang == "" {
+		if lang == "" && data.DB != nil {
 			var opt core.Option
 			if err := data.DB.Where("key = ?", "site_language").First(&opt).Error; err == nil {
 				lang = opt.Value

@@ -36,8 +36,8 @@ const (
 
 	// Content Hooks
 	HookOnPostSave   Hook = "OnPostSave"   // Called when a post is saved (created or updated)
-	HookOnPostDelete Hook = "OnPostDelete"  // Called when a post is deleted
-	HookOnPostView   Hook = "OnPostView"    // Called when a post is viewed
+	HookOnPostDelete Hook = "OnPostDelete" // Called when a post is deleted
+	HookOnPostView   Hook = "OnPostView"   // Called when a post is viewed
 
 	// Product Hooks
 	HookOnProductSave   Hook = "OnProductSave"   // Called when a product is saved
@@ -52,7 +52,7 @@ const (
 	// User Hooks
 	HookOnUserLogin  Hook = "OnUserLogin"  // Called when a user logs in
 	HookOnUserLogout Hook = "OnUserLogout" // Called when a user logs out
-	HookOnUserCreate Hook = "OnUserCreate"  // Called when a user is created
+	HookOnUserCreate Hook = "OnUserCreate" // Called when a user is created
 
 	// Payment Hooks
 	HookOnPaymentSuccess Hook = "OnPaymentSuccess" // Called when payment succeeds

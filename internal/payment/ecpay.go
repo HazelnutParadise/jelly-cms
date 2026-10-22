@@ -106,12 +106,12 @@ func (g *ECPayGateway) VerifyCallback(ctx context.Context, data map[string]inter
 	return &CallbackData{
 		OrderID:        strData["MerchantTradeNo"],
 		GatewayOrderID: strData["TradeNo"],
-		Status:          status,
-		Amount:          amount,
+		Status:         status,
+		Amount:         amount,
 		Currency:       "TWD",
 		TransactionID:  strData["TradeNo"],
-		PaidAt:          paidAt,
-		RawData:         data,
+		PaidAt:         paidAt,
+		RawData:        data,
 	}, nil
 }
 
@@ -129,8 +129,8 @@ func (g *ECPayGateway) Refund(ctx context.Context, req RefundRequest) (*RefundRe
 	// ECPay refund implementation
 	// This would typically make an API call to ECPay
 	return &RefundResponse{
-		RefundID:      fmt.Sprintf("REFUND_%s_%d", req.OrderID, time.Now().Unix()),
-		Status:        "success",
+		RefundID:       fmt.Sprintf("REFUND_%s_%d", req.OrderID, time.Now().Unix()),
+		Status:         "success",
 		RefundedAmount: req.Amount,
 		RefundedAt:     time.Now(),
 	}, nil
@@ -192,4 +192,3 @@ func (g *ECPayGateway) formatItemName(items []OrderItem) string {
 	}
 	return result
 }
-

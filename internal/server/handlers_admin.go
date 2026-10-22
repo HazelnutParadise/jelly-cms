@@ -21,8 +21,6 @@ import (
 )
 
 func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
-	postService := core.NewPostService(data.DB)
-
 	// API Routes with authentication
 	api := e.Group("/api/admin", auth.RequireAuth)
 
@@ -41,6 +39,7 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 	})
 
 	api.POST("/posts", func(c echo.Context) error {
+		postService := core.NewPostService(data.DB)
 		var post core.Post
 		if err := c.Bind(&post); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
@@ -56,6 +55,7 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 	})
 
 	api.GET("/posts/:id", func(c echo.Context) error {
+		postService := core.NewPostService(data.DB)
 		id, _ := strconv.Atoi(c.Param("id"))
 		post, err := postService.GetByID(uint(id))
 		if err != nil {
@@ -65,6 +65,7 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 	})
 
 	api.PUT("/posts/:id", func(c echo.Context) error {
+		postService := core.NewPostService(data.DB)
 		id, _ := strconv.Atoi(c.Param("id"))
 		post, err := postService.GetByID(uint(id))
 		if err != nil {
@@ -82,6 +83,7 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 	})
 
 	api.DELETE("/posts/:id", func(c echo.Context) error {
+		postService := core.NewPostService(data.DB)
 		id, _ := strconv.Atoi(c.Param("id"))
 		if err := postService.Delete(uint(id)); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})

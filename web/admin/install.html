@@ -1,229 +1,464 @@
-<!DOCTYPE html>
-<html lang="en">
-
+<!doctype html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Install Jelly CMS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>安裝 Jelly CMS</title>
     <style>
+        :root {
+            color-scheme: light;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #182230;
+            background: #f3f6fa;
+            font-synthesis: none;
+            text-rendering: optimizeLegibility;
+        }
+
+        * { box-sizing: border-box; }
+
         body {
-            font-family: sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            min-width: 320px;
             min-height: 100vh;
-            background: #f0f2f5;
             margin: 0;
-            padding: 2rem 0;
+            padding: clamp(1rem, 4vw, 3rem) 1rem;
         }
 
-        .container {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 500px;
-        }
+        .page { width: min(100%, 960px); margin: 0 auto; }
+        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+        .brand { margin: 0 0 .35rem; font-size: clamp(1.6rem, 4vw, 2rem); letter-spacing: -.035em; }
+        .intro { max-width: 38rem; margin: 0; color: #58677a; line-height: 1.6; }
 
-        h1 {
-            text-align: center;
-            color: #333;
-            margin-top: 0;
-        }
-
-        h3 {
-            border-bottom: 1px solid #eee;
-            padding-bottom: 0.5rem;
-            margin-top: 1.5rem;
-            color: #555;
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        input,
-        select {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1.5rem;
-        }
-
-        button {
-            flex: 1;
-            padding: 0.75rem;
-            border: none;
-            border-radius: 4px;
+        .language-toggle {
+            flex: 0 0 auto;
+            min-height: 2.75rem;
+            padding: .55rem .85rem;
+            border: 1px solid #cbd5e1;
+            border-radius: .6rem;
+            background: #fff;
+            color: #26364a;
+            font: inherit;
+            font-weight: 650;
             cursor: pointer;
+        }
+
+        .setup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; align-items: start; }
+        .panel { min-width: 0; padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid #dce4ed; border-radius: .9rem; background: #fff; box-shadow: 0 10px 28px rgb(24 34 48 / 5%); }
+        .panel h2 { margin: 0; font-size: 1.2rem; letter-spacing: -.015em; }
+        .panel-description { margin: .45rem 0 1.25rem; color: #66758a; font-size: .94rem; line-height: 1.55; }
+        .field-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 .85rem; }
+        .field { min-width: 0; margin-bottom: 1rem; }
+        label { display: block; margin-bottom: .4rem; color: #26364a; font-size: .92rem; font-weight: 650; }
+        input, select {
+            display: block;
+            width: 100%;
+            min-height: 2.85rem;
+            padding: .65rem .75rem;
+            border: 1px solid #bdc9d7;
+            border-radius: .55rem;
+            background: #fff;
+            color: #182230;
+            font: inherit;
             font-size: 1rem;
         }
 
-        .btn-primary {
-            background: #007bff;
-            color: white;
+        input::placeholder { color: #8592a3; }
+        input:focus-visible, select:focus-visible, button:focus-visible {
+            outline: 3px solid #6aa8ff;
+            outline-offset: 2px;
+            border-color: #2768c8;
         }
 
-        .btn-primary:hover {
-            background: #0056b3;
+        .hint { margin: .4rem 0 0; color: #66758a; font-size: .84rem; line-height: 1.45; }
+        .action { width: 100%; min-height: 2.9rem; padding: .7rem 1rem; border: 0; border-radius: .58rem; font: inherit; font-weight: 700; cursor: pointer; transition: background-color .15s ease, transform .15s ease; }
+        .action:not(:disabled):active { transform: translateY(1px); }
+        .action:disabled { cursor: not-allowed; opacity: .55; }
+        .action-secondary { margin-top: .15rem; border: 1px solid #b9c8dc; background: #edf4fd; color: #174b8d; }
+        .action-secondary:not(:disabled):hover { background: #dceafd; }
+        .action-primary { margin-top: .25rem; background: #175fc2; color: #fff; }
+        .action-primary:not(:disabled):hover { background: #104d9f; }
+        .status { min-height: 1.5rem; margin: .75rem 0 0; color: #46566b; font-size: .92rem; line-height: 1.5; }
+        .status[data-kind="success"] { color: #17613a; }
+        .status[data-kind="error"] { color: #a52f32; }
+        .status:empty { min-height: 0; margin-top: 0; }
+
+        @media (max-width: 640px) {
+            .setup-grid { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+            .page-header { align-items: flex-start; }
         }
 
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
+        @media (max-width: 390px) {
+            body { padding-inline: .75rem; }
+            .page-header { gap: .55rem; }
+            .language-toggle { padding-inline: .65rem; }
+            .field-grid { grid-template-columns: minmax(0, 1fr); }
         }
 
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-
-        .row {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .col {
-            flex: 1;
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
         }
     </style>
 </head>
-
 <body>
-    <div class="container">
-        <h1>Jelly CMS Setup</h1>
-        <form id="installForm">
-            <h3>Database Configuration</h3>
-            <div class="row">
-                <div class="col form-group">
-                    <label>Host</label>
-                    <input type="text" name="db_host" value="{{.DBHost}}" required>
-                </div>
-                <div class="col form-group">
-                    <label>Port</label>
-                    <input type="text" name="db_port" value="{{.DBPort}}" required>
-                </div>
+    <main class="page">
+        <header class="page-header">
+            <div>
+                <h1 class="brand" data-i18n="title">安裝 Jelly CMS</h1>
+                <p class="intro" data-i18n="intro">設定資料庫與網站管理者，即可開始使用 Jelly CMS。</p>
             </div>
-            <div class="row">
-                <div class="col form-group">
-                    <label>User</label>
-                    <input type="text" name="db_user" value="{{.DBUser}}" required>
-                </div>
-                <div class="col form-group">
-                    <label>Password</label>
-                    <input type="password" name="db_pass" value="{{.DBPass}}" required>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Database Name</label>
-                <input type="text" name="db_name" value="{{.DBName}}" required>
-            </div>
-            <div class="form-group">
-                <label>Timezone</label>
-                <select name="db_timezone" id="timezoneSelect">
-                    <option value="Asia/Taipei">Asia/Taipei</option>
-                    <option value="UTC">UTC</option>
-                    <option value="America/New_York">America/New_York</option>
-                    <option value="Europe/London">Europe/London</option>
-                    <option value="Asia/Tokyo">Asia/Tokyo</option>
-                </select>
-            </div>
-            <button type="button" id="testBtn" class="btn-secondary" style="width: 100%; margin-top: 0;">Test
-                Connection</button>
+            <button class="language-toggle" id="languageToggle" type="button" lang="en" aria-label="Switch language to English">English</button>
+        </header>
 
-            <h3>Site Configuration</h3>
-            <div class="form-group">
-                <label>Site Title</label>
-                <input type="text" name="site_title" required>
-            </div>
-            <div class="form-group">
-                <label>Admin Username</label>
-                <input type="text" name="admin_user" required>
-            </div>
-            <div class="form-group">
-                <label>Admin Email</label>
-                <input type="email" name="admin_email" required>
-            </div>
-            <div class="form-group">
-                <label>Password</label>
-                <input type="password" name="admin_pass" required>
-            </div>
+        <form id="installForm" novalidate>
+            <div class="setup-grid">
+                <section class="panel" aria-labelledby="databaseHeading">
+                    <h2 id="databaseHeading" data-i18n="databaseHeading">資料庫設定</h2>
+                    <p class="panel-description" data-i18n="databaseDescription">輸入 PostgreSQL 連線資訊。依資料庫認證設定填入密碼；不需要密碼時可留空。</p>
 
-            <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem;">Install Jelly CMS</button>
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="dbHost" data-i18n="dbHostLabel">資料庫主機</label>
+                            <input id="dbHost" name="db_host" type="text" value="{{.DBHost}}" autocomplete="off" required>
+                        </div>
+                        <div class="field">
+                            <label for="dbPort" data-i18n="dbPortLabel">資料庫連接埠</label>
+                            <input id="dbPort" name="db_port" type="number" value="{{.DBPort}}" min="1" max="65535" step="1" inputmode="numeric" required>
+                        </div>
+                    </div>
+
+                    <div class="field-grid">
+                        <div class="field">
+                            <label for="dbUser" data-i18n="dbUserLabel">資料庫使用者</label>
+                            <input id="dbUser" name="db_user" type="text" value="{{.DBUser}}" autocomplete="username" required>
+                        </div>
+                        <div class="field">
+                            <label for="dbPassword" data-i18n="dbPasswordLabel">資料庫密碼（依認證設定填寫）</label>
+                            <input id="dbPassword" name="db_pass" type="password" autocomplete="new-password">
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label for="dbName" data-i18n="dbNameLabel">資料庫名稱</label>
+                        <input id="dbName" name="db_name" type="text" value="{{.DBName}}" required>
+                    </div>
+                    <div class="field">
+                        <label for="dbTimezone" data-i18n="timezoneLabel">時區</label>
+                        <select id="dbTimezone" name="db_timezone" data-default-timezone="{{.DBTimezone}}" required>
+                            <option value="Asia/Taipei">Asia/Taipei</option>
+                            <option value="UTC">UTC</option>
+                            <option value="America/New_York">America/New_York</option>
+                            <option value="Europe/London">Europe/London</option>
+                            <option value="Asia/Tokyo">Asia/Tokyo</option>
+                        </select>
+                    </div>
+
+                    <button id="testButton" class="action action-secondary" type="button" data-i18n="testButton">測試資料庫連線</button>
+                    <p id="connectionStatus" class="status" role="status" aria-live="polite" aria-atomic="true"></p>
+                </section>
+
+                <section class="panel" aria-labelledby="siteHeading">
+                    <h2 id="siteHeading" data-i18n="siteHeading">網站與管理者</h2>
+                    <p class="panel-description" data-i18n="siteDescription">建立網站名稱與第一個管理者帳號。</p>
+
+                    <div class="field">
+                        <label for="siteTitle" data-i18n="siteTitleLabel">網站名稱</label>
+                        <input id="siteTitle" name="site_title" type="text" autocomplete="organization" required>
+                        <p class="hint" data-i18n="siteTitleHint">最多 200 個字元。</p>
+                    </div>
+                    <div class="field">
+                        <label for="adminUser" data-i18n="adminUserLabel">管理者帳號</label>
+                        <input id="adminUser" name="admin_user" type="text" autocomplete="username" required>
+                        <p class="hint" data-i18n="adminUserHint">最多 50 個字元。</p>
+                    </div>
+                    <div class="field">
+                        <label for="adminEmail" data-i18n="adminEmailLabel">管理者電子郵件</label>
+                        <input id="adminEmail" name="admin_email" type="email" autocomplete="email" required>
+                        <p class="hint" data-i18n="adminEmailHint">請輸入有效信箱，最多 255 位元組。</p>
+                    </div>
+                    <div class="field">
+                        <label for="adminPassword" data-i18n="adminPasswordLabel">管理者密碼</label>
+                        <input id="adminPassword" name="admin_pass" type="password" autocomplete="new-password" required aria-describedby="adminPasswordHint">
+                        <p class="hint" id="adminPasswordHint" data-i18n="adminPasswordHint">需為 12 至 72 位元組，且不能全為空白；中文字會依 UTF-8 位元組數計算。</p>
+                    </div>
+
+                    <button id="installButton" class="action action-primary" type="submit" data-i18n="installButton" disabled>安裝 Jelly CMS</button>
+                    <p id="installStatus" class="status" role="status" aria-live="polite" aria-atomic="true"></p>
+                </section>
+            </div>
         </form>
-    </div>
+    </main>
+
     <script>
-        // Set default timezone if provided
-        const defaultTz = "{{.DBTimezone}}";
-        if (defaultTz) {
-            document.getElementById('timezoneSelect').value = defaultTz;
+        const translations = {
+            'zh-TW': {
+                title: '安裝 Jelly CMS', intro: '設定資料庫與網站管理者，即可開始使用 Jelly CMS。',
+                databaseHeading: '資料庫設定', databaseDescription: '輸入 PostgreSQL 連線資訊。依資料庫認證設定填入密碼；不需要密碼時可留空。',
+                dbHostLabel: '資料庫主機', dbPortLabel: '資料庫連接埠', dbUserLabel: '資料庫使用者', dbPasswordLabel: '資料庫密碼（依認證設定填寫）', dbNameLabel: '資料庫名稱', timezoneLabel: '時區',
+                siteHeading: '網站與管理者', siteDescription: '建立網站名稱與第一個管理者帳號。', siteTitleLabel: '網站名稱', siteTitleHint: '最多 200 個字元。', adminUserLabel: '管理者帳號', adminUserHint: '最多 50 個字元。',
+                adminEmailLabel: '管理者電子郵件', adminEmailHint: '請輸入有效信箱，最多 255 位元組。', adminPasswordLabel: '管理者密碼', adminPasswordHint: '需為 12 至 72 位元組，且不能全為空白；中文字會依 UTF-8 位元組數計算。',
+                testButton: '測試資料庫連線', testBusy: '正在測試連線…', installButton: '安裝 Jelly CMS', installBusy: '正在安裝…',
+                testSuccess: '資料庫連線成功。', testFailure: '連線測試失敗，請檢查資料庫設定後重試。', retryError: '目前無法完成要求，請稍後重試。輸入內容已保留。',
+                installSuccess: '安裝完成，正在前往登入頁面…', alreadyInstalled: '網站已完成安裝，請前往登入。',
+                invalidDatabase: '請填妥有效的資料庫主機、連接埠、使用者、名稱與時區。', invalidSite: '請檢查網站名稱、管理者帳號、電子郵件與密碼欄位。',
+                fieldErrors: { db_host: '請輸入資料庫主機。', db_port: '連接埠必須介於 1 到 65535。', db_user: '請輸入資料庫使用者。', db_name: '請輸入資料庫名稱。', db_timezone: '請選擇有效時區。', site_title: '網站名稱不得空白，且最多 200 個字元。', admin_user: '管理者帳號不得空白，且最多 50 個字元。', admin_email: '請輸入有效的電子郵件，且不得超過 255 位元組。', admin_pass: '管理者密碼需為 12 至 72 位元組，且不能全為空白。' },
+                switchLabel: 'Switch language to English', switchText: 'English'
+            },
+            en: {
+                title: 'Install Jelly CMS', intro: 'Connect your database and create the first site administrator to get started.',
+                databaseHeading: 'Database settings', databaseDescription: 'Enter your PostgreSQL connection details. Enter a password if your database authentication requires one; otherwise, leave it blank.',
+                dbHostLabel: 'Database host', dbPortLabel: 'Database port', dbUserLabel: 'Database user', dbPasswordLabel: 'Database password (if required)', dbNameLabel: 'Database name', timezoneLabel: 'Timezone',
+                siteHeading: 'Site and administrator', siteDescription: 'Choose a site name and create the first administrator account.', siteTitleLabel: 'Site title', siteTitleHint: 'Up to 200 characters.', adminUserLabel: 'Administrator username', adminUserHint: 'Up to 50 characters.',
+                adminEmailLabel: 'Administrator email', adminEmailHint: 'Enter a valid email address, up to 255 bytes.', adminPasswordLabel: 'Administrator password', adminPasswordHint: 'Must be 12 to 72 bytes, and cannot be only whitespace. Non-ASCII characters count by their UTF-8 byte length.',
+                testButton: 'Test database connection', testBusy: 'Testing connection…', installButton: 'Install Jelly CMS', installBusy: 'Installing…',
+                testSuccess: 'Database connection successful.', testFailure: 'Connection test failed. Check the database settings and try again.', retryError: 'The request could not be completed. Please try again later. Your entries are preserved.',
+                installSuccess: 'Installation complete. Redirecting to the login page…', alreadyInstalled: 'This site is already installed. Please go to the login page.',
+                invalidDatabase: 'Enter a valid database host, port, user, name, and timezone.', invalidSite: 'Check the site title, administrator username, email, and password.',
+                fieldErrors: { db_host: 'Enter a database host.', db_port: 'Port must be between 1 and 65535.', db_user: 'Enter a database user.', db_name: 'Enter a database name.', db_timezone: 'Choose a valid timezone.', site_title: 'Enter a site title of up to 200 characters.', admin_user: 'Enter a username of up to 50 characters.', admin_email: 'Enter a valid email address of up to 255 bytes.', admin_pass: 'Administrator password must be 12 to 72 bytes and cannot be only whitespace.' },
+                switchLabel: '切換語言為繁體中文', switchText: '繁體中文'
+            }
+        };
+
+        const form = document.getElementById('installForm');
+        const databaseFields = ['db_host', 'db_port', 'db_user', 'db_name', 'db_timezone'];
+        const fieldIds = ['dbHost', 'dbPort', 'dbUser', 'dbPassword', 'dbName', 'dbTimezone', 'siteTitle', 'adminUser', 'adminEmail', 'adminPassword'];
+        const fields = Object.fromEntries(fieldIds.map(id => [document.getElementById(id).name, document.getElementById(id)]));
+        const testButton = document.getElementById('testButton');
+        const installButton = document.getElementById('installButton');
+        const languageToggle = document.getElementById('languageToggle');
+        let language = 'zh-TW';
+        let busy = false;
+        let statusState = { connection: null, install: null };
+
+        function message(key) {
+            return translations[language][key] || '';
         }
 
-        document.getElementById('testBtn').addEventListener('click', async () => {
-            const btn = document.getElementById('testBtn');
-            const originalText = btn.innerText;
-            btn.innerText = 'Testing...';
-            btn.disabled = true;
+        function renderStatus(element, state) {
+            element.textContent = state ? (state.field ? translations[language].fieldErrors[state.field] : message(state.key)) : '';
+            element.dataset.kind = state ? state.kind : '';
+        }
 
-            const formData = new FormData(document.getElementById('installForm'));
-            const data = Object.fromEntries(formData.entries());
+        function renderLanguage() {
+            const copy = translations[language];
+            document.documentElement.lang = language;
+            document.title = copy.title;
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.dataset.i18n;
+                element.textContent = copy[key];
+            });
+            languageToggle.textContent = copy.switchText;
+            languageToggle.setAttribute('aria-label', copy.switchLabel);
+            testButton.textContent = busy && activeAction === 'test' ? copy.testBusy : copy.testButton;
+            installButton.textContent = busy && activeAction === 'install' ? copy.installBusy : copy.installButton;
+            renderStatus(document.getElementById('connectionStatus'), statusState.connection);
+            renderStatus(document.getElementById('installStatus'), statusState.install);
+        }
 
+        function setStatus(kind, key, type) {
+            statusState[kind] = { key, kind: type };
+            renderStatus(document.getElementById(kind === 'connection' ? 'connectionStatus' : 'installStatus'), statusState[kind]);
+        }
+
+        function utf8Length(value) {
+            return new TextEncoder().encode(value).length;
+        }
+
+        function characterLength(value) {
+            return Array.from(value).length;
+        }
+
+        const whitespaceOnly = /^\p{White_Space}*$/u;
+
+        function isDatabaseValid() {
+            const host = fields.db_host;
+            const port = fields.db_port;
+            const user = fields.db_user;
+            const name = fields.db_name;
+            const timezone = fields.db_timezone;
+            return host.value.trim().length > 0 && utf8Length(host.value.trim()) <= 255 &&
+                port.value !== '' && port.validity.valid && Number(port.value) >= 1 && Number(port.value) <= 65535 &&
+                user.value.trim().length > 0 && utf8Length(user.value.trim()) <= 63 &&
+                name.value.trim().length > 0 && utf8Length(name.value.trim()) <= 63 &&
+                timezone.value.length > 0;
+        }
+
+        function isSiteValid() {
+            const title = fields.site_title.value.trim();
+            const username = fields.admin_user.value.trim();
+            const email = fields.admin_email;
+            const password = fields.admin_pass.value;
+            return title.length > 0 && characterLength(title) <= 200 &&
+                username.length > 0 && characterLength(username) <= 50 &&
+                email.value.trim().length > 0 && utf8Length(email.value.trim()) <= 255 && email.validity.valid &&
+                !whitespaceOnly.test(password) && utf8Length(password) >= 12 && utf8Length(password) <= 72;
+        }
+
+        function updateButtons() {
+            testButton.disabled = busy || !isDatabaseValid();
+            installButton.disabled = busy || !isDatabaseValid() || !isSiteValid();
+        }
+
+        function begin(action) {
+            if (busy) return false;
+            busy = true;
+            activeAction = action;
+            testButton.disabled = true;
+            installButton.disabled = true;
+            renderLanguage();
+            return true;
+        }
+
+        function finish() {
+            busy = false;
+            activeAction = null;
+            renderLanguage();
+            updateButtons();
+        }
+
+        function payloadForTest() {
+            return {
+                ...Object.fromEntries(databaseFields.map(name => [name, fields[name].value])),
+                db_pass: fields.db_pass.value
+            };
+        }
+
+        function fieldErrorKey(serverMessage) {
+            if (typeof serverMessage !== 'string') return null;
+            for (const key of Object.keys(translations['zh-TW'].fieldErrors)) {
+                if (serverMessage.includes(key)) return key;
+            }
+            return null;
+        }
+
+        async function readSafeJSON(response) {
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.toLowerCase().includes('application/json')) return null;
             try {
-                const res = await fetch('/api/install/test-db', {
+                return await response.json();
+            } catch (_) {
+                return null;
+            }
+        }
+
+        let activeAction = null;
+
+        document.getElementById('dbTimezone').addEventListener('change', updateButtons);
+        document.getElementById('languageToggle').addEventListener('click', () => {
+            language = language === 'zh-TW' ? 'en' : 'zh-TW';
+            renderLanguage();
+        });
+
+        const timezoneSelect = document.getElementById('dbTimezone');
+        const configuredTimezone = timezoneSelect.dataset.defaultTimezone;
+        if (configuredTimezone && !Array.from(timezoneSelect.options).some(option => option.value === configuredTimezone)) {
+            const option = document.createElement('option');
+            option.value = configuredTimezone;
+            option.textContent = configuredTimezone;
+            timezoneSelect.add(option);
+        }
+        if (configuredTimezone) timezoneSelect.value = configuredTimezone;
+
+        form.addEventListener('input', () => {
+            statusState.connection = null;
+            statusState.install = null;
+            renderLanguage();
+            updateButtons();
+        });
+
+        form.addEventListener('change', () => {
+            statusState.connection = null;
+            statusState.install = null;
+            renderLanguage();
+            updateButtons();
+        });
+
+        testButton.addEventListener('click', async () => {
+            if (!isDatabaseValid()) {
+                setStatus('connection', 'invalidDatabase', 'error');
+                return;
+            }
+            if (!begin('test')) return;
+            statusState.connection = null;
+            renderLanguage();
+            try {
+                const response = await fetch('/api/install/test-db', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(payloadForTest())
                 });
-                const result = await res.json();
-                if (res.ok) {
-                    alert('Connection Successful!');
+                const body = await readSafeJSON(response);
+                if (response.ok && body && typeof body.message === 'string') {
+                    setStatus('connection', 'testSuccess', 'success');
+                } else if (response.status === 409) {
+                    setStatus('connection', 'alreadyInstalled', 'error');
+                } else if (!body || response.status >= 500) {
+                    setStatus('connection', 'retryError', 'error');
                 } else {
-                    alert('Connection Failed: ' + result.error);
+                    setStatus('connection', 'testFailure', 'error');
                 }
-            } catch (err) {
-                alert('Connection Failed: ' + err.message);
+            } catch (_) {
+                setStatus('connection', 'retryError', 'error');
             } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
+                finish();
             }
         });
 
-        document.getElementById('installForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const data = Object.fromEntries(formData.entries());
-
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            if (!isDatabaseValid()) {
+                setStatus('install', 'invalidDatabase', 'error');
+                return;
+            }
+            if (!isSiteValid()) {
+                setStatus('install', 'invalidSite', 'error');
+                return;
+            }
+            if (!begin('install')) return;
+            statusState.install = null;
+            renderLanguage();
+            let redirecting = false;
             try {
-                const res = await fetch('/api/install', {
+                const formData = new FormData(form);
+                const response = await fetch('/api/install', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(Object.fromEntries(formData.entries()))
                 });
-                if (res.ok) {
-                    window.location.href = '/';
+                if (response.ok) {
+                    const body = await readSafeJSON(response);
+                    if (body && typeof body.message === 'string') {
+                        try { localStorage.setItem('jellyCmsInstallLanguage', language); } catch (_) { }
+                        setStatus('install', 'installSuccess', 'success');
+                        redirecting = true;
+                        window.setTimeout(() => { window.location.href = '/login?installed=1'; }, 900);
+                    } else {
+                        setStatus('install', 'retryError', 'error');
+                    }
+                } else if (response.status === 409) {
+                    setStatus('install', 'alreadyInstalled', 'error');
+                } else if (response.status === 400) {
+                    const body = await readSafeJSON(response);
+                    const field = body && fieldErrorKey(body.error);
+                    if (!body) {
+                        setStatus('install', 'retryError', 'error');
+                    } else if (field) {
+                        statusState.install = { field, kind: 'error' };
+                        renderStatus(document.getElementById('installStatus'), statusState.install);
+                    } else {
+                        setStatus('install', 'invalidSite', 'error');
+                    }
                 } else {
-                    const err = await res.json();
-                    alert('Error: ' + err.error);
+                    setStatus('install', 'retryError', 'error');
                 }
-            } catch (err) {
-                alert('Installation failed');
+            } catch (_) {
+                setStatus('install', 'retryError', 'error');
+            } finally {
+                if (!redirecting) finish();
             }
         });
+
+        renderLanguage();
+        updateButtons();
     </script>
 </body>
-
 </html>
