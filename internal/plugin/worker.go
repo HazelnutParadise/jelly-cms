@@ -56,9 +56,10 @@ func warmWorkerCache() {
 	dir := workerCacheDir()
 
 	runtime, err := qjs.New(qjs.Option{
-		CacheDir: dir,
-		Stdout:   io.Discard,
-		Stderr:   io.Discard,
+		CacheDir:           dir,
+		CloseOnContextDone: true, // Keep the warm cache aligned with worker compilation.
+		Stdout:             io.Discard,
+		Stderr:             io.Discard,
 	})
 	if err != nil {
 		return

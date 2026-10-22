@@ -45,7 +45,7 @@ qjs v0.0.6 的 Eval 參數是檔名，內嵌程式需 Code 選項。SetFunc 綁�
 
 處理流程：worker 收到 load 或 hook → JavaScript 執行 → Wazero 迴圈週期返回 Go → 管線 EOF 的工作可以執行 → worker 退出，父程序回收。沿用現有程序隔離與 Kill／Wait，不新增 watchdog、OS 專屬死亡訊號、資料模型或依賴，不改應用主程序的 GOMAXPROCS。
 
-修正格子：warmWorkerCache 與 newWorkerJS 的 qjs.New 都設定 CloseOnContextDone=true，保持預設 Background，不設定或取消 qjs context。此選項讓迴圈執行 Go 端的關閉檢查，恢復排程與垃圾回收檢查點，並非改回已知清理會 panic 的 context 取消策略。qjs 的程序內全域編譯只比較 Wasm 雜湊，兩個建立處必須一致；Wazero 磁碟快取會區分此設定，不須刪除既有快取。公開入口、協定、期限與錯誤行為保持不變。
+修正格子：warmWorkerCache 與 newWorkerJS 的 qjs.New 都設定 CloseOnContextDone=true，保持預設 Background，不設定或取消 qjs context。此選項讓迴圈執行 Go 端的關閉檢查，恢復排程與垃圾回收檢查點，並非改回已知清理會 panic 的 context 取消策略。qjs 在同一程序內以首次編譯決定此選項。父程序預熱與 worker 則是不同程序，兩處採相同設定才能共用預熱的磁碟快取；Wazero 磁碟快取會區分此設定，不須刪除既有快取。公開入口、協定、期限與錯誤行為保持不變。
 
 | 操作與邊界 | 預期結果與驗證 |
 |---|---|
@@ -56,3 +56,5 @@ qjs v0.0.6 的 Eval 參數是檔名，內嵌程式需 Code 選項。SetFunc 綁�
 | Linux 驗證 | 原始 busy-orphan 在 docker --cpuset-cpus=0 修正前失敗、修正後通過；完整 PostgreSQL 競態測試及 Windows／Linux 編譯通過 |
 
 新增程序層回歸測試，使用現有 TestMain 的公開 RunWorkerIfRequested 與真實長度前綴協定；直接啟動 worker 以避免父程序環境白名單把 GOMAXPROCS=1 移除。不得新增 production 測試開關，也不得只檢查設定欄位而略過退出行為。垃圾回收反例以獨立 qjs 探針再驗證，並以原始碼核對兩處初始化均啟用檢查。
+
+本段修正後已由主代理重跑：三條真實 worker 的單 Go 執行槽測試通過；Linux 單 CPU 容器內原始 busy-orphan 與三條新增測試連跑三次通過。主代理也重跑獨立 qjs 對照探針，原設定的單執行槽及垃圾回收情境停住，啟用檢查後皆以退出碼 0 結束。完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷，待 CI 交付。Windows 只完成編譯，不宣稱該平台已完成程序行為驗收。

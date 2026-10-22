@@ -64,10 +64,11 @@ func newWorkerJS(sendLog func(level, message string)) (*workerJS, error) {
 	}
 
 	runtime, err := qjs.New(qjs.Option{
-		CWD:      workDir,
-		CacheDir: workerCacheDir(),
-		Stdout:   os.Stderr,
-		Stderr:   os.Stderr,
+		CWD:                workDir,
+		CacheDir:           workerCacheDir(),
+		CloseOnContextDone: true, // Let Wazero return to Go for scheduling and GC checks.
+		Stdout:             os.Stderr,
+		Stderr:             os.Stderr,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create javascript runtime: %w", err)
