@@ -3,7 +3,7 @@
 Epic：帳號與存取
 User Story：登入後只可操作自己被授權的資料與功能。
 Blocked by：01 的可用資料庫與登入流程。
-Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已透過 PR #9 合併，登入嘗試限制已透過 PR #10 合併，OAuth 提供者與 state 輸入已透過 PR #11 合併，一次性回呼已透過 PR #12 合併，請求日誌保護已透過 PR #14 合併，正在驗證上游請求期限、取消與身分連結）
+Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已透過 PR #9 合併，登入嘗試限制已透過 PR #10 合併，OAuth 提供者與 state 輸入已透過 PR #11 合併，一次性回呼已透過 PR #12 合併，請求日誌保護已透過 PR #14 合併，上游請求期限與取消已完成本機驗證、等待 CI 交付，身分連結仍待驗收）
 
 ## 流程與驗收
 
@@ -223,7 +223,7 @@ OAuth 入口另使用與本機登入獨立的既有來源限流器，每個連�
 ## OAuth 後續營運檢查
 
 - 請求日誌保護已透過 PR #14 交付，細節與驗收見下一節。
-- P2：目前 Google／GitHub Provider 沿用沒有 Timeout 的 http.DefaultClient，且 Goth 使用自己的背景 context。後續須界定對外請求期限與取消行為，以停滯的本機上游驗證回應時間及資源釋放。
+- 上游請求期限與取消已完成本機驗證，細節見最後一節；CI 交付尚待完成。
 
 
 ## 請求日誌的秘密保護
@@ -267,4 +267,6 @@ OAuth 入口另使用與本機登入獨立的既有來源限流器，每個連�
 | 失敗與重試 | 逾時或取消沿用通用 502，不回傳上游錯誤中的秘密，不送出應用登入 Cookie/JWT；已消耗 state 不可重放，新的授權可重新開始 |
 | 既有拒絕流程 | 不合法 state、未啟用提供者、DB 故障與授權拒絕仍在原有階段停止，不提早發出上游請求 |
 
-測試新增 internal/server/oauth_http_integration_test.go，優先沿用現有獨立 PostgreSQL fixture 與公開路由。使用真實 Goth 提供者的 HTTPClient.Transport 接縫將流量限於本機假上游，不變更依賴的全域 URL。至少用本機 HTTP 伺服器驗證取消在標頭與本文兩個階段的實際行為，共用總期限可用 synctest 搭配可取消的假傳輸，避免每次等待真實 30 秒。測試先在舊實作重現，再交另一代理修正，實作者不得修改測試。外部 Google／GitHub 授權不在此次本機驗收中。
+測試分為 internal/server/oauth_http_integration_test.go 的本機上游與取消流程，以及 internal/server/oauth_http_budget_integration_test.go 的總期限、較短期限與並行隔離。兩檔分別指派測試代理，沿用現有獨立 PostgreSQL fixture 與公開路由，代理各自只能修改自己的檔案。使用真實 Goth 提供者的 HTTPClient.Transport 接縫將流量限於本機假上游，不變更依賴的全域 URL。至少用本機 HTTP 伺服器驗證取消在標頭與本文兩個階段的實際行為，共用總期限可用 synctest 搭配可取消的假傳輸，避免每次等待真實 30 秒。測試先在舊實作重現，再交另一代理修正，實作者不得修改測試。外部 Google／GitHub 授權不在此次本機驗收中。
+
+本段已由主代理驗證：同一份測試套用原版呼叫路徑時，14 個負向案例失敗；修正版的正常登入、共用期限、較短期限及並行取消通過。完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷，等待 CI 交付。本機上游會先讀完 token POST 本文，再驗證連線取消，符合 Go HTTP server 的偵測條件；所有原有斷言保留。沒有啟動真實外部授權或變更既有驗收站。

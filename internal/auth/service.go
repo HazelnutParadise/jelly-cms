@@ -521,10 +521,7 @@ func HandleCallback(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "OAuth authorization denied")
 	}
 
-	if _, err := providerSession.Authorize(provider, query); err != nil {
-		return c.String(http.StatusBadGateway, "OAuth provider authentication failed")
-	}
-	user, err := provider.FetchUser(providerSession)
+	user, err := fetchOAuthUser(req.Context(), provider, providerSession, query)
 	if err != nil {
 		return c.String(http.StatusBadGateway, "OAuth provider authentication failed")
 	}
