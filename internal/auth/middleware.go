@@ -14,8 +14,8 @@ func RequireAuth(next echo.HandlerFunc) echo.HandlerFunc {
 		user, err := GetCurrentUser(c)
 		if err != nil {
 			// Check if this is an API request
-			if c.Request().Header.Get("Accept") == "application/json" || 
-			   c.Request().Header.Get("Content-Type") == "application/json" {
+			if c.Request().Header.Get("Accept") == "application/json" ||
+				c.Request().Header.Get("Content-Type") == "application/json" {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
 			}
 			// For web requests, redirect to login with return URL
@@ -77,4 +77,3 @@ func GetUserFromContext(c echo.Context) (*core.User, bool) {
 	user, ok := c.Get("user").(*core.User)
 	return user, ok
 }
-

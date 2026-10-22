@@ -110,12 +110,12 @@ func (g *NewebPayGateway) VerifyCallback(ctx context.Context, data map[string]in
 	return &CallbackData{
 		OrderID:        tradeInfo["MerchantOrderNo"].(string),
 		GatewayOrderID: tradeInfo["TradeNo"].(string),
-		Status:          status,
-		Amount:          amount,
+		Status:         status,
+		Amount:         amount,
 		Currency:       "TWD",
 		TransactionID:  tradeInfo["TradeNo"].(string),
-		PaidAt:          paidAt,
-		RawData:         data,
+		PaidAt:         paidAt,
+		RawData:        data,
 	}, nil
 }
 
@@ -132,8 +132,8 @@ func (g *NewebPayGateway) Refund(ctx context.Context, req RefundRequest) (*Refun
 	// NewebPay refund implementation
 	// This would typically make an API call to NewebPay
 	return &RefundResponse{
-		RefundID:      fmt.Sprintf("REFUND_%s_%d", req.OrderID, time.Now().Unix()),
-		Status:        "success",
+		RefundID:       fmt.Sprintf("REFUND_%s_%d", req.OrderID, time.Now().Unix()),
+		Status:         "success",
 		RefundedAmount: req.Amount,
 		RefundedAt:     time.Now(),
 	}, nil
@@ -209,4 +209,3 @@ func (g *NewebPayGateway) jsonStringToMap(jsonStr string) map[string]interface{}
 	}
 	return result
 }
-

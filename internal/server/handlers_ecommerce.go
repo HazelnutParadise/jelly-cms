@@ -10,7 +10,6 @@ import (
 )
 
 func RegisterEcommerceRoutes(e *echo.Echo) {
-	productService := core.NewProductService(data.DB)
 	api := e.Group("/api/admin")
 
 	// Products
@@ -23,6 +22,7 @@ func RegisterEcommerceRoutes(e *echo.Echo) {
 	})
 
 	api.POST("/products", func(c echo.Context) error {
+		productService := core.NewProductService(data.DB)
 		var product core.Product
 		if err := c.Bind(&product); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
@@ -34,6 +34,7 @@ func RegisterEcommerceRoutes(e *echo.Echo) {
 	})
 
 	api.GET("/products/:id", func(c echo.Context) error {
+		productService := core.NewProductService(data.DB)
 		id, _ := strconv.Atoi(c.Param("id"))
 		product, err := productService.GetByID(uint(id))
 		if err != nil {
@@ -43,6 +44,7 @@ func RegisterEcommerceRoutes(e *echo.Echo) {
 	})
 
 	api.PUT("/products/:id", func(c echo.Context) error {
+		productService := core.NewProductService(data.DB)
 		id, _ := strconv.Atoi(c.Param("id"))
 		product, err := productService.GetByID(uint(id))
 		if err != nil {
@@ -58,6 +60,7 @@ func RegisterEcommerceRoutes(e *echo.Echo) {
 	})
 
 	api.DELETE("/products/:id", func(c echo.Context) error {
+		productService := core.NewProductService(data.DB)
 		id, _ := strconv.Atoi(c.Param("id"))
 		if err := productService.Delete(uint(id)); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})

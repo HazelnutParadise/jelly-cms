@@ -3,201 +3,568 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
-
-	"github.com/fastschema/qjs"
 )
 
+// pluginIDPattern limits plugin ids to characters that are safe to use as a
+// registry key and to print into the log without escaping the line.
+var pluginIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
+
+// Runtime owns the plugin registry and dispatches hooks to the loaded plugins.
+//
+// Every plugin runs inside its own worker process, so global state, hooks and
+// failures stay isolated between plugins. The registry lock only guards the
+// registry itself; JavaScript never runs while the lock is held.
 type Runtime struct {
-	runtime *qjs.Runtime
-	ctx     *qjs.Context
-	plugins map[string]*PluginMetadata
-	hooks   map[Hook][]*qjs.Value
 	mu      sync.RWMutex
+	plugins map[string]*pluginState
+	order   []string
+	closed  bool
 }
 
+// pluginState is the parent-side handle of one loaded plugin. execMu serialises
+// every request to the worker, and the registry lock never waits for it.
+type pluginState struct {
+	id   string
+	meta PluginMetadata
+
+	worker *workerProcess
+
+	execMu  sync.Mutex
+	closed  bool
+	invalid bool
+}
+
+// errRuntimeClosed reports a load or reload attempted on a closed runtime.
+var errRuntimeClosed = errors.New("plugin runtime is closed")
+
+// NewRuntime creates an empty plugin runtime. RunWorkerIfRequested must have
+// been called first, otherwise a child process could recurse into the normal
+// program start-up instead of serving plugin requests.
 func NewRuntime() (*Runtime, error) {
-	r, err := qjs.New()
+	if !dispatcherRegistered.Load() {
+		return nil, errors.New("plugin runtime requires RunWorkerIfRequested before NewRuntime")
+	}
+
+	return &Runtime{plugins: make(map[string]*pluginState)}, nil
+}
+
+// Load loads the plugin stored in dir and makes it available for hook dispatch.
+// When a plugin with the same id is already loaded it is replaced, but only
+// after the new version loaded and booted successfully.
+func (m *Runtime) Load(ctx context.Context, dir string) error {
+	return m.install(ctx, dir, false)
+}
+
+// Reload hot reloads the plugin stored in dir. The running version keeps
+// serving hooks when the new version fails to load or to boot.
+func (m *Runtime) Reload(ctx context.Context, dir string) error {
+	return m.install(ctx, dir, true)
+}
+
+// install builds a candidate worker and swaps it in once it is ready.
+func (m *Runtime) install(ctx context.Context, dir string, reload bool) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	// Reject work on a closed runtime before any worker starts.
+	m.mu.RLock()
+	closed := m.closed
+	m.mu.RUnlock()
+
+	if closed {
+		return errRuntimeClosed
+	}
+
+	meta, entryPath, err := readPluginManifest(dir)
+	if err != nil {
+		return err
+	}
+
+	script, err := readFileLimited(entryPath, maxEntryBytes)
+	if err != nil {
+		return fmt.Errorf("read entry script of plugin %s: %w", meta.ID, err)
+	}
+
+	worker, err := startWorker(ctx, meta.ID)
+	if err != nil {
+		return err
+	}
+
+	state := &pluginState{id: meta.ID, meta: meta, worker: worker}
+
+	if _, err := worker.request(ctx, workerRequest{
+		Op:    opLoad,
+		Entry: meta.Entrypoint,
+		Code:  string(script),
+	}, workerStepTimeout); err != nil {
+		worker.terminate()
+
+		return fmt.Errorf("load plugin %s: %w", meta.ID, err)
+	}
+
+	bootPayload, err := json.Marshal(map[string]interface{}{"plugin": meta.ID})
+	if err != nil {
+		worker.terminate()
+
+		return fmt.Errorf("build boot payload for plugin %s: %w", meta.ID, err)
+	}
+
+	if _, err := worker.request(ctx, workerRequest{
+		Op:      opBoot,
+		Payload: bootPayload,
+	}, workerStepTimeout); err != nil {
+		worker.terminate()
+
+		return fmt.Errorf("boot plugin %s: %w", meta.ID, err)
+	}
+
+	if err := ctx.Err(); err != nil {
+		worker.terminate()
+
+		return err
+	}
+
+	m.mu.Lock()
+	if m.closed {
+		m.mu.Unlock()
+		worker.terminate()
+
+		return errRuntimeClosed
+	}
+	previous := m.plugins[meta.ID]
+	if previous == nil {
+		m.order = append(m.order, meta.ID)
+	}
+	m.plugins[meta.ID] = state
+	m.mu.Unlock()
+
+	if previous != nil {
+		if payload, err := shutdownPayload(meta.ID, "replaced"); err == nil {
+			_ = previous.shutdown(context.Background(), payload)
+		} else {
+			previous.abort()
+		}
+	}
+
+	if reload {
+		enqueuePluginLog(meta.ID, "info", fmt.Sprintf("reloaded version %s", meta.Version))
+	} else {
+		enqueuePluginLog(meta.ID, "info", fmt.Sprintf("loaded version %s", meta.Version))
+	}
+
+	return nil
+}
+
+// LoadAll loads every plugin directory inside pluginDir. Failures are
+// collected and reported together, a broken plugin never hides the others.
+func (m *Runtime) LoadAll(ctx context.Context, pluginDir string) error {
+	entries, err := os.ReadDir(pluginDir)
+	if err != nil {
+		return fmt.Errorf("read plugin directory %s: %w", pluginDir, err)
+	}
+
+	rootResolved, err := filepath.EvalSymlinks(pluginDir)
+	if err != nil {
+		return fmt.Errorf("resolve plugin directory %s: %w", pluginDir, err)
+	}
+
+	var failures []error
+
+	for _, entry := range entries {
+		name := entry.Name()
+		path := filepath.Join(pluginDir, name)
+
+		switch {
+		case entry.Type()&os.ModeSymlink != 0:
+			resolved, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				failures = append(failures, fmt.Errorf("plugin %s: resolve symlink: %w", name, err))
+
+				continue
+			}
+
+			info, err := os.Stat(resolved)
+			if err != nil {
+				failures = append(failures, fmt.Errorf("plugin %s: stat %s: %w", name, resolved, err))
+
+				continue
+			}
+
+			if !info.IsDir() {
+				continue
+			}
+
+			if !isInside(rootResolved, resolved) {
+				failures = append(failures, fmt.Errorf(
+					"plugin %s: directory %s escapes %s", name, resolved, pluginDir,
+				))
+
+				continue
+			}
+
+			path = resolved
+		case !entry.IsDir():
+			continue
+		}
+
+		if err := m.Load(ctx, path); err != nil {
+			failures = append(failures, fmt.Errorf("plugin %s: %w", name, err))
+		}
+	}
+
+	return errors.Join(failures...)
+}
+
+// Unload removes the plugin, notifies its OnShutdown hook and reclaims the
+// worker process it owns.
+func (m *Runtime) Unload(ctx context.Context, pluginID string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	m.mu.Lock()
+	state, ok := m.plugins[pluginID]
+	if ok {
+		delete(m.plugins, pluginID)
+		m.removeOrderLocked(pluginID)
+	}
+	m.mu.Unlock()
+
+	if !ok {
+		return fmt.Errorf("plugin %s is not loaded", pluginID)
+	}
+
+	payload, err := shutdownPayload(pluginID, "unloaded")
+	if err != nil {
+		state.abort()
+
+		return err
+	}
+
+	shutdownErr := state.shutdown(ctx, payload)
+
+	enqueuePluginLog(pluginID, "info", "unloaded")
+
+	if shutdownErr != nil {
+		enqueuePluginLog(pluginID, "error", fmt.Sprintf("shutdown failed: %v", shutdownErr))
+
+		return shutdownErr
+	}
+
+	return nil
+}
+
+// GetPlugin returns a copy of the metadata of a loaded plugin. The caller can
+// modify the returned value without touching the registry.
+func (m *Runtime) GetPlugin(pluginID string) (*PluginMetadata, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	state, ok := m.plugins[pluginID]
+	if !ok {
+		return nil, fmt.Errorf("plugin not found: %s", pluginID)
+	}
+
+	meta := state.meta
+
+	return &meta, nil
+}
+
+// CallHook hands the payload to every callback registered for the hook. A
+// failing plugin is reported and never stops the other plugins.
+func (m *Runtime) CallHook(hook Hook, data map[string]interface{}) {
+	payload, err := json.Marshal(data)
+	if err != nil {
+		enqueueRuntimeLog(fmt.Sprintf("[Plugin runtime] cannot encode %s payload: %v\n", hook, err))
+
+		return
+	}
+
+	if len(payload) > maxPayloadBytes {
+		enqueueRuntimeLog(fmt.Sprintf(
+			"[Plugin runtime] %s payload of %d bytes exceeds limit %d\n",
+			hook, len(payload), maxPayloadBytes,
+		))
+
+		return
+	}
+
+	for _, state := range m.states() {
+		if err := state.dispatch(hook, payload); err != nil {
+			enqueuePluginLog(state.id, "error", err.Error())
+		}
+	}
+}
+
+// Close unloads every plugin and releases the workers. The registry is detached
+// atomically under the lock, so a concurrent Load cannot slip a new plugin in
+// after the snapshot. Shutdown hooks run without the lock. Close is idempotent.
+func (m *Runtime) Close() {
+	m.mu.Lock()
+	if m.closed {
+		m.mu.Unlock()
+
+		return
+	}
+	m.closed = true
+
+	states := make([]*pluginState, 0, len(m.order))
+	for _, id := range m.order {
+		if state, ok := m.plugins[id]; ok {
+			states = append(states, state)
+		}
+	}
+	m.plugins = make(map[string]*pluginState)
+	m.order = nil
+	m.mu.Unlock()
+
+	for _, state := range states {
+		payload, err := shutdownPayload(state.id, "runtime closed")
+		if err != nil {
+			state.abort()
+
+			continue
+		}
+
+		_ = state.shutdown(context.Background(), payload)
+	}
+}
+
+// states returns the loaded plugins in load order.
+func (m *Runtime) states() []*pluginState {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	states := make([]*pluginState, 0, len(m.order))
+	for _, id := range m.order {
+		if state, ok := m.plugins[id]; ok {
+			states = append(states, state)
+		}
+	}
+
+	return states
+}
+
+// removeOrderLocked drops a plugin id from the load order. The registry lock
+// has to be held by the caller.
+func (m *Runtime) removeOrderLocked(pluginID string) {
+	for i, id := range m.order {
+		if id == pluginID {
+			m.order = append(m.order[:i], m.order[i+1:]...)
+
+			return
+		}
+	}
+}
+
+// dispatch hands an already encoded payload to the callbacks of one hook. A
+// worker that died is marked invalid so later hooks skip it instead of waiting
+// for a dead process.
+func (s *pluginState) dispatch(hook Hook, payload []byte) error {
+	s.execMu.Lock()
+	defer s.execMu.Unlock()
+
+	if s.closed || s.invalid {
+		return nil
+	}
+
+	if _, err := s.worker.request(context.Background(), workerRequest{
+		Op:      opHook,
+		Hook:    string(hook),
+		Payload: payload,
+	}, workerStepTimeout); err != nil {
+		if !s.worker.alive() {
+			s.invalid = true
+		}
+
+		return fmt.Errorf("hook %s: %w", hook, err)
+	}
+
+	return nil
+}
+
+// shutdown runs the OnShutdown hook of the plugin exactly once and reclaims its
+// worker.
+func (s *pluginState) shutdown(ctx context.Context, payload []byte) error {
+	s.execMu.Lock()
+	defer s.execMu.Unlock()
+
+	if s.closed {
+		return nil
+	}
+	s.closed = true
+
+	if s.invalid || s.worker == nil {
+		if s.worker != nil {
+			s.worker.terminate()
+		}
+
+		return nil
+	}
+
+	return s.worker.shutdown(ctx, payload)
+}
+
+// abort reclaims the worker without running JavaScript.
+func (s *pluginState) abort() {
+	s.execMu.Lock()
+	defer s.execMu.Unlock()
+
+	if s.closed {
+		return
+	}
+	s.closed = true
+	s.invalid = true
+
+	if s.worker != nil {
+		s.worker.terminate()
+	}
+}
+
+// shutdownPayload builds the payload passed to an OnShutdown callback.
+func shutdownPayload(pluginID, reason string) ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"plugin": pluginID,
+		"reason": reason,
+	})
+}
+
+// readPluginManifest reads and validates plugin.json and resolves the entry
+// script inside the plugin directory.
+func readPluginManifest(dir string) (PluginMetadata, string, error) {
+	var meta PluginMetadata
+
+	info, err := os.Stat(dir)
+	if err != nil {
+		return meta, "", fmt.Errorf("plugin directory %s: %w", dir, err)
+	}
+
+	if !info.IsDir() {
+		return meta, "", fmt.Errorf("plugin path %s is not a directory", dir)
+	}
+
+	manifestPath, err := resolvePluginFile(dir, "plugin.json")
+	if err != nil {
+		return meta, "", fmt.Errorf("plugin manifest: %w", err)
+	}
+
+	data, err := readFileLimited(manifestPath, maxManifestBytes)
+	if err != nil {
+		return meta, "", fmt.Errorf("read manifest %s: %w", manifestPath, err)
+	}
+
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return meta, "", fmt.Errorf("invalid manifest %s: %w", manifestPath, err)
+	}
+
+	if err := validatePluginMeta(meta); err != nil {
+		return meta, "", fmt.Errorf("invalid manifest %s: %w", manifestPath, err)
+	}
+
+	entryPath, err := resolvePluginFile(dir, meta.Entrypoint)
+	if err != nil {
+		return meta, "", fmt.Errorf("plugin %s entry script: %w", meta.ID, err)
+	}
+
+	return meta, entryPath, nil
+}
+
+// readFileLimited reads at most limit bytes and rejects larger files instead of
+// loading them into memory.
+func readFileLimited(path string, limit int) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(io.LimitReader(file, int64(limit)+1))
 	if err != nil {
 		return nil, err
 	}
 
-	ctx := r.Context()
-	m := &Runtime{
-		runtime: r,
-		ctx:     ctx,
-		plugins: make(map[string]*PluginMetadata),
-		hooks:   make(map[Hook][]*qjs.Value),
+	if len(data) > limit {
+		return nil, fmt.Errorf("%s exceeds %d bytes", path, limit)
 	}
 
-	m.registerAPI()
-	return m, nil
+	return data, nil
 }
 
-func (m *Runtime) registerAPI() {
-	// Register global JellyCMS object and APIs
-	// This is a simplified version - full implementation would require
-	// proper Go function binding to JavaScript
-
-	// For now, we'll inject a simple API through eval
-	apiScript := `
-		globalThis.JellyCMS = {
-			registerHook: function(hookName, callback) {
-				// Hook registration will be handled by Go code
-				if (typeof callback === 'function') {
-					__jelly_register_hook(hookName, callback);
-				}
-			},
-			log: {
-				info: function(msg) { console.log('[Plugin]', msg); },
-				error: function(msg) { console.error('[Plugin ERROR]', msg); }
-			},
-			config: {
-				get: function(key) { return __jelly_config_get(key); },
-				set: function(key, value) { return __jelly_config_set(key, value); }
-			}
-		};
-	`
-
-	_, err := m.runtime.Eval(apiScript)
-	if err != nil {
-		fmt.Printf("Failed to register API: %v\n", err)
+// validatePluginMeta rejects manifests the runtime cannot work with.
+func validatePluginMeta(meta PluginMetadata) error {
+	if !pluginIDPattern.MatchString(meta.ID) {
+		return fmt.Errorf("plugin id %q is missing or invalid", meta.ID)
 	}
+
+	if strings.TrimSpace(meta.Entrypoint) == "" {
+		return fmt.Errorf("plugin %s does not declare an entry script", meta.ID)
+	}
+
+	return nil
 }
 
-func (m *Runtime) LoadAll(ctx context.Context, pluginDir string) error {
-	entries, err := os.ReadDir(pluginDir)
-	if err != nil {
-		return err
+// resolvePluginFile resolves rel inside root and guarantees the result stays
+// inside root. Symlinks are resolved first, so a link cannot be used to reach
+// a file outside of the plugin directory.
+func resolvePluginFile(root, rel string) (string, error) {
+	if rel == "" {
+		return "", errors.New("empty file name")
 	}
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			if err := m.Load(ctx, filepath.Join(pluginDir, entry.Name())); err != nil {
-				fmt.Printf("Failed to load plugin %s: %v\n", entry.Name(), err)
-			}
+	if filepath.IsAbs(rel) {
+		return "", fmt.Errorf("absolute file name %q is not allowed", rel)
+	}
+
+	clean := filepath.Clean(rel)
+	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("file name %q escapes the plugin directory", rel)
+	}
+
+	rootResolved, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", fmt.Errorf("resolve plugin directory %s: %w", root, err)
+	}
+
+	resolved, err := filepath.EvalSymlinks(filepath.Join(rootResolved, clean))
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return "", fmt.Errorf("file %q does not exist", rel)
 		}
-	}
-	return nil
-}
 
-func (m *Runtime) Load(ctx context.Context, dir string) error {
-	// Read plugin.json
-	configPath := filepath.Join(dir, "plugin.json")
-	data, err := os.ReadFile(configPath)
+		return "", fmt.Errorf("resolve file %q: %w", rel, err)
+	}
+
+	if !isInside(rootResolved, resolved) {
+		return "", fmt.Errorf("file %q escapes the plugin directory", rel)
+	}
+
+	info, err := os.Stat(resolved)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("stat file %q: %w", rel, err)
 	}
 
-	var meta PluginMetadata
-	if err := json.Unmarshal(data, &meta); err != nil {
-		return err
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("file %q is not a regular file", rel)
 	}
 
-	// Read entrypoint
-	entryPath := filepath.Join(dir, meta.Entrypoint)
-	script, err := os.ReadFile(entryPath)
-	if err != nil {
-		return err
-	}
-
-	// Evaluate
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// Execute plugin script
-	_, err = m.runtime.Eval(string(script))
-	if err != nil {
-		return fmt.Errorf("failed to eval plugin %s: %v", meta.Name, err)
-	}
-
-	// Call onBoot hook if plugin registered it
-	m.callHook(HookOnBoot, map[string]interface{}{
-		"plugin": meta.ID,
-	})
-
-	m.plugins[meta.ID] = &meta
-	fmt.Printf("Loaded plugin: %s\n", meta.Name)
-	return nil
+	return resolved, nil
 }
 
-// callHook calls all registered callbacks for a hook
-func (m *Runtime) callHook(hook Hook, data map[string]interface{}) {
-	m.mu.RLock()
-	callbacks := m.hooks[hook]
-	m.mu.RUnlock()
-
-	if len(callbacks) == 0 {
-		return
+// isInside reports whether path is root itself or lives below root.
+func isInside(root, path string) bool {
+	if path == root {
+		return true
 	}
 
-	// Convert data to JavaScript value
-	_, err := qjs.ToJsValue(m.ctx, data)
-	if err != nil {
-		fmt.Printf("Error converting data to JS value for hook %s: %v\n", hook, err)
-		return
-	}
-
-	for _, callback := range callbacks {
-		if callback != nil {
-			// Call the JavaScript function with the data
-			// Note: This is a simplified implementation
-			// In production, you'd need to properly handle the callback invocation
-			fmt.Printf("Calling hook %s callback (implementation pending)\n", hook)
-			// TODO: Implement proper callback invocation using qjs API
-		}
-	}
-}
-
-// CallHook is the public method to trigger hooks
-func (m *Runtime) CallHook(hook Hook, data map[string]interface{}) {
-	m.callHook(hook, data)
-}
-
-func (m *Runtime) Unload(ctx context.Context, pluginID string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// Remove plugin from registry
-	delete(m.plugins, pluginID)
-
-	// Note: We can't easily remove hooks without tracking which plugin registered them
-	// In a production system, you'd want to track hook ownership
-
-	return nil
-}
-
-// Reload reloads a plugin (unloads and loads again)
-func (m *Runtime) Reload(ctx context.Context, pluginDir string) error {
-	// Get plugin ID from directory
-	configPath := filepath.Join(pluginDir, "plugin.json")
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return err
-	}
-
-	var meta PluginMetadata
-	if err := json.Unmarshal(data, &meta); err != nil {
-		return err
-	}
-
-	// Unload first
-	if err := m.Unload(ctx, meta.ID); err != nil {
-		// Ignore error if plugin wasn't loaded
-	}
-
-	// Load again
-	return m.Load(ctx, pluginDir)
-}
-
-func (m *Runtime) GetPlugin(pluginID string) (*PluginMetadata, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if p, ok := m.plugins[pluginID]; ok {
-		return p, nil
-	}
-	return nil, fmt.Errorf("plugin not found")
+	return strings.HasPrefix(path, root+string(filepath.Separator))
 }

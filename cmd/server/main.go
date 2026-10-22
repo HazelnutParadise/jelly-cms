@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/config"
@@ -19,6 +21,19 @@ import (
 )
 
 func main() {
+	plugin.RunWorkerIfRequested()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Let run's deferred cleanup finish before deciding the process exit code.
+	if err := run(ctx); err != nil {
+		log.Printf("HTTP server stopped: %v", err)
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context) error {
 	// Initialize Echo
 	e := echo.New()
 	e.JSONSerializer = &JSONSerializer{} // Use goccy/go-json
@@ -26,22 +41,11 @@ func main() {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	// Load Config
-	cfg, err := config.Load()
-	if err != nil {
-		log.Printf("Config not found or invalid, starting in installation mode: %v", err)
-	}
-
-	// Database Connection
-	if cfg != nil {
-		if err := data.Connect(cfg.Database); err != nil {
-			log.Printf("Database connection failed: %v", err)
-		} else {
-			// Auto Migrate
-			if err := data.Migrate(); err != nil {
-				log.Fatalf("Migration failed: %v", err)
-			}
-		}
+	// Recover any interrupted installation, then load the site configuration
+	// and connect to its database. The site stays closed to installation when
+	// this fails; the HTTP layer answers 503 while data.DB is nil.
+	if err := initializeSite(); err != nil {
+		log.Printf("Site initialization failed: %v", err)
 	}
 
 	// Theme Manager
@@ -57,7 +61,7 @@ func main() {
 	auth.Init()
 
 	// Initialize payment service
-	if cfg != nil && data.DB != nil {
+	if config.GlobalConfig != nil && data.DB != nil {
 		server.InitPaymentService(data.DB)
 	}
 
@@ -66,8 +70,10 @@ func main() {
 	if err != nil {
 		log.Printf("Failed to initialize plugin runtime: %v", err)
 	} else {
+		defer pluginRuntime.Close()
+
 		// Load all plugins if database is connected
-		if cfg != nil && data.DB != nil {
+		if config.GlobalConfig != nil && data.DB != nil {
 			os.MkdirAll("data/plugins", 0755)
 			if err := pluginRuntime.LoadAll(context.Background(), "data/plugins"); err != nil {
 				log.Printf("Failed to load plugins: %v", err)
@@ -78,7 +84,7 @@ func main() {
 	// Routes
 	server.RegisterRoutes(e, tm, pluginRuntime)
 
-	e.Logger.Fatal(e.Start(":8080"))
+	return runHTTPServer(ctx, e, ":8080")
 }
 
 // JSONSerializer implements Echo's JSONSerializer interface using goccy/go-json
