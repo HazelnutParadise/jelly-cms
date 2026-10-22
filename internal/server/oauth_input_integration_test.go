@@ -149,11 +149,29 @@ func TestOAuthInputValidCallbackKeepsJSONLoginAndInSiteRedirect(t *testing.T) {
 	h := oauthInputPrepareHarness(t)
 	provider := &oauthInputIntegrationProvider{name: "google", user: oauthInputUser("google")}
 	resetOAuthInputProviders(provider)
-	path := "/auth/google/callback?state=valid-state&code=fixture-code"
 	request := func(accept string) *httptest.ResponseRecorder {
+		entryReq := httptest.NewRequest(http.MethodGet, "/auth/google?redirect="+url.QueryEscape("/admin/posts?tab=all"), nil)
+		entry := httptest.NewRecorder()
+		h.echo.ServeHTTP(entry, entryReq)
+		if entry.Code != http.StatusTemporaryRedirect {
+			t.Fatalf("OAuth entry status=%d, want 307: %s", entry.Code, entry.Body.String())
+		}
+		location, err := url.Parse(entry.Header().Get(echo.HeaderLocation))
+		if err != nil {
+			t.Fatalf("parse provider authorization URL: %v", err)
+		}
+		state := location.Query().Get("state")
+		if state == "" {
+			t.Fatal("OAuth entry omitted callback state")
+		}
+		gothCookie := cookieFromHeader(entry.Header(), gothic.SessionName)
+		if gothCookie == nil {
+			t.Fatalf("OAuth entry omitted %q cookie", gothic.SessionName)
+		}
+		path := "/auth/google/callback?state=" + url.QueryEscape(state) + "&code=valid-fixture-code-" + url.QueryEscape(accept)
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		req.Header.Set(echo.HeaderAccept, accept)
-		req.AddCookie(signedGothSessionCookie(t, provider, "valid-state"))
+		req.AddCookie(gothCookie)
 		req.AddCookie(oauthInputSignedAppCookie(t, map[string]any{"oauth_redirect": "/admin/posts?tab=all"}))
 		rec := httptest.NewRecorder()
 		h.echo.ServeHTTP(rec, req)
