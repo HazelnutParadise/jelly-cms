@@ -95,7 +95,7 @@ Session 另保存 `login_expires_at`（int64 Unix 秒），簽發時固定為七
 
 流程：瀏覽器送出寫入 → 既有權限檢查 → 確認同源證據 → 執行寫入。登入與安裝尚未有登入身分，仍須在處理帳密、連線或安裝前檢查。GET、HEAD、OPTIONS 保持讀取行為；OAuth 的 GET 與付款通知沿用各自的 state／簽章驗證，分別在後續段落驗收。
 
-採用同源來源標頭與 AJAX 自訂標頭，不新增 token 儲存、資料表或依賴。依據為 [OWASP 的來源檢查與 AJAX 防護方法](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)。Go 1.25 的 [CrossOriginProtection](https://go.dev/src/net/http/csrf.go) 可作語義對照，但專案維持 Go 1.24.1，且不沿用其無來源證據仍放行的政策。
+採用同源來源標頭與 AJAX 自訂標頭，不新增 token 儲存、資料表或依賴。依據為 [OWASP 的來源檢查與 AJAX 防護方法](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)。Go 的 [CrossOriginProtection](https://go.dev/src/net/http/csrf.go) 可作來源判斷對照；本專案另明確拒絕缺少來源證據與互相矛盾的標頭，並涵蓋無 Cookie 的頂層登出。
 
 共用實作置於 `internal/auth/request_protection.go`。`ProtectBrowserWrites(echo.HandlerFunc) echo.HandlerFunc` 保護登入與兩個安裝 POST。`ProtectCookieWrites(echo.HandlerFunc) echo.HandlerFunc` 在 RequireAuth、RequireAdmin、RequireRole 完成身分／角色檢查後包住後續處理器，僅在請求帶有 `jwt_token` 或 `jelly-cms-session` Cookie（包含空值）時要求來源證據。無 Cookie 的 Bearer API 仍由原有認證驗證，不能只憑字首宣稱身分有效。登入與安裝不得使用 Cookie 缺少的豁免。
 
