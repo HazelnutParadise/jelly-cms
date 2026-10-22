@@ -24,22 +24,40 @@ var (
 	jwtSecret    []byte
 )
 
-func Init() {
-	sessionSecret := os.Getenv("SESSION_SECRET")
-	if sessionSecret == "" {
-		sessionSecret = "jelly-cms-secret-key-change-in-production" // Default for development
-	}
-	sessionStore = sessions.NewCookieStore([]byte(sessionSecret))
-	gothic.Store = sessionStore
+func Init() error {
+	sessionEnv := os.Getenv("SESSION_SECRET")
+	jwtEnv := os.Getenv("JWT_SECRET")
+	sessionFromEnv := sessionEnv != ""
+	jwtFromEnv := jwtEnv != ""
 
-	jwtSecretStr := os.Getenv("JWT_SECRET")
-	if jwtSecretStr == "" {
-		jwtSecretStr = sessionSecret // Use same secret if not specified
+	var sessionBytes, jwtBytes []byte
+	if sessionFromEnv && jwtFromEnv {
+		sessionBytes = []byte(sessionEnv)
+		jwtBytes = []byte(jwtEnv)
+	} else {
+		fileSession, fileJWT, err := loadOrCreateSecretsFile(secretFilePath())
+		if err != nil {
+			return err
+		}
+		if sessionFromEnv {
+			sessionBytes = []byte(sessionEnv)
+		} else {
+			sessionBytes = fileSession
+		}
+		if jwtFromEnv {
+			jwtBytes = []byte(jwtEnv)
+		} else {
+			jwtBytes = fileJWT
+		}
 	}
-	jwtSecret = []byte(jwtSecretStr)
+
+	sessionStore = sessions.NewCookieStore(sessionBytes)
+	gothic.Store = sessionStore
+	jwtSecret = jwtBytes
 
 	// Load OAuth providers from database
 	ReloadOAuthProviders()
+	return nil
 }
 
 // ReloadOAuthProviders reloads OAuth provider configurations from database

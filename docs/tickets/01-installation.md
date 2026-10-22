@@ -24,3 +24,7 @@ Status：in_progress
 ## 證據
 
 基線 go test ./... 可編譯，但所有套件均無測試。先建立可重現的失敗測試，再指派修正。PostgreSQL 與瀏覽器流程另驗。
+
+## 待補驗證
+
+- P2：`internal/config/manager.go` 的設定替換與 `internal/install/recovery.go` 的復原紀錄替換只同步檔案，未同步目錄；目前的程序中斷測試不能證明斷電時檔名更新仍保留。後續補上目錄同步與失敗處理驗收，並涵蓋復原紀錄的刪除。

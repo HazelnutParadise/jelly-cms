@@ -51,8 +51,7 @@ export DB_PORT=5432
 export DB_USER=jelly
 export DB_PASSWORD=jellypassword
 export DB_NAME=jellycms
-export SESSION_SECRET=your-secret-key
-export JWT_SECRET=your-jwt-secret
+# 登入金鑰預設會自動產生並保存，無須設定範例字串
 
 # 4. 編譯
 go build -o server ./cmd/server
@@ -62,6 +61,14 @@ go build -o server ./cmd/server
 
 # 6. 訪問 http://localhost:8080 進行安裝
 ```
+
+### 登入金鑰
+
+未設定 `SESSION_SECRET` 或 `JWT_SECRET` 時，伺服器會各自產生安全亂數金鑰，保存於 `data/auth-secrets.json`，重新啟動後沿用。請將這個檔案納入備份並限制存取；刪除或替換它會使既有登入憑證失效。金鑰檔損壞或無法讀寫時，伺服器會停止啟動，不會使用預設金鑰。
+
+明確設定的環境變數各自優先，請使用獨立且足夠長的隨機值並在重啟後保持一致。兩個值都設定時不需要本機金鑰檔；只設定一個時，另一個仍由檔案保存，環境值不會寫入檔案。從舊版固定預設金鑰升級後，使用者需要重新登入。
+
+Windows 目前未提供金鑰目錄的斷電持久化保證；需要這項保證的部署請以環境變數提供並保存兩組金鑰。
 
 ### 完成安裝與重新啟動
 

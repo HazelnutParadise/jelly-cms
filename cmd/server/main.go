@@ -58,7 +58,9 @@ func run(ctx context.Context) error {
 	i18n.Init()
 
 	// Initialize auth
-	auth.Init()
+	if err := auth.Init(); err != nil {
+		return fmt.Errorf("initialize authentication: %w", err)
+	}
 
 	// Initialize payment service
 	if config.GlobalConfig != nil && data.DB != nil {

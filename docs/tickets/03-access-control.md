@@ -3,7 +3,7 @@
 Epic：帳號與存取
 User Story：登入後只可操作自己被授權的資料與功能。
 Blocked by：01 的可用資料庫與登入流程。
-Status：in_progress（HTTP 角色與文章所有權已通過本機驗收，待獨立交付；01 基礎修正已合併）
+Status：in_progress（HTTP 角色與文章所有權已透過 PR #2 合併；登入金鑰保存通過本機全套競態測試與獨立複審，待交付）
 
 ## 流程與驗收
 
