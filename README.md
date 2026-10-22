@@ -78,7 +78,7 @@ Windows 目前未提供金鑰目錄的斷電持久化保證；需要這項保證
 
 ### 登入嘗試限制
 
-每個連線來源在第一次嘗試開始的 60 秒內最多可嘗試登入 30 次，成功與失敗皆計數。超量回應 JSON `429`，`Retry-After` 標頭與錯誤訊息提供等待秒數；等待到期後可重新登入，已登入的後台操作與公開閱讀不受影響。
+本機帳密登入按連線來源計數，在第一次嘗試開始的 60 秒內最多可嘗試 30 次，成功與失敗皆計數。超量回應 JSON `429`，`Retry-After` 標頭與錯誤訊息提供等待秒數；等待到期後可重新登入，已登入的後台操作與公開閱讀不受影響。
 
 限制保存在單一程序記憶體，重新啟動會重設。反向代理後的登入共用該代理的額度；多程序部署與分散來源的嘗試須在入口代理額外限制。應用程式使用實際連線 IP，不採用客戶端自行提供的轉送標頭。
 
@@ -89,6 +89,10 @@ Windows 目前未提供金鑰目錄的斷電持久化保證；需要這項保證
 ### OAuth 登入驗證
 
 Google 與 GitHub 授權由路徑選定提供者，伺服器每次產生新的 state 驗證值。回呼缺少、重複或不符合原始簽章 Session 的 state 時回應 `400`，請從登入頁重新開始授權。提供者驗證失敗時回應 `502`，不回傳其原始錯誤內容。無法產生驗證值或保存 Session 時回應 `503`。
+
+每次授權須在 10 分鐘內完成，同一個回呼只能處理一次，逾時或重送回應 `400`。同一瀏覽器只保留最近開始的一次待授權流程。已通過驗證的授權拒絕與提供者失敗也會結束本次授權，請重新從登入頁開始。已使用狀態保存在資料庫，重新啟動後仍會拒絕重送；資料庫不可用時回應 `503`，不聯絡提供者或簽發登入。第三方權杖不保存在瀏覽器 Cookie，應用程式登入維持七天期限。
+
+Google 與 GitHub 入口共用另一份來源額度，每個連線來源在 60 秒內最多開始授權 30 次，超量回應 `429` 與 `Retry-After`。此額度與本機帳密登入分開，代理與多程序部署的限制同前節。
 
 ### 瀏覽器寫入保護
 
@@ -722,20 +726,9 @@ Jelly CMS 提供了兩個專用的模板函數來處理主題設定：
 
 ## 🔐 OAuth 設定
 
-在環境變數中設定 OAuth 提供者的金鑰：
+管理員在後台「設定」的 OAuth 分頁填入 Google 或 GitHub 的 Client ID 與 Client Secret，啟用提供者後儲存。
 
-```bash
-# Google OAuth
-export GOOGLE_KEY=your-google-client-id
-export GOOGLE_SECRET=your-google-client-secret
-
-# GitHub OAuth
-export GITHUB_KEY=your-github-client-id
-export GITHUB_SECRET=your-github-client-secret
-
-# 應用程式 URL
-export APP_URL=http://localhost:8080
-```
+以 `APP_URL` 指定網站的公開網址，例如 `https://cms.example.com`，並在提供者的應用程式設定中登記對應回呼網址：Google 使用 `/auth/google/callback`，GitHub 使用 `/auth/github/callback`。未設定 `APP_URL` 時使用 `http://localhost:8080`。
 
 ## 💳 金流設定
 

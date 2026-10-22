@@ -7,7 +7,7 @@ func RegisterRoutes(e *echo.Echo) {
 	e.POST("/auth/login", ProtectBrowserWrites(ProtectLoginAttempts(HandleLocalLogin)))
 
 	// OAuth routes
-	e.GET("/auth/:provider", HandleAuth)
+	e.GET("/auth/:provider", ProtectLoginAttempts(HandleAuth))
 	e.GET("/auth/:provider/callback", HandleCallback)
 
 	// Logout

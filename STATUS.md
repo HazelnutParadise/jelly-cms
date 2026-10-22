@@ -38,8 +38,10 @@
 - 登入限制驗證：主代理重現第 31 次仍可登入並查詢 DB 的問題；固定 60 秒內最多 30 次的修正已通過全套 PostgreSQL 競態測試、go vet、Windows amd64 與 Linux 386 編譯，對抗性審查沒有已確認缺陷。容量、來源正規化、並行與到期恢復均有公開路由測試。
 - 登入限制畫面：主代理在 1280px／360px 完成錯誤密碼 401、超量 429 留頁並顯示等待秒數、實際等待到期後登入 302／API 200、登出後 API 401 的完整流程。429 沒有送出登入 Cookie；預期的 401／429 console 與既有 favicon 404 分別記錄，沒有其他相關錯誤。
 - 登入限制交付：[PR #10](https://github.com/HazelnutParadise/jelly-cms/pull/10) 四項 CI 通過後合併為 `d073628`；未部署。
-- OAuth 輸入驗證：主代理先重現提供者與 state 被查詢覆蓋、無效 state 與 Session 保存失敗仍進入授權的問題；修正後完整 PostgreSQL 競態測試、go vet、Windows amd64 與 Linux 386 編譯通過，對抗性審查沒有其他已確認缺陷。Google／GitHub 替身的正常登入、JSON token 回查與站內返回通過；真實提供者授權尚未驗證，待 CI 交付。
-- 下一個可驗證產出：OAuth 提供者與 state 輸入，接續一次性回呼、身分連結、媒體所有權與角色介面。
+- OAuth 輸入驗證：主代理先重現提供者與 state 被查詢覆蓋、無效 state 與 Session 保存失敗仍進入授權的問題；修正後完整 PostgreSQL 競態測試、go vet、Windows amd64 與 Linux 386 編譯通過，對抗性審查沒有其他已確認缺陷。Google／GitHub 替身的正常登入、JSON token 回查與站內返回通過；真實提供者授權尚未驗證。
+- OAuth 輸入交付：[PR #11](https://github.com/HazelnutParadise/jelly-cms/pull/11) 四項 CI 通過後合併為 `0da59e9`；遠端與本機 `codex/oauth-protocol` 分支已刪除，未部署。
+- OAuth 一次性驗證：主代理以提供者替身重現已授權 Cookie 重放、並行重複授權、跨提供者重簽續期及整秒到期窗口；修正後完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性複審沒有其他已確認缺陷。簽章十分鐘、一次性紀錄跨程序保存，回呼不再把提供者權杖寫入 Cookie；真實 Google／GitHub 授權尚未驗證，待 CI 交付。
+- 下一個可驗證產出：OAuth 一次性回呼的 CI 交付，接續日誌秘密保護、上游請求期限、身分連結、媒體所有權與角色介面。
 - 下一工作單：03；01 的服務整合驗收與 02 的真實事件／後台操作仍保留。
 - 決策：沿用現有 Go 與模板架構，由代理完成程式，主代理獨立驗收。使用者已授權驗收後提交、推送與開 PR，必要 CI 全綠後合併及清理分支；部署另行授權。
 - 架構與總目標：[ENG.md](ENG.md)。

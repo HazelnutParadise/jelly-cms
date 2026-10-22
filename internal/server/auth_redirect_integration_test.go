@@ -223,8 +223,25 @@ func TestAuthRedirectOAuthCallbackRevalidatesSignedLegacyDestination(t *testing.
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			appCookie := signedAppSessionCookie(t, "oauth_redirect", tc.dest)
-			gothCookie := signedGothSessionCookie(t, redirectTestProvider{}, "state-from-provider")
-			req := httptest.NewRequest(http.MethodGet, "/auth/google/callback?state=state-from-provider", nil)
+			entry := httptest.NewRecorder()
+			entryReq := httptest.NewRequest(http.MethodGet, "/auth/google?redirect="+url.QueryEscape(tc.dest), nil)
+			h.echo.ServeHTTP(entry, entryReq)
+			if entry.Code != http.StatusTemporaryRedirect {
+				t.Fatalf("OAuth entry status = %d, want %d", entry.Code, http.StatusTemporaryRedirect)
+			}
+			location, err := url.Parse(entry.Header().Get(echo.HeaderLocation))
+			if err != nil {
+				t.Fatalf("parse provider authorization URL: %v", err)
+			}
+			state := location.Query().Get("state")
+			if state == "" {
+				t.Fatal("OAuth entry omitted callback state")
+			}
+			gothCookie := cookieFromHeader(entry.Header(), gothic.SessionName)
+			if gothCookie == nil {
+				t.Fatalf("OAuth entry omitted %q cookie", gothic.SessionName)
+			}
+			req := httptest.NewRequest(http.MethodGet, "/auth/google/callback?state="+url.QueryEscape(state)+"&code=redirect-fixture-code", nil)
 			req.AddCookie(appCookie)
 			req.AddCookie(gothCookie)
 			req.Header.Set(echo.HeaderAccept, "text/html")
