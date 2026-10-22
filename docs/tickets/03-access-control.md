@@ -3,7 +3,7 @@
 Epic：帳號與存取
 User Story：登入後只可操作自己被授權的資料與功能。
 Blocked by：01 的可用資料庫與登入流程。
-Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已透過 PR #9 合併，登入嘗試限制已透過 PR #10 合併，OAuth 提供者與 state 輸入已透過 PR #11 合併，正在驗證一次性回呼與身分連結）
+Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已透過 PR #9 合併，登入嘗試限制已透過 PR #10 合併，OAuth 提供者與 state 輸入已透過 PR #11 合併，一次性回呼已透過 PR #12 合併，正在驗證請求日誌保護與身分連結）
 
 ## 流程與驗收
 
@@ -224,3 +224,23 @@ OAuth 入口另使用與本機登入獨立的既有來源限流器，每個連�
 
 - P1：cmd/server/main.go 的預設 Echo Logger 記錄完整 RequestURI，包含回呼 code 與 state。後續須讓日誌保留路徑及結果而不寫入授權查詢值，並以實際輸出驗證。
 - P2：目前 Google／GitHub Provider 沿用沒有 Timeout 的 http.DefaultClient，且 Goth 使用自己的背景 context。後續須界定對外請求期限與取消行為，以停滯的本機上游驗證回應時間及資源釋放。
+
+
+## 請求日誌的秘密保護
+
+流程：HTTP 進入主程式設定的 Echo logger → 原始請求交給既有處理器 → 回應完成後記錄方法、路徑與結果。所有路由的日誌都移除查詢字串，包括 OAuth 回呼 code/state、登入返回網址與一般搜尋；不能因未匹配路由或錯誤回應而恢復完整 RequestURI。處理器使用的 RequestURI、URL.RawQuery、標頭與本文保持原樣。
+
+骨架置於 cmd/server/request_logging.go，使用無參數的 requestLogger() echo.MiddlewareFunc，由 main.go 的既有 e.Use 呼叫。先把原本 middleware.Logger() 原樣擷取至該函式，建立可編譯且行為相同的基線，再由測試代理以真實 Echo HTTP 請求與日誌輸出重現外洩，最後由實作代理填入保護。此段是現有啟動設定的局部拆出，不新增服務、路由、依賴、環境選項、全域狀態或資料模型。
+
+採用既有 LoggerConfig 的值複本，只將 Format 的 URI 插值改成路徑插值，沿用 Echo 對 JSON 字串的逸出。保留既有 uri 欄位名稱、方法、狀態碼、時間與耗時等格式，uri 值只含路徑，不帶查詢。不得修改套件的 DefaultLoggerConfig 或先改請求內容再交給 logger。認證 Cookie、Authorization、Referer、本文與回應 token 不得新增到日誌。此段不變更提供者 state、返回網址、錯誤訊息或 HTTP 回應。
+
+| 操作與邊界 | 預期結果與驗證 |
+|---|---|
+| OAuth 回呼 | 帶假的 code/state，成功或拒絕回應後的 JSON 日誌只有路徑，查詢秘密不出現；處理器仍取得相同原值 |
+| 一般路由及 404 | 搜尋、重複查詢、錯誤百分比編碼的 RawQuery 都不寫入日誌；路徑與正確回應狀態仍可讀 |
+| HTTP 錯誤或導向 | 一次請求只有一筆完整 JSON 日誌，保留處理器的狀態、本文與 Location，不重複處理錯誤 |
+| 編碼與控制字元 | 路徑含引號、換行與非 ASCII 字元時仍是有效的一筆 JSON，不可偽造第二筆日誌 |
+| 其他秘密位置 | Cookie、Authorization、Referer、本文與回應中的獨立假秘密未寫入日誌；原處理器仍可讀必要輸入 |
+| 初始化與隔離 | 多個 Echo 實例使用同一函式不改 DefaultLoggerConfig，測試輸出不影響其他測試或實際服務 |
+
+測試新增於 cmd/server/request_logging_test.go，以 httptest、真實 Echo 路由及錯誤處理、捕捉 logger 的既有輸出接縫驗證，不啟動固定連接埠、驗收站、資料庫或外部 OAuth。測試與實作分開指派，主代理先驗證基線外洩，再驗證查詢已移除且正常輸入／回應未被改寫。其他日誌來源若實際記錄授權秘密須一併處理，不以這個 helper 通過取代入口註冊檢查。
