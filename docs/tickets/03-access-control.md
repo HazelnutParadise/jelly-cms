@@ -3,7 +3,7 @@
 Epic：帳號與存取
 User Story：登入後只可操作自己被授權的資料與功能。
 Blocked by：01 的可用資料庫與登入流程。
-Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已透過 PR #9 合併，登入嘗試限制已透過 PR #10 合併，正在驗證 OAuth 授權與身分連結）
+Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已透過 PR #9 合併，登入嘗試限制已透過 PR #10 合併，OAuth 提供者與 state 輸入已透過 PR #11 合併，正在驗證一次性回呼與身分連結）
 
 ## 流程與驗收
 
@@ -167,7 +167,7 @@ Go 回歸測試新增在 `internal/server/auth_redirect_integration_test.go`，�
 
 ## OAuth 提供者與 state 輸入
 
-本段已由主代理重現，代理修正後完成全套 PostgreSQL 競態測試、go vet、Windows amd64 與 Linux 386 編譯，對抗性審查沒有已確認缺陷，待 CI 交付。既有絕對登入期限測試改用有效提供者觸發重簽，原有期限與身分不變及過期回 401 的斷言完整保留，另驗未知提供者 400 且不重簽。真實 Google／GitHub 授權仍未驗證。
+本段已由主代理重現，代理修正後完成全套 PostgreSQL 競態測試、go vet、Windows amd64 與 Linux 386 編譯，對抗性審查沒有已確認缺陷，PR #11 四項 CI 通過後已合併。既有絕對登入期限測試改用有效提供者觸發重簽，原有期限與身分不變及過期回 401 的斷言完整保留，另驗未知提供者 400 且不重簽。真實 Google／GitHub 授權仍未驗證。
 
 流程：開啟 /auth/:provider → 以路徑選定提供者 → 產生本次 state → 保存既有 Goth Session → 提供者回呼 → 嚴格比對簽章 Session 中的原始 state → 取得相同提供者的使用者 → 原有登入流程。此段修正提供者與 state 的輸入處理，接續的一次性交易與帳號識別仍是本工作單的必要驗收。
 
@@ -189,3 +189,38 @@ Go 回歸測試新增在 `internal/server/auth_redirect_integration_test.go`，�
 新增測試置於 internal/auth/oauth_input_test.go 與 internal/server/oauth_input_integration_test.go。測試與實作由不同代理負責，主代理先重現再驗收。既有 redirect 測試保持原斷言，不用測試專用 production 開關。後續須完成 state 短效與伺服器端原子消耗、OAuth Cookie HttpOnly/期限/機密性、PKCE、提供者關閉即時檢查，以及穩定 provider+subject 與安全帳號連結；不能以此段通過宣稱 OAuth 完成。
 
 依據：[RFC 9700 的不同回呼網址與 state 防護](https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1)、[GitHub 的 state 與 PKCE 契約](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)。
+
+
+## OAuth 短效一次性回呼
+
+主代理已重現原始缺口，並驗證修正後的跨程序一次性、DB 失敗／回滾、並行、Cookie 旗標、跨提供者續期與整秒期限。全套 PostgreSQL 競態測試、go vet 與原生／Windows amd64／Linux 386 編譯通過，對抗性複審沒有其他已確認缺陷，待 CI 交付。第三方授權使用公開 Goth 替身，真實 Google／GitHub 授權尚未驗證。
+
+流程：入口產生新的 state 並保存短效 Goth Cookie → 回呼驗證提供者、簽章與唯一相同 state → 驗證唯一非空白 code 或明確拒絕授權回應 → 資料庫原子標記 state 已使用 → 清除短效 Cookie → 交換 code、取得使用者 → 沿用既有帳號及登入簽發。有效 code 回呼與授權拒絕回呼都只可處理一次，失敗後從入口重新開始。
+
+沿用既有 revoked_logins 的雜湊與到期索引，不新增資料表、依賴、環境設定或背景程序。OAuth state 的雜湊輸入使用獨立的類型前綴與提供者，例如 oauth-state、提供者與 state 以零位元組分隔，不與既有 login_id 的雜湊混用。已使用狀態至少保留 601 秒，涵蓋 Cookie 簽章以整秒處理的最後一秒，透過主鍵唯一性與 INSERT ON CONFLICT DO NOTHING 的 RowsAffected 原子判斷第一個使用者。重複或並行回呼只有一個可進入提供者操作，後續一律一般 400，不發登入 Cookie、不查詢或修改 users。標記與過期清理在同一個短交易，沿用 expires_at 索引，不能以先查再寫或單程序記憶體旗標替代。已撤銷的登入紀錄及其七天期限保持不變。資料庫不可用或寫入／清理失敗回一般 503，不聯絡提供者，不簽發登入；交易失敗可重試，若結果無法確定則須重新開始授權。
+
+Goth 使用獨立 CookieStore，簽章金鑰沿用既有 Session 秘密，MaxAge 與簽章端有效期均為 600 秒。應用程式 Session 維持七天。兩者的初始及重簽 Cookie 都設定 HttpOnly、SameSite=Lax、Path=/，Secure 依既有 APP_ENV=production。過期或損壞的 Goth Cookie 在提供者與資料庫操作前回 400。簽章依整秒判斷，第 601 秒起的回呼必須拒絕；已使用狀態的保留時間不得早於 Cookie 實際停止驗證的時間。不延長或重新簽署原始 state 的有效期。每次新入口以空的 Goth 授權資料開始，只保留本次提供者的 Session，取代先前待授權流程；原有應用登入 Session 保留。必須涵蓋 Google→GitHub 與 GitHub→Google 在第 590 秒切換、第 601 秒回呼舊提供者皆 400 的公開路由測試。舊的已授權 Goth Cookie 不能略過 code 交換。
+
+回呼使用已驗證的 Goth Provider/Session 公開 Authorize 與 FetchUser，交換成功後不再把含 AccessToken、RefreshToken、IDToken 的 Session 保存至瀏覽器。state 成功標記已使用後，先清除短效 Goth Cookie，再處理提供者的成功、失敗或拒絕結果。清除失敗在聯絡提供者及簽發任何新登入前回 503。輸入、簽章或 state 驗證失敗不消耗狀態，也不清除有效的待授權 Cookie。仍須比對 user.Provider，保留 JSON 回應三欄、站內返回網址、角色及成對登入期限。沒有 code、空白或重複 code、同時有 code/error 等矛盾輸入在標記 state 前回 400。有效 state 的 access_denied 等提供者拒絕回應會消耗 state 並回一般 400，不呼叫提供者。
+
+OAuth 入口另使用與本機登入獨立的既有來源限流器，每個連線來源固定 60 秒最多 30 次，Google/GitHub 共用此入口額度，避免匿名製造無上限的已消耗狀態。來源解析、容量、Retry-After 與到期規則沿用已驗收的 ProtectLoginAttempts，不改本機登入額度。回呼先通過簽章/state，無效請求不得寫入消耗紀錄。
+
+| 情境 | 預期結果與驗證 |
+|---|---|
+| 正常授權 | 真實入口 Cookie → 回呼 → Authorize 一次、FetchUser 成功 → JSON token 的 me 200；外部提供者全用公開 Goth 替身 |
+| 原始回呼重送 | 保留首次入口 Cookie 與同一 code，第二次 400，提供者計數與 users 不增加 |
+| 已授權 Cookie 重放 | 測試替身真實序列化 token 且 code 自己只能使用一次，留存回呼中間的已授權 Cookie，不帶 code 重送也不可再次登入；修正後不能再產生含 token 的 Cookie |
+| 並行回呼 | 同一組 Cookie/state/code 同時多次送出，只有一次 Authorize，可登入一次，其餘 400且無登入 Cookie |
+| 到期與旗標 | 無 DB 的 synctest 推進 601 秒，回呼 400、不碰提供者；直接檢查 OAuth 600秒與應用 Session七天、HttpOnly/Lax/Secure 及絕對期限不延長 |
+| 整秒到期窗口 | 同秒簽發後 200ms 首次成功，在 600.3秒重送仍400且提供者／users不變；601秒未消耗Cookie也400 |
+| 提供者失敗或拒絕 | 一次性狀態保留，重試同一回呼400；錯誤不含code/state/token；正常拒絕不呼叫提供者 |
+| DB 故障 | 以獨立 PostgreSQL fixture 的查詢／寫入失敗驗證503、無提供者呼叫、無登入簽發；恢復後可依交易結果重試 |
+| 跨程序及型別隔離 | 保留同一 Cookie，在新子程序重放仍400；OAuth雜湊不得誤用已撤銷login_id或改寫其期限；過期紀錄清理不移除尚未到期登入撤銷 |
+| 既有流程 | provider/state輸入、返回網址、絕對期限與本機登入的既有斷言保留；有失效的測試前提先回報，不由實作者改測試 |
+
+測試先新增 internal/auth/oauth_transaction_test.go 與 internal/server/oauth_transaction_integration_test.go，透過公開 Init、RegisterRoutes、Goth Provider/Session 與既有獨立 PostgreSQL fixture 驗證。使用者／Cookie／code／token 都是假資料，不碰驗收站既有帳號或外部授權。實作與測試分開派工，主代理完整審查、先重現再驗收。PKCE、穩定身分與安全帳號連結、提供者啟用即時檢查仍需後續驗收。
+
+## OAuth 後續營運檢查
+
+- P1：cmd/server/main.go 的預設 Echo Logger 記錄完整 RequestURI，包含回呼 code 與 state。後續須讓日誌保留路徑及結果而不寫入授權查詢值，並以實際輸出驗證。
+- P2：目前 Google／GitHub Provider 沿用沒有 Timeout 的 http.DefaultClient，且 Goth 使用自己的背景 context。後續須界定對外請求期限與取消行為，以停滯的本機上游驗證回應時間及資源釋放。

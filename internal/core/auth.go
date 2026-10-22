@@ -2,7 +2,8 @@ package core
 
 import "time"
 
-// RevokedLogin stores the SHA-256 hash of a login ID that has been revoked.
+// RevokedLogin stores SHA-256 hashes for revoked login IDs and consumed OAuth
+// states, distinguished by hash input.
 type RevokedLogin struct {
 	ID        string    `gorm:"primaryKey;size:64"`
 	ExpiresAt time.Time `gorm:"index"`

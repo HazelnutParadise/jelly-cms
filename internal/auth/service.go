@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
@@ -56,8 +57,10 @@ func Init() error {
 	}
 
 	sessionStore = sessions.NewCookieStore(sessionBytes)
-	sessionStore.MaxAge(604800)
-	gothic.Store = sessionStore
+	configureAuthCookieStore(sessionStore, 604800)
+	gothStore := sessions.NewCookieStore(sessionBytes)
+	configureAuthCookieStore(gothStore, oauthStateLifetimeSeconds)
+	gothic.Store = gothStore
 	jwtSecret = jwtBytes
 
 	// Load OAuth providers from database
@@ -440,6 +443,9 @@ func HandleAuth(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusBadGateway, "OAuth provider unavailable")
 	}
+	// Start from an empty Goth cookie so an entry for another provider cannot
+	// remain valid or have its signing lifetime extended by this save.
+	req.Header.Del("Cookie")
 	if err := gothic.StoreInSession(provider.Name(), gothSession.Marshal(), req, c.Response()); err != nil {
 		return c.String(http.StatusServiceUnavailable, "OAuth service unavailable")
 	}
@@ -456,8 +462,16 @@ func HandleCallback(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
 	}
 
+	codeValues, hasCode := query["code"]
+	errorValues, hasError := query["error"]
+	validCode := hasCode && len(codeValues) == 1 && strings.TrimSpace(codeValues[0]) != "" && !hasError
+	validDenial := hasError && len(errorValues) == 1 && strings.TrimSpace(errorValues[0]) != "" && !hasCode
+	if !validCode && !validDenial {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
+
 	// Validate the signed Goth session and its original authorization URL before
-	// CompleteUserAuth can contact the provider or perform account work.
+	// consuming state or contacting the provider.
 	gothSession, err := gothic.Store.Get(req, gothic.SessionName)
 	if err != nil {
 		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
@@ -491,7 +505,26 @@ func HandleCallback(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
 	}
 
-	user, err := gothic.CompleteUserAuth(c.Response(), req)
+	consumed, err := consumeOAuthState(req.Context(), provider.Name(), callbackState)
+	if err != nil {
+		return c.String(http.StatusServiceUnavailable, "OAuth service unavailable")
+	}
+	if !consumed {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
+	gothSession.Options.MaxAge = -1
+	gothSession.Values = make(map[interface{}]interface{})
+	if err := gothSession.Save(req, c.Response()); err != nil {
+		return c.String(http.StatusServiceUnavailable, "OAuth service unavailable")
+	}
+	if validDenial {
+		return c.String(http.StatusBadRequest, "OAuth authorization denied")
+	}
+
+	if _, err := providerSession.Authorize(provider, query); err != nil {
+		return c.String(http.StatusBadGateway, "OAuth provider authentication failed")
+	}
+	user, err := provider.FetchUser(providerSession)
 	if err != nil {
 		return c.String(http.StatusBadGateway, "OAuth provider authentication failed")
 	}
