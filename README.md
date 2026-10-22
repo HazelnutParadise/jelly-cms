@@ -15,7 +15,7 @@
 
 ## 📋 需求
 
-- Go 1.24.1 或更高版本
+- Go 1.27.3 或更高版本
 - PostgreSQL 資料庫
 - 可選：Docker 和 Docker Compose（用於容器化部署）
 
