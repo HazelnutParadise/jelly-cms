@@ -169,7 +169,14 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	})
 
 	e.GET("/login", func(c echo.Context) error {
-		return c.File("web/admin/login.html")
+		tmpl, err := template.ParseFiles("web/admin/login.html")
+		if err != nil {
+			return err
+		}
+		c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
+		return tmpl.Execute(c.Response().Writer, map[string]string{
+			"RedirectURL": auth.SafeRedirectURL(c.QueryParam("redirect")),
+		})
 	})
 
 	// Public OAuth status endpoint (for login page)

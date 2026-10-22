@@ -396,10 +396,7 @@ func HandleLocalLogin(c echo.Context) error {
 	}
 
 	// Get redirect URL from query parameter or default to admin
-	redirectURL := c.QueryParam("redirect")
-	if redirectURL == "" {
-		redirectURL = "/admin"
-	}
+	redirectURL := SafeRedirectURL(c.QueryParam("redirect"))
 
 	// Redirect to stored URL or admin dashboard
 	return c.Redirect(http.StatusFound, redirectURL)
@@ -412,10 +409,7 @@ func HandleAuth(c echo.Context) error {
 	}
 
 	// Store redirect URL in session
-	redirectURL := c.QueryParam("redirect")
-	if redirectURL == "" {
-		redirectURL = "/admin"
-	}
+	redirectURL := SafeRedirectURL(c.QueryParam("redirect"))
 	session, err := GetSession(c)
 	if err == nil {
 		session.Values["oauth_redirect"] = redirectURL
@@ -496,8 +490,8 @@ func HandleCallback(c echo.Context) error {
 	redirectURL := "/admin"
 	session, err := GetSession(c)
 	if err == nil {
-		if storedRedirect, ok := session.Values["oauth_redirect"].(string); ok && storedRedirect != "" {
-			redirectURL = storedRedirect
+		if storedRedirect, ok := session.Values["oauth_redirect"].(string); ok {
+			redirectURL = SafeRedirectURL(storedRedirect)
 			delete(session.Values, "oauth_redirect")
 			session.Save(c.Request(), c.Response())
 		}

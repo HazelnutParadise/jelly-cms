@@ -65,7 +65,7 @@
         <p style="color: #666; margin-bottom: 2rem;">請選擇登入方式</p>
         
         <!-- Local Login Form -->
-        <form id="localLoginForm" style="margin-bottom: 2rem;">
+        <form id="localLoginForm" data-redirect-url="{{.RedirectURL}}" style="margin-bottom: 2rem;">
             <div style="margin-bottom: 1rem;">
                 <input type="text" name="username" placeholder="用戶名或 Email" required style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; margin-bottom: 0.5rem;">
             </div>
@@ -118,9 +118,9 @@
             }
         }
 
-        // Get redirect URL from query parameter
+        // Use the server-validated redirect URL for local login.
         const urlParams = new URLSearchParams(window.location.search);
-        const redirectURL = urlParams.get('redirect') || '/admin';
+        const redirectURL = document.getElementById('localLoginForm').dataset.redirectUrl || '/admin';
 
         if (urlParams.get('installed') === '1') {
             const notice = document.getElementById('installedNotice');
