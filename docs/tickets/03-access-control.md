@@ -246,3 +246,25 @@ OAuth 入口另使用與本機登入獨立的既有來源限流器，每個連�
 測試新增於 cmd/server/request_logging_test.go，以 httptest、真實 Echo 路由及錯誤處理、捕捉 logger 的既有輸出接縫驗證，不啟動固定連接埠、驗收站、資料庫或外部 OAuth。測試與實作分開指派，主代理先驗證基線外洩，再驗證查詢已移除且正常輸入／回應未被改寫。其他日誌來源若實際記錄授權秘密須一併處理，不以這個 helper 通過取代入口註冊檢查。
 
 本段已由主代理重跑：12 個查詢外洩情境在修正前失敗，修正後全部通過；秘密標頭與本文、JSON 逸出、錯誤處理次數及多個 Echo 實例的正向控制通過。完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷。PR #14 四項 CI 通過後已合併，分支已清理。沒有啟動真實提供者授權或變更既有驗收站。
+
+
+## OAuth 提供者請求的期限與取消
+
+流程：有效回呼完成原有 state 驗證與一次性消耗 → 同一次提供者操作共用 30 秒期限 → 交換 code、讀取個人資料及必要信箱 → 成功才沿用既有帳號與登入流程。30 秒從第一次提供者操作開始計算，不因第二次 HTTP 請求重新計時。原回呼請求較早取消或到期時立即中止，包括尚未收到標頭及收到標頭後持續等待本文的情況。
+
+根因為 Goth 的 ContextForClient 使用背景 context，Google／GitHub 的預設 Client 沒有 Timeout。兩個 Session.Authorize 會斷言實際提供者型別，因此不能用一般 Provider 包裝器取代具體指標。實作沿用兩個具體提供者與現有 HTTPClient 接縫，每個回呼持有獨立的提供者及 Client 值複本，共用底層連線池而不修改註冊中的提供者、DefaultClient 或 Transport。取消訊號需持續到回應本文關閉，不能在 RoundTrip 傳回標頭時提前移除。
+
+填實作位置為 HandleCallback 既有 Authorize／FetchUser 區段，提供者操作集中於 internal/auth/oauth_http.go 的 fetchOAuthUser(ctx context.Context, provider goth.Provider, session goth.Session, params goth.Params) (goth.User, error)。函式只處理提供者操作及其期限，錯誤交回既有回呼處理器，以原本的通用 502 回應拒絕登入。不得以背景 goroutine 執行後提早放棄等待，也不新增依賴、資料模型、全域設定、外部端點或新的登入流程。
+
+| 操作與邊界 | 預期結果與驗證 |
+|---|---|
+| 真實 Goth 正常登入 | Google 與 GitHub 的真實 Provider/Session 經本機假上游完成交換及讀取，JSON 登入憑證能回查 /api/auth/me，站內導向保持原有結果 |
+| 等待標頭時取消 | 交換 code 或讀取個人資料停住，取消原回呼後上游觀察到連線取消，處理器結束，不新增帳號或登入憑證 |
+| 等待本文時取消 | 上游先送出 200 標頭再停止傳送本文，取消後讀取結束、本文關閉，不繼續建立登入 |
+| 固定總期限 | 交換及讀取合計最多 30 秒，第一段已耗時時第二段只剩剩餘時間，不重設期限 |
+| 較短的期限 | 原回呼 context 與既有 Client.Timeout 較短時保留先到的限制，不延長已有等待上限 |
+| 並行隔離 | 同一提供者兩個回呼，一個取消不影響另一個正常完成，不修改共用 provider/client/transport |
+| 失敗與重試 | 逾時或取消沿用通用 502，不回傳上游錯誤中的秘密，不送出應用登入 Cookie/JWT；已消耗 state 不可重放，新的授權可重新開始 |
+| 既有拒絕流程 | 不合法 state、未啟用提供者、DB 故障與授權拒絕仍在原有階段停止，不提早發出上游請求 |
+
+測試新增 internal/server/oauth_http_integration_test.go，優先沿用現有獨立 PostgreSQL fixture 與公開路由。使用真實 Goth 提供者的 HTTPClient.Transport 接縫將流量限於本機假上游，不變更依賴的全域 URL。至少用本機 HTTP 伺服器驗證取消在標頭與本文兩個階段的實際行為，共用總期限可用 synctest 搭配可取消的假傳輸，避免每次等待真實 30 秒。測試先在舊實作重現，再交另一代理修正，實作者不得修改測試。外部 Google／GitHub 授權不在此次本機驗收中。
