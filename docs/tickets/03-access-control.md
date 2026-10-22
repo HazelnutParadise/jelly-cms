@@ -222,7 +222,7 @@ OAuth 入口另使用與本機登入獨立的既有來源限流器，每個連�
 
 ## OAuth 後續營運檢查
 
-- P1：cmd/server/main.go 的預設 Echo Logger 記錄完整 RequestURI，包含回呼 code 與 state。後續須讓日誌保留路徑及結果而不寫入授權查詢值，並以實際輸出驗證。
+- 請求日誌保護已完成本機行為驗證，細節與驗收見下一節；CI 交付尚待完成。
 - P2：目前 Google／GitHub Provider 沿用沒有 Timeout 的 http.DefaultClient，且 Goth 使用自己的背景 context。後續須界定對外請求期限與取消行為，以停滯的本機上游驗證回應時間及資源釋放。
 
 
@@ -244,3 +244,5 @@ OAuth 入口另使用與本機登入獨立的既有來源限流器，每個連�
 | 初始化與隔離 | 多個 Echo 實例使用同一函式不改 DefaultLoggerConfig，測試輸出不影響其他測試或實際服務 |
 
 測試新增於 cmd/server/request_logging_test.go，以 httptest、真實 Echo 路由及錯誤處理、捕捉 logger 的既有輸出接縫驗證，不啟動固定連接埠、驗收站、資料庫或外部 OAuth。測試與實作分開指派，主代理先驗證基線外洩，再驗證查詢已移除且正常輸入／回應未被改寫。其他日誌來源若實際記錄授權秘密須一併處理，不以這個 helper 通過取代入口註冊檢查。
+
+本段已由主代理重跑：12 個查詢外洩情境在修正前失敗，修正後全部通過；秘密標頭與本文、JSON 逸出、錯誤處理次數及多個 Echo 實例的正向控制通過。完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷，待 CI 交付。沒有啟動真實提供者授權或變更既有驗收站。
