@@ -38,7 +38,7 @@ func run(ctx context.Context) error {
 	e := echo.New()
 	e.JSONSerializer = &JSONSerializer{} // Use goccy/go-json
 
-	e.Use(middleware.Logger())
+	e.Use(requestLogger())
 	e.Use(middleware.Recover())
 
 	// Recover any interrupted installation, then load the site configuration
