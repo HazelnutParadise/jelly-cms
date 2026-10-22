@@ -4,13 +4,14 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/labstack/echo/v4"
 )
 
 func RegisterEcommerceRoutes(e *echo.Echo) {
-	api := e.Group("/api/admin")
+	api := e.Group("/api/admin", auth.RequireRole("admin"))
 
 	// Products
 	api.GET("/products", func(c echo.Context) error {

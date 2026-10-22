@@ -3,6 +3,7 @@ package auth
 import (
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/labstack/echo/v4"
@@ -13,8 +14,10 @@ func RequireAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		user, err := GetCurrentUser(c)
 		if err != nil {
-			// Check if this is an API request
-			if c.Request().Header.Get("Accept") == "application/json" ||
+			// API requests always receive a machine-readable authentication error,
+			// regardless of the client's content negotiation headers.
+			if strings.HasPrefix(c.Request().URL.Path, "/api/") ||
+				c.Request().Header.Get("Accept") == "application/json" ||
 				c.Request().Header.Get("Content-Type") == "application/json" {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
 			}
