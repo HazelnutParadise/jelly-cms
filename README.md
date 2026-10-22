@@ -783,6 +783,8 @@ Authorization: Bearer <your-jwt-token>
 
 或使用 Session Cookie（網頁端）。
 
+匿名要求回應 JSON `401`，不依賴 `Accept` 標頭；已登入但角色不符回應 `403`。商品、訂單、系統設定、金流、主題與外掛 API 僅允許管理員。內容與媒體 API 接受管理員、編輯者、作者，未知角色會被拒絕。作者的媒體所有權限制仍待完成，整體驗收狀態見 [STATUS.md](STATUS.md)。
+
 #### 文章管理
 
 - `GET /api/admin/posts` - 取得文章列表
@@ -790,6 +792,10 @@ Authorization: Bearer <your-jwt-token>
 - `GET /api/admin/posts/:id` - 取得文章
 - `PUT /api/admin/posts/:id` - 更新文章
 - `DELETE /api/admin/posts/:id` - 刪除文章
+
+管理員與編輯者可管理所有文章及頁面；作者只能列出、讀取、更新及刪除自己的文章，不能建立頁面或將文章改成頁面。不可見或不存在的內容回應 `404`。新內容的作者使用目前登入帳號。
+
+新增與更新使用單一 JSON 物件，支援 `title`、`slug`、`content`、`type`、`status`、`template`、`meta`、`published_at`。`type` 限 `post` 或 `page`；`published_at` 接受 RFC 3339 時間或 `null`。更新時省略的欄位保留原值。ID、作者、建立時間與修改時間由伺服器管理，輸入中的這些欄位及其他未知欄位不會套用。空內容、JSON 陣列、`null`、多個 JSON 值或尾端雜訊回應 `400`。
 
 #### 產品管理
 

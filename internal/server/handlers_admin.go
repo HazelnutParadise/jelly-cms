@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
@@ -21,78 +20,14 @@ import (
 )
 
 func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
-	// API Routes with authentication
-	api := e.Group("/api/admin", auth.RequireAuth)
-
-	// Posts
-	api.GET("/posts", func(c echo.Context) error {
-		postType := c.QueryParam("type")
-		if postType == "" {
-			postType = "post"
-		}
-
-		var posts []core.Post
-		if err := data.DB.Where("type = ?", postType).Find(&posts).Error; err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, posts)
-	})
-
-	api.POST("/posts", func(c echo.Context) error {
-		postService := core.NewPostService(data.DB)
-		var post core.Post
-		if err := c.Bind(&post); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
-		}
-
-		// Set author from context (mocked for now)
-		post.AuthorID = 1
-
-		if err := postService.Create(&post); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, post)
-	})
-
-	api.GET("/posts/:id", func(c echo.Context) error {
-		postService := core.NewPostService(data.DB)
-		id, _ := strconv.Atoi(c.Param("id"))
-		post, err := postService.GetByID(uint(id))
-		if err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
-		}
-		return c.JSON(http.StatusOK, post)
-	})
-
-	api.PUT("/posts/:id", func(c echo.Context) error {
-		postService := core.NewPostService(data.DB)
-		id, _ := strconv.Atoi(c.Param("id"))
-		post, err := postService.GetByID(uint(id))
-		if err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
-		}
-
-		if err := c.Bind(post); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
-		}
-
-		if err := postService.Update(post); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, post)
-	})
-
-	api.DELETE("/posts/:id", func(c echo.Context) error {
-		postService := core.NewPostService(data.DB)
-		id, _ := strconv.Atoi(c.Param("id"))
-		if err := postService.Delete(uint(id)); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, map[string]string{"message": "Deleted"})
-	})
+	// Content and media are available to known content roles. All other admin
+	// endpoints are registered on the admin-only group below.
+	content := e.Group("/api/admin", auth.RequireRole("admin", "editor", "author"))
+	registerPostRoutes(content)
+	api := e.Group("/api/admin", auth.RequireRole("admin"))
 
 	// Media
-	api.POST("/media", func(c echo.Context) error {
+	content.POST("/media", func(c echo.Context) error {
 		file, err := c.FormFile("file")
 		if err != nil {
 			return err
@@ -119,7 +54,7 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 		return c.JSON(http.StatusOK, map[string]string{"url": "/uploads/" + file.Filename})
 	})
 
-	api.DELETE("/media/:filename", func(c echo.Context) error {
+	content.DELETE("/media/:filename", func(c echo.Context) error {
 		filename := c.Param("filename")
 		// Prevent directory traversal
 		if filepath.Base(filename) != filename {
@@ -133,7 +68,7 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 		return c.JSON(http.StatusOK, map[string]string{"message": "Deleted"})
 	})
 
-	api.PUT("/media/:filename", func(c echo.Context) error {
+	content.PUT("/media/:filename", func(c echo.Context) error {
 		filename := c.Param("filename")
 		// Prevent directory traversal
 		if filepath.Base(filename) != filename {
@@ -164,7 +99,7 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 		return c.JSON(http.StatusOK, map[string]string{"message": "Replaced"})
 	})
 
-	api.POST("/media/rename", func(c echo.Context) error {
+	content.POST("/media/rename", func(c echo.Context) error {
 		var req struct {
 			OldName string `json:"old_name"`
 			NewName string `json:"new_name"`
@@ -188,7 +123,7 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 		return c.JSON(http.StatusOK, map[string]string{"message": "Renamed"})
 	})
 
-	api.GET("/media", func(c echo.Context) error {
+	content.GET("/media", func(c echo.Context) error {
 		files, err := os.ReadDir("data/uploads")
 		if err != nil {
 			return c.JSON(http.StatusOK, []string{})
