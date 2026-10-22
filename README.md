@@ -367,19 +367,19 @@ web/themes/my-theme/
   "description": "Default Jelly CMS Theme",
   "author": "Jelly Team",
   "colors": {
-    "primary": "#FF6B6B",
-    "secondary": "#4ECDC4",
-    "background": "#F7F9FC",
-    "text": "#333",
-    "text_muted": "#666",
-    "accent": "#FF6B6B",
-    "link": "#4ECDC4",
-    "link_hover": "#FF6B6B",
-    "border": "#e0e0e0",
-    "dark": "#2C3E50",
-    "success": "#28a745",
-    "warning": "#ffc107",
-    "error": "#dc3545"
+    "primary": "#E8285B",
+    "secondary": "#2F6BFF",
+    "background": "#FFFFFF",
+    "text": "#15161A",
+    "text_muted": "#5F6470",
+    "accent": "#13C2A3",
+    "link": "#2F6BFF",
+    "link_hover": "#E8285B",
+    "border": "#DDE0E7",
+    "dark": "#15161A",
+    "success": "#15A06A",
+    "warning": "#F5B800",
+    "error": "#E03B2E"
   },
   "layout": {
     "header_style": "sticky",
@@ -409,6 +409,20 @@ web/themes/my-theme/
 - `success`: 成功狀態顏色
 - `warning`: 警告狀態顏色
 - `error`: 錯誤狀態顏色
+
+後台的顏色選擇器使用 `<input type="color">`，顏色值請用六位數十六進位（例如 `#15161A`，不要用 `#333`），否則選擇器會顯示成黑色。
+
+#### 自訂欄位
+
+`theme.json` 可以加上 `custom_fields`，後台「客製化」會依型別產生對應欄位，值會注入到 `.ThemeCustom`，用 `themeLayout .ThemeCustom "欄位 id" "預設值"` 讀取：
+
+```json
+"custom_fields": [
+  { "id": "tagline", "label": "網站標語", "type": "text", "default": "寫下來，才算數。" }
+]
+```
+
+支援的 `type`：`text`、`textarea`、`number`、`color`、`select`（需提供 `options`）。
 
 #### Layout 設定
 
@@ -497,9 +511,7 @@ web/themes/my-theme/
     {{range .Posts}}
     <article class="post-card">
         <h2><a href="/post/{{.Slug}}">{{.Title}}</a></h2>
-        <div class="post-content">
-            {{.Content | html}}
-        </div>
+        <p class="post-excerpt">{{excerpt .Content 150}}</p>
     </article>
     {{end}}
 </div>
@@ -581,12 +593,17 @@ Jelly CMS 提供了兩個專用的模板函數來處理主題設定：
 - `.ThemeColors`: 主題顏色 map（從資料庫讀取的自訂顏色）
 - `.ThemeLayout`: 主題布局 map（從資料庫讀取的自訂布局）
 - `.ThemeCustom`: 自訂欄位 map（如果有定義）
+- `.Query`: 搜尋關鍵字（只有搜尋頁有，其他頁面請用 `{{with .Query}}…{{end}}` 判斷）
+- `.IsHome`、`.IsPosts`、`.IsPost`、`.IsPage`、`.IsSearch`: 目前頁面類型，用來標示導覽列的目前項目
 
 ### 其他模板函數
 
 除了主題相關的函數，還可以使用以下內建函數：
 
-- `{{substr .Content 0 150}}`: 截取字串
+- `{{safeHTML .Post.Content}}`: 直接輸出文章的 HTML 內容（不轉義）。`.Post.Content` 是字串，若寫成 `{{.Post.Content}}` 會被轉義成純文字。
+- `{{excerpt .Post.Content 150}}`: 去掉 HTML 標籤後截取前 150 個「字」（以字元計，不會切壞中文），超過時結尾加上「…」
+- `{{initial .SiteTitle}}`: 取網站名稱第一個字母或中文字（大寫），適合做小圖示
+- `{{substr .Content 0 150}}`: 以位元組截取字串（中文請改用 `excerpt`）
 - `{{add .Page 1}}`: 數字相加
 - `{{sub .Page 1}}`: 數字相減
 - `{{.Content | html}}`: HTML 轉義
@@ -665,7 +682,7 @@ Jelly CMS 提供了兩個專用的模板函數來處理主題設定：
         {{range .Posts}}
         <article>
             <h2><a href="/post/{{.Slug}}">{{.Title}}</a></h2>
-            <p>{{substr .Content 0 200 | html}}...</p>
+            <p>{{excerpt .Content 200}}</p>
         </article>
         {{end}}
     </div>

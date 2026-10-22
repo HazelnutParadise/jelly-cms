@@ -7,7 +7,11 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"gorm.io/gorm"
@@ -132,6 +136,11 @@ func (m *Manager) RenderWithDB(templateName string, data interface{}, db interfa
 			"sub": func(a, b int) int {
 				return a - b
 			},
+			"safeHTML": func(s string) template.HTML {
+				return template.HTML(s)
+			},
+			"excerpt": Excerpt,
+			"initial": Initial,
 			"themeColor": func(colors map[string]string, key string, defaultValue string) string {
 				if colors == nil {
 					return defaultValue
@@ -207,4 +216,35 @@ func (m *Manager) SaveSettings(settings *core.ThemeSettings, db interface {
 	existing.Custom = settings.Custom
 	result = db.Save(&existing)
 	return result.Error
+}
+
+var (
+	htmlTagPattern    = regexp.MustCompile(`<[^>]*>`)
+	whitespacePattern = regexp.MustCompile(`\s+`)
+)
+
+// Excerpt strips HTML tags from s, collapses whitespace and truncates the
+// result to at most limit characters (runes, not bytes). A truncated excerpt
+// ends with an ellipsis.
+func Excerpt(s string, limit int) string {
+	text := htmlTagPattern.ReplaceAllString(s, " ")
+	text = strings.NewReplacer("&nbsp;", " ", "&amp;", "&", "&lt;", "<", "&gt;", ">", "&quot;", `"`, "&#39;", "'").Replace(text)
+	text = strings.TrimSpace(whitespacePattern.ReplaceAllString(text, " "))
+	if limit <= 0 || utf8.RuneCountInString(text) <= limit {
+		return text
+	}
+	runes := []rune(text)
+	return strings.TrimRightFunc(string(runes[:limit]), unicode.IsSpace) + "…"
+}
+
+// Initial returns the first letter or CJK character of s in upper case,
+// skipping leading whitespace and punctuation. It returns "J" when s has no
+// such character.
+func Initial(s string) string {
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			return string(unicode.ToUpper(r))
+		}
+	}
+	return "J"
 }

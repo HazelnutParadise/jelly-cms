@@ -1,98 +1,68 @@
-{{define "title"}}Media{{end}}
+{{define "title"}}{{.T.media}}{{end}}
 {{define "styles"}}
 <style>
-    .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-        gap: 1.5rem;
-        margin-top: 1.5rem;
-    }
-
-    .grid-item {
-        border: 1px solid #e0e0e0;
-        padding: 1rem;
-        border-radius: 12px;
-        text-align: center;
-        background: white;
-        transition: all 0.3s ease;
-        position: relative;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-
-    .grid-item:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-        border-color: var(--primary);
-    }
-
-    .grid-item img {
-        max-width: 100%;
-        height: 120px;
-        object-fit: cover;
-        display: block;
-        margin: 0 auto 0.75rem;
-        border-radius: 8px;
-    }
-
-    .grid-item .actions {
-        display: flex;
-        justify-content: center;
-        gap: 0.75rem;
-        margin-top: 0.75rem;
-        padding-top: 0.75rem;
-        border-top: 1px solid #f0f0f0;
-    }
-
-    .btn-icon {
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 6px 10px;
-        border-radius: 6px;
-        font-size: 1.1rem;
-        transition: all 0.2s;
-    }
-
-    .btn-icon:hover {
-        background: #f8f8f8;
-        transform: scale(1.1);
-    }
+    .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: .5rem; }
+    .media-item { position: relative; background: var(--surface-low); border-radius: var(--r-md); overflow: hidden; display: grid; grid-template-rows: auto 1fr; transition: background-color .12s ease, border-radius .2s ease; }
+    .media-item:hover { background: var(--surface-mid); border-radius: var(--r-lg); }
+    .media-thumb { aspect-ratio: 4 / 3; width: 100%; object-fit: cover; background: var(--surface-mid); display: grid; place-items: center; font-family: var(--mono); font-size: .75rem; font-weight: 700; color: var(--muted); }
+    .media-body { padding: .6rem .75rem .75rem; display: grid; gap: .5rem; }
+    .media-name { font-size: .8125rem; word-break: break-all; line-height: 1.35; }
+    .media-actions { display: flex; gap: .25rem; opacity: 0; transition: opacity .12s ease; }
+    .media-item:hover .media-actions, .media-item:focus-within .media-actions { opacity: 1; }
+    @media (hover: none) { .media-actions { opacity: 1; } }
+    .media-actions .btn { flex: 1; }
 </style>
 {{end}}
 {{define "content"}}
-<div class="header">
-    <h1>Media Library</h1>
-    <label class="btn">
-        Upload File
-        <input type="file" id="uploadInput" style="display: none;">
-    </label>
-</div>
-<div class="card">
-    <div class="grid" id="mediaGrid">
-        Loading...
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.mediaLibrary}}</h1>
     </div>
+    <div class="page-actions">
+        <label class="btn btn-primary">
+            + Upload File
+            <input type="file" id="uploadInput" style="display: none;">
+        </label>
+    </div>
+</div>
+<div class="media-grid" id="mediaGrid">
+    <div class="table-empty">{{.T.loading}}</div>
 </div>
 {{end}}
 {{define "scripts"}}
 <script>
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+    }
+
     async function loadMedia() {
         const res = await fetch('/api/admin/media');
         const files = await res.json();
         const grid = document.getElementById('mediaGrid');
         grid.innerHTML = '';
 
+        if (!files.length) {
+            grid.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span><div class="empty-title">No files yet</div><div class="empty-description">Upload an image or document to get started.</div></div>';
+            return;
+        }
+
         files.forEach(url => {
             const filename = url.split('/').pop();
             const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(filename);
-            
+            const ext = (filename.split('.').pop() || '').toUpperCase();
+
             const item = document.createElement('div');
-            item.className = 'grid-item';
+            item.className = 'media-item';
             item.innerHTML = `
-                ${isImage ? `<img src="${url}" alt="${filename}" onerror="this.style.display='none'">` : '<div style="height: 100px; display: flex; align-items: center; justify-content: center; background: #f0f0f0; border-radius: 4px;">📄</div>'}
-                <div style="font-size: 0.85rem; word-break: break-all; margin-bottom: 0.5rem;">${filename}</div>
-                <div class="actions">
-                    <button class="btn-icon" onclick="copyUrl('${url}')" title="Copy URL">📋</button>
-                    <button class="btn-icon" onclick="deleteFile('${filename}')" title="Delete" style="color: #dc3545;">🗑️</button>
+                ${isImage ? `<img class="media-thumb" src="${escapeHtml(url)}" alt="${escapeHtml(filename)}" onerror="this.outerHTML='<div class=media-thumb>${escapeHtml(ext)}</div>'">` : `<div class="media-thumb">${escapeHtml(ext)}</div>`}
+                <div class="media-body">
+                    <div class="media-name">${escapeHtml(filename)}</div>
+                    <div class="media-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="copyUrl(${JSON.stringify(url)})" title="Copy URL">Copy URL</button>
+                        <button class="btn btn-text btn-sm" onclick="deleteFile(${JSON.stringify(filename)})" title="Delete">Delete</button>
+                    </div>
                 </div>
             `;
             grid.appendChild(item);

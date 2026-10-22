@@ -1,23 +1,25 @@
-{{define "title"}}Orders{{end}}
+{{define "title"}}{{.T.orders}}{{end}}
 {{define "content"}}
-<div class="header">
-    <h1>Orders</h1>
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.orders}}</h1>
+    </div>
 </div>
-<div class="card">
+<div class="table-wrapper">
     <table>
         <thead>
             <tr>
                 <th>ID</th>
                 <th>User</th>
                 <th>Total</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Actions</th>
+                <th>{{.T.status}}</th>
+                <th>{{.T.date}}</th>
+                <th class="actions">{{.T.actions}}</th>
             </tr>
         </thead>
         <tbody id="ordersList">
             <tr>
-                <td colspan="6">Loading...</td>
+                <td colspan="6" class="table-empty">{{.T.loading}}</td>
             </tr>
         </tbody>
     </table>
@@ -25,23 +27,36 @@
 {{end}}
 {{define "scripts"}}
 <script>
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+    }
+
+    const STATUS_BADGE = { pending: 'warning', processing: 'info', paid: 'info', shipped: 'info', completed: 'success', cancelled: 'danger' };
+
     async function loadOrders() {
         const res = await fetch('/api/admin/orders');
         const orders = await res.json();
         const tbody = document.getElementById('ordersList');
         tbody.innerHTML = '';
 
+        if (!orders.length) {
+            tbody.innerHTML = '<tr><td colspan="6" class="table-empty">—</td></tr>';
+            return;
+        }
+
         orders.forEach(o => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                    <td>#${o.id}</td>
-                    <td>${o.user ? o.user.username : 'Guest'}</td>
-                    <td>$${(o.total_amount / 100).toFixed(2)}</td>
-                    <td>${o.status}</td>
-                    <td>${new Date(o.created_at).toLocaleDateString()}</td>
-                    <td>
-                        <button class="btn btn-sm" onclick="viewOrder(${o.id})">View</button>
-                        <button class="btn btn-sm" onclick="updateOrderStatus(${o.id})" style="background: #17a2b8; margin-left: 0.5rem;">Update Status</button>
+                    <td class="cell-mono">#${o.id}</td>
+                    <td class="cell-title">${escapeHtml(o.user ? o.user.username : 'Guest')}</td>
+                    <td class="cell-mono">$${(o.total_amount / 100).toFixed(2)}</td>
+                    <td><span class="badge badge-${STATUS_BADGE[o.status] || 'info'}">${escapeHtml(o.status)}</span></td>
+                    <td class="cell-muted">${new Date(o.created_at).toLocaleDateString()}</td>
+                    <td class="actions">
+                        <button class="btn btn-secondary btn-sm" onclick="viewOrder(${o.id})">View</button>
+                        <button class="btn btn-text btn-sm" onclick="updateOrderStatus(${o.id})">Update Status</button>
                     </td>
                 `;
             tbody.appendChild(tr);

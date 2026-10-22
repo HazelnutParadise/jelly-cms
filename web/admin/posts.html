@@ -1,22 +1,26 @@
-{{define "title"}}Posts{{end}}
+{{define "title"}}{{.T.posts}}{{end}}
 {{define "content"}}
-<div class="header">
-    <h1>Posts</h1>
-    <a href="/admin/posts/new" class="btn">New Post</a>
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.posts}}</h1>
+    </div>
+    <div class="page-actions">
+        <a href="/admin/posts/new" class="btn btn-primary">+ New Post</a>
+    </div>
 </div>
-<div class="card">
+<div class="table-wrapper">
     <table>
         <thead>
             <tr>
-                <th>Title</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Actions</th>
+                <th>{{.T.title}}</th>
+                <th>{{.T.status}}</th>
+                <th>{{.T.date}}</th>
+                <th class="actions">{{.T.actions}}</th>
             </tr>
         </thead>
         <tbody id="postsList">
             <tr>
-                <td colspan="4">Loading...</td>
+                <td colspan="4" class="table-empty">{{.T.loading}}</td>
             </tr>
         </tbody>
     </table>
@@ -24,21 +28,36 @@
 {{end}}
 {{define "scripts"}}
 <script>
+    const T = { noPosts: "{{.T.noPosts}}", published: "{{.T.published}}", draft: "{{.T.draft}}", pending: "{{.T.pending}}", edit: "{{.T.edit}}", view: "{{.T.view}}" };
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+    }
+
     async function loadPosts() {
         const res = await fetch('/api/admin/posts');
         const posts = await res.json();
         const tbody = document.getElementById('postsList');
         tbody.innerHTML = '';
 
+        if (!posts.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="table-empty">' + T.noPosts + '</td></tr>';
+            return;
+        }
+
         posts.forEach(post => {
             const tr = document.createElement('tr');
+            const statusClass = post.status === 'published' ? 'success' : post.status === 'draft' ? 'warning' : 'info';
+            const statusText = post.status === 'published' ? T.published : post.status === 'draft' ? T.draft : T.pending;
             tr.innerHTML = `
-                    <td>${post.title}</td>
-                    <td>${post.status}</td>
-                    <td>${new Date(post.created_at).toLocaleDateString()}</td>
-                    <td>
-                        <a href="/admin/posts/${post.id}" class="btn btn-sm">Edit</a>
-                        <a href="/${post.slug}" target="_blank" class="btn btn-sm" style="background:#28a745;">View</a>
+                    <td class="cell-title"><a href="/admin/posts/${post.id}">${escapeHtml(post.title)}</a></td>
+                    <td><span class="badge badge-${statusClass}">${statusText}</span></td>
+                    <td class="cell-muted">${new Date(post.created_at).toLocaleDateString()}</td>
+                    <td class="actions">
+                        <a href="/admin/posts/${post.id}" class="btn btn-secondary btn-sm">${T.edit}</a>
+                        <a href="/post/${encodeURIComponent(post.slug)}" target="_blank" class="btn btn-text btn-sm">${T.view} ↗</a>
                     </td>
                 `;
             tbody.appendChild(tr);

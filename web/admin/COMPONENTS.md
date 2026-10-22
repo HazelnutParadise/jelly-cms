@@ -318,7 +318,7 @@ list item1 item2 item3
 
 ## 樣式定制
 
-組件的基礎樣式定義在 `components.html` 中。如需在特定頁面中覆蓋樣式，在頁面的 `{{define "styles"}}` 區塊中添加：
+組件的基礎樣式統一定義在 `layout.html` 的 `<style>` 區塊中（`components.html` 只放結構；放在它裡面的頂層 `<style>` 不會被輸出）。如需在特定頁面中覆蓋樣式，在頁面的 `{{define "styles"}}` 區塊中添加：
 
 ```html
 {{define "styles"}}
@@ -352,7 +352,7 @@ list item1 item2 item3
 {{end}}
 ```
 
-然後在 `components.html` 的 `<style>` 區塊中添加樣式：
+然後在 `layout.html` 的 `<style>` 區塊中添加樣式：
 
 ```css
 .my-component {

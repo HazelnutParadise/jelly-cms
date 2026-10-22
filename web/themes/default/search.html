@@ -1,49 +1,36 @@
 {{define "content"}}
-<div class="search-header">
-    <h1>搜尋結果</h1>
-    <div class="search-box">
-        <form action="/search" method="GET" style="display: flex; gap: 0.5rem;">
-            <input type="text" name="q" value="{{.Query}}" placeholder="搜尋文章..." style="flex: 1; padding: 0.5rem; border: 1px solid var(--border); border-radius: 4px;">
-            <button type="submit" style="padding: 0.5rem 1rem; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">搜尋</button>
-        </form>
-    </div>
-</div>
-
-{{if .Query}}
-    <p class="search-info">搜尋「<strong>{{.Query}}</strong>」找到 {{len .Posts}} 篇文章</p>
-{{end}}
-
-<div class="posts-list">
-    {{if .Posts}}
-        {{range .Posts}}
-        <article class="post-card">
-            <h2><a href="/post/{{.Slug}}">{{.Title}}</a></h2>
-            <div class="post-meta">
-                <time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">
-                    {{.CreatedAt.Format "2006年1月2日"}}
-                </time>
-                {{if .Author}}
-                <span class="author">作者：{{.Author.Username}}</span>
-                {{end}}
-            </div>
-            <div class="post-excerpt">
-                {{if .Content}}
-                    {{$excerpt := .Content}}
-                    {{if gt (len $excerpt) 200}}
-                        {{substr $excerpt 0 200 | html}}...
-                    {{else}}
-                        {{$excerpt | html}}
-                    {{end}}
-                {{end}}
-            </div>
-            <a href="/post/{{.Slug}}" class="read-more">閱讀更多 →</a>
-        </article>
-        {{end}}
-    {{else if .Query}}
-        <p>沒有找到相關文章。</p>
+<header class="page-head">
+    <div class="label">搜尋</div>
+    <h1>{{if .Query}}「{{.Query}}」{{else}}搜尋{{end}}</h1>
+    {{if .Query}}
+    <p class="lede">找到 {{len .Posts}} 篇文章</p>
     {{else}}
-        <p>請輸入搜尋關鍵字。</p>
+    <p class="lede">輸入關鍵字，搜尋標題與內文。</p>
     {{end}}
+    <form class="search-form" role="search" action="/search" method="GET" style="max-width: 32rem; margin-top: .75rem;">
+        <input class="field" type="search" name="q" value="{{.Query}}" placeholder="搜尋文章" aria-label="搜尋文章" autofocus>
+        <button class="button button-primary" type="submit">搜尋</button>
+    </form>
+</header>
+
+{{if .Posts}}
+<ol class="entries layout-list">
+    {{range $post := .Posts}}
+    <li class="entry">
+        <h2 class="entry-title"><a href="/post/{{$post.Slug}}">{{$post.Title}}</a></h2>
+        <p class="entry-excerpt">{{excerpt $post.Content 160}}</p>
+        <div class="entry-meta">
+            <time class="chip" datetime="{{$post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.CreatedAt.Format "2006.01.02"}}</time>
+            {{if $post.Author.Username}}<span class="by">{{$post.Author.Username}}</span>{{end}}
+            <a class="entry-more" href="/post/{{$post.Slug}}">閱讀全文</a>
+        </div>
+    </li>
+    {{end}}
+</ol>
+{{else if .Query}}
+<div class="empty">
+    <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
+    <p>沒有找到相關文章，換個關鍵字試試。</p>
 </div>
 {{end}}
-
+{{end}}

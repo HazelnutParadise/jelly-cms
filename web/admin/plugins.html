@@ -1,103 +1,52 @@
 {{define "title"}}{{.T.plugins}}{{end}}
 {{define "styles"}}
 <style>
-    .plugins-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 1.5rem;
-    }
-    .plugin-card {
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius);
-        padding: 1.5rem;
-        transition: all 0.2s;
-        box-shadow: var(--shadow);
-    }
-    .plugin-card:hover {
-        border-color: var(--secondary);
-        box-shadow: var(--shadow-lg);
-        transform: translateY(-2px);
-    }
-    .plugin-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: start;
-        margin-bottom: 1rem;
-    }
-    .plugin-title {
-        font-size: 1.125rem;
-        font-weight: 600;
-        color: var(--text-main);
-        margin: 0 0 0.5rem 0;
-    }
-    .plugin-description {
-        color: var(--text-muted);
-        font-size: 0.9375rem;
-        line-height: 1.6;
-        margin-bottom: 1rem;
-    }
-    .plugin-meta {
-        font-size: 0.875rem;
-        color: var(--text-muted);
-        padding-top: 1rem;
-        border-top: 1px solid var(--border-color);
-    }
-    .plugin-meta-row {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 0.5rem;
-    }
-    .plugin-meta-row:last-child {
-        margin-bottom: 0;
-    }
-    .plugin-meta-label {
-        color: var(--text-muted);
-    }
-    .plugin-meta-value {
-        color: var(--text-main);
-        font-weight: 500;
-    }
-    .plugin-actions {
-        display: flex;
-        gap: 0.75rem;
-        margin-top: 1rem;
-    }
+    .plugin-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem 1.5rem; align-items: center; padding: 1rem 0; border-top: 1px solid color-mix(in srgb, var(--outline) 70%, transparent); }
+    .plugin-row:last-child { border-bottom: 1px solid color-mix(in srgb, var(--outline) 70%, transparent); }
+    .plugin-title { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    .plugin-title h3 { font-size: 1rem; }
+    .plugin-description { color: var(--muted); font-size: .875rem; margin-top: .15rem; }
+    .plugin-meta { font-family: var(--mono); font-size: .75rem; color: var(--muted); white-space: nowrap; }
+    .plugin-actions .btn { opacity: 0; transition: opacity .12s ease; }
+    .plugin-row:hover .plugin-actions .btn, .plugin-row:focus-within .plugin-actions .btn { opacity: 1; }
+    @media (hover: none) { .plugin-actions .btn { opacity: 1; } }
+    @media (max-width: 700px) { .plugin-row { grid-template-columns: 1fr; } }
 </style>
 {{end}}
 {{define "content"}}
-{{template "page-header" dict 
-    "title" .T.plugins 
-    "description" .T.noPluginsDesc
-    "actions" (printf "<button class='btn' onclick=\"document.getElementById('uploadModal').style.display='flex'\">📦 %s</button>" .T.uploadPlugin)
-}}
-
-<div class="card">
-    <div id="pluginsList">
-        {{template "loading" dict "text" .T.loading}}
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.plugins}}</h1>
+        <p class="page-description">{{.T.noPluginsDesc}}</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-primary" type="button" onclick="document.getElementById('uploadModal').classList.add('open')">+ {{.T.uploadPlugin}}</button>
     </div>
 </div>
 
-{{/* Upload Modal */}}
+<div id="pluginsList">
+    {{template "loading" dict "text" .T.loading}}
+</div>
+
+{{/* Upload sheet */}}
 <div id="uploadModal" class="modal-overlay">
     <div class="modal-content">
         <div class="modal-header">
+            <div class="label">{{.T.plugins}}</div>
             <h2>{{.T.uploadPluginTitle}}</h2>
         </div>
         <form id="uploadForm" enctype="multipart/form-data">
             <div class="form-group">
-                <label>{{.T.pluginZipFile}}</label>
-                <input type="file" name="plugin" accept=".zip" required style="padding: 0.5rem;">
-                <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;">
-                    {{.T.pluginZipDesc}}
-                </small>
+                <label for="pluginFile">{{.T.pluginZipFile}}</label>
+                <input type="file" id="pluginFile" name="plugin" accept=".zip" required>
+                <small class="hint">{{.T.pluginZipDesc}}</small>
             </div>
+            <div id="uploadStatus"></div>
             <div class="modal-footer">
-                <button type="submit" class="btn">{{.T.upload}}</button>
-                <button type="button" class="btn btn-secondary" onclick="document.getElementById('uploadModal').style.display='none'">{{.T.cancel}}</button>
+                <button type="submit" class="btn btn-primary">{{.T.upload}}</button>
+                <button type="button" class="btn btn-text" onclick="document.getElementById('uploadModal').classList.remove('open')">{{.T.cancel}}</button>
             </div>
         </form>
-        <div id="uploadStatus" style="margin-top: 1rem;"></div>
     </div>
 </div>
 {{end}}
@@ -118,18 +67,18 @@
 
     async function loadPlugins() {
         const container = document.getElementById('pluginsList');
-        
+
         try {
             const res = await fetch('/api/admin/plugins');
             if (!res.ok) throw new Error('Failed to load plugins');
-            
+
             const plugins = await res.json();
             container.innerHTML = '';
 
             if (!plugins || plugins.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
-                        <div class="empty-icon">🔌</div>
+                        <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
                         <div class="empty-title">${T.noPlugins}</div>
                         <div class="empty-description">${T.noPluginsDesc}</div>
                     </div>
@@ -137,46 +86,27 @@
                 return;
             }
 
-            const grid = document.createElement('div');
-            grid.className = 'plugins-grid';
-            
             plugins.forEach(plugin => {
                 const div = document.createElement('div');
-                div.className = 'plugin-card';
+                div.className = 'plugin-row';
                 div.innerHTML = `
-                    <div class="plugin-header">
-                        <h3 class="plugin-title">${escapeHtml(plugin.name || plugin.id)}</h3>
-                        <span class="badge badge-success">Active</span>
+                    <div>
+                        <div class="plugin-title">
+                            <h3>${escapeHtml(plugin.name || plugin.id)}</h3>
+                            <span class="badge badge-success">Active</span>
+                        </div>
+                        <div class="plugin-description">${escapeHtml(plugin.description || 'No description available')}</div>
                     </div>
-                    <div class="plugin-description">${escapeHtml(plugin.description || 'No description available')}</div>
-                    <div class="plugin-meta">
-                        <div class="plugin-meta-row">
-                            <span class="plugin-meta-label">ID:</span>
-                            <span class="plugin-meta-value">${escapeHtml(plugin.id)}</span>
-                        </div>
-                        <div class="plugin-meta-row">
-                            <span class="plugin-meta-label">Version:</span>
-                            <span class="plugin-meta-value">${escapeHtml(plugin.version || '1.0.0')}</span>
-                        </div>
-                        <div class="plugin-meta-row">
-                            <span class="plugin-meta-label">Author:</span>
-                            <span class="plugin-meta-value">${escapeHtml(plugin.author || 'Unknown')}</span>
-                        </div>
-                    </div>
+                    <div class="plugin-meta">${escapeHtml(plugin.id)} · v${escapeHtml(plugin.version || '1.0.0')} · ${escapeHtml(plugin.author || 'Unknown')}</div>
                     <div class="plugin-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="reloadPlugin('${escapeHtml(plugin.id)}')">
-                            🔄 ${T.reload}
-                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="reloadPlugin('${escapeHtml(plugin.id)}')">${T.reload}</button>
                     </div>
                 `;
-                grid.appendChild(div);
+                container.appendChild(div);
             });
-            
-            container.appendChild(grid);
         } catch (err) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">⚠️</div>
                     <div class="empty-title">Error</div>
                     <div class="empty-description">${escapeHtml(err.message)}</div>
                 </div>
@@ -192,12 +122,12 @@
 
     async function reloadPlugin(id) {
         if (!confirm(`${T.reloadConfirm} "${id}"?`)) return;
-        
+
         try {
             const res = await fetch(`/api/admin/plugins/${id}/reload`, {
                 method: 'POST'
             });
-            
+
             if (res.ok) {
                 alert(T.pluginReloaded);
             } else {
@@ -213,7 +143,7 @@
         e.preventDefault();
         const formData = new FormData(e.target);
         const statusDiv = document.getElementById('uploadStatus');
-        statusDiv.innerHTML = '<p style="color: var(--primary);">' + T.uploading + '</p>';
+        statusDiv.innerHTML = '<div class="alert alert-info">' + T.uploading + '</div>';
 
         try {
             const res = await fetch('/api/admin/plugins/upload', {
@@ -223,18 +153,18 @@
 
             const result = await res.json();
             if (res.ok) {
-                statusDiv.innerHTML = '<p style="color: #10b981;">' + T.uploadSuccess + '</p>';
+                statusDiv.innerHTML = '<div class="alert alert-success">' + T.uploadSuccess + '</div>';
                 setTimeout(() => {
-                    document.getElementById('uploadModal').style.display = 'none';
+                    document.getElementById('uploadModal').classList.remove('open');
                     document.getElementById('uploadForm').reset();
                     statusDiv.innerHTML = '';
                     loadPlugins();
                 }, 1500);
             } else {
-                statusDiv.innerHTML = '<p style="color: #ef4444;">' + T.uploadError + ': ' + escapeHtml(result.error || 'Unknown error') + '</p>';
+                statusDiv.innerHTML = '<div class="alert alert-danger">' + T.uploadError + ': ' + escapeHtml(result.error || 'Unknown error') + '</div>';
             }
         } catch (err) {
-            statusDiv.innerHTML = '<p style="color: #ef4444;">' + T.uploadError + ': ' + escapeHtml(err.message) + '</p>';
+            statusDiv.innerHTML = '<div class="alert alert-danger">' + T.uploadError + ': ' + escapeHtml(err.message) + '</div>';
         }
     });
 

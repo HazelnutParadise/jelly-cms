@@ -1,40 +1,45 @@
 {{define "content"}}
-<article class="single-post">
-    <header class="post-header">
+<article>
+    <header class="article-head">
+        <div class="label">文章</div>
         <h1>{{.Post.Title}}</h1>
-        <div class="post-meta">
-            <time datetime="{{.Post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">
-                {{.Post.CreatedAt.Format "2006年1月2日"}}
-            </time>
-            {{if .Post.Author}}
-            <span class="author">作者：{{.Post.Author.Username}}</span>
-            {{end}}
-            {{if .Post.PublishedAt}}
-            <span class="published">發布於：{{.Post.PublishedAt.Format "2006-01-02"}}</span>
-            {{end}}
+        <div class="article-meta">
+            <time class="chip chip-primary" datetime="{{.Post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.Post.CreatedAt.Format "2006年1月2日"}}</time>
+            {{if .Post.Author.Username}}<span class="by">{{.Post.Author.Username}}</span>{{end}}
+            {{if .Post.PublishedAt}}<span class="by">發布於 {{.Post.PublishedAt.Format "2006.01.02"}}</span>{{end}}
         </div>
     </header>
-    <div class="post-content">
-        {{.Post.Content | html}}
+
+    <div class="prose">
+        {{safeHTML .Post.Content}}
     </div>
-    <footer class="post-footer">
-        <a href="/posts" class="back-link">← 返回文章列表</a>
-        <div class="share-buttons">
-            <span>分享：</span>
-            <a href="javascript:void(0)" onclick="shareToFacebook('{{.Post.Slug}}', '{{.Post.Title}}')">Facebook</a>
-            <a href="javascript:void(0)" onclick="shareToTwitter('{{.Post.Slug}}', '{{.Post.Title}}')">Twitter</a>
+
+    <footer class="article-foot">
+        <a href="/posts" class="button button-text">← 返回文章列表</a>
+        <div class="share">
+            <span class="label">分享</span>
+            <a class="button button-tonal button-small" href="https://www.facebook.com/sharer/sharer.php?u=" data-share="facebook" target="_blank" rel="noopener">Facebook</a>
+            <a class="button button-tonal button-small" href="https://twitter.com/intent/tweet?url=" data-share="x" data-title="{{.Post.Title}}" target="_blank" rel="noopener">X</a>
+            <button class="button button-tonal button-small" type="button" data-share="copy">複製連結</button>
         </div>
-        <script>
-            function shareToFacebook(slug, title) {
-                const url = window.location.origin + '/post/' + slug;
-                window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url), '_blank');
-            }
-            function shareToTwitter(slug, title) {
-                const url = window.location.origin + '/post/' + slug;
-                window.open('https://twitter.com/intent/tweet?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title), '_blank');
-            }
-        </script>
     </footer>
+    <script>
+        (function () {
+            var url = window.location.origin + '/post/' + {{.Post.Slug}};
+            document.querySelectorAll('[data-share]').forEach(function (el) {
+                var kind = el.getAttribute('data-share');
+                if (kind === 'facebook') {
+                    el.href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url);
+                } else if (kind === 'x') {
+                    el.href = 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(el.getAttribute('data-title') || '');
+                } else if (kind === 'copy') {
+                    el.addEventListener('click', function () {
+                        var done = function () { el.textContent = '已複製'; setTimeout(function () { el.textContent = '複製連結'; }, 1500); };
+                        if (navigator.clipboard) { navigator.clipboard.writeText(url).then(done); } else { window.prompt('複製這個連結', url); }
+                    });
+                }
+            });
+        })();
+    </script>
 </article>
 {{end}}
-

@@ -1,57 +1,53 @@
 {{define "title"}}Edit Post{{end}}
-{{define "styles"}}
-<style>
-    textarea {
-        height: 300px;
-        font-family: monospace;
-    }
-</style>
-{{end}}
 {{define "content"}}
-<h1>Edit Post</h1>
-<div class="card">
-    <form id="postForm">
-        <div class="form-group">
-            <label>Title</label>
-            <input type="text" name="title" required>
-        </div>
-        <div class="form-group">
-            <label>Slug</label>
-            <input type="text" name="slug">
-        </div>
-        <div class="form-group">
-            <label>Content (HTML)</label>
-            <textarea name="content"></textarea>
-        </div>
-        <div class="form-group">
-            <label>Status</label>
-            <select name="status">
+<form id="postForm" class="doc-layout">
+    <div class="doc">
+        <label for="postTitle" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Title</label>
+        <input type="text" id="postTitle" name="title" class="doc-title" placeholder="標題" required autocomplete="off">
+        {{template "md-editor" dict "id" "postContent" "name" "content" "placeholder" "用 Markdown 開始寫。# 標題、**粗體**、- 清單……儲存時會轉成 HTML。"}}
+        <p class="doc-hint">Markdown（儲存時轉成 HTML；原稿保留在 meta.markdown）</p>
+    </div>
+    <aside class="props">
+        <div class="label">{{.T.posts}}</div>
+        <div class="prop">
+            <label for="postStatus">Status</label>
+            <select id="postStatus" name="status">
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
             </select>
         </div>
-        <button type="submit" class="btn">Save Post</button>
-    </form>
-</div>
+        <div class="prop">
+            <label for="postSlug">Slug</label>
+            <input type="text" id="postSlug" name="slug" placeholder="my-first-post" autocomplete="off">
+            <small class="hint">/post/&lt;slug&gt;</small>
+        </div>
+        <button type="submit" class="btn btn-primary">Save Post</button>
+        <a href="/admin/posts" class="btn btn-text">← {{.T.posts}}</a>
+    </aside>
+</form>
 {{end}}
 {{define "scripts"}}
 <script>
     const form = document.getElementById('postForm');
     const id = window.location.pathname.split('/').pop();
     const isNew = id === 'new';
+    const editor = window.JellyMD['postContent'];
+    let existingMeta = {};
 
     if (!isNew) {
-        loadPost();
+        load();
     }
 
-    async function loadPost() {
+    async function load() {
         const res = await fetch(`/api/admin/posts/${id}`);
         if (res.ok) {
             const post = await res.json();
             form.title.value = post.title;
             form.slug.value = post.slug;
-            form.content.value = post.content;
             form.status.value = post.status;
+            existingMeta = (post.meta && typeof post.meta === 'object' && !Array.isArray(post.meta)) ? post.meta : {};
+            // 有 Markdown 原稿就用原稿，舊的 HTML 內容直接當 Markdown 編輯（Markdown 允許 HTML）
+            editor.setValue(typeof existingMeta.markdown === 'string' ? existingMeta.markdown : post.content);
         }
     }
 
@@ -59,6 +55,8 @@
         e.preventDefault();
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
+        data.content = editor.toHTML();
+        data.meta = { ...existingMeta, markdown: editor.getValue() };
 
         const url = isNew ? '/api/admin/posts' : `/api/admin/posts/${id}`;
         const method = isNew ? 'POST' : 'PUT';

@@ -1,57 +1,34 @@
 {{define "title"}}{{.T.themes}}{{end}}
 {{define "styles"}}
 <style>
-    .themes-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-    .theme-card {
-        border: 2px solid #e0e0e0;
-        border-radius: var(--radius);
-        overflow: hidden;
-        transition: all 0.3s;
-    }
-    .theme-card:hover {
-        border-color: var(--primary);
-        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.2);
-    }
-    .theme-card.active {
-        border-color: var(--primary);
-        box-shadow: 0 4px 20px rgba(255, 107, 107, 0.3);
-    }
-    .theme-preview {
-        height: 150px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: 600;
-    }
-    .theme-info {
-        padding: 1rem;
-    }
-    .theme-info h3 {
-        margin: 0 0 0.5rem 0;
-    }
-    .theme-info p {
-        color: var(--text-muted);
-        font-size: 0.9rem;
-        margin: 0.5rem 0;
-    }
-    .theme-actions {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 1rem;
-    }
+    .themes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: .75rem; }
+    .theme-card { background: var(--surface-low); border-radius: var(--r-md); overflow: hidden; display: grid; grid-template-rows: auto 1fr; transition: background-color .12s ease, border-radius .2s ease; }
+    .theme-card:hover { background: var(--surface-mid); border-radius: var(--r-lg); }
+    .theme-card.active { background: var(--surface-mid); box-shadow: inset 0 -3px 0 0 var(--ink); }
+    /* 用主題自己的顏色畫幾塊果凍丁 */
+    .theme-preview { position: relative; aspect-ratio: 16 / 9; overflow: hidden; background: var(--preview-bg, #fff); }
+    .theme-preview i { position: absolute; display: block; width: 32%; aspect-ratio: 1; border-radius: 0 24% 0 24%; }
+    .theme-preview i:nth-child(1) { left: 22%; top: 12%; background: var(--preview-secondary, var(--secondary)); opacity: .8; }
+    .theme-preview i:nth-child(2) { left: 36%; top: 30%; background: var(--preview-accent, var(--accent)); opacity: .85; }
+    .theme-preview i:nth-child(3) { left: 50%; top: 48%; background: var(--preview-primary, var(--primary)); opacity: .92; transform: rotate(-7deg); }
+    .theme-preview span { position: absolute; left: 1rem; bottom: .75rem; font-family: var(--font-display); font-weight: 800; color: var(--preview-text, var(--ink)); }
+    .theme-info { padding: 1rem 1.25rem 1.25rem; display: grid; gap: .4rem; align-content: start; }
+    .theme-info p { color: var(--muted); font-size: .875rem; line-height: 1.5; }
+    .theme-meta { font-family: var(--mono); font-size: .75rem; color: var(--muted); }
+    .theme-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-top: .4rem; }
+
+    .color-field { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr) 7rem; gap: .75rem; align-items: center; padding: .4rem 0; }
+    .color-field label { margin: 0; font-size: .9rem; font-weight: 600; color: var(--ink); }
+    .color-field input[type="text"] { font-family: var(--mono); font-size: .8125rem; min-height: 2rem; }
 </style>
 {{end}}
 {{define "content"}}
-<div class="header">
-    <h1>{{.T.themes}}</h1>
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.themes}}</h1>
+    </div>
 </div>
-<div id="themesList" class="themes-grid">Loading...</div>
+<div id="themesList" class="themes-grid">{{template "loading" dict "text" .T.loading}}</div>
 {{end}}
 {{define "scripts"}}
 <script>
@@ -79,6 +56,18 @@
 
     let activeTheme = '';
 
+    function previewStyle(colors) {
+        const c = colors || {};
+        const safe = v => /^#[0-9a-fA-F]{3,8}$/.test(v || '') ? v : '';
+        return [
+            safe(c.background) ? `--preview-bg: ${c.background}` : '',
+            safe(c.primary) ? `--preview-primary: ${c.primary}` : '',
+            safe(c.secondary) ? `--preview-secondary: ${c.secondary}` : '',
+            safe(c.accent) ? `--preview-accent: ${c.accent}` : '',
+            safe(c.text) ? `--preview-text: ${c.text}` : ''
+        ].filter(Boolean).join('; ');
+    }
+
     async function loadThemes() {
         const res = await fetch('/api/admin/themes');
         const themes = await res.json();
@@ -100,51 +89,39 @@
         }
 
         if (themes.length === 0) {
-            container.innerHTML = `<div class="card"><p>${T.noThemesInstalled}</p></div>`;
+            container.innerHTML = `<div class="card" style="grid-column: 1 / -1;"><div class="empty-state"><span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span><div class="empty-title">${T.noThemesInstalled}</div></div></div>`;
             return;
         }
 
         // Load theme configs
         for (const name of themes) {
+            let config = {};
             try {
                 const configRes = await fetch(`/api/admin/themes/${name}/config`);
-                const config = await configRes.json();
-                
-                const div = document.createElement('div');
-                div.className = `theme-card ${name === activeTheme ? 'active' : ''}`;
-                div.innerHTML = `
-                    <div class="theme-preview">${escapeHtml(name)}</div>
-                    <div class="theme-info">
-                        <h3>${escapeHtml(config.name || name)}</h3>
-                        <p>${escapeHtml(config.description || 'No description')}</p>
-                        <p style="font-size: 0.8rem; color: var(--text-muted);">Version: ${escapeHtml(config.version || '1.0.0')} | Author: ${escapeHtml(config.author || 'Unknown')}</p>
-                        <div class="theme-actions">
-                            ${name === activeTheme ? 
-                                `<span class="badge badge-success">${T.activeThemeBadge}</span>` : 
-                                `<button class="btn btn-sm" onclick="activateTheme('${escapeHtml(name)}')">${T.activate}</button>`
-                            }
-                            <button class="btn btn-sm btn-secondary" onclick="customizeTheme('${escapeHtml(name)}')">${T.customize}</button>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(div);
+                if (configRes.ok) config = await configRes.json();
             } catch (e) {
-                // Fallback if config not available
-                const div = document.createElement('div');
-                div.className = `theme-card ${name === activeTheme ? 'active' : ''}`;
-                div.innerHTML = `
-                    <div class="theme-preview">${name}</div>
-                    <div class="theme-info">
-                        <h3>${name}</h3>
-                        <div class="theme-actions">
-                            <button class="btn btn-sm" onclick="activateTheme('${name}')" ${name === activeTheme ? 'disabled style="opacity: 0.5;"' : ''}>
-                                ${name === activeTheme ? 'Active' : 'Activate'}
-                            </button>
-                        </div>
-                    </div>
-                `;
-                container.appendChild(div);
+                config = {};
             }
+            const isActive = name === activeTheme;
+            const div = document.createElement('div');
+            div.className = `theme-card ${isActive ? 'active' : ''}`;
+            div.innerHTML = `
+                <div class="theme-preview" style="${previewStyle(config.colors)}" aria-hidden="true"><i></i><i></i><i></i><span>${escapeHtml(config.name || name)}</span></div>
+                <div class="theme-info">
+                    <h3>${escapeHtml(config.name || name)}</h3>
+                    <p>${escapeHtml(config.description || 'No description')}</p>
+                    <div class="theme-meta">v${escapeHtml(config.version || '1.0.0')} · ${escapeHtml(config.author || 'Unknown')}</div>
+                    <div class="theme-actions">
+                        ${isActive ?
+                            `<span class="badge badge-primary">${T.activeThemeBadge}</span>` :
+                            `<button class="btn btn-primary btn-sm" onclick="activateTheme('${escapeHtml(name)}')">${T.activate}</button>`
+                        }
+                        <button class="btn btn-sm btn-secondary" onclick="customizeTheme('${escapeHtml(name)}')">${T.customize}</button>
+                        ${isActive ? `<a class="btn btn-sm btn-text" href="/" target="_blank">${T.view} ↗</a>` : ''}
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
         }
     }
 
@@ -169,24 +146,24 @@
 
     async function customizeTheme(name) {
         currentCustomizingTheme = name;
-        
+
         // Load theme config and settings
         try {
             const [configRes, settingsRes] = await Promise.all([
                 fetch(`/api/admin/themes/${name}/config`),
                 fetch(`/api/admin/themes/${name}/settings`)
             ]);
-            
+
             const config = await configRes.json();
             const settings = settingsRes.ok ? await settingsRes.json() : null;
-            
+
             // Store defaults from config
             themeDefaults = {
                 colors: config.colors || {},
                 layout: config.layout || {},
                 custom: {}
             };
-            
+
             // Show customization modal
             showCustomizeModal(config, settings);
         } catch (e) {
@@ -197,17 +174,13 @@
     function showCustomizeModal(config, settings) {
         const modal = document.createElement('div');
         modal.id = 'customizeModal';
-        modal.style.cssText = `
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.5); z-index: 1000;
-            display: flex; align-items: center; justify-content: center;
-        `;
-        
+        modal.className = 'modal-overlay open';
+
         // Use defaults from config
         let colors = {...(config.colors || {})};
         let layout = {...(config.layout || {})};
         let custom = {};
-        
+
         // Override with saved settings if they exist
         if (settings) {
             if (settings.colors) {
@@ -236,30 +209,33 @@
                 }
             }
         }
-        
+
         modal.innerHTML = `
-            <div style="background: white; padding: 2rem; border-radius: 12px; max-width: 600px; max-height: 90vh; overflow-y: auto; width: 90%;">
-                <h2 style="margin-top: 0;">Customize Theme: ${config.name || currentCustomizingTheme}</h2>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="label">${T.customizeTheme}</div>
+                    <h2>${escapeHtml(config.name || currentCustomizingTheme)}</h2>
+                </div>
                 <form id="customizeForm">
-                    <h3>Colors</h3>
+                    <div class="modal-section">${T.colors}</div>
                     ${generateColorFields(colors, config.colors)}
-                    
-                    <h3>Layout</h3>
+
+                    <div class="modal-section">${T.layout}</div>
                     ${generateLayoutFields(layout, config.layout)}
-                    
-                    ${config.custom_fields ? `<h3>Custom Fields</h3>${generateCustomFields(custom, config.custom_fields)}` : ''}
-                    
-                    <div style="margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap;">
-                        <button type="submit" class="btn">Save Settings</button>
-                        <button type="button" class="btn btn-secondary" onclick="resetToDefaults()">Reset to Defaults</button>
-                        <button type="button" class="btn btn-secondary" onclick="closeCustomizeModal()">Cancel</button>
+
+                    ${config.custom_fields ? `<div class="modal-section">${T.customFields}</div>${generateCustomFields(custom, config.custom_fields)}` : ''}
+
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary">${T.saveSettings}</button>
+                        <button type="button" class="btn btn-secondary" onclick="resetToDefaults()">${T.resetToDefaults}</button>
+                        <button type="button" class="btn btn-text" onclick="closeCustomizeModal()">${T.cancel}</button>
                     </div>
                 </form>
             </div>
         `;
-        
+
         document.body.appendChild(modal);
-        
+
         // Sync color picker and text input
         setTimeout(() => {
             const colorInputs = modal.querySelectorAll('input[type="color"]');
@@ -272,7 +248,7 @@
                 }
             });
         }, 100);
-        
+
         document.getElementById('customizeForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             await saveThemeCustomization();
@@ -296,15 +272,11 @@
         return fields.map(field => {
             const value = current[field.key] || defaults?.[field.key] || '#000000';
             return `
-                <div class="form-group" style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
-                    <label style="min-width: 150px; margin-bottom: 0;">${field.label}</label>
-                    <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
-                        <input type="color" name="color_${field.key}" value="${value}" 
-                               style="width: 60px; height: 40px; border: 2px solid #ddd; border-radius: 6px; cursor: pointer;">
-                        <input type="text" name="color_${field.key}_text" value="${value}" 
-                               style="flex: 1; padding: 0.5rem; border: 2px solid #ddd; border-radius: 6px; font-family: monospace;"
-                               onchange="document.querySelector('input[name=\\'color_${field.key}\\']').value = this.value">
-                    </div>
+                <div class="color-field">
+                    <input type="color" id="color_${field.key}" name="color_${field.key}" value="${escapeHtml(value)}">
+                    <label for="color_${field.key}">${field.label}</label>
+                    <input type="text" name="color_${field.key}_text" value="${escapeHtml(value)}" aria-label="${field.label} (hex)"
+                           onchange="document.querySelector('input[name=\\'color_${field.key}\\']').value = this.value">
                 </div>
             `;
         }).join('');
@@ -319,23 +291,24 @@
             {id: 'container_width', type: 'select', options: ['full', 'wide', 'narrow']},
             {id: 'post_layout', type: 'select', options: ['single', 'grid', 'list']}
         ];
-        
+
         return fields.map(field => {
             const value = current[field.id] !== undefined ? current[field.id] : (defaults?.[field.id] || '');
+            const title = field.id.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
             if (field.type === 'checkbox') {
                 return `
                     <div class="form-group">
-                        <label>
+                        <label class="inline">
                             <input type="checkbox" name="layout_${field.id}" ${value ? 'checked' : ''}>
-                            ${field.id.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            ${title}
                         </label>
                     </div>
                 `;
             } else {
                 return `
                     <div class="form-group">
-                        <label>${field.id.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</label>
-                        <select name="layout_${field.id}">
+                        <label for="layout_${field.id}">${title}</label>
+                        <select id="layout_${field.id}" name="layout_${field.id}">
                             ${field.options.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
                         </select>
                     </div>
@@ -348,30 +321,31 @@
         if (!customFields || customFields.length === 0) return '';
         return customFields.map(field => {
             const value = current[field.id] !== undefined ? current[field.id] : (field.default || '');
+            const hint = field.description ? `<small class="hint">${escapeHtml(field.description)}</small>` : '';
             if (field.type === 'select') {
                 return `
                     <div class="form-group">
-                        <label>${field.label}</label>
-                        <select name="custom_${field.id}">
-                            ${field.options.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`).join('')}
+                        <label for="custom_${field.id}">${escapeHtml(field.label)}</label>
+                        <select id="custom_${field.id}" name="custom_${field.id}">
+                            ${field.options.map(opt => `<option value="${escapeHtml(opt)}" ${value === opt ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('')}
                         </select>
-                        ${field.description ? `<small style="color: var(--text-muted);">${field.description}</small>` : ''}
+                        ${hint}
                     </div>
                 `;
             } else if (field.type === 'textarea') {
                 return `
                     <div class="form-group">
-                        <label>${field.label}</label>
-                        <textarea name="custom_${field.id}">${value}</textarea>
-                        ${field.description ? `<small style="color: var(--text-muted);">${field.description}</small>` : ''}
+                        <label for="custom_${field.id}">${escapeHtml(field.label)}</label>
+                        <textarea id="custom_${field.id}" name="custom_${field.id}">${escapeHtml(value)}</textarea>
+                        ${hint}
                     </div>
                 `;
             } else {
                 return `
                     <div class="form-group">
-                        <label>${field.label}</label>
-                        <input type="${field.type}" name="custom_${field.id}" value="${value}">
-                        ${field.description ? `<small style="color: var(--text-muted);">${field.description}</small>` : ''}
+                        <label for="custom_${field.id}">${escapeHtml(field.label)}</label>
+                        <input type="${escapeHtml(field.type)}" id="custom_${field.id}" name="custom_${field.id}" value="${escapeHtml(value)}">
+                        ${hint}
                     </div>
                 `;
             }
@@ -381,11 +355,11 @@
     async function saveThemeCustomization() {
         const form = document.getElementById('customizeForm');
         const formData = new FormData(form);
-        
+
         const colors = {};
         const layout = {};
         const custom = {};
-        
+
         for (const [key, value] of formData.entries()) {
             if (key.startsWith('color_') && !key.endsWith('_text')) {
                 colors[key.replace('color_', '')] = value;
@@ -400,7 +374,7 @@
                 custom[key.replace('custom_', '')] = value;
             }
         }
-        
+
         const res = await fetch(`/api/admin/themes/${currentCustomizingTheme}/settings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -410,7 +384,7 @@
                 custom: JSON.stringify(custom)
             })
         });
-        
+
         if (res.ok) {
             alert(T.themeSettingsSaved);
             closeCustomizeModal();
@@ -431,7 +405,7 @@
         if (!confirm(T.resetConfirm)) {
             return;
         }
-        
+
         try {
             // Reset to default values from theme.json
             const res = await fetch(`/api/admin/themes/${currentCustomizingTheme}/settings`, {
@@ -443,7 +417,7 @@
                     custom: JSON.stringify(themeDefaults.custom || {})
                 })
             });
-            
+
             if (res.ok) {
                 alert(T.themeSettingsReset);
                 closeCustomizeModal();
@@ -460,7 +434,7 @@
 
     function escapeHtml(text) {
         const div = document.createElement('div');
-        div.textContent = text;
+        div.textContent = text == null ? '' : String(text);
         return div.innerHTML;
     }
 

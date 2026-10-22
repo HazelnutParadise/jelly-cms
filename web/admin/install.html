@@ -5,85 +5,95 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light">
     <title>安裝 Jelly CMS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
             color-scheme: light;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            color: #182230;
-            background: #f3f6fa;
+            --primary: #E8285B;
+            --secondary: #2F6BFF;
+            --accent: #13C2A3;
+            --warning: #F5B800;
+            --success: #15A06A;
+            --error: #E03B2E;
+            --surface: #FFFFFF;
+            --ink: #15161A;
+            --muted: #5F6470;
+            --outline: color-mix(in srgb, var(--ink) 14%, var(--surface));
+            --surface-low: color-mix(in srgb, var(--ink) 3.5%, var(--surface));
+            --surface-mid: color-mix(in srgb, var(--ink) 7%, var(--surface));
+            --font-display: "Bricolage Grotesque", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+            --r-sm: 0 .5rem 0 .5rem;
+            --r-md: 0 1rem 0 1rem;
+            font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+            color: var(--ink);
+            background: var(--surface);
             font-synthesis: none;
             text-rendering: optimizeLegibility;
         }
 
         * { box-sizing: border-box; }
 
-        body {
-            min-width: 320px;
-            min-height: 100vh;
-            margin: 0;
-            padding: clamp(1rem, 4vw, 3rem) 1rem;
-        }
+        body { min-width: 320px; min-height: 100vh; margin: 0; padding: clamp(1rem, 4vw, 3rem) 1rem; line-height: 1.6; }
 
-        .page { width: min(100%, 960px); margin: 0 auto; }
-        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
-        .brand { margin: 0 0 .35rem; font-size: clamp(1.6rem, 4vw, 2rem); letter-spacing: -.035em; }
-        .intro { max-width: 38rem; margin: 0; color: #58677a; line-height: 1.6; }
+        .page { width: min(100%, 1040px); margin: 0 auto; }
+        .page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.75rem; }
+        .brand-row { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; font-family: var(--font-display); font-weight: 800; }
+        .mark { width: 1.6rem; height: auto; display: block; }
+        .cubes { position: relative; display: inline-block; width: 1.75rem; height: 1.75rem; }
+        .cubes i { position: absolute; display: block; width: 62%; height: 62%; border-radius: 0 28% 0 28%; }
+        .cubes i:nth-child(1) { left: 0; top: 0; background: var(--secondary); opacity: .75; }
+        .cubes i:nth-child(2) { left: 19%; top: 19%; background: var(--accent); opacity: .8; }
+        .cubes i:nth-child(3) { right: 0; bottom: 0; background: var(--primary); opacity: .92; }
+        .brand { margin: 0 0 .35rem; font-family: var(--font-display); font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+        .intro { max-width: 38rem; margin: 0; color: var(--muted); }
 
-        .language-toggle {
-            flex: 0 0 auto;
-            min-height: 2.75rem;
-            padding: .55rem .85rem;
-            border: 1px solid #cbd5e1;
-            border-radius: .6rem;
-            background: #fff;
-            color: #26364a;
-            font: inherit;
-            font-weight: 650;
-            cursor: pointer;
-        }
+        .language-toggle { flex: 0 0 auto; min-height: 2.5rem; padding: .4rem 1rem; border: 0; border-radius: var(--r-sm); background: var(--surface-mid); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; transition: background-color .12s ease, color .12s ease, border-radius .2s ease; }
+        .language-toggle:hover { background: var(--ink); color: var(--surface); border-radius: 0 1rem 0 1rem; }
 
-        .setup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; align-items: start; }
-        .panel { min-width: 0; padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid #dce4ed; border-radius: .9rem; background: #fff; box-shadow: 0 10px 28px rgb(24 34 48 / 5%); }
-        .panel h2 { margin: 0; font-size: 1.2rem; letter-spacing: -.015em; }
-        .panel-description { margin: .45rem 0 1.25rem; color: #66758a; font-size: .94rem; line-height: 1.55; }
-        .field-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 .85rem; }
-        .field { min-width: 0; margin-bottom: 1rem; }
-        label { display: block; margin-bottom: .4rem; color: #26364a; font-size: .92rem; font-weight: 650; }
+        .setup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; align-items: start; }
+        .panel { min-width: 0; padding: clamp(1.25rem, 3vw, 2rem); background: var(--surface-low); border-radius: var(--r-md); }
+        .panel h2 { margin: 0; font-family: var(--font-display); font-size: 1.25rem; font-weight: 800; letter-spacing: -.01em; }
+        .panel-description { margin: .4rem 0 1.25rem; color: var(--muted); font-size: .9rem; }
+        .field-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 1.25rem; }
+        .field { min-width: 0; margin-bottom: 1.1rem; }
+        label { display: block; margin-bottom: .1rem; font-size: .8125rem; font-weight: 600; color: var(--muted); }
         input, select {
             display: block;
             width: 100%;
-            min-height: 2.85rem;
-            padding: .65rem .75rem;
-            border: 1px solid #bdc9d7;
-            border-radius: .55rem;
-            background: #fff;
-            color: #182230;
+            min-height: 2.6rem;
+            padding: .4rem 0;
+            border: 0;
+            border-bottom: 1.5px solid var(--outline);
+            border-radius: 0;
+            background: transparent;
+            color: var(--ink);
             font: inherit;
             font-size: 1rem;
+            transition: border-color .12s ease, box-shadow .12s ease;
         }
+        select { appearance: none; padding-right: 1.5rem; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - .7rem) 50%, calc(100% - .35rem) 50%; background-size: .35rem .35rem; background-repeat: no-repeat; cursor: pointer; }
+        input::placeholder { color: color-mix(in srgb, var(--muted) 70%, transparent); }
+        input:hover, select:hover { border-bottom-color: var(--ink); }
+        input:focus, select:focus { outline: none; border-bottom-color: var(--secondary); box-shadow: 0 1.5px 0 0 var(--secondary); }
+        button:focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; }
 
-        input::placeholder { color: #8592a3; }
-        input:focus-visible, select:focus-visible, button:focus-visible {
-            outline: 3px solid #6aa8ff;
-            outline-offset: 2px;
-            border-color: #2768c8;
-        }
-
-        .hint { margin: .4rem 0 0; color: #66758a; font-size: .84rem; line-height: 1.45; }
-        .action { width: 100%; min-height: 2.9rem; padding: .7rem 1rem; border: 0; border-radius: .58rem; font: inherit; font-weight: 700; cursor: pointer; transition: background-color .15s ease, transform .15s ease; }
-        .action:not(:disabled):active { transform: translateY(1px); }
-        .action:disabled { cursor: not-allowed; opacity: .55; }
-        .action-secondary { margin-top: .15rem; border: 1px solid #b9c8dc; background: #edf4fd; color: #174b8d; }
-        .action-secondary:not(:disabled):hover { background: #dceafd; }
-        .action-primary { margin-top: .25rem; background: #175fc2; color: #fff; }
-        .action-primary:not(:disabled):hover { background: #104d9f; }
-        .status { min-height: 1.5rem; margin: .75rem 0 0; color: #46566b; font-size: .92rem; line-height: 1.5; }
-        .status[data-kind="success"] { color: #17613a; }
-        .status[data-kind="error"] { color: #a52f32; }
+        .hint { margin: .3rem 0 0; color: var(--muted); font-size: .8125rem; line-height: 1.45; }
+        .action { width: 100%; min-height: 2.75rem; padding: .5rem 1rem; border: 0; border-radius: var(--r-sm); font: inherit; font-weight: 700; cursor: pointer; transition: background-color .12s ease, color .12s ease, border-radius .2s ease; }
+        .action:not(:disabled):hover { border-radius: 0 1rem 0 1rem; }
+        .action:disabled { cursor: not-allowed; opacity: .4; }
+        .action-secondary { margin-top: .25rem; background: var(--surface-mid); color: var(--ink); }
+        .action-secondary:not(:disabled):hover { background: var(--ink); color: var(--surface); }
+        .action-primary { margin-top: .25rem; background: var(--primary); color: #fff; }
+        .action-primary:not(:disabled):hover { background: var(--ink); color: var(--surface); }
+        .status { min-height: 1.5rem; margin: .75rem 0 0; color: var(--muted); font-size: .9rem; line-height: 1.5; }
+        .status[data-kind="success"] { color: var(--success); font-weight: 600; }
+        .status[data-kind="error"] { color: var(--error); font-weight: 600; }
         .status:empty { min-height: 0; margin-top: 0; }
 
         @media (max-width: 640px) {
-            .setup-grid { grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+            .setup-grid { grid-template-columns: minmax(0, 1fr); gap: .75rem; }
             .page-header { align-items: flex-start; }
         }
 
@@ -103,6 +113,7 @@
     <main class="page">
         <header class="page-header">
             <div>
+                <div class="brand-row" aria-hidden="true"><img class="mark" src="/admin/assets/jelly-mark.svg" alt="" aria-hidden="true"><span>Jelly CMS</span></div>
                 <h1 class="brand" data-i18n="title">安裝 Jelly CMS</h1>
                 <p class="intro" data-i18n="intro">設定資料庫與網站管理者，即可開始使用 Jelly CMS。</p>
             </div>

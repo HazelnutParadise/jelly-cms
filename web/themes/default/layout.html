@@ -1,375 +1,428 @@
 {{define "layout"}}
+{{- $headerStyle := themeLayout .ThemeLayout "header_style" "sticky" -}}
+{{- $containerWidth := themeLayout .ThemeLayout "container_width" "wide" -}}
+{{- $sidebar := themeLayout .ThemeLayout "sidebar" false -}}
+{{- $sidebarPosition := themeLayout .ThemeLayout "sidebar_position" "right" -}}
+{{- $footer := themeLayout .ThemeLayout "footer" true -}}
+{{- $tagline := themeLayout .ThemeCustom "tagline" "寫下來，才算數。" -}}
+{{- $footerNote := themeLayout .ThemeCustom "footer_note" "" -}}
 <!DOCTYPE html>
 <html lang="zh-TW">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{if .Title}}{{.Title}} - {{end}}{{.SiteTitle}}</title>
+    <title>{{if .Title}}{{.Title}} · {{end}}{{.SiteTitle}}</title>
+    <meta name="description" content="{{$tagline}}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
     <style>
+        /* ------------------------------------------------------------
+           Jelly 預設主題
+           白底墨字。灰階由墨色調出，顏色只用在小面積。
+           形狀規則：容器只圓右上角，互動時那個角會長大。
+           品牌記號：不同口味、半透明疊在一起的果凍丁。
+           ------------------------------------------------------------ */
         :root {
-            --primary: {{themeColor .ThemeColors "primary" "#FF6B6B"}};
-            --secondary: {{themeColor .ThemeColors "secondary" "#4ECDC4"}};
-            --dark: {{themeColor .ThemeColors "dark" "#2C3E50"}};
-            --light: {{themeColor .ThemeColors "background" "#F7F9FC"}};
-            --text-main: {{themeColor .ThemeColors "text" "#333"}};
-            --text-muted: {{themeColor .ThemeColors "text_muted" "#666"}};
-            --border: {{themeColor .ThemeColors "border" "#e0e0e0"}};
-            --accent: {{themeColor .ThemeColors "accent" "#FF6B6B"}};
-            --link: {{themeColor .ThemeColors "link" "#4ECDC4"}};
-            --link-hover: {{themeColor .ThemeColors "link_hover" "#FF6B6B"}};
-            --success: {{themeColor .ThemeColors "success" "#28a745"}};
-            --warning: {{themeColor .ThemeColors "warning" "#ffc107"}};
-            --error: {{themeColor .ThemeColors "error" "#dc3545"}};
+            --primary: {{themeColor .ThemeColors "primary" "#E8285B"}};
+            --secondary: {{themeColor .ThemeColors "secondary" "#2F6BFF"}};
+            --surface: {{themeColor .ThemeColors "background" "#FFFFFF"}};
+            --ink: {{themeColor .ThemeColors "text" "#15161A"}};
+            --muted: {{themeColor .ThemeColors "text_muted" "#5F6470"}};
+            --accent: {{themeColor .ThemeColors "accent" "#13C2A3"}};
+            --link: {{themeColor .ThemeColors "link" "#2F6BFF"}};
+            --link-hover: {{themeColor .ThemeColors "link_hover" "#E8285B"}};
+            --outline: {{themeColor .ThemeColors "border" "#DDE0E7"}};
+            --dark: {{themeColor .ThemeColors "dark" "#15161A"}};
+            --success: {{themeColor .ThemeColors "success" "#15A06A"}};
+            --warning: {{themeColor .ThemeColors "warning" "#F5B800"}};
+            --error: {{themeColor .ThemeColors "error" "#E03B2E"}};
+
+            /* 灰階：墨色混進底色 */
+            --surface-low: color-mix(in srgb, var(--ink) 3.5%, var(--surface));
+            --surface-mid: color-mix(in srgb, var(--ink) 7%, var(--surface));
+            --surface-high: color-mix(in srgb, var(--ink) 12%, var(--surface));
+            --primary-container: color-mix(in srgb, var(--primary) 14%, var(--surface));
+            --on-primary-container: color-mix(in srgb, var(--primary) 75%, var(--ink));
+            --on-dark: color-mix(in srgb, var(--surface) 92%, var(--dark));
+
+            --font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+            --font-display: "Bricolage Grotesque", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+
+            /* 只圓一個角 */
+            --r-sm: 0 .5rem 0 .5rem;
+            --r-md: 0 1rem 0 1rem;
+            --r-lg: 0 2rem 0 2rem;
+            --r-md-hover: 0 1.75rem 0 1.75rem;
+
+            --gutter: clamp(1rem, 4vw, 2.5rem);
+            --measure: 40em;
+            --container: {{if eq $containerWidth "full"}}100%{{else if eq $containerWidth "narrow"}}46rem{{else}}74rem{{end}};
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-padding-top: 5rem; }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft JhengHei', sans-serif;
-            line-height: 1.6;
-            color: var(--text-main);
-            background: var(--light);
+            font-family: var(--font);
+            font-size: 1.0625rem;
+            line-height: 1.75;
+            color: var(--ink);
+            background: var(--surface);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
         }
 
-        header {
-            background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            {{$headerStyle := themeLayout .ThemeLayout "header_style" "sticky"}}
+        img, svg, video { max-width: 100%; height: auto; display: block; }
+
+        a { color: var(--link); text-decoration: none; transition: color .15s ease, background-color .15s ease; }
+        a:hover { color: var(--link-hover); }
+        :focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; }
+        ::selection { background: var(--primary-container); color: var(--ink); }
+
+        .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+        .skip-link { position: absolute; left: 1rem; top: -4rem; background: var(--ink); color: var(--surface); padding: .5rem 1rem; z-index: 200; }
+        .skip-link:focus { top: 1rem; color: var(--surface); }
+
+        /* ---------- 果凍丁：品牌記號 ---------- */
+        .cubes { position: relative; display: block; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; }
+        .cubes i { position: absolute; display: block; width: 62%; height: 62%; border-radius: 0 28% 0 28%; }
+        .cubes i:nth-child(1) { left: 0; top: 0; background: var(--secondary); opacity: .75; }
+        .cubes i:nth-child(2) { left: 19%; top: 19%; background: var(--accent); opacity: .8; }
+        .cubes i:nth-child(3) { right: 0; bottom: 0; background: var(--primary); opacity: .92; }
+
+        /* ---------- 字級 ---------- */
+        h1, h2, h3, h4, .display { font-family: var(--font-display); font-weight: 800; line-height: 1.12; letter-spacing: -.015em; }
+        .display { font-size: clamp(3rem, 9vw, 6.5rem); line-height: .98; letter-spacing: -.035em; }
+        .label { font-size: .75rem; font-weight: 700; letter-spacing: .08em; color: var(--muted); text-transform: uppercase; }
+        .lede { font-size: clamp(1.0625rem, 1.6vw, 1.25rem); color: var(--muted); max-width: 30em; line-height: 1.6; }
+
+        /* ---------- 控制項 ---------- */
+        .field {
+            font: inherit;
+            font-size: 1rem;
+            color: var(--ink);
+            background: var(--surface-low);
+            border: 0;
+            border-radius: var(--r-sm);
+            padding: .6rem 1rem;
+            min-height: 3rem;
+            width: 100%;
+            transition: background-color .15s ease, box-shadow .15s ease;
+        }
+        .field::placeholder { color: var(--muted); }
+        .field:hover { background: var(--surface-mid); }
+        .field:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 2px var(--secondary); }
+
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .5rem;
+            font: inherit;
+            font-size: .9375rem;
+            font-weight: 700;
+            color: var(--surface);
+            background: var(--ink);
+            border: 0;
+            border-radius: var(--r-sm);
+            padding: .6rem 1.5rem;
+            min-height: 3rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background-color .15s ease, color .15s ease, border-radius .2s ease;
+        }
+        .button:hover { background: var(--primary); color: #fff; border-radius: 0 1.25rem 0 1.25rem; }
+        .button-primary { background: var(--primary); color: #fff; }
+        .button-primary:hover { background: var(--ink); color: var(--surface); }
+        .button-tonal { background: var(--surface-mid); color: var(--ink); }
+        .button-tonal:hover { background: var(--ink); color: var(--surface); }
+        .button-text { background: transparent; color: var(--ink); padding-inline: 1rem; }
+        .button-text:hover { background: var(--surface-mid); color: var(--ink); }
+        .button-small { min-height: 2.5rem; padding: .35rem 1rem; font-size: .875rem; }
+
+        .chip { display: inline-flex; align-items: center; min-height: 1.75rem; padding: 0 .65rem; font-size: .8125rem; font-weight: 600; background: var(--surface-mid); color: var(--ink); white-space: nowrap; border-radius: var(--r-sm); }
+        .chip-primary { background: var(--primary-container); color: var(--on-primary-container); }
+
+        .search-form { display: flex; gap: .35rem; }
+        .search-form .field { flex: 1; }
+        .masthead .search-form .field { width: 12rem; min-height: 2.75rem; }
+        .masthead .search-form .button { min-height: 2.75rem; padding-inline: 1.1rem; }
+
+        /* ---------- 刊頭 ---------- */
+        .masthead {
+            background: color-mix(in srgb, var(--surface) 88%, transparent);
+            backdrop-filter: blur(12px);
             position: {{if eq $headerStyle "fixed"}}fixed{{else if eq $headerStyle "sticky"}}sticky{{else}}static{{end}};
-            top: 0;
+            top: 0; left: 0; right: 0;
             z-index: 100;
         }
-
-        .header-container {
-            max-width: 1200px;
+        {{if eq $headerStyle "fixed"}}body { padding-top: 4.5rem; }{{end}}
+        .masthead-inner {
+            max-width: var(--container);
             margin: 0 auto;
-            padding: 1rem 2rem;
+            padding: .75rem var(--gutter);
+            min-height: 4.5rem;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: var(--primary);
-            text-decoration: none;
-        }
-
-        nav {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
-        }
-
-        nav a {
-            color: var(--text-main);
-            text-decoration: none;
-            transition: color 0.3s;
-        }
-
-        nav a:hover {
-            color: var(--primary);
-        }
-
-        .search-mini {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .search-mini input {
-            padding: 0.5rem;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            width: 200px;
-        }
-
-        .search-mini button {
-            padding: 0.5rem 1rem;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        main {
-            {{$containerWidth := themeLayout .ThemeLayout "container_width" "wide"}}
-            max-width: {{if eq $containerWidth "full"}}100%{{else if eq $containerWidth "narrow"}}800px{{else}}1200px{{end}};
-            margin: 0 auto;
-            padding: 2rem;
-            min-height: calc(100vh - 200px);
-        }
-
-        .hero {
-            text-align: center;
-            padding: 4rem 2rem;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: white;
-            border-radius: 12px;
-            margin-bottom: 3rem;
-        }
-
-        .hero h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-
-        .hero-subtitle {
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            opacity: 0.9;
-        }
-
-        .posts-grid {
-            {{$postLayout := themeLayout .ThemeLayout "post_layout" "grid"}}
-            display: {{if or (eq $postLayout "list") (eq $postLayout "single")}}block{{else}}grid{{end}};
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 2rem;
-            margin: 2rem 0;
-        }
-
-        .post-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            border: 1px solid var(--border);
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-
-        .post-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-        }
-
-        .post-card h2, .post-card h3 {
-            margin-bottom: 0.5rem;
-        }
-
-        .post-card h2 a, .post-card h3 a {
-            color: var(--dark);
-            text-decoration: none;
-        }
-
-        .post-card h2 a:hover, .post-card h3 a:hover {
-            color: var(--primary);
-        }
-
-        .post-meta {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin-bottom: 1rem;
-            display: flex;
-            gap: 1rem;
+            gap: 1rem 2rem;
             flex-wrap: wrap;
         }
+        .brand { display: inline-flex; align-items: center; gap: .75rem; color: var(--ink); font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; letter-spacing: -.01em; margin-right: auto; }
+        .brand:hover { color: var(--ink); }
+        .menu { display: flex; align-items: center; gap: .25rem; }
+        .menu a { color: var(--ink); font-weight: 600; font-size: .9375rem; padding: .5rem .9rem; min-height: 2.75rem; display: inline-flex; align-items: center; border-radius: var(--r-sm); }
+        .menu a:hover { background: var(--surface-mid); color: var(--ink); }
+        .menu a[aria-current="page"] { background: var(--ink); color: var(--surface); }
 
-        .post-meta time {
-            display: inline-block;
+        /* ---------- 版面 ---------- */
+        .shell {
+            width: 100%;
+            max-width: var(--container);
+            margin: 0 auto;
+            padding: clamp(1.5rem, 4vw, 3rem) var(--gutter) clamp(3rem, 7vw, 6rem);
+            flex: 1;
+            {{if $sidebar}}
+            display: grid;
+            grid-template-columns: {{if eq $sidebarPosition "left"}}18rem minmax(0, 1fr){{else}}minmax(0, 1fr) 18rem{{end}};
+            gap: clamp(1.5rem, 4vw, 3rem);
+            align-items: start;
+            {{end}}
         }
+        .main { min-width: 0; }
 
-        .post-meta .author {
-            display: inline-block;
+        .rail { display: grid; gap: .75rem; }
+        .rail-block { background: var(--surface-low); padding: 1.25rem; border-radius: var(--r-md); }
+        .rail-block h2 { font-size: 1rem; margin-bottom: .75rem; }
+        .rail-block p { color: var(--muted); font-size: .9375rem; }
+        .rail-nav { display: grid; gap: .25rem; }
+        .rail-nav a { display: block; padding: .5rem .75rem; color: var(--ink); font-weight: 600; border-radius: var(--r-sm); }
+        .rail-nav a:hover { background: var(--surface-mid); color: var(--ink); }
+
+        .page-head { margin-bottom: clamp(1.5rem, 4vw, 2.5rem); display: grid; gap: .5rem; }
+        .page-head h1 { font-size: clamp(2.25rem, 6vw, 4rem); letter-spacing: -.03em; }
+
+        /* ---------- 首頁刊頭 ---------- */
+        .hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+            gap: .75rem;
+            margin-bottom: clamp(2rem, 5vw, 4rem);
         }
+        .hero-copy { padding: clamp(1.5rem, 4vw, 3rem) 0; display: grid; gap: 1.5rem; align-content: center; }
+        .hero-copy .search-form { max-width: 30rem; }
+        /* 果凍丁拼盤：不同口味，一塊歪掉 */
+        .hero-art { position: relative; aspect-ratio: 1; overflow: hidden; background: var(--surface-low); border-radius: var(--r-lg); }
+        .hero-art i { position: absolute; display: block; width: 38%; aspect-ratio: 1; border-radius: 0 24% 0 24%; }
+        .hero-art i:nth-child(1) { left: 10%; top: 10%; background: var(--secondary); opacity: .82; }
+        .hero-art i:nth-child(2) { left: 30%; top: 26%; background: var(--accent); opacity: .85; }
+        .hero-art i:nth-child(3) { left: 50%; top: 46%; background: var(--primary); opacity: .92; transform: rotate(-7deg); }
+        .hero-art i:nth-child(4) { width: 18%; left: 12%; top: 66%; background: var(--warning); opacity: .95; }
+        .hero-art i:nth-child(5) { width: 14%; left: 72%; top: 18%; background: var(--ink); opacity: .9; }
 
-        .share-buttons {
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border);
+        /* ---------- 文章列表 ---------- */
+        .section-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
+        .section-head h2 { font-size: clamp(1.5rem, 3vw, 2rem); }
+
+        .entries { list-style: none; }
+        .entry { position: relative; background: var(--surface-low); border-radius: var(--r-md); padding: 1.5rem; display: flex; flex-direction: column; gap: .75rem; transition: background-color .15s ease, border-radius .25s ease; }
+        .entry:hover { background: var(--surface-mid); border-radius: var(--r-md-hover); }
+        .entry-head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+        .entry-title { font-size: 1.375rem; }
+        .entry-title a { color: var(--ink); }
+        .entry-title a::after { content: ""; position: absolute; inset: 0; }
+        .entry:hover .entry-title a { color: var(--link); }
+        .entry-excerpt { color: var(--muted); font-size: .9375rem; line-height: 1.7; }
+        .entry-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: auto; padding-top: .5rem; }
+        .entry-meta .by { color: var(--muted); font-size: .875rem; margin-right: auto; }
+        .entry-more { font-weight: 700; font-size: .9375rem; color: var(--ink); display: inline-flex; align-items: center; gap: .35rem; }
+        .entry-more::after { content: "→"; transition: transform .15s ease; }
+        .entry:hover .entry-more::after { transform: translateX(.3rem); }
+
+        .entries.layout-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr)); gap: .75rem; }
+        .entries.layout-grid .entry { min-height: 15rem; }
+
+        .entries.layout-list { display: grid; gap: .75rem; }
+        .entries.layout-list .entry { padding: 1.75rem; gap: .5rem; }
+        .entries.layout-list .entry-title { font-size: 1.625rem; max-width: 40rem; }
+        .entries.layout-list .entry-excerpt { max-width: var(--measure); }
+
+        .entries.layout-single { display: grid; gap: .75rem; }
+        .entries.layout-single .entry { padding: clamp(1.75rem, 4vw, 3rem); gap: 1rem; }
+        .entries.layout-single .entry-title { font-size: clamp(1.75rem, 3.5vw, 2.5rem); max-width: var(--measure); }
+        .entries.layout-single .entry-excerpt { font-size: 1.0625rem; max-width: var(--measure); }
+
+        .view-all { margin-top: 1.5rem; display: flex; justify-content: center; }
+
+        .empty { padding: 3rem 1.5rem; background: var(--surface-low); border-radius: var(--r-md); text-align: center; color: var(--muted); display: grid; gap: 1rem; justify-items: center; }
+        .empty .cubes { width: 3.5rem; height: 3.5rem; }
+
+        /* ---------- 單篇文章 ---------- */
+        .article-head { margin-bottom: clamp(2rem, 4vw, 3rem); display: grid; gap: 1rem; max-width: 48rem; }
+        .article-head h1 { font-size: clamp(2.25rem, 6vw, 4.25rem); letter-spacing: -.03em; }
+        .article-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+        .article-meta .by { color: var(--muted); font-size: .9375rem; }
+
+        .prose { max-width: var(--measure); font-size: 1.0625rem; line-height: 1.85; }
+        .prose > * + * { margin-top: 1.25em; }
+        .prose h2, .prose h3, .prose h4 { margin-top: 2em; letter-spacing: -.015em; }
+        .prose h2 { font-size: 1.75rem; }
+        .prose h3 { font-size: 1.375rem; }
+        .prose h4 { font-size: 1.125rem; }
+        .prose a { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: .18em; text-decoration-color: color-mix(in srgb, var(--link) 35%, transparent); }
+        .prose a:hover { text-decoration-color: currentColor; }
+        .prose ul, .prose ol { padding-left: 1.5em; }
+        .prose li + li { margin-top: .35em; }
+        .prose li::marker { color: var(--primary); font-weight: 700; }
+        .prose blockquote { background: var(--surface-low); border-radius: var(--r-md); border-left: 4px solid var(--primary); padding: 1.25rem 1.5rem; font-size: 1.125rem; font-weight: 600; line-height: 1.6; }
+        .prose pre { background: var(--dark); color: var(--on-dark); border-radius: var(--r-md); padding: 1.25rem 1.5rem; overflow-x: auto; font-size: .875rem; line-height: 1.6; }
+        .prose code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9em; background: var(--surface-mid); padding: .1em .4em; border-radius: 0 .35rem 0 .35rem; }
+        .prose pre code { background: none; padding: 0; font-size: inherit; }
+        .prose img { background: var(--surface-low); border-radius: var(--r-md); }
+        .prose figcaption { font-size: .875rem; color: var(--muted); margin-top: .5rem; }
+        .prose hr { border: 0; height: .5rem; width: 3rem; background: var(--primary); border-radius: 0 .25rem 0 .25rem; margin: 2.5em 0; }
+        .prose table { width: 100%; border-collapse: collapse; font-size: .9375rem; }
+        .prose th, .prose td { text-align: left; padding: .65em .85em; vertical-align: top; border-bottom: 1px solid var(--outline); }
+        .prose thead th { font-weight: 700; border-bottom: 2px solid var(--ink); }
+
+        .article-foot { margin-top: clamp(2.5rem, 5vw, 4rem); padding: 1.25rem; background: var(--surface-low); border-radius: var(--r-md); display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center; max-width: var(--measure); }
+        .share { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+        .share .label { margin-right: .25rem; }
+
+        /* ---------- 分頁 ---------- */
+        .pagination { display: flex; justify-content: center; align-items: center; gap: .5rem; margin-top: 2.5rem; }
+        .pagination .page-info { padding: 0 1rem; font-weight: 700; color: var(--muted); }
+
+        /* ---------- 頁尾 ---------- */
+        .colophon { {{if eq $footer false}}display: none;{{end}} background: var(--dark); color: var(--on-dark); margin-top: auto; border-radius: 0 clamp(2rem, 6vw, 5rem) 0 clamp(2rem, 6vw, 5rem); }
+        .colophon-inner { max-width: var(--container); margin: 0 auto; padding: clamp(2.5rem, 5vw, 4rem) var(--gutter); display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: 2rem; }
+        .colophon .brand { color: inherit; }
+        .colophon p { font-size: .9375rem; opacity: .7; max-width: 28em; margin-top: .75rem; }
+        .colophon .label { color: inherit; opacity: .55; margin-bottom: .75rem; }
+        .colophon .rail-nav a { color: inherit; padding-left: 0; border-radius: 0; }
+        .colophon .rail-nav a:hover { background: transparent; color: var(--primary-container); }
+        .colophon-base { border-top: 1px solid color-mix(in srgb, var(--on-dark) 15%, transparent); }
+        .colophon-base-inner { max-width: var(--container); margin: 0 auto; padding: 1rem var(--gutter); display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem 2rem; font-size: .8125rem; opacity: .6; }
+
+        /* ---------- 響應式 ---------- */
+        @media (max-width: 960px) {
+            .shell { grid-template-columns: 1fr; }
+            .hero { grid-template-columns: 1fr; }
+            .hero-art { aspect-ratio: 2 / 1; }
+            .hero-art i { width: 22%; }
+            .hero-art i:nth-child(1) { left: 28%; top: 8%; }
+            .hero-art i:nth-child(2) { left: 40%; top: 26%; }
+            .hero-art i:nth-child(3) { left: 52%; top: 44%; }
+            .hero-art i:nth-child(4) { width: 11%; left: 30%; top: 62%; }
+            .hero-art i:nth-child(5) { width: 8%; left: 70%; top: 14%; }
         }
-
-        .share-buttons a {
-            margin-right: 1rem;
-            color: var(--primary);
-            text-decoration: none;
+        @media (max-width: 720px) {
+            body { font-size: 1rem; }
+            .masthead-inner { gap: .5rem 1rem; }
+            .masthead .search-form { flex-basis: 100%; }
+            .masthead .search-form .field { width: auto; }
+            .menu a { padding-inline: .65rem; }
+            .hero-copy .search-form { flex-wrap: wrap; }
+            .hero-copy .search-form .field { flex-basis: 100%; }
+            .hero-copy .search-form .button { width: 100%; }
+            .entries.layout-list .entry { padding: 1.5rem; }
+            .article-foot { flex-direction: column; align-items: stretch; }
         }
-
-        .share-buttons a:hover {
-            text-decoration: underline;
-        }
-
-        .post-excerpt {
-            color: var(--text-muted);
-            margin-bottom: 1rem;
-            line-height: 1.6;
-        }
-
-        .read-more {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .read-more:hover {
-            text-decoration: underline;
-        }
-
-        .posts-list {
-            margin: 2rem 0;
-        }
-
-        .posts-list .post-card {
-            margin-bottom: 2rem;
-        }
-
-        .single-post {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            border: 1px solid var(--border);
-        }
-
-        .post-header {
-            border-bottom: 2px solid var(--border);
-            padding-bottom: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .post-content {
-            line-height: 1.8;
-        }
-
-        .post-content img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 8px;
-        }
-
-        .post-footer {
-            margin-top: 2rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border);
-        }
-
-        .back-link {
-            color: var(--primary);
-            text-decoration: none;
-        }
-
-        .back-link:hover {
-            text-decoration: underline;
-        }
-
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 1rem;
-            margin: 2rem 0;
-        }
-
-        .page-link {
-            padding: 0.5rem 1rem;
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            text-decoration: none;
-            color: var(--text-main);
-        }
-
-        .page-link:hover {
-            background: var(--primary);
-            color: white;
-            border-color: var(--primary);
-        }
-
-        .view-all {
-            text-align: center;
-            margin-top: 2rem;
-        }
-
-        .btn-primary {
-            display: inline-block;
-            padding: 0.75rem 2rem;
-            background: var(--primary);
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            transition: background 0.3s, transform 0.2s;
-        }
-
-        .btn-primary:hover {
-            background: var(--link-hover);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-
-        .search-header {
-            margin-bottom: 2rem;
-        }
-
-        .search-info {
-            margin: 1rem 0;
-            color: var(--text-muted);
-        }
-
-        footer {
-            {{$footer := themeLayout .ThemeLayout "footer" true}}
-            {{if eq $footer false}}display: none;{{end}}
-            background: var(--dark);
-            color: white;
-            text-align: center;
-            padding: 2rem;
-            margin-top: 4rem;
-        }
-
-        @media (max-width: 768px) {
-            .header-container {
-                flex-direction: column;
-                gap: 1rem;
-            }
-
-            nav {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-
-            .hero h1 {
-                font-size: 2rem;
-            }
-
-            .posts-grid {
-                grid-template-columns: 1fr;
-            }
-
-            main {
-                padding: 1rem;
-            }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { transition-duration: .01ms !important; }
         }
     </style>
 </head>
 
 <body>
-    <header>
-        <div class="header-container">
-            <a href="/" class="logo">{{.SiteTitle}}</a>
-            <nav>
-                <a href="/">首頁</a>
-                <a href="/posts">文章</a>
+    <a class="skip-link" href="#main">跳到主要內容</a>
+
+    <header class="masthead">
+        <div class="masthead-inner">
+            <a href="/" class="brand">
+                <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span>{{.SiteTitle}}</span>
+            </a>
+            <nav class="menu" aria-label="主選單">
+                <a href="/" {{if .IsHome}}aria-current="page"{{end}}>首頁</a>
+                <a href="/posts" {{if .IsPosts}}aria-current="page"{{end}}>文章</a>
                 <a href="/about">關於</a>
-                <div class="search-mini">
-                    <form action="/search" method="GET" style="display: flex; gap: 0.5rem;">
-                        <input type="text" name="q" placeholder="搜尋...">
-                        <button type="submit">🔍</button>
-                    </form>
-                </div>
             </nav>
+            <form class="search-form" role="search" action="/search" method="GET">
+                <label class="visually-hidden" for="masthead-q">搜尋</label>
+                <input class="field" id="masthead-q" type="search" name="q" placeholder="搜尋" {{with .Query}}value="{{.}}"{{end}}>
+                <button class="button button-tonal" type="submit">搜尋</button>
+            </form>
         </div>
     </header>
-    <main>
-        {{template "content" .}}
-    </main>
-    <footer>
-        <p>&copy; {{.SiteTitle}} - Powered by Jelly CMS</p>
+
+    <div class="shell">
+        {{if and $sidebar (eq $sidebarPosition "left")}}{{template "rail" .}}{{end}}
+        <main id="main" class="main">
+            {{template "content" .}}
+        </main>
+        {{if and $sidebar (ne $sidebarPosition "left")}}{{template "rail" .}}{{end}}
+    </div>
+
+    <footer class="colophon">
+        <div class="colophon-inner">
+            <div>
+                <a href="/" class="brand">
+                    <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span>{{.SiteTitle}}</span>
+                </a>
+                <p>{{$tagline}}</p>
+            </div>
+            <div>
+                <div class="label">導覽</div>
+                <nav class="rail-nav" aria-label="頁尾選單">
+                    <a href="/">首頁</a>
+                    <a href="/posts">文章</a>
+                    <a href="/about">關於</a>
+                    <a href="/search">搜尋</a>
+                </nav>
+            </div>
+            <div>
+                <div class="label">說明</div>
+                <p>{{if $footerNote}}{{$footerNote}}{{else}}這個網站由 Jelly CMS 驅動。{{end}}</p>
+            </div>
+        </div>
+        <div class="colophon-base">
+            <div class="colophon-base-inner">
+                <span>&copy; {{.SiteTitle}}</span>
+                <span>Powered by Jelly CMS</span>
+            </div>
+        </div>
     </footer>
 </body>
 
 </html>
+{{end}}
+
+{{define "rail"}}
+<aside class="rail" aria-label="側欄">
+    <div class="rail-block">
+        <h2>搜尋</h2>
+        <form class="search-form" role="search" action="/search" method="GET">
+            <input class="field" type="search" name="q" placeholder="關鍵字" aria-label="搜尋關鍵字">
+            <button class="button button-tonal" type="submit">找</button>
+        </form>
+    </div>
+    <div class="rail-block">
+        <h2>導覽</h2>
+        <nav class="rail-nav">
+            <a href="/">首頁</a>
+            <a href="/posts">文章</a>
+            <a href="/about">關於</a>
+        </nav>
+    </div>
+    <div class="rail-block">
+        <h2>關於本站</h2>
+        <p>{{themeLayout .ThemeCustom "tagline" "寫下來，才算數。"}}</p>
+    </div>
+</aside>
 {{end}}
