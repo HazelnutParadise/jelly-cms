@@ -193,7 +193,7 @@ Go 回歸測試新增在 `internal/server/auth_redirect_integration_test.go`，�
 
 ## OAuth 短效一次性回呼
 
-主代理已重現原始缺口，並驗證修正後的跨程序一次性、DB 失敗／回滾、並行、Cookie 旗標、跨提供者續期與整秒期限。全套 PostgreSQL 競態測試、go vet 與原生／Windows amd64／Linux 386 編譯通過，對抗性複審沒有其他已確認缺陷，待 CI 交付。第三方授權使用公開 Goth 替身，真實 Google／GitHub 授權尚未驗證。
+主代理已重現原始缺口，並驗證修正後的跨程序一次性、DB 失敗／回滾、並行、Cookie 旗標、跨提供者續期與整秒期限。全套 PostgreSQL 競態測試、go vet 與原生／Windows amd64／Linux 386 編譯通過，對抗性複審沒有其他已確認缺陷；PR #12 四項 CI 通過後已合併，分支已清理。第三方授權使用公開 Goth 替身，真實 Google／GitHub 授權尚未驗證。
 
 流程：入口產生新的 state 並保存短效 Goth Cookie → 回呼驗證提供者、簽章與唯一相同 state → 驗證唯一非空白 code 或明確拒絕授權回應 → 資料庫原子標記 state 已使用 → 清除短效 Cookie → 交換 code、取得使用者 → 沿用既有帳號及登入簽發。有效 code 回呼與授權拒絕回呼都只可處理一次，失敗後從入口重新開始。
 
