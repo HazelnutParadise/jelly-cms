@@ -1,9 +1,13 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -403,39 +407,96 @@ func HandleLocalLogin(c echo.Context) error {
 }
 
 func HandleAuth(c echo.Context) error {
-	provider := c.Param("provider")
-	if provider == "" {
-		return c.String(http.StatusBadRequest, "Provider not specified")
+	req, provider, query, err := oauthRequestForPath(c.Request(), c.Param("provider"))
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid OAuth provider or request")
 	}
 
-	// Store redirect URL in session
-	redirectURL := SafeRedirectURL(c.QueryParam("redirect"))
+	stateBytes := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, stateBytes); err != nil {
+		return c.String(http.StatusServiceUnavailable, "OAuth service unavailable")
+	}
+	state := base64.RawURLEncoding.EncodeToString(stateBytes)
+	query.Set("state", state)
+	req.URL.RawQuery = query.Encode()
+
+	// Store redirect URL in the app session without changing login expiry.
 	session, err := GetSession(c)
-	if err == nil {
-		session.Values["oauth_redirect"] = redirectURL
-		session.Save(c.Request(), c.Response())
+	if err != nil {
+		return c.String(http.StatusServiceUnavailable, "OAuth service unavailable")
+	}
+	session.Values["oauth_redirect"] = SafeRedirectURL(query.Get("redirect"))
+	if err := session.Save(c.Request(), c.Response()); err != nil {
+		return c.String(http.StatusServiceUnavailable, "OAuth service unavailable")
 	}
 
-	// Hack to make gothic work with Echo
-	req := c.Request()
-	q := req.URL.Query()
-	q.Add("provider", provider)
-	req.URL.RawQuery = q.Encode()
-
-	gothic.BeginAuthHandler(c.Response(), req)
-	return nil
+	// Use Goth's public provider/session APIs so random state and persistence errors
+	// remain under this handler's control.
+	gothSession, err := provider.BeginAuth(state)
+	if err != nil {
+		return c.String(http.StatusBadGateway, "OAuth provider unavailable")
+	}
+	authURL, err := gothSession.GetAuthURL()
+	if err != nil {
+		return c.String(http.StatusBadGateway, "OAuth provider unavailable")
+	}
+	if err := gothic.StoreInSession(provider.Name(), gothSession.Marshal(), req, c.Response()); err != nil {
+		return c.String(http.StatusServiceUnavailable, "OAuth service unavailable")
+	}
+	return c.Redirect(http.StatusTemporaryRedirect, authURL)
 }
 
 func HandleCallback(c echo.Context) error {
-	provider := c.Param("provider")
-	req := c.Request()
-	q := req.URL.Query()
-	q.Add("provider", provider)
-	req.URL.RawQuery = q.Encode()
+	req, provider, query, err := oauthRequestForPath(c.Request(), c.Param("provider"))
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
+	callbackState, ok := uniqueNonBlankOAuthState(query)
+	if !ok {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
+
+	// Validate the signed Goth session and its original authorization URL before
+	// CompleteUserAuth can contact the provider or perform account work.
+	gothSession, err := gothic.Store.Get(req, gothic.SessionName)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
+	rawSession, ok := gothSession.Values[provider.Name()].(string)
+	if !ok || rawSession == "" {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
+	serialized, err := gothic.GetFromSession(provider.Name(), req)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
+	providerSession, err := provider.UnmarshalSession(serialized)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
+	authURL, err := providerSession.GetAuthURL()
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
+	parsedAuthURL, err := url.Parse(authURL)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
+	originalQuery, err := url.ParseQuery(parsedAuthURL.RawQuery)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
+	originalState, ok := uniqueNonBlankOAuthState(originalQuery)
+	if !ok || callbackState != originalState {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
 
 	user, err := gothic.CompleteUserAuth(c.Response(), req)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, fmt.Sprintf("Auth failed: %v", err))
+		return c.String(http.StatusBadGateway, "OAuth provider authentication failed")
+	}
+	if user.Provider != provider.Name() {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
 	}
 
 	// Auto-register or Login
@@ -448,7 +509,7 @@ func HandleCallback(c echo.Context) error {
 			Username:  user.NickName,
 			Email:     user.Email,
 			AvatarURL: user.AvatarURL,
-			Provider:  provider,
+			Provider:  provider.Name(),
 			Role:      "author", // Default role
 		}
 		if dbUser.Username == "" {

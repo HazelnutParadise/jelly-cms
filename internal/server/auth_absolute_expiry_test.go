@@ -11,6 +11,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v4"
+	"github.com/markbates/goth"
 )
 
 const (
@@ -83,7 +84,18 @@ func TestAuthAbsoluteExpiry(t *testing.T) {
 		})
 	}
 
-	t.Run("GET auth not configured cannot refresh expired absolute expiry", func(t *testing.T) {
+	t.Run("OAuth entry cannot refresh expired absolute expiry", func(t *testing.T) {
+		previousProviders := cloneGothProviders(goth.GetProviders())
+		t.Cleanup(func() {
+			goth.ClearProviders()
+			providers := make([]goth.Provider, 0, len(previousProviders))
+			for _, provider := range previousProviders {
+				providers = append(providers, provider)
+			}
+			goth.UseProviders(providers...)
+		})
+		goth.UseProviders(redirectTestProvider{})
+
 		_, _, sessionCookie := absoluteExpiryLogin(t, h)
 		decoded := absoluteExpiryDecode(t, store, sessionCookie)
 		originalLoginID, originalUserID := decoded.Values["login_id"], decoded.Values["user_id"]
@@ -92,15 +104,36 @@ func TestAuthAbsoluteExpiry(t *testing.T) {
 		expired := absoluteExpiryDecode(t, store, expiredCookie)
 		originalExpiry := expired.Values["login_expires_at"]
 
-		response := revocationRequest(h, http.MethodGet, "/auth/not-configured", []*http.Cookie{expiredCookie}, "", "")
+		unknown := revocationRequest(h, http.MethodGet, "/auth/not-configured", []*http.Cookie{expiredCookie}, "", "")
+		if unknown.panicked != nil {
+			t.Errorf("GET /auth/not-configured panicked: %v", unknown.panicked)
+		}
+		if unknown.code != http.StatusBadRequest {
+			t.Errorf("GET /auth/not-configured returned %d, want 400; body=%q", unknown.code, unknown.body)
+		}
+		if cookie := revocationCookie((&http.Response{Header: unknown.header}).Cookies(), absoluteExpiryCookieName); cookie != nil {
+			t.Errorf("GET /auth/not-configured re-signed unknown-provider session")
+		}
+		if cookie := revocationCookie((&http.Response{Header: unknown.header}).Cookies(), "jwt_token"); cookie != nil {
+			t.Errorf("GET /auth/not-configured issued a JWT cookie")
+		}
+		oldMe := revocationRequest(h, http.MethodGet, "/api/auth/me", []*http.Cookie{expiredCookie}, "", "")
+		if oldMe.code != http.StatusUnauthorized {
+			t.Errorf("GET /api/auth/me accepted original expired session: status=%d body=%q", oldMe.code, oldMe.body)
+		}
+
+		response := revocationRequest(h, http.MethodGet, "/auth/google", []*http.Cookie{expiredCookie}, "", "")
 		if response.panicked != nil {
-			t.Errorf("GET /auth/not-configured panicked: %v", response.panicked)
+			t.Errorf("GET /auth/google panicked: %v", response.panicked)
+		}
+		if response.code != http.StatusTemporaryRedirect {
+			t.Errorf("GET /auth/google returned %d, want 307; body=%q", response.code, response.body)
 		}
 		if responseCookie := revocationCookie((&http.Response{Header: response.header}).Cookies(), absoluteExpiryCookieName); responseCookie == nil {
-			t.Errorf("GET /auth/not-configured did not return an updated session cookie; status=%d", response.code)
+			t.Errorf("GET /auth/google did not return an updated session cookie; status=%d", response.code)
 		} else {
 			if responseCookie.Value == expiredCookie.Value {
-				t.Errorf("GET /auth/not-configured returned the original cookie, want a re-signed cookie")
+				t.Errorf("GET /auth/google returned the original cookie, want a re-signed cookie")
 			}
 			refreshed := absoluteExpiryDecode(t, store, responseCookie)
 			if refreshed.Values["login_expires_at"] != originalExpiry {

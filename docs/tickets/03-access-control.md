@@ -3,7 +3,7 @@
 Epic：帳號與存取
 User Story：登入後只可操作自己被授權的資料與功能。
 Blocked by：01 的可用資料庫與登入流程。
-Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已透過 PR #9 合併，登入嘗試限制已完成本機驗證，待 CI 交付）
+Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已透過 PR #9 合併，登入嘗試限制已透過 PR #10 合併，正在驗證 OAuth 授權與身分連結）
 
 ## 流程與驗收
 
@@ -15,7 +15,7 @@ Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別�
 - [ ] 更新輸入不接受 ID、Author、Role、CreatedAt 等伺服器管理欄位注入。
 - [ ] Session 與 JWT 沒有可預測的內建秘密，重啟後有效性符合明確生命週期。
 - [x] Cookie 寫入請求有跨站請求保護，未授權回 401/403 而非 HTML 成功回應。
-- [ ] 登出、失效登入、錯誤密碼、外部重新導向、暴力嘗試有可預期結果。
+- [x] 登出、失效登入、錯誤密碼、外部重新導向、暴力嘗試有可預期結果。
 - [ ] OAuth 關閉時不顯示且不可使用，只能在驗證身分後安全建立／連結帳號。
 - [ ] 使用者介面清楚顯示允許的操作，API 仍獨立檢查權限。
 
@@ -163,3 +163,29 @@ Go 回歸測試新增在 `internal/server/auth_redirect_integration_test.go`，�
 | 瀏覽器 | 連續錯誤密碼後送出正確密碼 | 429 留在登入頁顯示錯誤，期限後可登入與登出 | Chrome 桌面與手機，僅專用驗收帳號 |
 
 測試先新增 `internal/auth/login_attempts_test.go` 與 `internal/server/login_attempts_integration_test.go`。前者從公開 RegisterRoutes 送不合法 JSON，使用標準 testing/synctest 驗證時間、容量、來源與並行，不使用測試專用 production 開關。後者使用 newAccessHarness、真實帳密與 DB 回查；每個獨立測試重建路由。既有測試若超過額度，須先回報其語意與必要調整，不可削弱斷言。瀏覽器腳本只寫暫存目錄，由主代理執行，測試代理不得操作服務或瀏覽器。
+
+
+## OAuth 提供者與 state 輸入
+
+本段已由主代理重現，代理修正後完成全套 PostgreSQL 競態測試、go vet、Windows amd64 與 Linux 386 編譯，對抗性審查沒有已確認缺陷，待 CI 交付。既有絕對登入期限測試改用有效提供者觸發重簽，原有期限與身分不變及過期回 401 的斷言完整保留，另驗未知提供者 400 且不重簽。真實 Google／GitHub 授權仍未驗證。
+
+流程：開啟 /auth/:provider → 以路徑選定提供者 → 產生本次 state → 保存既有 Goth Session → 提供者回呼 → 嚴格比對簽章 Session 中的原始 state → 取得相同提供者的使用者 → 原有登入流程。此段修正提供者與 state 的輸入處理，接續的一次性交易與帳號識別仍是本工作單的必要驗收。
+
+入口與回呼只接受 google、github，且必須已在 Goth 註冊。清除使用者輸入的 provider、:provider，傳給 Goth 的 provider 只能是路徑值。入口忽略所有外部 state，每次以 crypto/rand 產生至少 32 位元組的 base64url 亂數；亂數失敗回一般 503，不 panic 或送出授權導向。沿用 HandleAuth、HandleCallback 公開簽名，不新增資料模型、依賴或設定。
+
+回呼先以 url.ParseQuery 完整解析，拒絕不合法編碼或分隔、多個或空白 state。透過 Goth 公開 Store 與 Provider/Session 接縫取得簽章的原始授權網址；原網址也必須只有一個非空白 state。兩個 state 須完全相同，不能接受人工簽章但原始 state 空白的舊 Cookie。任何失敗在 FetchUser、Authorize 與帳號 DB 操作之前回一般 400，不簽發登入 Cookie。提供者取得使用者後，user.Provider 與路徑不同回 400，不進入帳號操作。有效 state 通過後的提供者錯誤回一般 502。錯誤訊息不得暴露原始 Cookie、state、provider token 或 provider 錯誤內容。
+
+入口儲存返回網址時必須檢查 Session 讀取與 Save 的錯誤，失敗回一般 503 並停止授權。不改既有登入 Cookie 的七天期限、返回網址檢查、成功 JSON 形狀、預設角色或本機登入。已有登入 Session 經 OAuth 入口重簽仍不得延長 login_expires_at。
+
+| 操作 | 失敗或邊界 | 預期結果 | 驗證 |
+|---|---|---|---|
+| 選擇提供者 | 查詢 provider、:provider 重複或衝突 | 始終採路徑提供者，未知或未註冊值 400 | 公開 HandleAuth、HandleCallback 與計數替身 |
+| state 產生 | 指定值、多值、兩次獨立入口、亂數失敗 | 不採輸入值，兩次不同，失敗 503 且不導向 | 真實 HTTP 與公開 crypto/rand.Reader 接縫 |
+| state 比對 | 缺少、空白、重複、不同、不合法編碼、損壞 Cookie、原始 state 空白 | 400，FetchUser/Authorize/DB 次數不增加，無登入 Cookie | 真實 RegisterRoutes、隔離 PostgreSQL 或無 DB 的公開處理器 |
+| 正常回呼 | 正確簽章 Session 與唯一相同 state | 原有登入與站內返回網址保持可用 | 既有返回網址回歸與獨立成功對照 |
+| 提供者資料 | user.Provider 與路徑不符、provider 錯誤 | 一般錯誤，不建立或登入帳號，不洩漏 provider 秘密 | 計數替身及 DB 前後回查 |
+| Session 保存 | 損壞既有 Session、超出 Cookie 可保存長度 | 503，不開始授權，不忽略 Save 失敗 | 公開 Session API 與真實 HandleAuth |
+
+新增測試置於 internal/auth/oauth_input_test.go 與 internal/server/oauth_input_integration_test.go。測試與實作由不同代理負責，主代理先重現再驗收。既有 redirect 測試保持原斷言，不用測試專用 production 開關。後續須完成 state 短效與伺服器端原子消耗、OAuth Cookie HttpOnly/期限/機密性、PKCE、提供者關閉即時檢查，以及穩定 provider+subject 與安全帳號連結；不能以此段通過宣稱 OAuth 完成。
+
+依據：[RFC 9700 的不同回呼網址與 state 防護](https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1)、[GitHub 的 state 與 PKCE 契約](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)。
