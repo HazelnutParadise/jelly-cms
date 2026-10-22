@@ -177,7 +177,7 @@ func initializeAfterInstallation(pluginRuntime *plugin.Runtime) {
 	}
 
 	InitPaymentService(db)
-	auth.Init()
+	auth.ReloadOAuthProviders()
 
 	if pluginRuntime == nil {
 		return

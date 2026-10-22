@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -23,22 +24,40 @@ var (
 	jwtSecret    []byte
 )
 
-func Init() {
-	sessionSecret := os.Getenv("SESSION_SECRET")
-	if sessionSecret == "" {
-		sessionSecret = "jelly-cms-secret-key-change-in-production" // Default for development
-	}
-	sessionStore = sessions.NewCookieStore([]byte(sessionSecret))
-	gothic.Store = sessionStore
+func Init() error {
+	sessionEnv := os.Getenv("SESSION_SECRET")
+	jwtEnv := os.Getenv("JWT_SECRET")
+	sessionFromEnv := sessionEnv != ""
+	jwtFromEnv := jwtEnv != ""
 
-	jwtSecretStr := os.Getenv("JWT_SECRET")
-	if jwtSecretStr == "" {
-		jwtSecretStr = sessionSecret // Use same secret if not specified
+	var sessionBytes, jwtBytes []byte
+	if sessionFromEnv && jwtFromEnv {
+		sessionBytes = []byte(sessionEnv)
+		jwtBytes = []byte(jwtEnv)
+	} else {
+		fileSession, fileJWT, err := loadOrCreateSecretsFile(secretFilePath())
+		if err != nil {
+			return err
+		}
+		if sessionFromEnv {
+			sessionBytes = []byte(sessionEnv)
+		} else {
+			sessionBytes = fileSession
+		}
+		if jwtFromEnv {
+			jwtBytes = []byte(jwtEnv)
+		} else {
+			jwtBytes = fileJWT
+		}
 	}
-	jwtSecret = []byte(jwtSecretStr)
+
+	sessionStore = sessions.NewCookieStore(sessionBytes)
+	gothic.Store = sessionStore
+	jwtSecret = jwtBytes
 
 	// Load OAuth providers from database
 	ReloadOAuthProviders()
+	return nil
 }
 
 // ReloadOAuthProviders reloads OAuth provider configurations from database
@@ -123,6 +142,11 @@ func GetUserIDFromSession(c echo.Context) (uint, error) {
 
 // GenerateJWT generates a JWT token for the user
 func GenerateJWT(userID uint, email string, role string) (string, error) {
+	const maxSafeUserID = 9007199254740991 // 2^53 - 1
+	if userID == 0 || uint64(userID) > maxSafeUserID {
+		return "", fmt.Errorf("invalid user ID")
+	}
+
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"email":   email,
@@ -137,22 +161,59 @@ func GenerateJWT(userID uint, email string, role string) (string, error) {
 
 // ValidateJWT validates a JWT token and returns the claims
 func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
+	const maxSafeUserID = int64(9007199254740991) // 2^53 - 1
+
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		if token.Method != jwt.SigningMethodHS256 {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		return jwtSecret, nil
-	})
+	}, jwt.WithValidMethods([]string{"HS256"}), jwt.WithExpirationRequired(), jwt.WithJSONNumber())
 
 	if err != nil {
 		return nil, err
 	}
 
-	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-		return claims, nil
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return nil, fmt.Errorf("invalid token")
 	}
 
-	return nil, fmt.Errorf("invalid token")
+	rawUserID, ok := claims["user_id"]
+	if !ok {
+		return nil, fmt.Errorf("missing user_id")
+	}
+	userIDNumber, ok := rawUserID.(json.Number)
+	if !ok {
+		return nil, fmt.Errorf("invalid user_id")
+	}
+	userID, err := userIDNumber.Int64()
+	if err != nil {
+		return nil, fmt.Errorf("invalid user_id")
+	}
+	if userID <= 0 {
+		return nil, fmt.Errorf("invalid user_id")
+	}
+	if userID > maxSafeUserID {
+		return nil, fmt.Errorf("invalid user_id")
+	}
+	if uint64(userID) > uint64(^uint(0)) {
+		return nil, fmt.Errorf("invalid user_id")
+	}
+
+	// Preserve the existing float64 contract only after all validation succeeds.
+	claims["user_id"] = float64(userID)
+	for key, value := range claims {
+		if number, ok := value.(json.Number); ok && key != "user_id" {
+			parsed, err := number.Float64()
+			if err != nil {
+				return nil, fmt.Errorf("invalid %s", key)
+			}
+			claims[key] = parsed
+		}
+	}
+
+	return claims, nil
 }
 
 // GetUserFromJWT extracts user information from JWT token in Authorization header or cookie
@@ -177,13 +238,14 @@ func GetUserFromJWT(c echo.Context) (*core.User, error) {
 		return nil, err
 	}
 
-	userID, ok := claims["user_id"].(float64)
+	userIDValue, ok := claims["user_id"].(float64)
 	if !ok {
 		return nil, fmt.Errorf("invalid token claims")
 	}
+	userID := uint(userIDValue)
 
 	var user core.User
-	if err := data.DB.First(&user, uint(userID)).Error; err != nil {
+	if err := data.DB.First(&user, userID).Error; err != nil {
 		return nil, err
 	}
 
