@@ -3,7 +3,7 @@
 Epic：帳號與存取
 User Story：登入後只可操作自己被授權的資料與功能。
 Blocked by：01 的可用資料庫與登入流程。
-Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護通過本機驗收與複審，等待 CI 交付）
+Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已完成本機驗證，待 CI 交付）
 
 ## 流程與驗收
 
@@ -14,7 +14,7 @@ Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別�
 - [ ] 新文章作者來自登入身分，不能固定為使用者 1。
 - [ ] 更新輸入不接受 ID、Author、Role、CreatedAt 等伺服器管理欄位注入。
 - [ ] Session 與 JWT 沒有可預測的內建秘密，重啟後有效性符合明確生命週期。
-- [ ] Cookie 寫入請求有跨站請求保護，未授權回 401/403 而非 HTML 成功回應。
+- [x] Cookie 寫入請求有跨站請求保護，未授權回 401/403 而非 HTML 成功回應。
 - [ ] 登出、失效登入、錯誤密碼、外部重新導向、暴力嘗試有可預期結果。
 - [ ] OAuth 關閉時不顯示且不可使用，只能在驗證身分後安全建立／連結帳號。
 - [ ] 使用者介面清楚顯示允許的操作，API 仍獨立檢查權限。
@@ -120,3 +120,24 @@ Session 另保存 `login_expires_at`（int64 Unix 秒），簽發時固定為七
 | 瀏覽器 | 登入、發文、登出、另一來源發送寫入 | 合法流程可用，外站寫入拒絕 | 實際 Chrome 與 360px／1280px |
 
 測試新增於 `internal/server/browser_write_protection_test.go`。沿用真實 RegisterRoutes、隔離 PostgreSQL 與暫存資料夾，不以測試專用 production 開關或假路由取代。新負向測試直接建立原始 HTTP 請求，不使用自動加來源的 fixture；既有合法流程 fixture 只補齊來源證據，保留原斷言。來源檢查不改內容格式，multipart、JSON 與表單皆須保持。
+
+## 安全登入重新導向
+
+流程：使用者開啟登入頁 → 伺服器確認站內返回網址 → 本機或 OAuth 登入 → 只前往已確認的站內網址。未提供或無效的目的地回到 `/admin`。保留合法站內網址的路徑、查詢與片段，不要求使用者重新挑選原本要開啟的頁面。
+
+共用 `auth.SafeRedirectURL(raw string) string` 處理目的地。只接受以單一 `/` 開頭的根相對網址，禁止絕對網址、`//`、反斜線、帳密、scheme、host、opaque URL、控制字元與錯誤的百分比編碼。解析後的路徑也必須以單一 `/` 開頭且不能含反斜線或控制字元；不得只檢查原字串。無效值回 `/admin`，不讓重新導向阻止帳密正確的使用者登入。
+
+`HandleLocalLogin` 的 HTML 302、`HandleAuth` 儲存的 `oauth_redirect`、`HandleCallback` 取出的舊 Session 目的地都使用同一個函式，不能因為值來自 Cookie 就略過檢查。本機登入的 JSON 回應保持原有形狀。OAuth 成功回呼的身分驗證與帳號連結另由後續段落負責，此段不改建帳號政策。
+
+`GET /login` 改以現有 html/template 呈現 `web/admin/login.html`，將經共用函式確認的值以 `RedirectURL` 提供模板。前端使用伺服器提供的值，移除自行信任 URLSearchParams 中 redirect 的導航分支。OAuth 按鈕仍可傳送返回網址，由伺服器在入口與回呼兩端確認。不得手動拼接可執行 JavaScript 字串，需保留模板的內容逸出。登入表單與安裝完成提示保持可用，不改樣式、語言選擇或 OAuth 啟用政策。
+
+| 操作 | 失敗或邊界 | 預期結果與責任 | 驗證 |
+|---|---|---|---|
+| 本機登入 | 空值、絕對網址、協定相對網址、反斜線、控制字元、編碼後的危險路徑 | 帳密正確仍登入，HTML 回 `/admin` | 真實註冊路由與 PostgreSQL |
+| 返回原頁 | `/admin/posts?search=hello#section`、一般站內頁面 | 保留合法目的地 | HTML 302 與真實瀏覽器 |
+| OAuth 入口 | 惡意目的地 | Session 只保存 `/admin` | 公開 HandleAuth 與真實 Session 編解碼 |
+| OAuth 回呼 | 舊版已簽章 Session 保存不合法網址 | 登入完成後回 `/admin` | Goth 公開 provider/session 測試替身，不連外 |
+| 登入畫面 | redirect 含引號或結束 script 的字串 | 不執行輸入內容，不導向站外 | html/template 與 Chrome 操作 |
+| 既有失敗 | 錯誤密碼、來源拒絕、離線 | 不導向成功頁或站外，不額外簽發登入 | HTTP 與畫面負向驗證 |
+
+Go 回歸測試新增在 `internal/server/auth_redirect_integration_test.go`，使用既有 `newAccessHarness` 與真實 RegisterRoutes，不以測試專用 production 開關取代。OAuth 僅可透過 Goth 本來提供的 provider/session 接縫提供固定回應；不得改 production 以繞過 state 或連外交換授權。測試先重現，再由不同代理實作。瀏覽器腳本置於暫存目錄，以本機另一連接埠模擬站外目的地，禁止真正傳送帳密到外部網站。測試草稿、帳號與程序的清理僅限本次建立的內容。
