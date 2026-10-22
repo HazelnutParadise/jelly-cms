@@ -3,7 +3,7 @@
 Epic：帳號與存取
 User Story：登入後只可操作自己被授權的資料與功能。
 Blocked by：01 的可用資料庫與登入流程。
-Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已透過 PR #9 合併，登入嘗試限制已透過 PR #10 合併，OAuth 提供者與 state 輸入已透過 PR #11 合併，一次性回呼已透過 PR #12 合併，正在驗證請求日誌保護與身分連結）
+Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已透過 PR #9 合併，登入嘗試限制已透過 PR #10 合併，OAuth 提供者與 state 輸入已透過 PR #11 合併，一次性回呼已透過 PR #12 合併，請求日誌保護已透過 PR #14 合併，上游請求期限與取消已完成本機驗證、等待 CI 交付，身分連結仍待驗收）
 
 ## 流程與驗收
 
@@ -222,8 +222,8 @@ OAuth 入口另使用與本機登入獨立的既有來源限流器，每個連�
 
 ## OAuth 後續營運檢查
 
-- 請求日誌保護已完成本機行為驗證，細節與驗收見下一節；CI 交付尚待完成。
-- P2：目前 Google／GitHub Provider 沿用沒有 Timeout 的 http.DefaultClient，且 Goth 使用自己的背景 context。後續須界定對外請求期限與取消行為，以停滯的本機上游驗證回應時間及資源釋放。
+- 請求日誌保護已透過 PR #14 交付，細節與驗收見下一節。
+- 上游請求期限與取消已完成本機驗證，細節見最後一節；CI 交付尚待完成。
 
 
 ## 請求日誌的秘密保護
@@ -245,4 +245,28 @@ OAuth 入口另使用與本機登入獨立的既有來源限流器，每個連�
 
 測試新增於 cmd/server/request_logging_test.go，以 httptest、真實 Echo 路由及錯誤處理、捕捉 logger 的既有輸出接縫驗證，不啟動固定連接埠、驗收站、資料庫或外部 OAuth。測試與實作分開指派，主代理先驗證基線外洩，再驗證查詢已移除且正常輸入／回應未被改寫。其他日誌來源若實際記錄授權秘密須一併處理，不以這個 helper 通過取代入口註冊檢查。
 
-本段已由主代理重跑：12 個查詢外洩情境在修正前失敗，修正後全部通過；秘密標頭與本文、JSON 逸出、錯誤處理次數及多個 Echo 實例的正向控制通過。完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷，待 CI 交付。沒有啟動真實提供者授權或變更既有驗收站。
+本段已由主代理重跑：12 個查詢外洩情境在修正前失敗，修正後全部通過；秘密標頭與本文、JSON 逸出、錯誤處理次數及多個 Echo 實例的正向控制通過。完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷。PR #14 四項 CI 通過後已合併，分支已清理。沒有啟動真實提供者授權或變更既有驗收站。
+
+
+## OAuth 提供者請求的期限與取消
+
+流程：有效回呼完成原有 state 驗證與一次性消耗 → 同一次提供者操作共用 30 秒期限 → 交換 code、讀取個人資料及必要信箱 → 成功才沿用既有帳號與登入流程。30 秒從第一次提供者操作開始計算，不因第二次 HTTP 請求重新計時。原回呼請求較早取消或到期時立即中止，包括尚未收到標頭及收到標頭後持續等待本文的情況。
+
+根因為 Goth 的 ContextForClient 使用背景 context，Google／GitHub 的預設 Client 沒有 Timeout。兩個 Session.Authorize 會斷言實際提供者型別，因此不能用一般 Provider 包裝器取代具體指標。實作沿用兩個具體提供者與現有 HTTPClient 接縫，每個回呼持有獨立的提供者及 Client 值複本，共用底層連線池而不修改註冊中的提供者、DefaultClient 或 Transport。取消訊號需持續到回應本文關閉，不能在 RoundTrip 傳回標頭時提前移除。
+
+填實作位置為 HandleCallback 既有 Authorize／FetchUser 區段，提供者操作集中於 internal/auth/oauth_http.go 的 fetchOAuthUser(ctx context.Context, provider goth.Provider, session goth.Session, params goth.Params) (goth.User, error)。函式只處理提供者操作及其期限，錯誤交回既有回呼處理器，以原本的通用 502 回應拒絕登入。不得以背景 goroutine 執行後提早放棄等待，也不新增依賴、資料模型、全域設定、外部端點或新的登入流程。
+
+| 操作與邊界 | 預期結果與驗證 |
+|---|---|
+| 真實 Goth 正常登入 | Google 與 GitHub 的真實 Provider/Session 經本機假上游完成交換及讀取，JSON 登入憑證能回查 /api/auth/me，站內導向保持原有結果 |
+| 等待標頭時取消 | 交換 code 或讀取個人資料停住，取消原回呼後上游觀察到連線取消，處理器結束，不新增帳號或登入憑證 |
+| 等待本文時取消 | 上游先送出 200 標頭再停止傳送本文，取消後讀取結束、本文關閉，不繼續建立登入 |
+| 固定總期限 | 交換及讀取合計最多 30 秒，第一段已耗時時第二段只剩剩餘時間，不重設期限 |
+| 較短的期限 | 原回呼 context 與既有 Client.Timeout 較短時保留先到的限制，不延長已有等待上限 |
+| 並行隔離 | 同一提供者兩個回呼，一個取消不影響另一個正常完成，不修改共用 provider/client/transport |
+| 失敗與重試 | 逾時或取消沿用通用 502，不回傳上游錯誤中的秘密，不送出應用登入 Cookie/JWT；已消耗 state 不可重放，新的授權可重新開始 |
+| 既有拒絕流程 | 不合法 state、未啟用提供者、DB 故障與授權拒絕仍在原有階段停止，不提早發出上游請求 |
+
+測試分為 internal/server/oauth_http_integration_test.go 的本機上游與取消流程，以及 internal/server/oauth_http_budget_integration_test.go 的總期限、較短期限與並行隔離。兩檔分別指派測試代理，沿用現有獨立 PostgreSQL fixture 與公開路由，代理各自只能修改自己的檔案。使用真實 Goth 提供者的 HTTPClient.Transport 接縫將流量限於本機假上游，不變更依賴的全域 URL。至少用本機 HTTP 伺服器驗證取消在標頭與本文兩個階段的實際行為，共用總期限可用 synctest 搭配可取消的假傳輸，避免每次等待真實 30 秒。測試先在舊實作重現，再交另一代理修正，實作者不得修改測試。外部 Google／GitHub 授權不在此次本機驗收中。
+
+本段已由主代理驗證：同一份測試套用原版呼叫路徑時，14 個負向案例失敗；修正版的正常登入、共用期限、較短期限及並行取消通過。完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷，等待 CI 交付。本機上游會先讀完 token POST 本文，再驗證連線取消，符合 Go HTTP server 的偵測條件；所有原有斷言保留。沒有啟動真實外部授權或變更既有驗收站。
