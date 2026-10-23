@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>登入</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap;width:100%}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.ul{width:100%;min-height:44px;padding:8px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:16px;color:#15161A;box-sizing:border-box}
+.lbl{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+label{display:block;font-size:13px;font-weight:600;color:#5F6470;margin-bottom:2px}
+.mark{display:inline-block;width:26px;height:30px}
+</style>
+</helmet>
+<div style="width: 100%; min-height: 100vh; box-sizing: border-box; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); background: #fff">
+  <!-- 左：墨色果凍丁牆，白天／黑夜都一樣有戲 -->
+  <aside style="position: relative; overflow: hidden; background: #15161A; color: #fff; padding: 32px; display: flex; flex-direction: column; justify-content: space-between; border-radius: 0 56px 0 0" aria-hidden="true">
+    <span style="position: absolute; left: 14%; top: 16%; width: 36%; aspect-ratio: 1; background: #2F6BFF; opacity: .85; border-radius: 0 24% 0 24%"></span>
+    <span style="position: absolute; left: 32%; top: 33%; width: 36%; aspect-ratio: 1; background: #13C2A3; opacity: .85; border-radius: 0 24% 0 24%"></span>
+    <span style="position: absolute; left: 50%; top: 50%; width: 36%; aspect-ratio: 1; background: #E8285B; opacity: .92; border-radius: 0 24% 0 24%; rotate: -7deg"></span>
+    <span style="position: absolute; left: 16%; top: 70%; width: 16%; aspect-ratio: 1; background: #F5B800; opacity: .95; border-radius: 0 24% 0 24%"></span>
+    <span style="position: absolute; left: 72%; top: 22%; width: 12%; aspect-ratio: 1; background: #fff; opacity: .9; border-radius: 0 24% 0 24%"></span>
+    <span style="position: absolute; left: -20%; top: 34%; width: 140%; height: 1px; background: #fff; opacity: .14; transform: rotate(-32deg)"></span>
+    <div style="position: relative; display: inline-flex; align-items: center; gap: 12px; font-size: 20px" class="d"><svg class="mark" viewBox="0 0 85 100"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".8"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".82"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".9" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800" fill-opacity=".95"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#fff" fill-opacity=".9"/></svg>Jelly CMS</div>
+    <div style="position: relative; display: flex; flex-direction: column; gap: 12px; max-width: 24em"><span class="stripe"></span><div class="d" style="font-size: 40px; letter-spacing: -.03em">比 WordPress 快，<br>主題像換衣服。</div><div style="color: #B9BCC6">Go 核心 · QuickJS 外掛 · 不用重啟</div></div>
+  </aside>
+
+  <!-- 右：登入 -->
+  <main style="display: grid; place-items: center; padding: 48px 24px">
+    <div style="width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 12px"><span class="stripe"></span><h1 class="d" style="font-size: 44px; letter-spacing: -.035em">登入</h1><p style="margin: 0; color: #5F6470">請選擇登入方式</p></div>
+      <div style="padding: 12px 16px; background: #DCF3E9; color: #0F6A45; border-radius: 0 10px 0 10px; font-weight: 600; font-size: 14px">安裝已完成，請使用剛建立的管理者帳號登入。</div>
+      <form style="display: flex; flex-direction: column; gap: 18px; margin: 0">
+        <div><label for="u">用戶名或 Email</label><input id="u" class="ul" type="text" placeholder="admin" autocomplete="username"></div>
+        <div><label for="p">密碼</label><input id="p" class="ul" type="password" placeholder="••••••••••••" autocomplete="current-password"></div>
+        <button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg>登入</button>
+      </form>
+      <div style="display: flex; align-items: center; gap: 12px; color: #5F6470; font-size: 13px"><span style="flex: 1; height: 1px; background: #E2E3E8"></span>或<span style="flex: 1; height: 1px; background: #E2E3E8"></span></div>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <a class="btn t" href="Dashboard.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>使用 Google 登入</a>
+        <a class="btn t" href="Dashboard.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l3 3"/></svg>使用 GitHub 登入</a>
+        <p style="margin: 4px 0 0; font-size: 13px; color: #5F6470">OAuth 首次登入將自動創建帳號</p>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

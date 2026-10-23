@@ -1,0 +1,15 @@
+{{define "title"}}{{.Error.Code}}{{end}}
+{{define "content"}}
+{{$code := .Error.Code}}
+{{if or (eq $code 403) (eq $code 401)}}
+    {{$title := .T.errorForbidden}}{{if eq $code 401}}{{$title = .T.errorUnauthorized}}{{end}}
+    {{$role := .T.roleAuthor}}{{if eq .Viewer.Role "admin"}}{{$role = .T.administrator}}{{else if eq .Viewer.Role "editor"}}{{$role = .T.roleEditor}}{{end}}
+    {{template "state-forbidden" dict "title" $title "text" (printf .T.forbiddenRole $role) "backText" .T.backToDashboard "backHref" "/admin"}}
+{{else}}
+    {{$title := .T.errorInternal}}{{if eq $code 404}}{{$title = .T.errorNotFound}}{{else if eq $code 503}}{{$title = .T.errorMaintenance}}{{end}}
+    {{$text := .Error.Path}}{{if ge $code 500}}{{$text = .T.errorInternalHint}}{{end}}
+    {{$retry := ""}}{{if ge $code 500}}{{$retry = .T.retry}}{{end}}
+    {{$copy := printf "%d %s %s" $code .Error.RequestID .Error.Path}}
+    {{template "state-error" dict "code" $code "id" .Error.RequestID "title" $title "text" $text "backText" .T.backToDashboard "backHref" "/admin" "retryText" $retry "copyText" .T.copyErrorCode "copyValue" $copy}}
+{{end}}
+{{end}}

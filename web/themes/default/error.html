@@ -1,0 +1,9 @@
+{{define "content"}}
+<section class="error-page" data-code="{{.Error.Code}}">
+    <div class="stripes" aria-hidden="true"></div>
+    <div class="label">{{.Error.Code}}</div>
+    <h1>{{.Error.Title}}</h1>
+    {{if ge .Error.Code 500}}<p>{{if .Error.RequestID}}{{.Error.RequestID}}{{end}}</p>{{else}}<p><code>{{.Error.Path}}</code></p>{{end}}
+    <p><a class="button" href="/"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>回首頁</a></p>
+</section>
+{{end}}

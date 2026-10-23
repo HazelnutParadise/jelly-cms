@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>後台 Markdown 編輯器 · 專心模式</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.ic{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
+.chip.nd:before{display:none}
+.ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DCE6FF;color:#1A3F9E}.bad{background:#FBE1DE;color:#9C2318}.mint{background:#D4F5EE;color:#0B5E4E}
+.mark{display:inline-block;width:22px;height:26px}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px;white-space:nowrap}
+.seg span.on{background:#15161A;color:#fff}
+.tg{position:relative;width:40px;height:22px;border-radius:0 11px 0 11px;background:#13C2A3;display:inline-block;flex:0 0 auto}.tg:after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;background:#fff;border-radius:0 7px 0 7px}
+.tg.off{background:#D9DBE0}.tg.off:after{right:auto;left:3px}
+.ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
+.mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
+.cube{position:absolute;border-radius:0 26% 0 26%}
+.kbd{display:inline-block;font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:#EDEEF1;color:#5F6470}
+
+body{font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font-weight:700;font-size:13px;border:0;border-radius:0 9px 0 9px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}.btn.s{min-height:30px;font-size:12px;padding:0 10px}.btn.s.i{width:30px}.btn.danger{background:#FBE1DE;color:#9C2318}
+.rail{background:#15161A;color:#fff;display:flex;flex-direction:column;padding:14px 10px;gap:2px}
+.ns{font-size:11px;letter-spacing:.08em;color:#7E838F;padding:14px 12px 4px;text-transform:uppercase;font-weight:700}
+.nl{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 12px;border-radius:0 10px 0 10px;color:#C9CBD3;font-weight:600;font-size:13.5px}
+.nl:hover{background:#2A2B31;color:#fff}.nl.on{background:#E8285B;color:#fff}
+.nl .n{margin-left:auto;font-size:11px;background:#2A2B31;padding:1px 7px;border-radius:0 6px 0 6px;color:#C9CBD3}.nl.on .n{background:#fff;color:#E8285B}
+.nl.new:after{content:"新";margin-left:auto;font-size:10px;padding:1px 6px;border-radius:0 5px 0 5px;background:#13C2A3;color:#0B3A31}
+.nl.new .n{display:none}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#5F6470;padding:8px 10px;border-bottom:1px solid #E2E3E8;font-weight:700;white-space:nowrap}
+td{padding:10px;border-bottom:1px solid #EEEFF2;vertical-align:middle}
+tr:hover td{background:#F8F8FA}
+td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.act .btn{opacity:1}
+.cb{width:16px;height:16px;border-radius:0 5px 0 5px;box-shadow:inset 0 0 0 1.5px #B9BCC6;display:inline-block;vertical-align:middle;background:#fff}
+.cb.on{background:#15161A;box-shadow:none;position:relative}.cb.on:after{content:"";position:absolute;left:5px;top:2px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.card{background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 14px 0 14px;padding:16px}
+.srow{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.9fr);gap:8px 32px;align-items:center;padding:12px 0;border-top:1px solid #EEEFF2}
+.srow label{font-weight:700;font-size:14px;color:#15161A;display:block}.srow .h{font-size:12px;color:#5F6470;margin-top:2px}
+.srow .c{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:440px;background:#fff;box-shadow:-1px 0 0 #E2E3E8,-24px 0 48px rgba(21,22,26,.08);border-radius:0 0 0 24px;display:flex;flex-direction:column}
+.tree a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#15161A;font-weight:600;font-size:13.5px}
+.tree a.on{background:#15161A;color:#fff}.tree a .n{margin-left:auto;font-size:11px;color:#7E838F;font-weight:700}.tree a.on .n{color:#fff}
+.tree .lv1{padding-left:28px}.tree .lv2{padding-left:46px}
+.mi{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px 0 6px;background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 10px 0 10px;font-weight:600;font-size:13.5px}
+.mi .k{font-size:11px;color:#5F6470;font-weight:700;margin-left:auto}
+.mi.drop{box-shadow:inset 0 0 0 2px #2F6BFF;background:#F0F4FF}
+.diff{font:13px/1.7 ui-monospace,"SF Mono",Menlo,monospace;white-space:pre-wrap}
+.diff .a{background:#FBE1DE;color:#9C2318;text-decoration:line-through;padding:0 2px}.diff .b{background:#DCF3E9;color:#0F6A45;padding:0 2px}
+.log{font:12.5px/1.7 ui-monospace,"SF Mono",Menlo,monospace}
+.log .r{display:grid;grid-template-columns:150px 64px 110px minmax(0,1fr);gap:12px;padding:6px 10px;border-bottom:1px solid #EEEFF2;align-items:baseline}
+.log .r:hover{background:#F8F8FA}
+.lv{font-weight:800;font-size:11px;letter-spacing:.06em;padding:1px 6px;border-radius:0 5px 0 5px;text-align:center}
+.lv.i{background:#DCE6FF;color:#1A3F9E}.lv.w{background:#FCF0C8;color:#7A5200}.lv.e{background:#FBE1DE;color:#9C2318}.lv.d{background:#EDEEF1;color:#5F6470}
+.pal{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border-radius:0 10px 0 10px;font-weight:600;font-size:14px;color:#15161A}
+.pal.on{background:#15161A;color:#fff}.pal .k{margin-left:auto;font-size:11px;color:#9A9FAB;font-weight:700}.pal.on .k{color:#C9CBD3}
+.ph{display:flex;flex-direction:column;gap:8px}.ph i{display:block;height:12px;border-radius:0 5px 0 5px;background:linear-gradient(90deg,#EDEEF1 0 40%,#F6F6F8 50%,#EDEEF1 60%);background-size:200% 100%;animation:sh 1.4s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.step{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px}
+.step i{width:24px;height:24px;display:grid;place-items:center;border-radius:0 8px 0 8px;background:#EDEEF1;color:#5F6470;font-style:normal;font-family:"Bricolage Grotesque",sans-serif;font-size:12px}
+.step.on i{background:#15161A;color:#fff}.step.done i{background:#13C2A3;color:#fff}
+.av{width:28px;height:28px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;border-radius:0 9px 0 9px;flex:0 0 auto}
+
+.tool{width:30px;height:30px;display:inline-grid;place-items:center;border:0;background:transparent;border-radius:4px;color:#3A3D45;cursor:pointer}
+.tool:hover{background:#EDEEF1}.tool.on{background:#E6E7EB;color:#15161A}.tool .ic{width:16px;height:16px;stroke-width:1.6}
+.mono2{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Noto Sans Mono CJK TC",monospace}
+.src{font-size:14px;line-height:1.8;color:#15161A;white-space:pre-wrap;margin:0}
+.gut{text-align:right;color:#B0B4BF;user-select:none;white-space:pre;font-size:12px;line-height:1.8;padding-top:2px}
+.gut b{color:#15161A;font-weight:500}
+.prev{font-size:16px;line-height:1.85;color:#15161A}
+.prev h2{font-size:24px;font-weight:700;margin:28px 0 12px;line-height:1.35}.prev h3{font-size:18px;font-weight:700;margin:22px 0 8px}
+.prev p{margin:0 0 16px}.prev ul{margin:0 0 16px;padding-left:22px}
+.prev blockquote{margin:0 0 16px;padding:0 0 0 14px;border-left:3px solid #D9DBE0;color:#3A3D45}
+.prev pre{margin:0 0 16px;padding:12px 14px;background:#F6F7F9;border:1px solid #E6E7EB;border-radius:4px;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:13px}
+.ol a{display:flex;align-items:center;gap:8px;min-height:28px;padding:0 8px;border-radius:4px;color:#5F6470;font-size:13px}
+.ol a.h3{padding-left:22px;font-size:12.5px}.ol a.on{background:#EDEEF1;color:#15161A;font-weight:600}
+.ol a .n{margin-left:auto;font-size:11px;color:#B0B4BF}
+.float{position:absolute;display:inline-flex;align-items:center;gap:1px;padding:3px;background:#15161A;border-radius:6px;box-shadow:0 8px 24px rgba(21,22,26,.22)}
+.float .tool{color:#fff;width:28px;height:28px}.float .tool:hover{background:#2A2B31}.float .sep{width:1px;height:16px;background:#3A3D45;margin:0 3px}
+.slash{position:absolute;width:280px;background:#fff;border:1px solid #D9DBE0;border-radius:6px;box-shadow:0 12px 32px rgba(21,22,26,.14);overflow:hidden;font-size:13px}
+.slash .q{padding:8px 12px;border-bottom:1px solid #EEEFF2;color:#5F6470;display:flex;gap:6px;align-items:center}
+.slash a{display:flex;align-items:center;gap:10px;padding:7px 12px;color:#15161A}
+.slash a.on{background:#F3F3F5}.slash a .k{margin-left:auto;font-size:11px;color:#9A9FAB}
+.slash a .d2{font-size:11px;color:#5F6470;font-weight:400}
+.status{display:flex;align-items:center;gap:16px;padding:5px 16px;border-top:1px solid #E6E7EB;font-size:12px;color:#5F6470;background:#FAFAFB}
+.status b{font-weight:600;color:#3A3D45}
+.dim{color:#B9BCC6}
+.pop{position:absolute;background:#fff;border:1px solid #D9DBE0;border-radius:6px;box-shadow:0 12px 32px rgba(21,22,26,.14)}
+</style>
+</helmet>
+<div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#fff;position:relative">
+    <div class="topline" style="opacity:.35"></div>
+    <header style="display:flex;align-items:center;gap:10px;padding:6px 14px;opacity:.45">
+      <a class="btn x" href="EditorFull.dc.html" style="padding:0 8px;color:#5F6470"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>離開專心模式<span class="kbd">ESC</span></a>
+      <span style="margin-left:auto;font-size:12px;color:#5F6470;display:inline-flex;align-items:center;gap:5px"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>已儲存 · 剛剛</span>
+      <span style="font-size:11px;color:#9A9FAB">滑鼠移開 3 秒後整條淡出</span>
+    </header>
+    <main style="flex:1;display:flex;justify-content:center;padding:40px 24px 120px;position:relative">
+      <div style="width:100%;max-width:680px;font-size:17px;line-height:1.95;position:relative" class="mono2">
+        <p class="dim" style="margin:0 0 .6em;font-size:12px;letter-spacing:.06em">### 我們想要的</p>
+        <p class="dim" style="margin:0 0 1.2em">- 打開就能寫，格式用鍵盤打出來，不用找按鈕</p>
+        <p class="dim" style="margin:0 0 1.2em">- 貼圖片直接上傳，貼網址自動變連結或嵌入</p>
+        <p style="margin:0 0 1.2em;color:#15161A">- 寫到哪，畫面就停在哪。段落自己往上捲，眼睛不用追游標<span style="display:inline-block;width:2px;height:1.1em;background:#E8285B;vertical-align:-3px;margin-left:1px"></span></p>
+        <p class="dim" style="margin:0 0 1.2em">- 斷線也不會掉字，瀏覽器關掉再開還在</p>
+        <p class="dim" style="margin:0 0 1.2em">&gt; 寫下來，才算數。</p>
+        <p class="dim" style="margin:0 0 1.2em;font-size:12px;letter-spacing:.06em">## 為什麼是 Markdown</p>
+        <p class="dim" style="margin:0 0 1.2em">因為它跟得上打字速度。你不用離開鍵盤，也不用等區塊載入。</p>
+        <!-- 貼上圖片時 -->
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px dashed #B9BCC6;border-radius:4px;color:#5F6470;font-size:13px;font-family:'Noto Sans TC',sans-serif;margin-top:8px"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg><span style="flex:1">IMG_0421.jpg · 2.1 MB → 正在上傳與壓縮<span style="display:block;height:3px;background:#EDEEF1;margin-top:6px;border-radius:2px"><span style="display:block;width:68%;height:3px;background:#2F6BFF"></span></span></span><span class="mono" style="color:#15161A">68%</span></div>
+        <p class="dim" style="margin:12px 0 0;font-size:12px;font-family:'Noto Sans TC',sans-serif">完成後這裡自動變成 <span class="mono2">![IMG_0421](/uploads/2026/10/img-0421.webp)</span>，並轉成 WebP、產生縮圖。</p>
+      </div>
+      <!-- 右側迷你大綱 -->
+      <nav aria-label="大綱" style="position:absolute;right:28px;top:60px;display:flex;flex-direction:column;gap:14px;align-items:flex-end">
+        <span style="width:22px;height:2px;background:#D9DBE0"></span><span style="width:14px;height:2px;background:#D9DBE0"></span><span style="width:14px;height:2px;background:#15161A"></span><span style="width:22px;height:2px;background:#D9DBE0"></span>
+      </nav>
+      <!-- 快速鍵小抄 ⌘/ -->
+      <div class="pop" style="right:28px;bottom:70px;width:300px;padding:12px 14px;font-size:12.5px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b>快速鍵</b><span class="kbd">⌘/</span><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:5px 16px;color:#3A3D45">
+          <span>粗體 / 斜體 / 連結</span><span><span class="kbd">⌘B</span> <span class="kbd">⌘I</span> <span class="kbd">⌘K</span></span>
+          <span>標題升降</span><span><span class="kbd">⌘⌥↑↓</span></span>
+          <span>插入東西</span><span><span class="kbd">/</span></span>
+          <span>搜尋取代</span><span><span class="kbd">⌘F</span> <span class="kbd">⌘H</span></span>
+          <span>切換預覽 / 專心</span><span><span class="kbd">⌘⇧P</span> <span class="kbd">⌘⇧F</span></span>
+          <span>儲存 / 發布</span><span><span class="kbd">⌘S</span> <span class="kbd">⌘⏎</span></span>
+          <span>上一個版本</span><span><span class="kbd">⌘⌥Z</span></span>
+        </div>
+      </div>
+
+    </main>
+    <div class="status" style="background:transparent;border:0;opacity:.6"><span><b>1,312</b> 字</span><span>今天 +428</span><span>目標 1,500 <span style="display:inline-block;width:80px;height:3px;background:#EDEEF1;vertical-align:middle;margin-left:4px"><span style="display:block;width:87%;height:3px;background:#13C2A3"></span></span></span><span style="margin-left:auto">打字機模式 · 深色 <span class="kbd">⌘⇧D</span></span></div>
+  </div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

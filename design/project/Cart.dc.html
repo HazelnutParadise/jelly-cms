@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>前台購物車</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 22px;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:46px;padding:0}.btn.sm{min-height:36px;padding:0 12px;font-size:13px}.btn.sm.i{width:36px}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;font-size:12px;font-weight:700;border-radius:0 8px 0 8px;background:#EDEEF1;color:#15161A}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.field{min-height:46px;padding:0 14px;border:0;background:#F3F3F5;border-radius:0 10px 0 10px;font:inherit;font-size:15px;color:#15161A}
+.lbl{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.nav a{color:#15161A;font-weight:600;font-size:15px;padding:0 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:0 8px 0 8px}
+.row{display:grid;grid-template-columns:88px minmax(0,1fr) 150px 120px 44px;gap:20px;align-items:center;padding:20px 0;border-top:1px solid #E2E3E8}
+.mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:18px;letter-spacing:-.02em}
+.step{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px}
+.step i{width:28px;height:28px;display:grid;place-items:center;border-radius:0 9px 0 9px;background:#EDEEF1;color:#5F6470;font-style:normal;font-family:"Bricolage Grotesque",sans-serif}
+.step.on i{background:#15161A;color:#fff}
+.mark{display:inline-block;width:26px;height:30px}
+</style>
+</helmet>
+<div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff; min-height: 100vh">
+  <div class="topline"></div>
+  <header style="display: flex; align-items: center; gap: 24px; padding: 14px 40px; max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box">
+    <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 12px; color: #15161A; font-size: 20px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".8"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".82"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".9" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800" fill-opacity=".95"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</a>
+    <nav class="nav" style="display: flex; gap: 4px; margin-left: auto"><a href="Main.dc.html">首頁</a><a href="PostList.dc.html">文章</a><a href="Shop.dc.html">商店</a><a href="Page.dc.html">關於</a></nav>
+  </header>
+  <main style="max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box; padding: 32px 40px 96px; display: flex; flex-direction: column; gap: 32px">
+    <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap">
+      <div style="display: flex; flex-direction: column; gap: 12px"><span class="stripe"></span><h1 class="d" style="font-size: 56px; letter-spacing: -.04em">購物車</h1></div>
+      <div style="display: flex; gap: 20px"><span class="step on"><i>1</i>購物車</span><span class="step"><i>2</i>結帳</span><span class="step"><i>3</i>付款</span><span class="step"><i>4</i>完成</span></div>
+    </div>
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 48px; align-items: start">
+      <section>
+        <div class="row" style="border-top: 0; padding-top: 0; font-size: 12px; font-weight: 700; color: #5F6470; letter-spacing: .06em; text-transform: uppercase"><span></span><span>商品</span><span>數量</span><span style="text-align: right">小計</span><span></span></div>
+        <div class="row"><span style="width: 88px; height: 88px; background: #E8285B; border-radius: 0 12px 0 12px"></span><div><b style="font-size: 17px">榛果可可醬 200g</b><div style="font-size: 13px; color: #5F6470">200g · NT$ 320</div></div><div style="display: inline-flex; align-items: center; background: #F3F3F5; border-radius: 0 10px 0 10px; width: fit-content"><button class="btn t sm i" type="button" aria-label="減一"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><input type="text" value="1" aria-label="數量" style="width: 40px; text-align: center; border: 0; background: transparent; font: inherit; font-weight: 700"><button class="btn t sm i" type="button" aria-label="加一"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div><span class="mono" style="text-align: right">NT$ 320</span><button class="btn x sm i" type="button" aria-label="移除"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button></div>
+        <div class="row"><span style="width: 88px; height: 88px; background: #2F6BFF; border-radius: 0 12px 0 12px"></span><div><b style="font-size: 17px">藍莓果凍 6 入</b><div style="font-size: 13px; color: #5F6470">NT$ 240</div></div><div style="display: inline-flex; align-items: center; background: #F3F3F5; border-radius: 0 10px 0 10px; width: fit-content"><button class="btn t sm i" type="button" aria-label="減一"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><input type="text" value="2" aria-label="數量" style="width: 40px; text-align: center; border: 0; background: transparent; font: inherit; font-weight: 700"><button class="btn t sm i" type="button" aria-label="加一"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div><span class="mono" style="text-align: right">NT$ 480</span><button class="btn x sm i" type="button" aria-label="移除"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button></div>
+        <div class="row" style="border-bottom: 1px solid #E2E3E8; background: #FCF0C8; margin: 0 -16px; padding-left: 16px; padding-right: 16px; border-radius: 0 12px 0 12px"><span style="width: 88px; height: 88px; background: #15161A; border-radius: 0 12px 0 12px; opacity: .5"></span><div><b style="font-size: 17px">限量禮盒</b><div style="font-size: 13px; color: #7A5200; font-weight: 700">剛剛售完，已從總計移除。</div></div><span></span><span class="mono" style="text-align: right; color: #7A5200; text-decoration: line-through">NT$ 1,280</span><button class="btn x sm i" type="button" aria-label="移除"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button></div>
+        <a class="btn t" href="Shop.dc.html" style="margin-top: 20px"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>繼續逛</a>
+      </section>
+      <aside style="position: sticky; top: 24px; background: #15161A; color: #fff; border-radius: 0 24px 0 24px; padding: 28px; display: flex; flex-direction: column; gap: 16px">
+        <div class="lbl" style="color: #B9BCC6">訂單摘要</div>
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 15px"><span style="color: #B9BCC6">小計</span><b>NT$ 800</b><span style="color: #B9BCC6">運費</span><b>NT$ 80</b><span style="color: #B9BCC6; font-size: 13px">再買 NT$ 200 免運</span><span></span></div>
+        <div style="display: flex; gap: 6px"><label for="cp" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">折扣碼</label><input id="cp" class="field" type="text" placeholder="折扣碼" style="flex: 1; background: #2A2B31; color: #fff"><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>套用</button></div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; padding-top: 16px; border-top: 1px solid #2A2B31"><span>總計</span><span class="d" style="font-size: 36px">NT$ 880</span></div>
+        <a class="btn p" href="Checkout.dc.html" style="min-height: 56px; font-size: 17px">前往結帳<svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a>
+        <div style="font-size: 12px; color: #9A9FAB; display: flex; align-items: center; gap: 6px"><svg class="ic" viewBox="0 0 24 24" style="width: 14px; height: 14px"><path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4"/></svg>付款頁由綠界／藍新提供，我們不會看到你的卡號。</div>
+      </aside>
+    </div>
+  </main>
+  <footer style="background: #15161A; color: #EDEDF0; padding: 48px 40px; margin-top: auto"><div style="max-width: 1360px; margin: 0 auto; display: flex; justify-content: space-between; font-size: 13px; color: #9A9FAB"><span>© 榛果繽紛樂</span><span>Powered by Jelly CMS</span></div></footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

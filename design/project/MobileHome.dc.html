@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>手機 前台首頁</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.i{width:44px;padding:0}
+.chip{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 8px 0 8px;background:#EDEEF1;color:#15161A}
+.stripe{display:block;width:48px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.card{position:relative;background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 14px 0 14px;padding:18px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-size:19px}.card h3 a{color:#15161A}.card p{margin:0;color:#5F6470;font-size:14px;line-height:1.6}
+.mark{display:inline-block;width:22px;height:26px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #fff; display: flex; flex-direction: column">
+  <div style="height: 3px; background: linear-gradient(90deg, #E8285B 0 64%, #2F6BFF 64% 86%, #13C2A3 86% 100%)"></div>
+  <header style="display: flex; align-items: center; gap: 10px; padding: 12px 16px">
+    <a href="MobileHome.dc.html" style="display: inline-flex; align-items: center; gap: 8px; color: #15161A; font-size: 17px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".8"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".82"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".9" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800" fill-opacity=".95"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</a>
+    <button class="btn t i" type="button" aria-label="搜尋" style="margin-left: auto"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
+    <button class="btn t i" type="button" aria-label="選單"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  </header>
+  <main style="flex: 1; overflow: hidden; display: flex; flex-direction: column">
+    <section style="background: #15161A; color: #fff; padding: 28px 16px 24px; position: relative; overflow: hidden">
+      <span style="position: absolute; right: -6%; top: -16%; width: 34%; aspect-ratio: 1; background: #2F6BFF; opacity: .8; border-radius: 0 24% 0 24%" aria-hidden="true"></span>
+      <span style="position: absolute; right: 6%; top: 24%; width: 30%; aspect-ratio: 1; background: #E8285B; opacity: .9; border-radius: 0 24% 0 24%; rotate: -7deg" aria-hidden="true"></span>
+      <div style="position: relative; display: flex; flex-direction: column; gap: 10px">
+        <span class="stripe"></span>
+        <h1 class="d" style="font-size: 44px; letter-spacing: -.04em; max-width: 6em">榛果繽紛樂</h1>
+        <p style="margin: 0; color: #C9CBD3; font-size: 15px">寫下來，才算數。</p>
+      </div>
+    </section>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 6px 16px 0">
+      <div style="background: #2F6BFF; color: #fff; padding: 10px 12px; border-radius: 0 10px 0 10px"><span class="d" style="font-size: 22px">126</span><div style="font-size: 11px; font-weight: 700">篇文章</div></div>
+      <div style="background: #13C2A3; color: #0B3A31; padding: 10px 12px; border-radius: 0 10px 0 10px"><span class="d" style="font-size: 22px">4</span><div style="font-size: 11px; font-weight: 700">位作者</div></div>
+      <div style="background: #F5B800; color: #3A2E00; padding: 10px 12px; border-radius: 0 10px 0 10px"><span class="d" style="font-size: 22px">2019</span><div style="font-size: 11px; font-weight: 700">開站</div></div>
+    </div>
+    <section style="padding: 24px 16px 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; justify-content: space-between"><h2 class="d" style="font-size: 24px">最新文章</h2><span class="chip">6 篇</span></div>
+      <article class="card" style="background: #15161A; color: #fff; box-shadow: none; min-height: 150px; justify-content: flex-end">
+        <div style="display: flex; gap: 6px"><span class="chip" style="background: #2A2B31; color: #fff">2026.10.22</span><span class="chip" style="background: #E8285B; color: #fff">主打</span></div>
+        <h3 class="d" style="font-size: 24px"><a href="Post.dc.html" style="color: #fff">為什麼我們決定用 Go 重寫一個 CMS</a></h3>
+        <a href="Post.dc.html" style="color: #fff; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 6px">閱讀全文<svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a>
+      </article>
+      <article class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center"><span class="chip">2026.10.19</span><span style="width: 12px; height: 12px; background: #2F6BFF; border-radius: 0 4px 0 4px"></span></div>
+        <h3><a href="Post.dc.html">果凍丁與裝飾線：預設主題的設計筆記</a></h3>
+        <p>白底墨字的通用骨架，品牌感來自不同口味的果凍丁。</p>
+      </article>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

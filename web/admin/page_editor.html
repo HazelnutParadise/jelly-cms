@@ -1,58 +1,54 @@
 {{define "title"}}Edit Page{{end}}
-{{define "styles"}}
-<style>
-    textarea {
-        height: 300px;
-        font-family: monospace;
-    }
-</style>
-{{end}}
 {{define "content"}}
-<h1>Edit Page</h1>
-<div class="card">
-    <form id="pageForm">
-        <input type="hidden" name="type" value="page">
-        <div class="form-group">
-            <label>Title</label>
-            <input type="text" name="title" required>
-        </div>
-        <div class="form-group">
-            <label>Slug</label>
-            <input type="text" name="slug">
-        </div>
-        <div class="form-group">
-            <label>Content (HTML)</label>
-            <textarea name="content"></textarea>
-        </div>
-        <div class="form-group">
-            <label>Status</label>
-            <select name="status">
+<form id="pageForm" class="doc-layout">
+    <input type="hidden" name="type" value="page">
+    <div class="doc">
+        <label for="pageTitle" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Title</label>
+        <input type="text" id="pageTitle" name="title" class="doc-title" placeholder="頁面標題" required autocomplete="off">
+        {{template "md-editor" dict "id" "pageContent" "name" "content" "placeholder" "用 Markdown 開始寫。# 標題、**粗體**、- 清單……儲存時會轉成 HTML。"}}
+        <p class="doc-hint">Markdown（儲存時轉成 HTML；原稿保留在 meta.markdown）</p>
+    </div>
+    <aside class="props">
+        <div class="label">{{.T.pages}}</div>
+        <div class="prop">
+            <label for="pageStatus">Status</label>
+            <select id="pageStatus" name="status">
                 <option value="draft">Draft</option>
                 <option value="published">Published</option>
             </select>
         </div>
-        <button type="submit" class="btn">Save Page</button>
-    </form>
-</div>
+        <div class="prop">
+            <label for="pageSlug">Slug</label>
+            <input type="text" id="pageSlug" name="slug" placeholder="about" autocomplete="off">
+            <small class="hint">/&lt;slug&gt;</small>
+        </div>
+        <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save Page</button>
+        <a href="/admin/pages" class="btn btn-text"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>{{.T.pages}}</a>
+    </aside>
+</form>
 {{end}}
 {{define "scripts"}}
 <script>
     const form = document.getElementById('pageForm');
     const id = window.location.pathname.split('/').pop();
     const isNew = id === 'new';
+    const editor = window.JellyMD['pageContent'];
+    let existingMeta = {};
 
     if (!isNew) {
-        loadPage();
+        load();
     }
 
-    async function loadPage() {
+    async function load() {
         const res = await fetch(`/api/admin/posts/${id}`);
         if (res.ok) {
-            const page = await res.json();
-            form.title.value = page.title;
-            form.slug.value = page.slug;
-            form.content.value = page.content;
-            form.status.value = page.status;
+            const post = await res.json();
+            form.title.value = post.title;
+            form.slug.value = post.slug;
+            form.status.value = post.status;
+            existingMeta = (post.meta && typeof post.meta === 'object' && !Array.isArray(post.meta)) ? post.meta : {};
+            // 有 Markdown 原稿就用原稿，舊的 HTML 內容直接當 Markdown 編輯（Markdown 允許 HTML）
+            editor.setValue(typeof existingMeta.markdown === 'string' ? existingMeta.markdown : post.content);
         }
     }
 
@@ -60,6 +56,8 @@
         e.preventDefault();
         const formData = new FormData(form);
         const data = Object.fromEntries(formData.entries());
+        data.content = editor.toHTML();
+        data.meta = { ...existingMeta, markdown: editor.getValue() };
 
         const url = isNew ? '/api/admin/posts' : `/api/admin/posts/${id}`;
         const method = isNew ? 'POST' : 'PUT';

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>後台附件庫</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;font-size:14px;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.1;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font-weight:700;font-size:13px;border:0;border-radius:0 9px 0 9px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}.btn.s{min-height:30px;font-size:12px;padding:0 10px}.btn.s.i{width:30px}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.ic{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.rail{background:#15161A;color:#fff;display:flex;flex-direction:column;padding:14px 10px;gap:2px}
+.ns{font-size:11px;letter-spacing:.08em;color:#7E838F;padding:14px 12px 4px;text-transform:uppercase;font-weight:700}
+.nl{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 12px;border-radius:0 10px 0 10px;color:#C9CBD3;font-weight:600;font-size:14px}
+.nl:hover{background:#2A2B31;color:#fff}.nl.on{background:#E8285B;color:#fff}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg a{min-height:30px;padding:0 12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#5F6470;border-radius:0 8px 0 8px}
+.seg a.on{background:#15161A;color:#fff}
+.tile{position:relative;background:#F5F5F7;border-radius:0 12px 0 12px;overflow:hidden;display:flex;flex-direction:column}
+.tile.sel{box-shadow:inset 0 0 0 3px #E8285B}
+.thumb{aspect-ratio:1;display:grid;place-items:center;color:#9A9FAB;font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700}
+.name{padding:8px 10px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kbd{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:#fff;padding:1px 5px;border-radius:0 5px 0 5px;color:#5F6470}
+.ul{width:100%;min-height:32px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
+.mark{display:inline-block;width:22px;height:26px}
+input[type=checkbox]{width:16px;height:16px;accent-color:#E8285B;margin:0}
+</style>
+</helmet>
+<div style="width: 100%; min-height: 100vh; display: flex; flex-wrap: wrap; background: #fff">
+  <aside class="rail" style="flex: 0 0 224px">
+    <a href="Dashboard.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 6px 12px 10px; color: #fff; font-size: 17px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".9"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".9"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".95" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#fff" fill-opacity=".9"/></svg>Jelly CMS</a>
+    <div class="ns">內容</div>
+    <a class="nl" href="Dashboard.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>儀表板</a>
+    <a class="nl" href="Posts.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></svg>文章</a>
+    <a class="nl" href="Posts.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM3 10h18M9 10v10"/></svg>頁面</a>
+    <a class="nl on" href="Media.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM21 15l-5-5-8 8"/><circle cx="8" cy="10" r="1.5"/></svg>附件</a>
+    <div class="ns">商店</div>
+    <a class="nl" href="Products.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>商品</a>
+    <a class="nl" href="Orders.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>訂單</a>
+    <div class="ns">外觀</div>
+    <a class="nl" href="Themes.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>主題</a>
+    <a class="nl" href="Plugins.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>外掛</a>
+    <div class="ns">系統</div>
+    <a class="nl" href="Settings.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>設定</a>
+    <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 0 10px 0 10px; background: #2A2B31"><span style="width: 30px; height: 30px; display: grid; place-items: center; background: #E8285B; font-weight: 800; border-radius: 0 9px 0 9px">A</span><div><div style="font-weight: 700; font-size: 13px">管理員</div><a href="Login.dc.html" style="color: #9A9FAB; font-size: 12px">登出</a></div></div>
+  </aside>
+
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+    <div class="topline"></div>
+    <header style="display: flex; align-items: center; gap: 12px; padding: 10px 24px; border-bottom: 1px solid #EEEFF2">
+      <nav style="display: flex; align-items: center; gap: 8px; color: #5F6470; font-size: 13px" aria-label="路徑"><span>內容</span><span>/</span><b style="color: #15161A">附件</b></nav>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px">
+        <label for="gs" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">搜尋</label>
+        <div style="position: relative"><svg class="ic" viewBox="0 0 24 24" style="position: absolute; left: 10px; top: 10px; color: #5F6470"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="gs" type="text" placeholder="搜尋或輸入指令" style="width: 260px; min-height: 36px; padding: 0 56px 0 34px; border: 0; background: #F3F3F5; border-radius: 0 9px 0 9px; font: inherit"><span class="kbd" style="position: absolute; right: 8px; top: 9px">⌘K</span></div>
+        <a class="btn t" href="Main.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>查看網站</a>
+        <button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>上傳</button>
+      </div>
+    </header>
+
+    <main style="flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; padding: 16px 24px 32px; align-items: start">
+      <section style="display: flex; flex-direction: column; gap: 12px; min-width: 0">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+          <div style="display: flex; align-items: center; gap: 16px"><h1 class="d" style="font-size: 26px">附件</h1><nav class="seg" aria-label="類型"><a href="Media.dc.html" class="on">全部 84</a><a href="Media.dc.html">圖片 71</a><a href="Media.dc.html">文件 9</a><a href="Media.dc.html">其他 4</a></nav></div>
+          <div style="display: flex; align-items: center; gap: 6px"><span style="color: #5F6470; font-size: 13px">已用 184 MB</span><button class="btn t i" type="button" aria-label="格狀"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg></button><button class="btn x i" type="button" aria-label="列表"><svg class="ic" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h1M4 12h1M4 18h1"/></svg></button></div>
+        </div>
+        <!-- 拖放上傳區：平常只是一條細線，拖進來才展開 -->
+        <div style="padding: 10px 14px; border: 1.5px dashed #D9DBE0; border-radius: 0 10px 0 10px; color: #5F6470; font-size: 13px; display: flex; align-items: center; gap: 8px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>把檔案拖到這裡，或貼上剪貼簿的圖片。單檔上限 20 MB。</div>
+        <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px">
+          <div class="tile sel"><div class="thumb" style="background: #15161A; color: #fff">hero.jpg</div><div class="name">hero.jpg</div><input type="checkbox" checked aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+          <div class="tile"><div class="thumb" style="background: #DDE7FF; color: #1C47B8">arch.png</div><div class="name">arch.png</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+          <div class="tile"><div class="thumb" style="background: #DCF3E9; color: #0F6A45">team.webp</div><div class="name">team-2026.webp</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+          <div class="tile"><div class="thumb">PDF</div><div class="name">brochure.pdf</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+          <div class="tile"><div class="thumb">SVG</div><div class="name">logo.svg</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+          <div class="tile"><div class="thumb" style="background: #FCF0C8; color: #7A5200">cover.jpg</div><div class="name">cover-oct.jpg</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+          <div class="tile"><div class="thumb" style="background: #FADEDA; color: #9C2318">shot-1.png</div><div class="name">shot-1.png</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+          <div class="tile"><div class="thumb" style="background: #DDE7FF; color: #1C47B8">shot-2.png</div><div class="name">shot-2.png</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+          <div class="tile"><div class="thumb">ZIP</div><div class="name">plugin-seo.zip</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+          <div class="tile"><div class="thumb" style="background: #DCF3E9; color: #0F6A45">icon.png</div><div class="name">icon-512.png</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+          <div class="tile"><div class="thumb" style="background: #15161A; color: #fff">dark.jpg</div><div class="name">dark-hero.jpg</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+          <div class="tile"><div class="thumb">MP4</div><div class="name">demo.mp4</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px; color: #5F6470; font-size: 13px"><span>1–24，共 84</span><a class="btn t s i" href="Media.dc.html" aria-label="上一頁" style="margin-left: auto"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg></a><b style="color: #15161A">1 / 4</b><a class="btn t s i" href="Media.dc.html" aria-label="下一頁"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></div>
+      </section>
+
+      <!-- 右側：選取檔案的詳細資料，不用跳頁 -->
+      <aside style="position: sticky; top: 16px; background: #F5F5F7; border-radius: 0 14px 0 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+        <div style="aspect-ratio: 4 / 3; background: #15161A; border-radius: 0 10px 0 10px; display: grid; place-items: center; color: #fff; font-weight: 700">hero.jpg</div>
+        <div style="display: flex; flex-direction: column; gap: 2px"><b style="font-size: 15px">hero.jpg</b><span style="font-size: 12px; color: #5F6470">1920×1080 · 412 KB · 2026/10/22</span></div>
+        <div style="display: flex; flex-direction: column; gap: 4px"><label for="alt" class="lbl">替代文字</label><input id="alt" class="ul" type="text" value="首頁主視覺"></div>
+        <div style="display: flex; flex-direction: column; gap: 4px"><label for="url" class="lbl">網址</label><div style="display: flex; gap: 4px"><input id="url" class="ul" type="text" value="/uploads/hero.jpg" readonly style="flex: 1; font-family: ui-monospace, Menlo, monospace; font-size: 12px"><button class="btn t s i" type="button" aria-label="複製網址"><svg class="ic" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></svg></button></div></div>
+        <div style="font-size: 12px; color: #5F6470">用在：<a href="Editor.dc.html">為什麼我們決定用 Go 重寫一個 CMS</a></div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap"><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16zM13 6l3 3"/></svg>重新命名</button><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>取代</button><button class="btn s" type="button" style="background: #E8285B; margin-left: auto"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>刪除</button></div>
+      </aside>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

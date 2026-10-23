@@ -1,4 +1,5 @@
 {{define "components"}}{{end}}
+{{/* 元件樣式統一放在 layout.html，這裡只有結構。 */}}
 
 {{/* Stat Card Component */}}
 {{define "stat-card"}}
@@ -8,7 +9,7 @@
             <div class="stat-card-title">{{.title}}</div>
             <div class="stat-card-value" id="{{.id}}">{{.value}}</div>
         </div>
-        <div class="stat-card-icon">{{.icon}}</div>
+        {{if .icon}}<div class="stat-card-icon">{{.icon}}</div>{{end}}
     </div>
     <div class="stat-card-trend">{{.description}}</div>
 </div>
@@ -17,7 +18,7 @@
 {{/* Empty State Component */}}
 {{define "empty-state"}}
 <div class="empty-state">
-    <div class="empty-icon">{{.icon}}</div>
+    <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
     <div class="empty-title">{{.title}}</div>
     <div class="empty-description">{{.description}}</div>
     {{if .action}}
@@ -48,7 +49,7 @@
 
 {{/* Button Component */}}
 {{define "button"}}
-<button 
+<button
     class="btn {{if .secondary}}btn-secondary{{end}} {{if .danger}}btn-danger{{end}} {{if .success}}btn-success{{end}} {{if .small}}btn-sm{{end}} {{.class}}"
     {{if .onclick}}onclick="{{.onclick}}"{{end}}
     {{if .type}}type="{{.type}}"{{end}}
@@ -60,8 +61,8 @@
 
 {{/* Link Button Component */}}
 {{define "link-button"}}
-<a 
-    href="{{.href}}" 
+<a
+    href="{{.href}}"
     class="btn {{if .secondary}}btn-secondary{{end}} {{if .danger}}btn-danger{{end}} {{if .success}}btn-success{{end}} {{if .small}}btn-sm{{end}} {{.class}}"
     {{if .target}}target="{{.target}}"{{end}}
 >
@@ -86,11 +87,11 @@
 <div class="form-group">
     <label {{if .for}}for="{{.for}}"{{end}}>
         {{.label}}
-        {{if .required}}<span style="color: #ef4444;">*</span>{{end}}
+        {{if .required}}<span class="required">*</span>{{end}}
     </label>
     {{.input}}
     {{if .hint}}
-    <small style="color: var(--text-muted); display: block; margin-top: 0.5rem;">{{.hint}}</small>
+    <small class="hint">{{.hint}}</small>
     {{end}}
 </div>
 {{end}}
@@ -116,7 +117,7 @@
         </thead>
         <tbody id="{{.id}}">
             {{if .loading}}
-            <tr><td colspan="{{len .headers}}" style="text-align: center; padding: 2rem; color: var(--text-muted);">{{.loadingText}}</td></tr>
+            <tr><td colspan="{{len .headers}}" class="table-empty">{{.loadingText}}</td></tr>
             {{end}}
         </tbody>
     </table>
@@ -161,7 +162,7 @@
 {{/* Loading Spinner Component */}}
 {{define "loading"}}
 <div class="loading-spinner {{.class}}" {{if .id}}id="{{.id}}"{{end}}>
-    <div class="spinner"></div>
+    <div class="spinner"><i></i></div>
     {{if .text}}
     <p>{{.text}}</p>
     {{end}}
@@ -191,7 +192,7 @@ function switchTab(containerId, tabIndex) {
     const container = document.getElementById(containerId);
     const buttons = container.previousElementSibling.querySelectorAll('.tab-button');
     const panes = container.querySelectorAll('.tab-pane');
-    
+
     buttons.forEach((btn, i) => {
         if (i === tabIndex) {
             btn.classList.add('active');
@@ -199,7 +200,7 @@ function switchTab(containerId, tabIndex) {
             btn.classList.remove('active');
         }
     });
-    
+
     panes.forEach((pane, i) => {
         if (i === tabIndex) {
             pane.classList.add('active');
@@ -214,7 +215,7 @@ function switchTab(containerId, tabIndex) {
 {{/* Dropdown Menu Component */}}
 {{define "dropdown"}}
 <div class="dropdown {{.class}}">
-    <button class="dropdown-trigger" onclick="toggleDropdown('{{.id}}')">
+    <button class="btn btn-secondary dropdown-trigger" onclick="toggleDropdown('{{.id}}')">
         {{.trigger}}
     </button>
     <div class="dropdown-menu" id="{{.id}}">
@@ -254,9 +255,9 @@ document.addEventListener('click', function(e) {
     {{if gt .currentPage 1}}
     <a href="?page={{sub .currentPage 1}}" class="page-link">← {{.prevText}}</a>
     {{end}}
-    
+
     <span class="page-info">{{.pageText}} {{.currentPage}} / {{.totalPages}}</span>
-    
+
     {{if lt .currentPage .totalPages}}
     <a href="?page={{add .currentPage 1}}" class="page-link">{{.nextText}} →</a>
     {{end}}
@@ -266,9 +267,9 @@ document.addEventListener('click', function(e) {
 {{/* Search Box Component */}}
 {{define "search-box"}}
 <div class="search-box {{.class}}">
-    <input 
-        type="text" 
-        class="search-input" 
+    <input
+        type="text"
+        class="search-input"
         id="{{.id}}"
         placeholder="{{.placeholder}}"
         {{if .onchange}}onchange="{{.onchange}}"{{end}}
@@ -280,8 +281,8 @@ document.addEventListener('click', function(e) {
 {{/* Toggle Switch Component */}}
 {{define "toggle"}}
 <label class="toggle-switch">
-    <input 
-        type="checkbox" 
+    <input
+        type="checkbox"
         id="{{.id}}"
         {{if .checked}}checked{{end}}
         {{if .onchange}}onchange="{{.onchange}}"{{end}}
@@ -318,285 +319,181 @@ document.addEventListener('click', function(e) {
 </nav>
 {{end}}
 
-{{/* Component Styles */}}
-<style>
-/* Alert Styles */
-.alert {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.75rem;
-    padding: 1rem;
-    border-radius: var(--radius-sm);
-    margin-bottom: 1rem;
-    border: 1px solid;
-}
+{{/* ------------------------------------------------------------
+   狀態元件（樣式在 layout.html）。actions 參數是 HTML：
+   要傳 (safeHTML "<a class='btn' …>…</a>")，傳純字串會被跳脫。
+   ------------------------------------------------------------ */}}
 
-.alert-success {
-    background: #d1fae5;
-    color: #065f46;
-    border-color: #6ee7b7;
-}
+{{/* 空白狀態。必填 title；選填 text、actions。 */}}
+{{define "state-empty"}}
+<section class="state state-empty">
+    <span class="state-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+    <div class="state-body">
+        <span class="stripes" aria-hidden="true"></span>
+        <h2>{{.title}}</h2>
+        {{if .text}}<p class="state-text">{{.text}}</p>{{end}}
+        {{if .actions}}<div class="state-actions">{{.actions}}</div>{{end}}
+    </div>
+</section>
+{{end}}
 
-.alert-warning {
-    background: #fef3c7;
-    color: #92400e;
-    border-color: #fcd34d;
-}
+{{/* 載入狀態：果凍丁 + 文字。選填 text、note、skeleton（true 時顯示佔位線）。 */}}
+{{define "state-loading"}}
+<section class="state state-loading" role="status" aria-live="polite">
+    <div class="state-loading-row">
+        <span class="spinner" aria-hidden="true"><i></i></span>
+        {{if .text}}<b>{{.text}}</b>{{end}}
+        {{if .note}}<span class="muted">{{.note}}</span>{{end}}
+    </div>
+    {{if .skeleton}}
+    <div class="skeleton" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    {{end}}
+</section>
+{{end}}
 
-.alert-danger, .alert-error {
-    background: #fee2e2;
-    color: #991b1b;
-    border-color: #fca5a5;
-}
+{{/* 整頁錯誤（墨色底）。必填 title；選填 code、id（請求代碼）、text、
+   backText（有值就顯示「回儀表板」連到 backHref，預設 /admin）、
+   retryText（重新整理鈕）、copyText + copyValue（複製錯誤代碼鈕）、actions。 */}}
+{{define "state-error"}}
+<section class="state state-error"{{if .code}} data-code="{{.code}}"{{end}}>
+    <span class="stripes" aria-hidden="true"></span>
+    {{if or .code .id}}<div class="label">{{if .code}}{{.code}}{{end}}{{if and .code .id}} · {{end}}{{if .id}}{{.id}}{{end}}</div>{{end}}
+    <h1>{{.title}}</h1>
+    {{if .text}}<p class="state-text">{{.text}}</p>{{end}}
+    {{if or .backText .retryText .copyText .actions}}
+    <div class="state-actions">
+        {{if .retryText}}<button class="btn btn-secondary" type="button" onclick="location.reload()"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>{{.retryText}}</button>{{end}}
+        {{if .backText}}<a class="btn btn-rail" href="{{if .backHref}}{{.backHref}}{{else}}/admin{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>{{.backText}}</a>{{end}}
+        {{if .copyText}}<button class="btn btn-text" type="button" data-copy="{{.copyValue}}"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>{{.copyText}}</button>{{end}}
+        {{if .actions}}{{.actions}}{{end}}
+    </div>
+    {{end}}
+</section>
+{{end}}
 
-.alert-info {
-    background: #dbeafe;
-    color: #1e40af;
-    border-color: #93c5fd;
-}
+{{/* 無權限（鎖頭）。必填 title；選填 text、backText / backHref、actions。 */}}
+{{define "state-forbidden"}}
+<section class="state state-forbidden">
+    <span class="state-lock" aria-hidden="true"><svg class="icon"><use href="#i-lock"/></svg></span>
+    <h1>{{.title}}</h1>
+    {{if .text}}<p class="state-text">{{.text}}</p>{{end}}
+    {{if or .backText .actions}}
+    <div class="state-actions">
+        {{if .backText}}<a class="btn btn-secondary btn-sm" href="{{if .backHref}}{{.backHref}}{{else}}/admin{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>{{.backText}}</a>{{end}}
+        {{if .actions}}{{.actions}}{{end}}
+    </div>
+    {{end}}
+</section>
+{{end}}
 
-.alert-icon {
-    font-size: 1.25rem;
-}
+{{/* 由伺服器端發出一則 toast（例如 flash 訊息）。必填 message；選填 kind
+   （success | error | info | warning，預設 info）、detail、actionLabel + actionHref。
+   前端互動請直接呼叫 window.Jelly.toast(message, {kind, detail, action:{label, onClick}})。 */}}
+{{define "toast"}}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (!window.Jelly || !Jelly.toast) return;
+    Jelly.toast({{.message}}, {
+        kind: {{if .kind}}{{.kind}}{{else}}'info'{{end}},
+        detail: {{if .detail}}{{.detail}}{{else}}''{{end}}{{if and .actionLabel .actionHref}},
+        action: { label: {{.actionLabel}}, href: {{.actionHref}} }{{end}}
+    });
+});
+</script>
+{{end}}
 
-.alert-content {
-    flex: 1;
-}
+{{/* Markdown Editor Component: toolbar + textarea + live preview. Params: id, name, placeholder */}}
+{{define "md-editor"}}
+<div class="md" data-md-editor="{{.id}}">
+    <div class="md-toolbar" role="toolbar" aria-label="Markdown">
+        <button type="button" class="md-tool" data-md="bold" title="粗體 (Ctrl+B)" aria-label="粗體"><svg class="icon" aria-hidden="true"><use href="#i-bold"/></svg></button>
+        <button type="button" class="md-tool" data-md="italic" title="斜體 (Ctrl+I)" aria-label="斜體"><svg class="icon" aria-hidden="true"><use href="#i-italic"/></svg></button>
+        <button type="button" class="md-tool" data-md="heading" title="標題" aria-label="標題"><svg class="icon" aria-hidden="true"><use href="#i-heading"/></svg></button>
+        <button type="button" class="md-tool" data-md="quote" title="引用" aria-label="引用"><svg class="icon" aria-hidden="true"><use href="#i-quote"/></svg></button>
+        <button type="button" class="md-tool" data-md="code" title="程式碼" aria-label="程式碼"><svg class="icon" aria-hidden="true"><use href="#i-code"/></svg></button>
+        <button type="button" class="md-tool" data-md="list" title="清單" aria-label="清單"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg></button>
+        <button type="button" class="md-tool" data-md="link" title="連結 (Ctrl+K)" aria-label="連結"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg></button>
+        <button type="button" class="md-tool" data-md="image" title="圖片" aria-label="圖片"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg></button>
+        <span class="md-spacer"></span>
+        <button type="button" class="md-tool md-preview-toggle" data-md="preview" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg>預覽</button>
+    </div>
+    <div class="md-panes">
+        <textarea id="{{.id}}" name="{{.name}}" class="doc-body md-source" placeholder="{{.placeholder}}" spellcheck="false"></textarea>
+        <div class="md-preview prose" id="{{.id}}Preview" aria-live="polite" hidden></div>
+    </div>
+</div>
+<script src="/admin/assets/marked.min.js"></script>
+<script>
+(function () {
+    const root = document.querySelector('[data-md-editor="{{.id}}"]');
+    const ta = root.querySelector('.md-source');
+    const preview = root.querySelector('.md-preview');
+    const toggle = root.querySelector('.md-preview-toggle');
+    const storageKey = 'jellyMdPreview';
 
-.alert-title {
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-}
+    function wrap(before, after, placeholder) {
+        const start = ta.selectionStart, end = ta.selectionEnd;
+        const selected = ta.value.slice(start, end) || placeholder;
+        ta.setRangeText(before + selected + after, start, end, 'select');
+        ta.setSelectionRange(start + before.length, start + before.length + selected.length);
+        ta.focus();
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    function prefixLines(prefix) {
+        const start = ta.selectionStart, end = ta.selectionEnd;
+        const lineStart = ta.value.lastIndexOf('\n', start - 1) + 1;
+        const block = ta.value.slice(lineStart, end);
+        const replaced = block.split('\n').map(l => l.startsWith(prefix) ? l.slice(prefix.length) : prefix + l).join('\n');
+        ta.setRangeText(replaced, lineStart, end, 'end');
+        ta.focus();
+        ta.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    const actions = {
+        bold: () => wrap('**', '**', '粗體'),
+        italic: () => wrap('*', '*', '斜體'),
+        heading: () => prefixLines('## '),
+        quote: () => prefixLines('> '),
+        list: () => prefixLines('- '),
+        code: () => {
+            const sel = ta.value.slice(ta.selectionStart, ta.selectionEnd);
+            sel.includes('\n') ? wrap('```\n', '\n```', '') : wrap('`', '`', 'code');
+        },
+        link: () => wrap('[', '](https://)', '連結文字'),
+        image: () => wrap('![', '](/uploads/)', '圖片說明'),
+        preview: () => setPreview(preview.hidden)
+    };
+    root.querySelectorAll('.md-tool').forEach(btn => btn.addEventListener('click', () => actions[btn.dataset.md]()));
+    ta.addEventListener('keydown', e => {
+        if (!(e.ctrlKey || e.metaKey)) return;
+        const key = e.key.toLowerCase();
+        if (key === 'b') { e.preventDefault(); actions.bold(); }
+        else if (key === 'i') { e.preventDefault(); actions.italic(); }
+        else if (key === 'k') { e.preventDefault(); actions.link(); }
+    });
 
-.alert-close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: inherit;
-    opacity: 0.6;
-    padding: 0;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+    function render() {
+        if (preview.hidden) return;
+        preview.innerHTML = window.marked ? marked.parse(ta.value || '') : '';
+    }
+    function setPreview(on) {
+        preview.hidden = !on;
+        root.classList.toggle('md-split', on);
+        toggle.setAttribute('aria-pressed', String(on));
+        try { localStorage.setItem(storageKey, on ? '1' : '0'); } catch (_) {}
+        render();
+    }
+    ta.addEventListener('input', render);
+    let saved = '1';
+    try { saved = localStorage.getItem(storageKey) ?? '1'; } catch (_) {}
+    setPreview(saved === '1' && window.matchMedia('(min-width: 1100px)').matches);
 
-.alert-close:hover {
-    opacity: 1;
-}
-
-/* Loading Spinner */
-.loading-spinner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-}
-
-.spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid var(--border-color);
-    border-top-color: var(--primary);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-/* Tabs */
-.tabs-container {
-    margin-bottom: 1.5rem;
-}
-
-.tabs-header {
-    display: flex;
-    gap: 0.5rem;
-    border-bottom: 2px solid var(--border-color);
-    margin-bottom: 1.5rem;
-}
-
-.tab-button {
-    padding: 0.75rem 1.25rem;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-    cursor: pointer;
-    font-weight: 500;
-    color: var(--text-muted);
-    transition: all 0.2s;
-}
-
-.tab-button:hover {
-    color: var(--text-main);
-}
-
-.tab-button.active {
-    color: var(--primary);
-    border-bottom-color: var(--primary);
-}
-
-.tab-pane {
-    display: none;
-}
-
-.tab-pane.active {
-    display: block;
-}
-
-/* Dropdown */
-.dropdown {
-    position: relative;
-    display: inline-block;
-}
-
-.dropdown-trigger {
-    cursor: pointer;
-}
-
-.dropdown-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    margin-top: 0.5rem;
-    background: white;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-lg);
-    min-width: 180px;
-    display: none;
-    z-index: 1000;
-}
-
-.dropdown-menu.active {
-    display: block;
-}
-
-.dropdown-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1rem;
-    color: var(--text-main);
-    text-decoration: none;
-    transition: background 0.2s;
-}
-
-.dropdown-item:hover {
-    background: var(--light);
-}
-
-/* Grid */
-.grid {
-    display: grid;
-    grid-template-columns: repeat(var(--columns, auto-fit), minmax(200px, 1fr));
-    gap: var(--gap, 1.5rem);
-}
-
-/* Toggle Switch */
-.toggle-switch {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.75rem;
-    cursor: pointer;
-}
-
-.toggle-switch input {
-    display: none;
-}
-
-.slider {
-    width: 44px;
-    height: 24px;
-    background: #ccc;
-    border-radius: 24px;
-    position: relative;
-    transition: background 0.3s;
-}
-
-.slider::before {
-    content: '';
-    position: absolute;
-    width: 20px;
-    height: 20px;
-    background: white;
-    border-radius: 50%;
-    top: 2px;
-    left: 2px;
-    transition: transform 0.3s;
-}
-
-.toggle-switch input:checked + .slider {
-    background: var(--primary);
-}
-
-.toggle-switch input:checked + .slider::before {
-    transform: translateX(20px);
-}
-
-/* Avatar */
-.avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    color: white;
-    background: var(--primary);
-}
-
-.avatar img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-}
-
-.avatar-sm {
-    width: 32px;
-    height: 32px;
-    font-size: 0.875rem;
-}
-
-.avatar-lg {
-    width: 56px;
-    height: 56px;
-    font-size: 1.25rem;
-}
-
-/* Breadcrumb */
-.breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-    font-size: 0.9375rem;
-}
-
-.breadcrumb-item {
-    color: var(--text-muted);
-    text-decoration: none;
-}
-
-.breadcrumb-item:hover {
-    color: var(--primary);
-}
-
-.breadcrumb-item.active {
-    color: var(--text-main);
-    font-weight: 500;
-}
-
-.breadcrumb-separator {
-    color: var(--text-muted);
-}
-</style>
-
+    // 讓外層表單拿到 HTML 與 Markdown 原稿
+    window.JellyMD = window.JellyMD || {};
+    window.JellyMD['{{.id}}'] = {
+        toHTML: () => window.marked ? marked.parse(ta.value || '') : ta.value,
+        setValue: (v) => { ta.value = v || ''; render(); },
+        getValue: () => ta.value
+    };
+})();
+</script>
+{{end}}

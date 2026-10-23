@@ -1,129 +1,45 @@
 {{define "title"}}{{.T.dashboard}}{{end}}
-{{define "styles"}}
-<style>
-    .stat-card-1 .stat-card-icon { background: linear-gradient(135deg, #667eea, #764ba2); }
-    .stat-card-2 .stat-card-icon { background: linear-gradient(135deg, #f093fb, #f5576c); }
-    .stat-card-3 .stat-card-icon { background: linear-gradient(135deg, #4facfe, #00f2fe); }
-    .stat-card-4 .stat-card-icon { background: linear-gradient(135deg, var(--primary), var(--secondary)); }
-    
-    .quick-actions {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-    
-    .quick-action-card {
-        background: white;
-        border-radius: var(--radius);
-        padding: 1.5rem;
-        border: 1px solid var(--border-color);
-        box-shadow: var(--shadow);
-        text-align: center;
-        transition: all 0.2s ease;
-        text-decoration: none;
-        color: var(--text-main);
-    }
-    
-    .quick-action-card:hover {
-        transform: translateY(-4px);
-        box-shadow: var(--shadow-lg);
-        border-color: var(--secondary);
-    }
-    
-    .quick-action-icon {
-        font-size: 2rem;
-        margin-bottom: 0.75rem;
-    }
-    
-    .quick-action-title {
-        font-weight: 600;
-        font-size: 0.9375rem;
-    }
-</style>
-{{end}}
 {{define "content"}}
 <div class="page-header">
     <div class="page-title-wrapper">
         <h1>{{.T.dashboard}}</h1>
         <p class="page-description">{{.T.welcomeBack}}</p>
     </div>
-</div>
-
-<div class="stats-grid">
-    <div class="stat-card stat-card-1">
-        <div class="stat-card-header">
-            <div>
-                <div class="stat-card-title">{{.T.totalPosts}}</div>
-                <div class="stat-card-value" id="postsCount">-</div>
-            </div>
-            <div class="stat-card-icon">📝</div>
-        </div>
-        <div class="stat-card-trend">{{.T.totalPostsDesc}}</div>
-    </div>
-    
-    <div class="stat-card stat-card-2">
-        <div class="stat-card-header">
-            <div>
-                <div class="stat-card-title">{{.T.totalProducts}}</div>
-                <div class="stat-card-value" id="productsCount">-</div>
-            </div>
-            <div class="stat-card-icon">🛍️</div>
-        </div>
-        <div class="stat-card-trend">{{.T.totalProductsDesc}}</div>
-    </div>
-    
-    <div class="stat-card stat-card-3">
-        <div class="stat-card-header">
-            <div>
-                <div class="stat-card-title">{{.T.totalOrders}}</div>
-                <div class="stat-card-value" id="ordersCount">-</div>
-            </div>
-            <div class="stat-card-icon">🛒</div>
-        </div>
-        <div class="stat-card-trend">{{.T.totalOrdersDesc}}</div>
-    </div>
-    
-    <div class="stat-card stat-card-4">
-        <div class="stat-card-header">
-            <div>
-                <div class="stat-card-title">{{.T.activeTheme}}</div>
-                <div class="stat-card-value" id="activeTheme" style="font-size: 1.25rem;">-</div>
-            </div>
-            <div class="stat-card-icon">🎨</div>
-        </div>
-        <div class="stat-card-trend">{{.T.activeThemeDesc}}</div>
+    <div class="page-actions">
+        <a href="/admin/posts/new" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>{{.T.createPost}}</a>
+        <a href="/admin/pages/new" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#i-layout"/></svg>{{.T.createPage}}</a>
+        <a href="/admin/products/new" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#i-box"/></svg>{{.T.createProduct}}</a>
+        <a href="/admin/media" class="btn btn-text"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>{{.T.mediaLibrary}}</a>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header">
-        <h2 class="card-title">{{.T.quickActions}}</h2>
-    </div>
-    <div class="quick-actions">
-        <a href="/admin/posts/new" class="quick-action-card">
-            <div class="quick-action-icon">📝</div>
-            <div class="quick-action-title">{{.T.createPost}}</div>
-        </a>
-        <a href="/admin/pages/new" class="quick-action-card">
-            <div class="quick-action-icon">📄</div>
-            <div class="quick-action-title">{{.T.createPage}}</div>
-        </a>
-        <a href="/admin/products/new" class="quick-action-card">
-            <div class="quick-action-icon">🛍️</div>
-            <div class="quick-action-title">{{.T.createProduct}}</div>
-        </a>
-        <a href="/admin/media" class="quick-action-card">
-            <div class="quick-action-icon">🖼️</div>
-            <div class="quick-action-title">{{.T.mediaLibrary}}</div>
-        </a>
-    </div>
+<div class="tiles">
+    <a class="tile" href="/admin/posts">
+        <div class="tile-label">{{.T.totalPosts}}</div>
+        <div class="tile-value" id="postsCount">–</div>
+        <div class="tile-note">{{.T.totalPostsDesc}}</div>
+    </a>
+    <a class="tile" href="/admin/products">
+        <div class="tile-label">{{.T.totalProducts}}</div>
+        <div class="tile-value" id="productsCount">–</div>
+        <div class="tile-note">{{.T.totalProductsDesc}}</div>
+    </a>
+    <a class="tile" href="/admin/orders">
+        <div class="tile-label">{{.T.totalOrders}}</div>
+        <div class="tile-value" id="ordersCount">–</div>
+        <div class="tile-note">{{.T.totalOrdersDesc}}</div>
+    </a>
+    <a class="tile" href="/admin/themes">
+        <div class="tile-label">{{.T.activeTheme}}</div>
+        <div class="tile-value" id="activeTheme" style="font-size: 1.5rem; padding: .35rem 0;">–</div>
+        <div class="tile-note">{{.T.activeThemeDesc}}</div>
+    </a>
 </div>
 
-<div class="card">
-    <div class="card-header">
-        <h2 class="card-title">{{.T.recentPosts}}</h2>
-        <a href="/admin/posts" class="btn btn-secondary btn-sm">{{.T.viewAll}}</a>
+<section class="section">
+    <div class="section-head">
+        <h2>{{.T.recentPosts}}</h2>
+        <a href="/admin/posts" class="btn btn-text btn-sm">{{.T.viewAll}}<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
     </div>
     <div class="table-wrapper">
         <table>
@@ -132,15 +48,15 @@
                     <th>{{.T.title}}</th>
                     <th>{{.T.status}}</th>
                     <th>{{.T.date}}</th>
-                    <th style="text-align: right;">{{.T.actions}}</th>
+                    <th class="actions">{{.T.actions}}</th>
                 </tr>
             </thead>
             <tbody id="recentPosts">
-                <tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">{{.T.loading}}</td></tr>
+                <tr><td colspan="4" class="table-empty">{{.T.loading}}</td></tr>
             </tbody>
         </table>
     </div>
-</div>
+</section>
 {{end}}
 {{define "scripts"}}
 <script>
@@ -152,32 +68,38 @@
         edit: "{{.T.edit}}"
     };
 
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+    }
+
     async function loadStats() {
         // Load posts count
         try {
             const postsRes = await fetch('/api/admin/posts');
             const posts = await postsRes.json();
             document.getElementById('postsCount').textContent = posts.length;
-            
+
             // Load recent posts
             const tbody = document.getElementById('recentPosts');
             tbody.innerHTML = '';
-            
+
             const recentPosts = posts.slice(0, 5);
             if (recentPosts.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">' + T.noPosts + '</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" class="table-empty">' + T.noPosts + '</td></tr>';
             } else {
                 recentPosts.forEach(post => {
                     const tr = document.createElement('tr');
                     const statusClass = post.status === 'published' ? 'success' : post.status === 'draft' ? 'warning' : 'info';
                     const statusText = post.status === 'published' ? T.published : post.status === 'draft' ? T.draft : T.pending;
-                    
+
                     tr.innerHTML = `
-                        <td style="font-weight: 500;">${post.title}</td>
+                        <td class="cell-title">${escapeHtml(post.title)}</td>
                         <td><span class="badge badge-${statusClass}">${statusText}</span></td>
-                        <td style="color: var(--text-muted);">${new Date(post.created_at).toLocaleDateString()}</td>
-                        <td style="text-align: right;">
-                            <a href="/admin/posts/${post.id}" class="btn btn-secondary btn-sm">${T.edit}</a>
+                        <td class="cell-muted">${new Date(post.created_at).toLocaleDateString()}</td>
+                        <td class="actions">
+                            <a href="/admin/posts/${post.id}" class="btn btn-secondary btn-sm btn-icon" title="${T.edit}" aria-label="${T.edit}"><svg class="icon" aria-hidden="true"><use href="#i-pencil"/></svg></a>
                         </td>
                     `;
                     tbody.appendChild(tr);
@@ -213,7 +135,7 @@
             const settingsRes = await fetch('/api/admin/settings');
             const settings = await settingsRes.json();
             const activeThemeSetting = settings.find(s => s.key === 'active_theme');
-            
+
             if (activeThemeSetting && activeThemeSetting.value) {
                 // Get theme config to display the theme name from theme.json
                 try {

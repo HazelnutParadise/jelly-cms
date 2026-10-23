@@ -22,6 +22,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	e.Use(installStateMiddleware)
 	e.Use(I18nMiddleware)
 	e.Static("/uploads", "data/uploads")
+	e.Static("/admin/assets", "web/admin/assets")
 
 	// Install Routes
 	registerInstallRoutes(e, tm, pluginRuntime)
@@ -36,77 +37,16 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	RegisterAdminRoutes(e, tm)
 	RegisterEcommerceRoutes(e)
 
-	// Helper to render admin templates
+	// Helper to render admin templates through the shared layout.
 	renderAdmin := func(c echo.Context, file string, active string) error {
-		// Get localizer from context
-		localizer, _ := c.Get("localizer").(*i18n.Localizer)
-		lang := c.Get("lang").(string)
-
-		// Load translations for this language
-		translations := make(map[string]string)
-		translationKeys := []string{
-			"dashboard", "posts", "pages", "products", "orders", "media", "themes", "plugins", "settings",
-			"logout", "logoutError", "search", "searchPlaceholder", "viewSite", "welcomeBack",
-			"totalPosts", "totalProducts", "totalOrders", "activeTheme",
-			"totalPostsDesc", "totalProductsDesc", "totalOrdersDesc", "activeThemeDesc",
-			"quickActions", "createPost", "createPage", "createProduct", "mediaLibrary",
-			"recentPosts", "viewAll", "title", "status", "date", "actions", "edit", "delete",
-			"loading", "noPosts", "published", "draft", "pending",
-			"noPlugins", "noPluginsDesc", "uploadPlugin", "uploadPluginTitle",
-			"pluginZipFile", "pluginZipDesc", "upload", "cancel", "uploading",
-			"uploadSuccess", "uploadError", "reload", "reloadConfirm",
-			"pluginReloaded", "reloadFailed",
-			"content", "shop", "appearance", "system", "administrator",
-			"customize", "activate", "customizeTheme", "colors", "layout", "customFields",
-			"saveSettings", "resetToDefaults", "resetConfirm",
-			"themeSettingsSaved", "themeSettingsReset", "failedToSave", "failedToReset",
-			"themeActivated", "failedToActivate", "noThemesInstalled", "activeThemeBadge", "view", "accountTitle",
-		}
-
-		for _, key := range translationKeys {
-			if localizer != nil {
-				result, err := localizer.Localize(&i18n.LocalizeConfig{
-					MessageID: key,
-				})
-				if err == nil {
-					translations[key] = result
-				} else {
-					translations[key] = key
-				}
-			} else {
-				translations[key] = key
-			}
-		}
-
-		tmpl, err := template.New("base").Funcs(template.FuncMap{
-			"add": func(a, b int) int { return a + b },
-			"sub": func(a, b int) int { return a - b },
-			"dict": func(values ...interface{}) map[string]interface{} {
-				dict := make(map[string]interface{})
-				for i := 0; i < len(values); i += 2 {
-					if i+1 < len(values) {
-						key := values[i].(string)
-						dict[key] = values[i+1]
-					}
-				}
-				return dict
-			},
-			"list": func(items ...interface{}) []interface{} {
-				return items
-			},
-		}).ParseFiles("web/admin/components.html", "web/admin/layout.html", "web/admin/"+file)
-		if err != nil {
-			return err
-		}
-
-		data := map[string]interface{}{
-			"Active": active,
-			"Lang":   lang,
-			"T":      translations,
-		}
-
-		return tmpl.ExecuteTemplate(c.Response().Writer, "base", data)
+		return renderAdminPage(c, AdminPage{File: file, Active: active})
 	}
+
+	// Error pages (JSON for APIs, admin screen under /admin, theme elsewhere).
+	e.HTTPErrorHandler = newHTTPErrorHandler(tm)
+
+	// ⌘K palette
+	registerPaletteRoutes(e)
 
 	// Admin page routes with authentication
 	adminPages := e.Group("/admin", auth.RequireAuth)

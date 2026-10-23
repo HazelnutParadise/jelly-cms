@@ -1,22 +1,26 @@
-{{define "title"}}Pages{{end}}
+{{define "title"}}{{.T.pages}}{{end}}
 {{define "content"}}
-<div class="header">
-    <h1>Pages</h1>
-    <a href="/admin/pages/new" class="btn">New Page</a>
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.pages}}</h1>
+    </div>
+    <div class="page-actions">
+        <a href="/admin/pages/new" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>New Page</a>
+    </div>
 </div>
-<div class="card">
+<div class="table-wrapper">
     <table>
         <thead>
             <tr>
-                <th>Title</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Actions</th>
+                <th>{{.T.title}}</th>
+                <th>{{.T.status}}</th>
+                <th>{{.T.date}}</th>
+                <th class="actions">{{.T.actions}}</th>
             </tr>
         </thead>
         <tbody id="pagesList">
             <tr>
-                <td colspan="4">Loading...</td>
+                <td colspan="4" class="table-empty">{{.T.loading}}</td>
             </tr>
         </tbody>
     </table>
@@ -24,21 +28,36 @@
 {{end}}
 {{define "scripts"}}
 <script>
+    const T = { published: "{{.T.published}}", draft: "{{.T.draft}}", pending: "{{.T.pending}}", edit: "{{.T.edit}}", view: "{{.T.view}}" };
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+    }
+
     async function loadPages() {
         const res = await fetch('/api/admin/posts?type=page');
         const pages = await res.json();
         const tbody = document.getElementById('pagesList');
         tbody.innerHTML = '';
 
+        if (!pages.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="table-empty">—</td></tr>';
+            return;
+        }
+
         pages.forEach(p => {
             const tr = document.createElement('tr');
+            const statusClass = p.status === 'published' ? 'success' : p.status === 'draft' ? 'warning' : 'info';
+            const statusText = p.status === 'published' ? T.published : p.status === 'draft' ? T.draft : T.pending;
             tr.innerHTML = `
-                    <td>${p.title}</td>
-                    <td>${p.status}</td>
-                    <td>${new Date(p.created_at).toLocaleDateString()}</td>
-                    <td>
-                        <a href="/admin/pages/${p.id}" class="btn btn-sm">Edit</a>
-                        <a href="/${p.slug}" target="_blank" class="btn btn-sm" style="background:#28a745;">View</a>
+                    <td class="cell-title"><a href="/admin/pages/${p.id}">${escapeHtml(p.title)}</a></td>
+                    <td><span class="badge badge-${statusClass}">${statusText}</span></td>
+                    <td class="cell-muted">${new Date(p.created_at).toLocaleDateString()}</td>
+                    <td class="actions">
+                        <a href="/admin/pages/${p.id}" class="btn btn-secondary btn-sm btn-icon" title="${T.edit}" aria-label="${T.edit}"><svg class="icon" aria-hidden="true"><use href="#i-pencil"/></svg></a>
+                        <a href="/${encodeURIComponent(p.slug)}" target="_blank" class="btn btn-text btn-sm btn-icon" title="${T.view}" aria-label="${T.view}"><svg class="icon" aria-hidden="true"><use href="#i-external"/></svg></a>
                     </td>
                 `;
             tbody.appendChild(tr);
