@@ -1,75 +1,147 @@
 {{define "content"}}
 <style>
-    .article-meta a.by:hover, .article-meta a.by:focus-visible { color: var(--ink); }
-    .article-meta a.by { text-decoration: underline; text-decoration-color: var(--outline); text-underline-offset: .2em; }
-    .article-cats { display: flex; flex-wrap: wrap; gap: .4rem; }
-    .article-tags { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: clamp(2rem, 4vw, 3rem); max-width: var(--measure); }
-    .article-cats a.chip:hover, .article-tags a.chip:hover { background: var(--ink); color: var(--surface); }
+    .post-hero { width: 100vw; margin: 0 calc(50% - 50vw) clamp(2.5rem, 6vw, 4rem); padding: clamp(2.5rem, 6vw, 4.5rem) var(--gutter); background: var(--dark); color: var(--on-dark); position: relative; overflow: hidden; }
+    .post-hero::after { content: ""; position: absolute; right: 8%; top: -15%; width: clamp(8rem, 22vw, 18rem); aspect-ratio: 1; border-radius: 0 24% 0 24%; background: var(--secondary); opacity: .24; pointer-events: none; }
+    .post-hero-inner { position: relative; z-index: 1; max-width: 58rem; margin: 0 auto; display: grid; gap: 1.1rem; }
+    .post-hero .article-head { margin: 0; max-width: none; }
+    .post-hero h1 { font-size: clamp(2.25rem, 6vw, 4rem); overflow-wrap: anywhere; }
+    .post-hero .article-meta { color: color-mix(in srgb, var(--on-dark) 72%, transparent); }
+    .post-hero .article-meta .by { color: inherit; }
+    .post-hero .chip { background: color-mix(in srgb, var(--on-dark) 14%, transparent); color: inherit; }
+    .post-hero .article-cats, .post-article-tags { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+    .post-hero .article-cats a:hover { background: var(--surface); color: var(--ink); }
+    .post-lede { max-width: 42rem; color: color-mix(in srgb, var(--on-dark) 76%, transparent); font-size: clamp(1.0625rem, 2vw, 1.25rem); line-height: 1.6; }
+    .post-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(13rem, 17rem); gap: clamp(2rem, 5vw, 4rem); align-items: start; }
+    .post-body .prose { min-width: 0; max-width: 46rem; }
+    .post-aside { position: sticky; top: 6rem; display: grid; gap: 1.5rem; }
+    .toc-details summary { cursor: pointer; font-weight: 700; list-style: none; }
+    .toc-details summary::-webkit-details-marker { display: none; }
+    .toc-details summary::after { content: "+"; float: right; color: var(--muted); }
+    .toc-details[open] summary::after { content: "−"; }
+    .toc { display: grid; margin-top: .5rem; }
+    .toc a { padding: .45rem 0; border-top: 1px solid var(--outline); color: var(--ink); font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
+    .toc a:hover { color: var(--primary); }
+    .post-author { display: grid; gap: .7rem; padding: 1.25rem; border-radius: var(--r-md); background: var(--surface-low); }
+    .post-author-profile { display: flex; align-items: center; gap: .75rem; }
+    .post-author-avatar { width: 2.75rem; height: 2.75rem; display: grid; place-items: center; overflow: hidden; flex: 0 0 auto; border-radius: var(--r-sm); background: var(--primary); color: #fff; font-weight: 800; }
+    .post-author-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .post-author-bio { color: var(--muted); font-size: .875rem; }
+    .post-share { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .post-share .label { flex-basis: 100%; }
+    .post-tags { max-width: 46rem; margin-top: 2rem; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+    .post-tags .label { margin-right: .25rem; }
+    .post-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin-top: clamp(2.5rem, 5vw, 4rem); }
+    .post-nav a { min-width: 0; display: grid; gap: .5rem; padding: 1.25rem; border-radius: var(--r-md); background: var(--surface-low); color: var(--ink); }
+    .post-nav a:last-child { background: var(--dark); color: var(--on-dark); text-align: right; }
+    .post-nav .label { display: inline-flex; align-items: center; gap: .4rem; color: var(--muted); }
+    .post-nav a:last-child .label { justify-content: flex-end; color: color-mix(in srgb, var(--on-dark) 65%, transparent); }
+    .post-nav strong { font-family: var(--font-display); font-size: 1.25rem; overflow-wrap: anywhere; }
+    .article-foot { margin-top: 2rem; }
+    .comments-entry { display: inline-flex; align-items: center; gap: .4rem; }
+    .share-status { min-height: 1.4em; color: var(--muted); font-size: .875rem; }
+    @media (max-width: 900px) {
+        .post-body { grid-template-columns: minmax(0, 1fr); }
+        .post-aside { position: static; order: -1; }
+        .toc-details:not([open]) .toc { display: none; }
+    }
+    @media (max-width: 720px) {
+        .post-hero { margin-bottom: 2rem; padding-block: 2.25rem; }
+        .post-nav { grid-template-columns: 1fr; }
+        .post-nav a:last-child { text-align: left; }
+        .post-nav a:last-child .label { justify-content: flex-start; }
+    }
 </style>
 <div class="progress" id="reading-progress" aria-hidden="true"></div>
-<article>
-    <header class="article-head">
-        <div class="label">文章</div>
-        <h1>{{.Post.Title}}</h1>
+<header class="post-hero">
+    <div class="post-hero-inner">
+        <span class="stripes" aria-hidden="true"></span>
         <div class="article-meta">
-            <time class="chip chip-primary" datetime="{{.Post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.Post.CreatedAt.Format "2006年1月2日"}}</time>
-            {{if .Post.Author.Username}}<a class="by" href="/author/{{.Post.Author.Username}}">{{.Post.Author.Username}}</a>{{end}}
-            {{if .Post.PublishedAt}}<span class="by">發布於 {{.Post.PublishedAt.Format "2006.01.02"}}</span>{{end}}
+            {{with .Post.Categories}}{{range .}}{{if not .HideFromList}}<a class="chip" href="/c/{{.Slug}}">{{.Name}}</a>{{end}}{{end}}{{end}}
+            {{if .Post.PublishedAt}}<time class="chip" datetime="{{.Post.PublishedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.Post.PublishedAt.Format "2006年1月2日"}}</time>{{else}}<time class="chip" datetime="{{.Post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.Post.CreatedAt.Format "2006年1月2日"}}</time>{{end}}
+            {{if .AuthorCard.Username}}<a class="by" href="/author/{{.AuthorCard.Username}}">{{.AuthorCard.Name}}</a>{{end}}
+            <span>{{.ReadingMinutes}} 分鐘</span>
         </div>
-        {{with .Post.Categories}}<div class="article-cats">{{range .}}{{if not .HideFromList}}<a class="chip" href="/c/{{.Slug}}">{{.Name}}</a>{{end}}{{end}}</div>{{end}}
-    </header>
+        <h1>{{.Post.Title}}</h1>
+        {{if .Post.Excerpt}}<p class="post-lede">{{.Post.Excerpt}}</p>{{end}}
+    </div>
+</header>
 
-    <div class="prose">
+<div class="post-body">
+    <article class="prose">
         {{safeHTML .Post.Content}}
-    </div>
-    <script>
-        (function () {
-            var bar = document.getElementById('reading-progress');
-            var update = function () {
-                var h = document.documentElement;
-                var max = h.scrollHeight - h.clientHeight;
-                bar.style.transform = 'scaleX(' + (max > 0 ? Math.min(1, h.scrollTop / max) : 0) + ')';
-            };
-            window.addEventListener('scroll', update, { passive: true });
-            update();
-        })();
-    </script>
-
-    {{with .Post.Tags}}
-    <div class="article-tags">
-        <span class="label">標籤</span>
-        {{range .}}<a class="chip" href="/t/{{.Slug}}">#{{.Name}}</a>{{end}}
-    </div>
-    {{end}}
-
-    <footer class="article-foot">
-        <a href="/posts" class="button button-text"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>返回文章列表</a>
-        <div class="share">
+    </article>
+    <aside class="post-aside" aria-label="文章導覽">
+        {{if ge (len .TOC) 3}}
+        <details class="toc-details" open>
+            <summary>目錄</summary>
+            <nav class="toc" aria-label="文章目錄">
+                {{range .TOC}}{{safeHTML (printf "<a href=\"#%s\" data-toc-level=\"%d\">%s</a>" (.ID | html) .Level (.Text | html))}}{{end}}
+            </nav>
+        </details>
+        {{end}}
+        <div class="post-share" aria-label="分享文章">
             <span class="label">分享</span>
-            <a class="button button-tonal button-small" href="https://www.facebook.com/sharer/sharer.php?u=" data-share="facebook" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#i-external"/></svg>Facebook</a>
-            <a class="button button-tonal button-small" href="https://twitter.com/intent/tweet?url=" data-share="x" data-title="{{.Post.Title}}" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#i-external"/></svg>X</a>
-            <button class="button button-tonal button-small" type="button" data-share="copy"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span>複製連結</span></button>
+            <a class="button button-tonal button-small" data-share="facebook" href="https://www.facebook.com/sharer/sharer.php" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#i-external"/></svg>Facebook</a>
+            <a class="button button-tonal button-small" data-share="x" data-title="{{.Post.Title}}" href="https://twitter.com/intent/tweet" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#i-external"/></svg>X</a>
+            <button class="button button-tonal button-small" data-share="copy" type="button"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>複製連結</button>
+            <span class="share-status" id="share-status" role="status" aria-live="polite"></span>
         </div>
-    </footer>
-    <script>
-        (function () {
-            var url = window.location.origin + '/post/' + {{.Post.Slug}};
-            document.querySelectorAll('[data-share]').forEach(function (el) {
-                var kind = el.getAttribute('data-share');
-                if (kind === 'facebook') {
-                    el.href = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url);
-                } else if (kind === 'x') {
-                    el.href = 'https://twitter.com/intent/tweet?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(el.getAttribute('data-title') || '');
-                } else if (kind === 'copy') {
-                    el.addEventListener('click', function () {
-                        var label = el.querySelector('span'); var done = function () { label.textContent = '已複製'; setTimeout(function () { label.textContent = '複製連結'; }, 1500); };
-                        if (navigator.clipboard) { navigator.clipboard.writeText(url).then(done); } else { window.prompt('複製這個連結', url); }
-                    });
-                }
-            });
-        })();
-    </script>
-</article>
-{{/* 留言區：_comments.html 定義 "comments"；沒載入時 block 的空預設內容什麼都不輸出。 */}}
+        <section class="post-author" aria-label="作者">
+            <span class="label">作者</span>
+            <div class="post-author-profile">
+                <span class="post-author-avatar">{{if .AuthorCard.AvatarURL}}<img src="{{.AuthorCard.AvatarURL}}" alt="">{{else}}{{initial .AuthorCard.Name}}{{end}}</span>
+                <div><strong>{{.AuthorCard.Name}}</strong>{{if .AuthorCard.PostCount}}<div class="post-author-bio">{{.AuthorCard.PostCount}} 篇文章</div>{{end}}</div>
+            </div>
+            {{if .AuthorCard.Bio}}<p class="post-author-bio">{{.AuthorCard.Bio}}</p>{{end}}
+        </section>
+    </aside>
+</div>
+
+{{with .Post.Tags}}
+<div class="post-tags" aria-label="文章標籤">
+    <span class="label">標籤</span>
+    {{range .}}<a class="chip" href="/t/{{.Slug}}">#{{.Name}}</a>{{end}}
+</div>
+{{end}}
+
+<nav class="post-nav" aria-label="文章導覽">
+    {{with .Prev}}<a href="/post/{{.Slug}}"><span class="label"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>上一篇</span><strong>{{.Title}}</strong></a>{{end}}
+    {{with .Next}}<a href="/post/{{.Slug}}"><span class="label">下一篇<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></span><strong>{{.Title}}</strong></a>{{end}}
+</nav>
+<footer class="article-foot">
+    <a href="/posts" class="button button-text"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>返回文章列表</a>
+    {{if or .CommentsOpen (gt .CommentCount 0)}}<a href="#comments" class="button button-tonal comments-entry"><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg>留言 {{.CommentCount}}</a>{{end}}
+</footer>
 {{block "comments" .}}{{end}}
+
+<script>
+(function () {
+    var bar = document.getElementById('reading-progress');
+    function updateProgress() {
+        var root = document.documentElement;
+        var max = root.scrollHeight - root.clientHeight;
+        bar.style.transform = 'scaleX(' + (max > 0 ? Math.min(1, root.scrollTop / max) : 0) + ')';
+    }
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
+    var mobile = window.matchMedia('(max-width: 720px)');
+    var toc = document.querySelector('.toc-details');
+    if (toc && mobile.matches) toc.open = false;
+    if (toc) mobile.addEventListener('change', function (event) { toc.open = !event.matches; });
+    var pageURL = window.location.href;
+    document.querySelectorAll('[data-share]').forEach(function (control) {
+        var kind = control.getAttribute('data-share');
+        if (kind === 'facebook') control.href += '?u=' + encodeURIComponent(pageURL);
+        if (kind === 'x') control.href += '?url=' + encodeURIComponent(pageURL) + '&text=' + encodeURIComponent(control.getAttribute('data-title') || '');
+        if (kind === 'copy') control.addEventListener('click', function () {
+            var status = document.getElementById('share-status');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(pageURL).then(function () { status.textContent = '已複製連結'; }, function () { status.textContent = '無法自動複製，請複製網址列中的連結。'; });
+            } else {
+                status.textContent = '請複製網址列中的連結。';
+            }
+        });
+    });
+})();
+</script>
 {{end}}
