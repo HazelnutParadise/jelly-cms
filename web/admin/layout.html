@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
-    <title>{{block "title" .}}Jelly CMS{{end}} · Jelly CMS</title>
+    <title>{{if .Title}}{{.Title}}{{else}}{{block "title" .}}Jelly CMS{{end}}{{end}} · Jelly CMS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -44,7 +44,17 @@
             --r-sm: 0 .5rem 0 .5rem;
             --r-md: 0 1rem 0 1rem;
             --r-lg: 0 1.75rem 0 1.75rem;
-            --rail-w: 15rem;
+            --rail-w: 14rem;
+
+            /* 墨色側欄：深淺模式都是深底 */
+            --rail: #15161A;
+            --rail-hi: #2A2B31;
+            --rail-text: #C9CBD3;
+            --rail-muted: #8A8F9C;
+            --rail-line: transparent;
+            --toast-bg: #15161A;
+            --line: color-mix(in srgb, var(--ink) 7%, var(--surface));
+            --field: color-mix(in srgb, var(--ink) 5%, var(--surface));
         }
 
         @media (prefers-color-scheme: dark) {
@@ -57,6 +67,10 @@
                 --surface-high: color-mix(in srgb, var(--ink) 15%, var(--surface));
                 --primary-container: color-mix(in srgb, var(--primary) 28%, var(--surface));
                 --on-primary-container: color-mix(in srgb, var(--primary) 55%, #FFFFFF);
+                --rail: #0C0D10;
+                --rail-hi: #23252B;
+                --rail-line: rgba(255, 255, 255, .09);
+                --toast-bg: #23252B;
             }
         }
 
@@ -86,44 +100,62 @@
         .cubes i:nth-child(2) { left: 19%; top: 19%; background: var(--accent); opacity: .8; }
         .cubes i:nth-child(3) { right: 0; bottom: 0; background: var(--primary); opacity: .92; }
 
-        /* ---------- 左欄 ---------- */
+        /* ---------- 左欄：墨色，當前項目覆盆子色 ---------- */
         .sidebar {
-            background: var(--surface-low);
+            background: var(--rail);
+            color: #fff;
             display: flex;
             flex-direction: column;
+            gap: .125rem;
             height: 100vh;
+            height: 100dvh;
             position: sticky;
             top: 0;
             z-index: 100;
+            padding: .875rem .625rem;
+            border-right: 1px solid var(--rail-line);
         }
-        .sidebar-header { padding: 1.25rem 1.25rem 1rem; }
+        .sidebar :focus-visible { outline-color: #fff; }
+        .sidebar-header { padding: .375rem .75rem .625rem; }
         .mark { width: 1.6rem; height: auto; display: block; flex: 0 0 auto; }
-        .sidebar-logo { display: inline-flex; align-items: center; gap: .65rem; font-family: var(--font-display); font-weight: 800; font-size: 1.125rem; letter-spacing: -.01em; }
-        .sidebar-nav { flex: 1; overflow-y: auto; padding: .25rem .75rem 1rem; }
-        .nav-section { margin-bottom: 1rem; }
-        .nav-section-title { font-size: .6875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: .6rem .75rem .3rem; }
+        .sidebar-logo { display: inline-flex; align-items: center; gap: .65rem; font-family: var(--font-display); font-weight: 800; font-size: 1.0625rem; letter-spacing: -.02em; line-height: 1.1; color: #fff; border-radius: var(--r-sm); }
+        .sidebar-logo .mark { width: 22px; height: 26px; }
+        .sidebar-nav { flex: 1; overflow-y: auto; margin: 0 -.25rem; padding: 0 .25rem; scrollbar-width: thin; scrollbar-color: var(--rail-hi) transparent; }
+        .nav-section { margin: 0; }
+        .nav-section-title { font-size: .6875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--rail-muted); padding: .875rem .75rem .25rem; }
         .sidebar-nav a {
             display: flex;
             align-items: center;
-            gap: .65rem;
-            min-height: 2.375rem;
-            padding: .35rem .75rem;
+            gap: .625rem;
+            min-height: 2.25rem;
+            padding: 0 .75rem;
             font-weight: 600;
-            color: var(--ink);
-            border-radius: var(--r-sm);
-            transition: background-color .12s ease, color .12s ease, border-radius .2s ease;
+            font-size: .84375rem;
+            color: var(--rail-text);
+            border-radius: 0 .625rem 0 .625rem;
+            transition: background-color .12s ease, color .12s ease;
         }
-        .sidebar-nav a .icon { color: var(--muted); }
-        .sidebar-nav a:hover .icon, .sidebar-nav a.active .icon { color: inherit; }
-        .sidebar-nav a:hover { background: var(--surface-mid); border-radius: 0 1rem 0 1rem; }
-        .sidebar-nav a.active { background: var(--ink); color: var(--surface); border-radius: 0 1rem 0 1rem; }
-        .sidebar-footer { padding: .75rem; }
-        .user-info { display: flex; align-items: center; gap: .75rem; padding: .6rem .75rem; border-radius: var(--r-sm); }
-        .user-info:hover { background: var(--surface-mid); }
-        .user-avatar { width: 2rem; height: 2rem; display: grid; place-items: center; background: var(--primary); color: #fff; font-weight: 800; font-size: .875rem; border-radius: 0 .5rem 0 .5rem; flex: 0 0 auto; }
-        .user-name { font-weight: 700; font-size: .875rem; line-height: 1.3; }
-        .user-logout { font-size: .8125rem; color: var(--muted); display: inline-flex; align-items: center; gap: .3rem; }
-        .user-logout:hover { color: var(--primary); }
+        .sidebar-nav a .icon { width: 1.0625rem; height: 1.0625rem; color: inherit; }
+        .sidebar-nav a:hover { background: var(--rail-hi); color: #fff; }
+        .sidebar-nav a.active { background: var(--primary); color: #fff; }
+        .nav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .nav-count { margin-left: auto; font-size: .6875rem; font-weight: 700; line-height: 1.5; padding: .0625rem .4375rem; background: var(--rail-hi); color: var(--rail-text); border-radius: 0 .375rem 0 .375rem; font-variant-numeric: tabular-nums; }
+        .sidebar-nav a.active .nav-count { background: #fff; color: var(--primary); }
+        .sidebar-footer { margin-top: auto; padding-top: .5rem; }
+        .user-info { display: flex; align-items: center; gap: .25rem; padding: .5rem .375rem .5rem .75rem; background: var(--rail-hi); border-radius: 0 .625rem 0 .625rem; }
+        .user-card { display: flex; align-items: center; gap: .625rem; flex: 1; min-width: 0; color: #fff; border-radius: var(--r-sm); }
+        .user-avatar { width: 1.875rem; height: 1.875rem; display: grid; place-items: center; background: var(--primary); color: #fff; font-weight: 800; font-size: .875rem; border-radius: 0 .5625rem 0 .5625rem; flex: 0 0 auto; overflow: hidden; }
+        .user-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .user-meta { min-width: 0; line-height: 1.3; }
+        .user-name, .user-role { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .user-name { font-weight: 700; font-size: .8125rem; }
+        .user-role { font-size: .75rem; color: #9A9FAB; }
+        .user-logout { display: inline-grid; place-items: center; width: 2rem; height: 2rem; flex: 0 0 auto; background: transparent; border: 0; color: #9A9FAB; cursor: pointer; border-radius: 0 .5rem 0 .5rem; transition: background-color .12s ease, color .12s ease; }
+        .user-logout:hover { background: rgba(255, 255, 255, .12); color: #fff; }
+        .user-card:hover .user-name { text-decoration: underline; text-underline-offset: 2px; }
+
+        .skip-link { position: absolute; left: .75rem; top: -4rem; z-index: 1300; padding: .5rem 1rem; background: var(--ink); color: var(--surface); font-weight: 700; border-radius: var(--r-sm); }
+        .skip-link:focus { top: .75rem; }
 
         /* ---------- 工作區 ---------- */
         .main-wrapper { min-width: 0; min-height: 100vh; display: flex; flex-direction: column; }
@@ -131,36 +163,49 @@
             display: flex;
             align-items: center;
             gap: .75rem;
-            padding: .6rem 1.5rem .6rem 1.75rem;
+            padding: .625rem 1.5rem;
             min-height: 3.5rem;
             position: sticky;
             top: 0;
-            background: color-mix(in srgb, var(--surface) 88%, transparent);
+            background: color-mix(in srgb, var(--surface) 90%, transparent);
+            border-bottom: 1px solid var(--line);
             backdrop-filter: blur(12px);
             z-index: 50;
         }
-        .crumbs { display: flex; align-items: center; gap: .5rem; font-size: .875rem; color: var(--muted); min-width: 0; }
-        .crumbs b { color: var(--ink); font-weight: 700; white-space: nowrap; }
-        .crumbs span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .topbar-actions { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
         .search-box { position: relative; }
-        .search-box > .icon { position: absolute; left: .6rem; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
-        .topbar .search-input {
-            width: 13rem;
+        .crumbs { min-width: 0; font-size: .8125rem; color: var(--muted); }
+        .crumbs ol { display: flex; align-items: center; gap: .5rem; list-style: none; min-width: 0; }
+        .crumbs li { display: flex; align-items: center; gap: .5rem; min-width: 0; white-space: nowrap; }
+        .crumbs li + li::before { content: "/"; color: var(--muted); }
+        .crumbs a:hover { color: var(--primary); }
+        .crumbs [aria-current] { color: var(--ink); font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+        .topbar-actions { display: flex; align-items: center; gap: .5rem; margin-left: auto; }
+        .palette-trigger {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+            width: 16.25rem;
             min-height: 2.25rem;
-            padding: .35rem 3.75rem .35rem 2.1rem;
-            background: var(--surface-mid);
+            padding: 0 .5rem 0 .65rem;
+            background: var(--field);
             border: 0;
             border-radius: var(--r-sm);
+            color: var(--muted);
             font-size: .875rem;
-            transition: background-color .12s ease, box-shadow .12s ease, width .2s ease;
+            text-align: left;
+            cursor: pointer;
+            transition: background-color .12s ease;
         }
-        .topbar .search-input::placeholder { color: var(--muted); }
-        .topbar .search-input:hover { background: var(--surface-high); }
-        .topbar .search-input:focus { outline: none; background: var(--surface); border-bottom-color: transparent; box-shadow: inset 0 0 0 2px var(--secondary); width: 18rem; }
-        .search-box kbd { position: absolute; right: .5rem; top: 50%; transform: translateY(-50%); font-family: var(--mono); font-size: .6875rem; color: var(--muted); background: var(--surface); padding: .1rem .35rem; border-radius: 0 .3rem 0 .3rem; pointer-events: none; }
+        .palette-trigger:hover { background: var(--surface-high); }
+        .palette-trigger .pt-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .kbd { display: inline-block; font: 700 .6875rem/1.4 var(--font-display); padding: .125rem .375rem; border-radius: 0 .3125rem 0 .3125rem; background: var(--surface-mid); color: var(--muted); white-space: nowrap; }
+        .palette-trigger .kbd { background: var(--surface); }
+        .bell { position: relative; }
+        .bell-count { position: absolute; top: -.375rem; right: -.375rem; min-width: 1.125rem; height: 1.125rem; padding: 0 .25rem; display: grid; place-items: center; background: var(--primary); color: #fff; font-size: .6875rem; font-weight: 800; line-height: 1; border-radius: 0 .4rem 0 .4rem; box-shadow: 0 0 0 2px var(--surface); font-variant-numeric: tabular-nums; }
 
-        .content { flex: 1; padding: .5rem 1.75rem 3rem; }
+        .content { flex: 1; padding: .5rem 1.5rem 3rem; }
+        .content:focus { outline: none; }
         .content-inner { max-width: 1240px; margin: 0 auto; }
 
 
@@ -433,6 +478,103 @@
 
         .sidebar-backdrop { display: none; }
 
+        /* ---------- ⌘K 指令面板 ---------- */
+        .palette-overlay { position: fixed; inset: 0; z-index: 1100; display: flex; justify-content: center; align-items: flex-start; padding: 6rem 1rem 1rem; background: color-mix(in srgb, #15161A 38%, transparent); }
+        .palette-overlay[hidden] { display: none; }
+        html.palette-open { overflow: hidden; }
+        .palette { position: relative; width: min(40rem, 100%); max-height: calc(100vh - 7rem); max-height: calc(100dvh - 7rem); display: flex; flex-direction: column; background: var(--surface); color: var(--ink); border-radius: 0 1.5rem 0 1.5rem; box-shadow: 0 0 0 1px var(--outline), 0 2rem 5rem rgba(21, 22, 26, .28); overflow: hidden; animation: pop .14s ease; }
+        @keyframes pop { from { transform: translateY(-.5rem) scale(.985); opacity: 0; } to { transform: none; opacity: 1; } }
+        .palette-topline { height: 3px; flex: 0 0 auto; background: linear-gradient(90deg, var(--primary) 0 64%, var(--secondary) 64% 86%, var(--accent) 86% 100%); }
+        .palette-input { display: flex; align-items: center; gap: .75rem; padding: .875rem 1.125rem; border-bottom: 1.5px solid var(--line); }
+        .palette-input:focus-within { border-bottom-color: var(--secondary); }
+        .palette-input .icon { width: 1.25rem; height: 1.25rem; color: var(--muted); }
+        .palette .palette-input input, .palette .palette-input input:hover, .palette .palette-input input:focus { flex: 1; min-width: 0; min-height: 0; padding: 0; border: 0; box-shadow: none; outline: none; background: transparent; font-size: 1.0625rem; color: var(--ink); }
+        .palette-input input::-webkit-search-cancel-button { display: none; }
+        .palette-chips { display: flex; align-items: center; flex-wrap: wrap; gap: .375rem; padding: .625rem 1.125rem; border-bottom: 1px solid var(--line); font-size: .75rem; }
+        .palette-chips[hidden] { display: none; }
+        .pchip { display: inline-flex; align-items: center; min-height: 1.625rem; padding: 0 .625rem; background: var(--surface-mid); color: var(--ink); border: 0; border-radius: 0 .4375rem 0 .4375rem; font-size: .6875rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background-color .12s ease, color .12s ease; }
+        .pchip:hover { background: var(--surface-high); }
+        .pchip[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+        .palette-modes { margin-left: auto; color: var(--muted); }
+        .palette-list { flex: 1; min-height: 5rem; overflow-y: auto; padding: .5rem; display: flex; flex-direction: column; gap: 2px; overscroll-behavior: contain; }
+        .palette-group { display: flex; flex-direction: column; gap: 2px; }
+        .palette-group-title { padding: .5rem .75rem .25rem; font-size: .6875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+        .pal { display: flex; align-items: center; gap: .625rem; min-height: 2.5rem; padding: 0 .75rem; border-radius: 0 .625rem 0 .625rem; font-weight: 600; font-size: .875rem; color: var(--ink); scroll-margin: .5rem; }
+        .pal .icon { width: 1.0625rem; height: 1.0625rem; }
+        .pal-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pal .badge { margin-left: .25rem; min-height: 1.375rem; }
+        .pal .k { margin-left: auto; padding-left: .5rem; font-size: .6875rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
+        .pal[aria-selected="true"] { background: var(--ink); color: var(--surface); }
+        .pal[aria-selected="true"] .k { color: color-mix(in srgb, var(--surface) 78%, var(--ink)); }
+        .palette-empty { padding: 2rem 1rem; text-align: center; color: var(--muted); }
+        .palette-foot { display: flex; align-items: center; gap: .875rem; flex-wrap: wrap; padding: .625rem 1.125rem; border-top: 1px solid var(--line); font-size: .75rem; color: var(--muted); }
+        .palette-foot .brand { margin-left: auto; display: inline-flex; align-items: center; gap: .375rem; }
+        .palette-foot .brand svg { width: 14px; height: 16px; }
+
+        /* ---------- Toast：墨色底、左邊口味色方點 ---------- */
+        .toasts { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 1200; display: flex; flex-direction: column; align-items: flex-end; gap: .625rem; width: min(26rem, calc(100vw - 2.5rem)); pointer-events: none; }
+        .toast { pointer-events: auto; display: flex; align-items: center; gap: .625rem; width: 100%; padding: .75rem .875rem; background: var(--toast-bg); color: #fff; border-radius: 0 .75rem 0 .75rem; font-size: .8125rem; line-height: 1.45; box-shadow: 0 .75rem 2rem rgba(21, 22, 26, .22), 0 0 0 1px var(--rail-line); animation: toast-in .18s ease; }
+        .toast.leaving { opacity: 0; transform: translateY(.5rem); transition: opacity .16s ease, transform .16s ease; }
+        @keyframes toast-in { from { transform: translateY(.75rem); opacity: 0; } to { transform: none; opacity: 1; } }
+        .toast-dot { width: .5rem; height: .5rem; flex: 0 0 auto; border-radius: 0 .1875rem 0 .1875rem; background: var(--secondary); }
+        .toast-success .toast-dot { background: var(--accent); }
+        .toast-error .toast-dot { background: var(--primary); }
+        .toast-warning .toast-dot { background: var(--warning); }
+        .toast-info .toast-dot { background: var(--secondary); }
+        .toast-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+        .toast-body b { font-weight: 700; }
+        .toast-detail { color: #C9CBD3; margin-left: .375rem; }
+        .toast .toast-action, .toast .toast-close { display: inline-flex; align-items: center; justify-content: center; gap: .3rem; min-height: 1.875rem; padding: 0 .625rem; background: transparent; color: #fff; border: 0; border-radius: 0 .5rem 0 .5rem; font-weight: 700; font-size: .75rem; cursor: pointer; white-space: nowrap; }
+        .toast .toast-close { padding: 0; width: 1.875rem; color: #C9CBD3; }
+        .toast .toast-action:hover, .toast .toast-close:hover { background: rgba(255, 255, 255, .14); color: #fff; }
+        .toast :focus-visible { outline-color: #fff; }
+        .toast .icon { width: .875rem; height: .875rem; }
+
+        /* ---------- 狀態：空白、載入、錯誤、無權限 ---------- */
+        .state { margin: 1rem 0; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .625rem; min-height: 25rem; padding: 3rem 1.5rem; text-align: center; border-radius: var(--r-md); overflow: hidden; }
+        .state h1, .state h2 { font-size: 1.75rem; line-height: 1.1; letter-spacing: -.02em; }
+        .state .stripes { margin: 0 0 .25rem; }
+        .state-text { max-width: 32em; color: var(--muted); line-height: 1.6; }
+        .state-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin-top: .5rem; }
+        .state-body { position: relative; display: flex; flex-direction: column; align-items: center; gap: .625rem; }
+        .state-empty { background: var(--surface); box-shadow: inset 0 0 0 1px var(--outline); }
+        .state-art { position: absolute; right: 8%; top: 10%; width: 10.5rem; height: 12.5rem; opacity: .9; pointer-events: none; }
+        .state-art i { position: absolute; display: block; border-radius: 0 26% 0 26%; }
+        .state-art i:nth-child(1) { left: 1.25rem; top: 1.125rem; width: 4rem; height: 4rem; background: var(--secondary); opacity: .85; }
+        .state-art i:nth-child(2) { left: 3.25rem; top: 3.75rem; width: 4rem; height: 4rem; background: var(--accent); opacity: .85; }
+        .state-art i:nth-child(3) { left: 5.25rem; top: 6.5rem; width: 4rem; height: 4rem; background: var(--primary); opacity: .92; transform: rotate(-7deg); }
+        .state-art i:nth-child(4) { left: 1.5rem; top: 9.625rem; width: 1.75rem; height: 1.75rem; background: var(--warning); }
+        .state-art i:nth-child(5) { left: 7.875rem; top: 2.125rem; width: 1.25rem; height: 1.25rem; background: var(--ink); opacity: .9; }
+        @media (max-width: 1100px) { .state-art { display: none; } }
+
+        .state-loading { align-items: stretch; justify-content: flex-start; min-height: 0; gap: .875rem; padding: 1.25rem 1.5rem; text-align: left; background: var(--surface); box-shadow: inset 0 0 0 1px var(--outline); }
+        .state-loading-row { display: flex; align-items: center; gap: .75rem; }
+        .state-loading-row .spinner { width: 1.75rem; height: 1.75rem; flex: 0 0 auto; }
+        .state-loading-row .muted { font-size: .75rem; }
+        .skeleton { display: flex; flex-direction: column; gap: .5rem; padding-top: .25rem; }
+        .skeleton i { display: block; height: .75rem; border-radius: 0 .3125rem 0 .3125rem; background: linear-gradient(90deg, var(--surface-mid) 0 40%, var(--surface-low) 50%, var(--surface-mid) 60%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+        .skeleton i:nth-child(1) { width: 40%; } .skeleton i:nth-child(2) { width: 92%; } .skeleton i:nth-child(3) { width: 70%; }
+        .skeleton i:nth-child(4) { width: 85%; margin-top: .5rem; } .skeleton i:nth-child(5) { width: 55%; } .skeleton i:nth-child(6) { width: 78%; }
+        @keyframes shimmer { to { background-position: -200% 0; } }
+
+        .state-error { min-height: 20rem; background: var(--rail); color: #fff; box-shadow: inset 0 0 0 1px var(--rail-line); }
+        .state-error .label { margin-top: .5rem; color: #9A9FAB; overflow-wrap: anywhere; text-transform: none; letter-spacing: .04em; }
+        .state-error .state-text { color: var(--rail-text); font-size: .84375rem; }
+        .state-error .btn-secondary { background: #EDEEF1; color: #15161A; }
+        .state-error .btn-secondary:hover { background: var(--primary); color: #fff; }
+        .state-error .btn-rail { background: var(--rail-hi); color: #fff; }
+        .state-error .btn-rail:hover { background: var(--primary); }
+        .state-error .btn-text { background: transparent; color: var(--rail-text); }
+        .state-error .btn-text:hover { background: var(--rail-hi); color: #fff; }
+        .state-error :focus-visible { outline-color: #fff; }
+
+        .state-forbidden { min-height: 18rem; background: var(--surface); box-shadow: inset 0 0 0 1px var(--outline); }
+        .state-forbidden h1, .state-forbidden h2 { font-size: 1.375rem; }
+        .state-forbidden .state-text { font-size: .8125rem; }
+        .state-lock { width: 3rem; height: 3rem; display: grid; place-items: center; background: color-mix(in srgb, var(--warning) 22%, var(--surface)); color: color-mix(in srgb, var(--warning) 55%, var(--ink)); border-radius: 0 .875rem 0 .875rem; }
+        .state-lock .icon { width: 1.375rem; height: 1.375rem; }
+
+
         /* ---------- 響應式 ---------- */
         @media (max-width: 1000px) {
             .doc-layout { grid-template-columns: 1fr; gap: 1rem; }
@@ -440,111 +582,468 @@
         }
         @media (max-width: 900px) {
             body { grid-template-columns: 1fr; }
-            .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: var(--rail-w); transform: translateX(-100%); transition: transform .2s ease; }
-            .sidebar.active { transform: translateX(0); }
-            .sidebar-backdrop { position: fixed; inset: 0; background: color-mix(in srgb, var(--ink) 40%, transparent); z-index: 90; }
+            .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: min(var(--rail-w), 86vw); transform: translateX(-100%); visibility: hidden; transition: transform .2s ease, visibility 0s linear .2s; box-shadow: none; }
+            .sidebar.active { transform: translateX(0); visibility: visible; transition-delay: 0s; box-shadow: 0 0 3rem rgba(21, 22, 26, .35); }
+            .sidebar-backdrop { position: fixed; inset: 0; background: color-mix(in srgb, #15161A 45%, transparent); z-index: 90; }
             .sidebar.active ~ .sidebar-backdrop { display: block; }
-            .topbar { padding: .5rem 1rem; }
+            .topbar { padding: .5rem 1rem; gap: .5rem; }
             .topbar .menu-toggle { display: inline-flex; }
-            .crumbs span { display: none; }
-            .topbar .search-input { width: 9rem; }
-            .search-box kbd { display: none; }
+            .crumbs li:not(:last-child) { display: none; }
+            .crumbs li + li::before { display: none; }
+            .crumbs { flex: 1; }
+            .crumbs [aria-current] { display: block; }
+            .palette-trigger { width: 2.25rem; padding: 0; justify-content: center; }
+            .palette-trigger .pt-text, .palette-trigger .kbd { display: none; }
+            .topbar-actions { gap: .375rem; }
+            .topbar-actions .view-site span { display: none; }
+            .topbar-actions .view-site { width: 2rem; padding: 0; }
             .content { padding: .25rem 1rem 2.5rem; }
             h1 { font-size: 1.5rem; }
             .page-header, .header { align-items: flex-start; flex-direction: column; }
             .setting-row { grid-template-columns: 1fr; }
             .setting-row .control { justify-content: flex-start; }
             .modal-content { width: 100%; border-radius: 0; }
+            .palette-overlay { padding: 1rem .75rem; }
+            .palette { max-height: calc(100vh - 2rem); max-height: calc(100dvh - 2rem); }
+            .palette-modes, .palette-foot .hint-newtab { display: none; }
+            .toasts { right: .75rem; left: .75rem; bottom: .75rem; width: auto; align-items: stretch; }
+            .state { min-height: 18rem; padding: 2rem 1rem; }
+            .state h1, .state h2 { font-size: 1.5rem; }
         }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+            .skeleton i, .spinner::before, .spinner::after, .spinner i { animation: none !important; }
         }
     </style>
     {{block "styles" .}}{{end}}
 </head>
 
 <body>
-    <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16zM13 6l3 3"/></symbol><symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol><symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M19 14v6H4V5h6"/></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol><symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></symbol><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></symbol><symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol><symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h8V4M8 20v-6h8v6"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="8" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="10" cy="17" r="2" fill="currentColor" stroke="none"/></symbol><symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 17l5-5-5-5M20 12H9M9 4H4v16h5"/></symbol><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol><symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></symbol><symbol id="i-file-text" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></symbol><symbol id="i-layout" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM3 10h18M9 10v10"/></symbol><symbol id="i-image" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM21 15l-5-5-8 8"/><circle cx="8" cy="10" r="1.5"/></symbol><symbol id="i-box" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></symbol><symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1" fill="currentColor"/><circle cx="17" cy="20" r="1" fill="currentColor"/></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></symbol><symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></symbol><symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></symbol><symbol id="i-bold" viewBox="0 0 24 24"><path d="M7 4h7a3.5 3.5 0 0 1 0 7H7zM7 11h8a3.5 3.5 0 0 1 0 7H7z"/></symbol><symbol id="i-italic" viewBox="0 0 24 24"><path d="M10 4h8M6 20h8M14 4l-4 16"/></symbol><symbol id="i-heading" viewBox="0 0 24 24"><path d="M5 4v16M19 4v16M5 12h14"/></symbol><symbol id="i-quote" viewBox="0 0 24 24"><path d="M5 15h4V9H5v6zM5 15c0 3 1 4 3 5M15 15h4V9h-4v6zM15 15c0 3 1 4 3 5"/></symbol><symbol id="i-code" viewBox="0 0 24 24"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6M14 4l-4 16"/></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h1M4 12h1M4 18h1"/></symbol><symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></symbol><symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l3 3"/></symbol><symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8 11l8-5M8 13l8 5"/></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"/></symbol></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16zM13 6l3 3"/></symbol><symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol><symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M19 14v6H4V5h6"/></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></symbol><symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol><symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></symbol><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></symbol><symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol><symbol id="i-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h8V4M8 20v-6h8v6"/></symbol><symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="8" cy="7" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="10" cy="17" r="2" fill="currentColor" stroke="none"/></symbol><symbol id="i-logout" viewBox="0 0 24 24"><path d="M15 17l5-5-5-5M20 12H9M9 4H4v16h5"/></symbol><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol><symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></symbol><symbol id="i-file-text" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></symbol><symbol id="i-layout" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM3 10h18M9 10v10"/></symbol><symbol id="i-image" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM21 15l-5-5-8 8"/><circle cx="8" cy="10" r="1.5"/></symbol><symbol id="i-box" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></symbol><symbol id="i-cart" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1" fill="currentColor"/><circle cx="17" cy="20" r="1" fill="currentColor"/></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></symbol><symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></symbol><symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></symbol><symbol id="i-bold" viewBox="0 0 24 24"><path d="M7 4h7a3.5 3.5 0 0 1 0 7H7zM7 11h8a3.5 3.5 0 0 1 0 7H7z"/></symbol><symbol id="i-italic" viewBox="0 0 24 24"><path d="M10 4h8M6 20h8M14 4l-4 16"/></symbol><symbol id="i-heading" viewBox="0 0 24 24"><path d="M5 4v16M19 4v16M5 12h14"/></symbol><symbol id="i-quote" viewBox="0 0 24 24"><path d="M5 15h4V9H5v6zM5 15c0 3 1 4 3 5M15 15h4V9h-4v6zM15 15c0 3 1 4 3 5"/></symbol><symbol id="i-code" viewBox="0 0 24 24"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6M14 4l-4 16"/></symbol><symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h1M4 12h1M4 18h1"/></symbol><symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></symbol><symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l3 3"/></symbol><symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8 11l8-5M8 13l8 5"/></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"/></symbol><symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/></symbol><symbol id="i-comment" viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4z"/></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"/></symbol><symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0M16 4a3.5 3.5 0 0 1 0 7M22 20a7 7 0 0 0-5-6.7"/></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></symbol><symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 3"/></symbol><symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></symbol><symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol><symbol id="i-redirect" viewBox="0 0 24 24"><path d="M4 7h10a4 4 0 0 1 0 8H4M8 11l-4 4 4 4"/></symbol><symbol id="i-terminal" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM7 9l3 3-3 3M12 15h5"/></symbol><symbol id="i-tools" viewBox="0 0 24 24"><path d="M14 6a4 4 0 0 0 4 4l3-3-4-4-3 3zM14 6L4 16l4 4 10-10"/></symbol><symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v5M12 18v1"/></symbol><symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></symbol><symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></symbol><symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.8 6 6.2.7-4.6 4.3 1.3 6.3L12 17l-5.7 3.3 1.3-6.3L3 9.7 9.2 9z"/></symbol><symbol id="i-lock" viewBox="0 0 24 24"><path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4"/></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 7l9 6 9-6"/></symbol><symbol id="i-truck" viewBox="0 0 24 24"><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6"/><circle cx="7" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></symbol><symbol id="i-card" viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18"/></symbol><symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 5h7l2 2h9v12H3z"/></symbol><symbol id="i-drag" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.2" fill="currentColor"/><circle cx="15" cy="6" r="1.2" fill="currentColor"/><circle cx="9" cy="12" r="1.2" fill="currentColor"/><circle cx="15" cy="12" r="1.2" fill="currentColor"/><circle cx="9" cy="18" r="1.2" fill="currentColor"/><circle cx="15" cy="18" r="1.2" fill="currentColor"/></symbol><symbol id="i-chevron-d" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol><symbol id="i-chevron-r" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol><symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 20V4M6 10l6-6 6 6"/></symbol><symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 4h4v16H7zM13 4h4v16h-4z"/></symbol><symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l12 8-12 8z"/></symbol><symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol><symbol id="i-user-x" viewBox="0 0 24 24"><circle cx="10" cy="8" r="4"/><path d="M2 21a8 8 0 0 1 12-6.9M17 9l5 5M22 9l-5 5"/></symbol><symbol id="i-wp" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5 9l3 9 3-7 3 7 3-9M9 9h2M14 9h2"/></symbol><symbol id="i-message" viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4z"/></symbol><symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14 6a4 4 0 0 0 4 4l3-3-4-4-3 3zM14 6L4 16l4 4 10-10"/></symbol><symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></symbol></svg>
+    <a class="skip-link" href="#main">{{.T.skipToContent}}</a>
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <a href="/admin" class="sidebar-logo">
-                <img class="mark" src="/admin/assets/jelly-mark.svg" alt="" aria-hidden="true">
+            <a href="/admin" class="sidebar-logo" aria-label="Jelly CMS">
+                <svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".9"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".9"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".95" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#fff" fill-opacity=".9"/></svg>
                 <span>Jelly CMS</span>
             </a>
         </div>
 
-        <nav class="sidebar-nav" aria-label="Admin">
-            <div class="nav-section">
-                <div class="nav-section-title">{{.T.content}}</div>
-                <a href="/admin" class="{{if eq .Active "dashboard"}}active{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>{{.T.dashboard}}</a>
-                <a href="/admin/posts" class="{{if eq .Active "posts"}}active{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-file-text"/></svg>{{.T.posts}}</a>
-                <a href="/admin/pages" class="{{if eq .Active "pages"}}active{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-layout"/></svg>{{.T.pages}}</a>
-                <a href="/admin/media" class="{{if eq .Active "media"}}active{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>{{.T.media}}</a>
+        <nav class="sidebar-nav" aria-label="{{.T.menu}}">
+            {{range .Nav}}
+            <div class="nav-section" role="group" aria-labelledby="nav-section-{{.Key}}">
+                <div class="nav-section-title" id="nav-section-{{.Key}}">{{.Label}}</div>
+                {{range .Items}}
+                <a href="{{.Href}}" class="{{if .Active}}active{{end}}"{{if .Active}} aria-current="page"{{end}}><svg class="icon" aria-hidden="true"><use href="#{{.Icon}}"/></svg><span class="nav-label">{{.Label}}</span>{{if gt .Badge 0}}<span class="nav-count">{{.Badge}}</span>{{end}}</a>
+                {{end}}
             </div>
-
-            <div class="nav-section">
-                <div class="nav-section-title">{{.T.shop}}</div>
-                <a href="/admin/products" class="{{if eq .Active "products"}}active{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-box"/></svg>{{.T.products}}</a>
-                <a href="/admin/orders" class="{{if eq .Active "orders"}}active{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-cart"/></svg>{{.T.orders}}</a>
-            </div>
-
-            <div class="nav-section">
-                <div class="nav-section-title">{{.T.appearance}}</div>
-                <a href="/admin/themes" class="{{if eq .Active "themes"}}active{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg>{{.T.themes}}</a>
-                <a href="/admin/plugins" class="{{if eq .Active "plugins"}}active{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-plug"/></svg>{{.T.plugins}}</a>
-            </div>
-
-            <div class="nav-section">
-                <div class="nav-section-title">{{.T.system}}</div>
-                <a href="/admin/settings" class="{{if eq .Active "settings"}}active{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-gear"/></svg>{{.T.settings}}</a>
-            </div>
+            {{end}}
         </nav>
 
         <div class="sidebar-footer">
             <div class="user-info">
-                <div class="user-avatar" aria-hidden="true">A</div>
-                <div>
-                    <div class="user-name">{{.T.administrator}}</div>
-                    <a href="#" class="user-logout"
-                        onclick="event.preventDefault(); fetch('/auth/logout', {method: 'POST'}).then(() => window.location.href='/login');"><svg class="icon" aria-hidden="true"><use href="#i-logout"/></svg>{{.T.logout}}</a>
-                </div>
+                <a class="user-card" href="/admin/profile" title="{{.T.profile}}">
+                    <span class="user-avatar" aria-hidden="true">{{if .Viewer.Avatar}}<img src="{{.Viewer.Avatar}}" alt="">{{else}}{{.Viewer.Initial}}{{end}}</span>
+                    <span class="user-meta">
+                        <span class="user-name">{{.Viewer.Name}}</span>
+                        <span class="user-role">{{if eq .Viewer.Role "admin"}}{{.T.administrator}}{{else if eq .Viewer.Role "editor"}}{{.T.roleEditor}}{{else}}{{.T.roleAuthor}}{{end}}</span>
+                    </span>
+                </a>
+                <button type="button" class="user-logout" id="logoutBtn" aria-label="{{.T.logout}}" title="{{.T.logout}}"><svg class="icon" aria-hidden="true"><use href="#i-logout"/></svg></button>
             </div>
         </div>
     </aside>
-    <div class="sidebar-backdrop" onclick="document.getElementById('sidebar').classList.remove('active')"></div>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
     <div class="main-wrapper">
         <header class="topbar">
-            <button class="btn btn-secondary btn-sm btn-icon menu-toggle" type="button" aria-controls="sidebar" aria-label="Menu" onclick="document.getElementById('sidebar').classList.toggle('active')"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+            <button class="btn btn-secondary btn-sm btn-icon menu-toggle" id="menuToggle" type="button" aria-controls="sidebar" aria-expanded="false" aria-label="{{.T.menu}}"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+            {{$section := ""}}{{range .Nav}}{{$label := .Label}}{{range .Items}}{{if .Active}}{{$section = $label}}{{end}}{{end}}{{end}}
             <nav class="crumbs" aria-label="Breadcrumb">
-                <span>{{if or (eq .Active "dashboard") (eq .Active "posts") (eq .Active "pages") (eq .Active "media")}}{{.T.content}}{{else if or (eq .Active "products") (eq .Active "orders")}}{{.T.shop}}{{else if or (eq .Active "themes") (eq .Active "plugins")}}{{.T.appearance}}{{else}}{{.T.system}}{{end}}</span>
-                <span aria-hidden="true">/</span>
-                <b>{{template "title" .}}</b>
+                <ol>
+                    {{if $section}}<li><span>{{$section}}</span></li>{{end}}
+                    {{if .Crumbs}}
+                    {{range $i, $c := .Crumbs}}
+                    {{if and $c.Href (lt (add $i 1) (len $.Crumbs))}}<li><a href="{{$c.Href}}">{{$c.Label}}</a></li>{{else if lt (add $i 1) (len $.Crumbs)}}<li><span>{{$c.Label}}</span></li>{{else}}<li><span aria-current="page">{{$c.Label}}</span></li>{{end}}
+                    {{end}}
+                    {{else}}
+                    <li><span aria-current="page">{{if .Title}}{{.Title}}{{else}}{{template "title" .}}{{end}}</span></li>
+                    {{end}}
+                </ol>
             </nav>
             <div class="topbar-actions">
-                <div class="search-box">
+                <button type="button" class="palette-trigger" id="paletteTrigger" aria-haspopup="dialog" aria-controls="palette" aria-keyshortcuts="Control+K Meta+K" aria-label="{{.T.searchOrCommand}}">
                     <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
-                    <input type="text" class="search-input" id="globalSearch" placeholder="{{.T.search}}">
-                    <kbd>⌘K</kbd>
-                </div>
-                <a href="/" target="_blank" class="btn btn-secondary btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg>{{.T.viewSite}}</a>
+                    <span class="pt-text">{{.T.searchOrCommand}}</span>
+                    <span class="kbd" data-kbd-hint aria-hidden="true">⌘K</span>
+                </button>
+                <a class="btn btn-secondary btn-sm btn-icon bell" href="/admin/notifications" aria-label="{{.T.notifications}}{{if gt .Viewer.Unread 0}} ({{.Viewer.Unread}}){{end}}" title="{{.T.notifications}}"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg>{{if gt .Viewer.Unread 0}}<span class="bell-count" aria-hidden="true">{{if gt .Viewer.Unread 99}}99+{{else}}{{.Viewer.Unread}}{{end}}</span>{{end}}</a>
+                <a href="/" target="_blank" rel="noopener" class="btn btn-secondary btn-sm view-site" aria-label="{{.T.viewSite}}"><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg><span>{{.T.viewSite}}</span></a>
             </div>
         </header>
 
-        <div class="content">
+        <main class="content" id="main" tabindex="-1">
             <div class="content-inner">
                 {{template "content" .}}
+            </div>
+        </main>
+    </div>
+
+    <div class="palette-overlay" id="palette" hidden>
+        <div class="palette" role="dialog" aria-modal="true" aria-label="{{.T.palettePlaceholder}}">
+            <div class="palette-topline" aria-hidden="true"></div>
+            <div class="palette-input">
+                <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+                <input type="search" id="paletteInput" role="combobox" aria-expanded="true" aria-controls="paletteList" aria-autocomplete="list" aria-label="{{.T.palettePlaceholder}}" placeholder="{{.T.palettePlaceholder}}" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
+                <span class="kbd" aria-hidden="true">ESC</span>
+            </div>
+            <div class="palette-chips" id="paletteChips" hidden></div>
+            <div class="palette-list" id="paletteList" role="listbox" aria-label="{{.T.palettePlaceholder}}" aria-busy="false"></div>
+            <div class="palette-foot" aria-hidden="true">
+                <span><span class="kbd">↑↓</span> {{.T.paletteMove}}</span>
+                <span><span class="kbd">↵</span> {{.T.paletteOpen}}</span>
+                <span class="hint-newtab"><span class="kbd">⌘↵</span> {{.T.paletteNewTab}}</span>
+                <span class="brand"><svg viewBox="0 0 85 100"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="currentColor" fill-opacity=".9"/></svg>{{.T.paletteBrand}}</span>
             </div>
         </div>
     </div>
 
+    <div class="toasts" id="toasts" role="region" aria-label="{{.T.toastRegion}}"></div>
+
     <script>
-        document.addEventListener('keydown', function (e) {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-                e.preventDefault();
-                document.getElementById('globalSearch').focus();
+        (function () {
+            'use strict';
+            var L = {{json (dict "all" .T.all "close" .T.close "published" .T.published "draft" .T.draft "pending" .T.pending "paletteEmpty" .T.paletteEmpty "paletteError" .T.paletteError "paletteBrand" .T.paletteBrand "copied" .T.copied "logoutFailed" .T.logoutFailed "loading" .T.loadingText)}};
+            var doc = document, root = doc.documentElement;
+            function $(sel, ctx) { return (ctx || doc).querySelector(sel); }
+            function el(tag, cls, text) {
+                var n = doc.createElement(tag);
+                if (cls) n.className = cls;
+                if (text != null) n.textContent = text;
+                return n;
             }
-        });
+            function icon(id) {
+                var ns = 'http://www.w3.org/2000/svg';
+                var svg = doc.createElementNS(ns, 'svg');
+                svg.setAttribute('class', 'icon');
+                svg.setAttribute('aria-hidden', 'true');
+                var use = doc.createElementNS(ns, 'use');
+                use.setAttribute('href', '#' + (/^[a-z0-9-]+$/i.test(id || '') ? id : 'i-file-text'));
+                svg.appendChild(use);
+                return svg;
+            }
+            var isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+            doc.querySelectorAll('[data-kbd-hint]').forEach(function (n) { n.textContent = isMac ? '⌘K' : 'Ctrl K'; });
+            doc.querySelectorAll('.palette-foot .hint-newtab .kbd').forEach(function (n) { n.textContent = isMac ? '⌘↵' : 'Ctrl ↵'; });
+
+            /* ---------- 手機抽屜 ---------- */
+            var sidebar = $('#sidebar'), backdrop = $('#sidebarBackdrop'), menuBtn = $('#menuToggle');
+            var narrow = window.matchMedia('(max-width: 900px)');
+            function setDrawer(open, restoreFocus) {
+                sidebar.classList.toggle('active', open);
+                menuBtn.setAttribute('aria-expanded', String(open));
+                if (open) {
+                    var first = $('a.active', sidebar) || $('a', sidebar);
+                    if (first) first.focus();
+                } else if (restoreFocus && sidebar.contains(doc.activeElement)) {
+                    menuBtn.focus();
+                }
+            }
+            menuBtn.addEventListener('click', function () { setDrawer(!sidebar.classList.contains('active'), true); });
+            backdrop.addEventListener('click', function () { setDrawer(false, true); });
+            sidebar.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && sidebar.classList.contains('active')) { e.stopPropagation(); setDrawer(false, true); }
+            });
+            var onNarrow = function () { if (!narrow.matches) setDrawer(false, false); };
+            if (narrow.addEventListener) narrow.addEventListener('change', onNarrow); else if (narrow.addListener) narrow.addListener(onNarrow);
+
+            /* ---------- 登出 ---------- */
+            $('#logoutBtn').addEventListener('click', function () {
+                fetch('/auth/logout', { method: 'POST' }).then(function () { window.location.href = '/login'; }, function () {
+                    Jelly.toast(L.logoutFailed, { kind: 'error' });
+                });
+            });
+
+            /* ---------- Toast ---------- */
+            var toastRoot = $('#toasts');
+            var MAX_TOASTS = 4;
+            function toast(message, opts) {
+                if (message && typeof message === 'object') { opts = message; message = opts.message; }
+                opts = opts || {};
+                var kind = ['success', 'error', 'info', 'warning'].indexOf(opts.kind) >= 0 ? opts.kind : 'info';
+                var item = el('div', 'toast toast-' + kind);
+                item.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+                item.appendChild(el('span', 'toast-dot'));
+                var body = el('div', 'toast-body');
+                body.appendChild(el('b', '', message == null ? '' : String(message)));
+                if (opts.detail) body.appendChild(el('span', 'toast-detail', String(opts.detail)));
+                item.appendChild(body);
+
+                var timer = null, remaining = 0, startedAt = 0, gone = false;
+                function dismiss() {
+                    if (gone) return;
+                    gone = true;
+                    clearTimeout(timer);
+                    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                    if (reduce) { item.remove(); return; }
+                    item.classList.add('leaving');
+                    setTimeout(function () { item.remove(); }, 180);
+                }
+                var act = opts.action;
+                if (act && act.label) {
+                    var btn = act.href ? el('a', 'toast-action') : el('button', 'toast-action');
+                    if (act.href) { btn.href = act.href; if (/^https?:/.test(act.href)) { btn.target = '_blank'; btn.rel = 'noopener'; } }
+                    else btn.type = 'button';
+                    btn.appendChild(doc.createTextNode(String(act.label)));
+                    btn.addEventListener('click', function () {
+                        if (typeof act.onClick === 'function') act.onClick(dismiss);
+                        if (!act.href) dismiss();
+                    });
+                    item.appendChild(btn);
+                }
+                var close = el('button', 'toast-close');
+                close.type = 'button';
+                close.setAttribute('aria-label', L.close);
+                close.appendChild(icon('i-x'));
+                close.addEventListener('click', dismiss);
+                item.appendChild(close);
+
+                // error 不自動消失；其餘 4 秒（帶動作的 8 秒），滑過或聚焦時暫停。
+                var duration = typeof opts.duration === 'number' ? opts.duration : (kind === 'error' ? 0 : (act ? 8000 : 4000));
+                function arm(ms) {
+                    if (!(ms > 0) || gone) return;
+                    remaining = ms; startedAt = Date.now();
+                    clearTimeout(timer);
+                    timer = setTimeout(dismiss, ms);
+                }
+                function pause() { if (timer) { clearTimeout(timer); timer = null; remaining -= Date.now() - startedAt; } }
+                function resume() { if (!timer && remaining > 0) arm(Math.max(remaining, 1500)); }
+                item.addEventListener('mouseenter', pause);
+                item.addEventListener('mouseleave', resume);
+                item.addEventListener('focusin', pause);
+                item.addEventListener('focusout', resume);
+
+                toastRoot.appendChild(item);
+                while (toastRoot.children.length > MAX_TOASTS) toastRoot.firstElementChild.remove();
+                arm(duration);
+                return { dismiss: dismiss, element: item };
+            }
+
+            /* ---------- ⌘K 指令面板 ---------- */
+            var overlay = $('#palette'), input = $('#paletteInput'), list = $('#paletteList'), chipsEl = $('#paletteChips');
+            var trigger = $('#paletteTrigger');
+            var P = { open: false, groups: [], mode: '', filter: 'all', options: [], active: -1, opener: null, timer: null, ctrl: null, seq: 0 };
+            var inertTargets = [sidebar, $('.main-wrapper'), $('.sidebar-backdrop')];
+            var statusClass = { published: 'badge-success', draft: 'badge-warning', pending: 'badge-info' };
+
+            function safeHref(h) {
+                if (typeof h !== 'string' || !h) return '#';
+                return (h.charAt(0) === '/' && h.charAt(1) !== '/') || /^https?:\/\//.test(h) ? h : '#';
+            }
+            function openPalette(opener) {
+                if (P.open) return;
+                P.open = true;
+                P.opener = opener || doc.activeElement;
+                if (narrow.matches) setDrawer(false, false);
+                overlay.hidden = false;
+                root.classList.add('palette-open');
+                inertTargets.forEach(function (n) { if (n) n.setAttribute('inert', ''); });
+                input.value = '';
+                input.focus();
+                query('');
+            }
+            function closePalette() {
+                if (!P.open) return;
+                P.open = false;
+                clearTimeout(P.timer);
+                if (P.ctrl) P.ctrl.abort();
+                P.seq++;
+                overlay.hidden = true;
+                root.classList.remove('palette-open');
+                inertTargets.forEach(function (n) { if (n) n.removeAttribute('inert'); });
+                var back = P.opener && doc.contains(P.opener) ? P.opener : trigger;
+                if (back && back.focus) back.focus();
+                P.opener = null;
+            }
+            function query(raw) {
+                var mode = '', q = raw;
+                if (q.charAt(0) === '>') { mode = 'commands'; q = q.slice(1); }
+                else if (q.charAt(0) === '/') { mode = 'pages-nav'; q = q.slice(1); }
+                q = q.trim();
+                if (P.ctrl) P.ctrl.abort();
+                var seq = ++P.seq;
+                P.ctrl = window.AbortController ? new AbortController() : null;
+                list.setAttribute('aria-busy', 'true');
+                fetch('/api/admin/palette?q=' + encodeURIComponent(q), {
+                    credentials: 'same-origin',
+                    headers: { Accept: 'application/json' },
+                    signal: P.ctrl ? P.ctrl.signal : undefined
+                }).then(function (r) {
+                    if (!r.ok) throw new Error('http ' + r.status);
+                    return r.json();
+                }).then(function (data) {
+                    if (seq !== P.seq) return;
+                    P.groups = ((data && data.groups) || []).filter(function (g) { return g && g.items && g.items.length; });
+                    P.mode = mode;
+                    P.filter = 'all';
+                    renderChips();
+                    renderList();
+                }).catch(function (err) {
+                    if (err && err.name === 'AbortError') return;
+                    if (seq !== P.seq) return;
+                    P.groups = [];
+                    renderChips();
+                    renderMessage(L.paletteError);
+                });
+            }
+            function visibleGroups() {
+                return P.groups.filter(function (g) {
+                    if (P.mode && g.key !== P.mode) return false;
+                    return P.filter === 'all' || g.key === P.filter;
+                });
+            }
+            function renderChips() {
+                chipsEl.textContent = '';
+                var groups = P.groups.filter(function (g) { return !P.mode || g.key === P.mode; });
+                if (groups.length < 2) { chipsEl.hidden = true; return; }
+                chipsEl.hidden = false;
+                function chip(key, label) {
+                    var b = el('button', 'pchip', label);
+                    b.type = 'button';
+                    b.dataset.key = key;
+                    b.setAttribute('aria-pressed', String(P.filter === key));
+                    b.addEventListener('click', function () {
+                        P.filter = key;
+                        chipsEl.querySelectorAll('.pchip').forEach(function (c) { c.setAttribute('aria-pressed', String(c.dataset.key === key)); });
+                        renderList();
+                    });
+                    chipsEl.appendChild(b);
+                }
+                chip('all', L.all);
+                groups.forEach(function (g) { chip(g.key, g.label + ' ' + g.items.length); });
+                var modes = el('span', 'palette-modes', {{json .T.paletteModes}});
+                chipsEl.appendChild(modes);
+            }
+            function renderMessage(text) {
+                list.textContent = '';
+                P.options = [];
+                setActive(-1);
+                list.appendChild(el('div', 'palette-empty', text));
+                list.setAttribute('aria-busy', 'false');
+            }
+            function renderList() {
+                var groups = visibleGroups();
+                list.textContent = '';
+                P.options = [];
+                if (!groups.length) { renderMessage(L.paletteEmpty); return; }
+                groups.forEach(function (g, gi) {
+                    var wrap = el('div', 'palette-group');
+                    wrap.setAttribute('role', 'group');
+                    var titleId = 'pal-group-' + gi;
+                    var title = el('div', 'palette-group-title', g.label);
+                    title.id = titleId;
+                    wrap.setAttribute('aria-labelledby', titleId);
+                    wrap.appendChild(title);
+                    g.items.forEach(function (item) {
+                        var a = el('a', 'pal');
+                        a.href = safeHref(item.href);
+                        a.id = 'pal-opt-' + P.options.length;
+                        a.setAttribute('role', 'option');
+                        a.setAttribute('aria-selected', 'false');
+                        a.tabIndex = -1;
+                        a.appendChild(icon(item.icon));
+                        a.appendChild(el('span', 'pal-label', item.label));
+                        if (item.badge) {
+                            var cls = statusClass[item.badge] || '';
+                            a.appendChild(el('span', 'badge' + (cls ? ' ' + cls : ''), L[item.badge] || item.badge));
+                        }
+                        a.appendChild(el('span', 'k', item.hint || ''));
+                        var idx = P.options.length;
+                        a.addEventListener('mousemove', function () { if (P.active !== idx) setActive(idx, false); });
+                        a.addEventListener('click', function (e) {
+                            if (e.defaultPrevented) return;
+                            if (!(e.ctrlKey || e.metaKey || e.shiftKey || e.button)) closePalette();
+                        });
+                        P.options.push(a);
+                        wrap.appendChild(a);
+                    });
+                    list.appendChild(wrap);
+                });
+                list.setAttribute('aria-busy', 'false');
+                setActive(0, true);
+                list.scrollTop = 0;
+            }
+            function setActive(i, scroll) {
+                if (P.options[P.active]) P.options[P.active].setAttribute('aria-selected', 'false');
+                P.active = i;
+                var node = P.options[i];
+                if (node) {
+                    node.setAttribute('aria-selected', 'true');
+                    input.setAttribute('aria-activedescendant', node.id);
+                    if (scroll !== false) node.scrollIntoView({ block: 'nearest' });
+                } else {
+                    input.removeAttribute('aria-activedescendant');
+                }
+            }
+            input.addEventListener('input', function () {
+                clearTimeout(P.timer);
+                var v = input.value;
+                P.timer = setTimeout(function () { query(v); }, 150);
+            });
+            input.addEventListener('keydown', function (e) {
+                if (e.isComposing || e.keyCode === 229) return;
+                var n = P.options.length;
+                if (e.key === 'ArrowDown' && n) { e.preventDefault(); setActive((P.active + 1) % n); }
+                else if (e.key === 'ArrowUp' && n) { e.preventDefault(); setActive((P.active - 1 + n) % n); }
+                else if (e.key === 'Enter') {
+                    var node = P.options[P.active];
+                    if (!node) return;
+                    e.preventDefault();
+                    var href = node.getAttribute('href');
+                    if (e.ctrlKey || e.metaKey) { window.open(href, '_blank', 'noopener'); return; }
+                    closePalette();
+                    window.location.href = href;
+                }
+            });
+            overlay.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closePalette(); return; }
+                if (e.key === 'Tab') {
+                    var f = [input].concat(Array.prototype.slice.call(chipsEl.querySelectorAll('button')));
+                    var i = f.indexOf(doc.activeElement);
+                    var next = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
+                    e.preventDefault();
+                    f[next].focus();
+                }
+            });
+            overlay.addEventListener('mousedown', function (e) { if (e.target === overlay) closePalette(); });
+            trigger.addEventListener('click', function () { openPalette(trigger); });
+            doc.addEventListener('keydown', function (e) {
+                if (e.defaultPrevented || e.altKey || e.shiftKey) return;
+                if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+                    e.preventDefault();
+                    if (P.open) closePalette(); else openPalette();
+                } else if (e.key === 'Escape' && sidebar.classList.contains('active')) {
+                    setDrawer(false, true);
+                }
+            });
+
+            /* ---------- 複製 ---------- */
+            doc.addEventListener('click', function (e) {
+                var b = e.target.closest ? e.target.closest('[data-copy]') : null;
+                if (!b) return;
+                var text = b.getAttribute('data-copy') || '';
+                var done = function () { toast(L.copied, { kind: 'success' }); };
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(done, function () { toast(text, { kind: 'info', duration: 8000 }); });
+                } else {
+                    toast(text, { kind: 'info', duration: 8000 });
+                }
+            });
+
+            window.Jelly = window.Jelly || {};
+            window.Jelly.toast = toast;
+            window.Jelly.palette = { open: function () { openPalette(); }, close: closePalette };
+        })();
     </script>
     {{block "scripts" .}}{{end}}
 </body>

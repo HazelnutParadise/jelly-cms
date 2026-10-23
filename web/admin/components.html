@@ -319,6 +319,89 @@ document.addEventListener('click', function(e) {
 </nav>
 {{end}}
 
+{{/* ------------------------------------------------------------
+   狀態元件（樣式在 layout.html）。actions 參數是 HTML：
+   要傳 (safeHTML "<a class='btn' …>…</a>")，傳純字串會被跳脫。
+   ------------------------------------------------------------ */}}
+
+{{/* 空白狀態。必填 title；選填 text、actions。 */}}
+{{define "state-empty"}}
+<section class="state state-empty">
+    <span class="state-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+    <div class="state-body">
+        <span class="stripes" aria-hidden="true"></span>
+        <h2>{{.title}}</h2>
+        {{if .text}}<p class="state-text">{{.text}}</p>{{end}}
+        {{if .actions}}<div class="state-actions">{{.actions}}</div>{{end}}
+    </div>
+</section>
+{{end}}
+
+{{/* 載入狀態：果凍丁 + 文字。選填 text、note、skeleton（true 時顯示佔位線）。 */}}
+{{define "state-loading"}}
+<section class="state state-loading" role="status" aria-live="polite">
+    <div class="state-loading-row">
+        <span class="spinner" aria-hidden="true"><i></i></span>
+        {{if .text}}<b>{{.text}}</b>{{end}}
+        {{if .note}}<span class="muted">{{.note}}</span>{{end}}
+    </div>
+    {{if .skeleton}}
+    <div class="skeleton" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    {{end}}
+</section>
+{{end}}
+
+{{/* 整頁錯誤（墨色底）。必填 title；選填 code、id（請求代碼）、text、
+   backText（有值就顯示「回儀表板」連到 backHref，預設 /admin）、
+   retryText（重新整理鈕）、copyText + copyValue（複製錯誤代碼鈕）、actions。 */}}
+{{define "state-error"}}
+<section class="state state-error"{{if .code}} data-code="{{.code}}"{{end}}>
+    <span class="stripes" aria-hidden="true"></span>
+    {{if or .code .id}}<div class="label">{{if .code}}{{.code}}{{end}}{{if and .code .id}} · {{end}}{{if .id}}{{.id}}{{end}}</div>{{end}}
+    <h1>{{.title}}</h1>
+    {{if .text}}<p class="state-text">{{.text}}</p>{{end}}
+    {{if or .backText .retryText .copyText .actions}}
+    <div class="state-actions">
+        {{if .retryText}}<button class="btn btn-secondary" type="button" onclick="location.reload()"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>{{.retryText}}</button>{{end}}
+        {{if .backText}}<a class="btn btn-rail" href="{{if .backHref}}{{.backHref}}{{else}}/admin{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>{{.backText}}</a>{{end}}
+        {{if .copyText}}<button class="btn btn-text" type="button" data-copy="{{.copyValue}}"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg>{{.copyText}}</button>{{end}}
+        {{if .actions}}{{.actions}}{{end}}
+    </div>
+    {{end}}
+</section>
+{{end}}
+
+{{/* 無權限（鎖頭）。必填 title；選填 text、backText / backHref、actions。 */}}
+{{define "state-forbidden"}}
+<section class="state state-forbidden">
+    <span class="state-lock" aria-hidden="true"><svg class="icon"><use href="#i-lock"/></svg></span>
+    <h1>{{.title}}</h1>
+    {{if .text}}<p class="state-text">{{.text}}</p>{{end}}
+    {{if or .backText .actions}}
+    <div class="state-actions">
+        {{if .backText}}<a class="btn btn-secondary btn-sm" href="{{if .backHref}}{{.backHref}}{{else}}/admin{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>{{.backText}}</a>{{end}}
+        {{if .actions}}{{.actions}}{{end}}
+    </div>
+    {{end}}
+</section>
+{{end}}
+
+{{/* 由伺服器端發出一則 toast（例如 flash 訊息）。必填 message；選填 kind
+   （success | error | info | warning，預設 info）、detail、actionLabel + actionHref。
+   前端互動請直接呼叫 window.Jelly.toast(message, {kind, detail, action:{label, onClick}})。 */}}
+{{define "toast"}}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (!window.Jelly || !Jelly.toast) return;
+    Jelly.toast({{.message}}, {
+        kind: {{if .kind}}{{.kind}}{{else}}'info'{{end}},
+        detail: {{if .detail}}{{.detail}}{{else}}''{{end}}{{if and .actionLabel .actionHref}},
+        action: { label: {{.actionLabel}}, href: {{.actionHref}} }{{end}}
+    });
+});
+</script>
+{{end}}
+
 {{/* Markdown Editor Component: toolbar + textarea + live preview. Params: id, name, placeholder */}}
 {{define "md-editor"}}
 <div class="md" data-md-editor="{{.id}}">

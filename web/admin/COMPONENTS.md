@@ -331,6 +331,91 @@ list item1 item2 item3
 {{end}}
 ```
 
+### 狀態元件
+
+四個狀態元件的樣式在 `layout.html`，視覺對照 `design/project/States.dc.html`。`actions` 是 HTML，
+要用 `(safeHTML "<a class='btn' …>…</a>")` 傳入；直接傳字串會被跳脫成純文字。`dict` 缺的鍵視為空。
+
+#### 20. State Empty（空白狀態）
+```html
+{{template "state-empty" dict
+    "title" "還沒有文章。"
+    "text" "寫第一篇，或把 WordPress 的文章搬過來。"
+    "actions" (safeHTML "<a class='btn btn-primary' href='/admin/posts/new'>…</a>")
+}}
+```
+必填 `title`；選填 `text`、`actions`。右側的果凍丁拼貼在 1100px 以下隱藏。
+
+#### 21. State Loading（載入中）
+```html
+{{template "state-loading" dict "text" .T.loadingText "note" "超過 3 秒才顯示" "skeleton" true}}
+```
+果凍丁 spinner + 文字，`skeleton` 為 true 時加佔位線。`role="status"`，減少動態偏好下動畫停止。
+
+#### 22. State Error（整頁錯誤，墨色底）
+```html
+{{template "state-error" dict
+    "code" 500 "id" "req_8f3a21"
+    "title" .T.errorInternal "text" .T.errorInternalHint
+    "backText" .T.backToDashboard "backHref" "/admin"
+    "retryText" .T.retry
+    "copyText" .T.copyErrorCode "copyValue" "500 req_8f3a21 /admin/posts"
+}}
+```
+必填 `title`；選填 `code`、`id`（顯示成「500 · req_8f3a21」）、`text`、`backText` / `backHref`（預設 `/admin`）、
+`retryText`（重新整理）、`copyText` + `copyValue`（複製到剪貼簿，成功時跳 toast）、`actions`。`admin/error.html` 用它處理 404、5xx。
+
+#### 23. State Forbidden（無權限）
+```html
+{{template "state-forbidden" dict
+    "title" .T.errorForbidden
+    "text" (printf .T.forbiddenRole "編輯")
+    "backText" .T.backToDashboard
+}}
+```
+鎖頭 + 說明 + 回儀表板。必填 `title`；選填 `text`、`backText` / `backHref`、`actions`。`error.html` 對 401、403 使用。
+
+### Toast（通知條）
+
+右下角堆疊（手機是底部滿寬），墨色底、左邊口味色方點：success 薄荷、error 覆盆子、warning 黃、info 藍。
+全域函式（定義在 `layout.html`，頁面的 `scripts` 區塊與行內腳本都可直接呼叫）：
+
+```js
+Jelly.toast('已發布', { kind: 'success', detail: '', action: { label: '看前台 ↗', href: '/post/x' } });
+Jelly.toast('儲存失敗', { kind: 'error', detail: '連線中斷', action: { label: '重試', onClick: save } });
+Jelly.toast('已移到回收桶', { kind: 'warning', action: { label: '復原', onClick: undo } });
+```
+
+- `kind`：`success` | `error` | `info`（預設）| `warning`。
+- 自動消失：預設 4 秒，帶 `action` 的 8 秒；`error` 不自動消失；`duration`（毫秒，0 為不消失）可覆寫。滑過或聚焦時暫停。
+- `action`：`{label, onClick}` 或 `{label, href}`。`onClick` 收到 `dismiss` 函式；點了動作預設會關閉這則 toast。
+- 回傳 `{dismiss(), element}`。最多同時 4 則，超過會移除最舊的。訊息一律當純文字，不會被當 HTML。
+- `error` 用 `role="alert"`，其餘 `role="status"`，容器有 `aria-label`。
+
+伺服器端要發一則（例如 flash 訊息）時用模板：
+
+```html
+{{template "toast" dict "kind" "success" "message" .T.saved "detail" "" "actionLabel" .T.view "actionHref" "/post/x"}}
+```
+
+既有頁面的 `alert()` 沒有被攔截，之後逐頁改成 `Jelly.toast`。
+
+## 外殼（layout.html）
+
+- **側欄**：墨色（`--rail`、`--rail-hi`、`--rail-text`、`--rail-muted`），由 `.Nav` 產生，不寫死連結；
+  `Active` 項目是覆盆子色並帶 `aria-current="page"`；`Badge > 0` 時顯示數字。`Icon` 是 sprite symbol id（例如 `i-grid`）。
+  sprite 已含設計板用到的圖示（`i-comment`、`i-tag`、`i-users`、`i-bell`、`i-lock`、`i-db`、`i-tools` 等）；新圖示加在 `layout.html` 的 `<svg>` sprite。
+- **麵包屑**：`.Crumbs` 為空時顯示「區段 / 頁面標題」（區段來自 `.Nav` 中 Active 項目所在的區段）；有值時接在區段後面，最後一個是目前頁。`.Title` 非空時覆寫瀏覽器分頁標題。
+- **⌘K 指令面板**：Ctrl/⌘+K 或點頂欄搜尋框開啟；輸入即查（debounce 150ms，呼叫 `GET /api/admin/palette?q=`），空字串也查一次；
+  ↑↓ 移動、Enter 開啟、Ctrl/⌘+Enter 新分頁、Esc 關閉並還原焦點；`>` 開頭只找指令、`/` 開頭只找頁面；
+  結果分組的標籤列可篩選。面板開啟時背景為 `inert`。焦點在 Markdown 編輯器內時 Ctrl+K 仍是插入連結。
+  程式介面：`Jelly.palette.open()`、`Jelly.palette.close()`。
+- **通知鈴鐺**：連到 `/admin/notifications`，`.Viewer.Unread > 0` 顯示數字（99 以上顯示 99+）。
+- **使用者區塊**：頭像（`.Viewer.Avatar` 或 `.Viewer.Initial`）、名稱、角色，連到 `/admin/profile`；登出按鈕沿用 `fetch('/auth/logout')`。
+- **手機（≤900px）**：側欄收成抽屜（選單鈕、遮罩、Esc 關閉、關閉時不可被 Tab 到），頂欄只留目前頁名稱，搜尋與查看網站縮成圖示鈕。
+- **預覽**：`go run ./cmd/jellypreview -out <dir>` 把每個後台頁面輸出成靜態 HTML，
+  `PLAYWRIGHT_MODULE=… node design/tools/preview-admin.mjs <dir>` 截圖到 `design/shots/`。
+
 ## 最佳實踐
 
 1. **保持組件單一職責**：每個組件只做一件事
