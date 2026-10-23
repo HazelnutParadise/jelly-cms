@@ -34,7 +34,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .mark{display:inline-block;width:26px;height:30px}
 </style>
 </helmet>
-<div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff; min-height: 100vh">
+<div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff; min-height: 100vh; position: relative">
   <!-- 閱讀進度：三色線，寬度隨捲動 -->
   <div style="height: 3px; width: 38%; background: linear-gradient(90deg, #E8285B 0 64%, #2F6BFF 64% 86%, #13C2A3 86% 100%)" aria-hidden="true"></div>
   <header style="display: flex; align-items: center; gap: 24px; padding: 14px 40px; max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box">
@@ -93,6 +93,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
     <a href="Post.dc.html" style="display: flex; flex-direction: column; gap: 8px; padding: 24px; background: #15161A; color: #fff; border-radius: 0 16px 0 16px; text-align: right; align-items: flex-end"><span class="lbl" style="display: inline-flex; align-items: center; gap: 6px; color: #B9BCC6">下一篇<svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg></span><span class="d" style="font-size: 22px">果凍丁與裝飾線：預設主題的設計筆記</span></a>
   </section>
 
+  <button type="button" aria-label="回到頂部" title="回到頂部（JS 緩動捲動，不是 #錨點）" style="position:absolute;right:32px;bottom:140px;width:48px;height:48px;display:grid;place-items:center;border:0;background:#15161A;color:#fff;border-radius:0 16px 0 16px;box-shadow:0 10px 28px rgba(21,22,26,.22);cursor:pointer"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square"><path d="M12 20V4M6 10l6-6 6 6"/></svg></button>
   <footer style="background: #15161A; color: #EDEDF0; padding: 48px 40px; margin-top: auto"><div style="max-width: 1360px; margin: 0 auto; display: flex; justify-content: space-between; font-size: 13px; color: #9A9FAB"><span>© 榛果繽紛樂</span><span>Powered by Jelly CMS</span></div></footer>
 </div>
 </x-dc>

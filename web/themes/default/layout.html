@@ -412,14 +412,20 @@
             .hero-copy { margin-right: 0; }
             .article-foot { flex-direction: column; align-items: stretch; }
         }
+        .to-top { position: fixed; right: clamp(1rem, 3vw, 2rem); bottom: clamp(1rem, 3vw, 2rem); z-index: 110; width: 3rem; height: 3rem; display: inline-grid; place-items: center; border: 0; cursor: pointer; background: var(--ink); color: var(--surface); border-radius: var(--r-md); box-shadow: 0 10px 28px color-mix(in srgb, var(--ink) 22%, transparent); opacity: 0; transform: translateY(.75rem) scale(.9); pointer-events: none; transition: opacity .25s ease, transform .35s cubic-bezier(.2, .9, .3, 1.3), border-radius .25s ease, background-color .15s ease; }
+        .to-top.is-visible { opacity: 1; transform: none; pointer-events: auto; }
+        .to-top:hover, .to-top:focus-visible { border-radius: var(--r-md-hover); background: var(--primary); outline: none; }
+        .to-top .icon { width: 1.25rem; height: 1.25rem; }
         @media (prefers-reduced-motion: reduce) {
             *, *::before, *::after { transition-duration: .01ms !important; }
+            .to-top { transition: opacity .01ms; transform: none; }
         }
     </style>
 </head>
 
 <body>
-    <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol><symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></symbol><symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8 11l8-5M8 13l8 5"/></symbol><symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M19 14v6H4V5h6"/></symbol></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol><symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol><symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 20V4M6 10l6-6 6 6"/></symbol>
+        <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></symbol><symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8 11l8-5M8 13l8 5"/></symbol><symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M19 14v6H4V5h6"/></symbol></svg>
     <a class="skip-link" href="#main">跳到主要內容</a>
 
     <header class="masthead">
@@ -480,6 +486,42 @@
             </div>
         </div>
     </footer>
+    <button class="to-top" id="to-top" type="button" aria-label="回到頂部" title="回到頂部">
+        <svg class="icon" aria-hidden="true"><use href="#i-arrow-up"></use></svg>
+    </button>
+    <script>
+    (function () {
+        var btn = document.getElementById('to-top');
+        if (!btn) return;
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+        var raf = 0;
+        function update() {
+            btn.classList.toggle('is-visible', window.scrollY > window.innerHeight * 0.8);
+        }
+        function stop() { if (raf) { cancelAnimationFrame(raf); raf = 0; } }
+        function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+        function scrollToTop() {
+            stop();
+            var from = window.scrollY;
+            if (from <= 0) return;
+            if (reduce.matches) { window.scrollTo(0, 0); return; }
+            var duration = Math.min(900, Math.max(350, from * 0.35));
+            var start = performance.now();
+            function step(now) {
+                var t = Math.min(1, (now - start) / duration);
+                window.scrollTo(0, Math.round(from * (1 - easeInOutCubic(t))));
+                if (t < 1) { raf = requestAnimationFrame(step); } else { raf = 0; update(); }
+            }
+            raf = requestAnimationFrame(step);
+        }
+        btn.addEventListener('click', scrollToTop);
+        window.addEventListener('wheel', stop, { passive: true });
+        window.addEventListener('touchstart', stop, { passive: true });
+        window.addEventListener('keydown', function (e) { if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') stop(); });
+        window.addEventListener('scroll', update, { passive: true });
+        update();
+    })();
+    </script>
 </body>
 
 </html>
