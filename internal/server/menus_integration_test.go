@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
@@ -670,5 +671,98 @@ func TestMenusCustomURLRejectLeavesTreeUnchanged(t *testing.T) {
 	menus := menuTestList(t, h, token)
 	if got := menuTestItemsOf(t, h, token, menu.ID); len(got) != 2 {
 		t.Errorf("final root count = %d, want 2; menus=%+v", len(got), menus)
+	}
+}
+
+// menuThemeTree is the header/footer fixture: labels that cannot appear in the default theme by
+// accident, one nested child, and one custom item whose href is distinctive.
+const menuThemeTree = `[
+	{"label":"Zebra Guides","type":"custom","url":"/zebra-guides","children":[
+		{"label":"Quokka Notes","type":"custom","url":"/quokka-notes"}
+	]},
+	{"label":"Contact Z","type":"custom","url":"/contact-z"}
+]`
+
+// menuThemeSeedPost creates one published post and returns its slug.
+func menuThemeSeedPost(t *testing.T, h *accessHarness) string {
+	t.Helper()
+	author := h.user("author", "menutheme-author")
+	post := archivesSeedPost(t, h, author, archivesPost{
+		title:       "Menu Theme Post",
+		publishedAt: archivesDay(2025, time.May, 3),
+	})
+	if post.Slug == "" {
+		t.Fatalf("seeded post has no slug")
+	}
+	return post.Slug
+}
+
+// menuThemeAssertPresent checks that every menu label and the custom href appear in body.
+func menuThemeAssertPresent(t *testing.T, where, body string, want []string) {
+	t.Helper()
+	for _, s := range want {
+		if !strings.Contains(body, s) {
+			t.Errorf("%s: rendered HTML lacks %q", where, s)
+		}
+	}
+}
+
+// TestMenusHeaderMenuRendersInTheme checks that the default theme's header renders the menu assigned
+// to location "header" on the home page and on a post page, and that it falls back to the hard-coded
+// 首頁 link while no header menu exists.
+func TestMenusHeaderMenuRendersInTheme(t *testing.T) {
+	h := archivesHarness(t)
+	token := h.token(h.user("admin", "menutheme-header-admin"))
+	slug := menuThemeSeedPost(t, h)
+	pages := []string{"/", "/post/" + slug}
+
+	for _, path := range pages {
+		r := archivesGet(t, h, path)
+		archivesWantStatus(t, path, r, http.StatusOK)
+		if !strings.Contains(r.body, "首頁") {
+			t.Errorf("GET %s without a header menu lacks fallback link 首頁", path)
+		}
+	}
+
+	menu := menuTestCreate(t, h, token, `{"name":"Theme Header","location":"header"}`)
+	itemsPath := fmt.Sprintf("/api/admin/menus/%d/items", menu.ID)
+	menuTestCheck(t, h.request(http.MethodPut, itemsPath, menuThemeTree, token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON),
+		"PUT header items", http.StatusOK)
+
+	want := []string{"Zebra Guides", "Quokka Notes", "Contact Z", "/contact-z"}
+	for _, path := range pages {
+		r := archivesGet(t, h, path)
+		archivesWantStatus(t, path, r, http.StatusOK)
+		menuThemeAssertPresent(t, "GET "+path+" with header menu", r.body, want)
+	}
+}
+
+// TestMenusFooterMenuRendersInTheme checks that the default theme's footer renders the menu assigned
+// to location "footer" inside the page footer, on the home page and on a post page.
+func TestMenusFooterMenuRendersInTheme(t *testing.T) {
+	h := archivesHarness(t)
+	token := h.token(h.user("admin", "menutheme-footer-admin"))
+	slug := menuThemeSeedPost(t, h)
+	pages := []string{"/", "/post/" + slug}
+
+	for _, path := range pages {
+		r := archivesGet(t, h, path)
+		archivesWantStatus(t, path, r, http.StatusOK)
+	}
+
+	menu := menuTestCreate(t, h, token, `{"name":"Theme Footer","location":"footer"}`)
+	itemsPath := fmt.Sprintf("/api/admin/menus/%d/items", menu.ID)
+	menuTestCheck(t, h.request(http.MethodPut, itemsPath, menuThemeTree, token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON),
+		"PUT footer items", http.StatusOK)
+
+	want := []string{"Zebra Guides", "Quokka Notes", "Contact Z", "/contact-z"}
+	for _, path := range pages {
+		r := archivesGet(t, h, path)
+		archivesWantStatus(t, path, r, http.StatusOK)
+		idx := strings.LastIndex(r.body, "<footer")
+		if idx < 0 {
+			t.Fatalf("GET %s: rendered HTML has no <footer> element", path)
+		}
+		menuThemeAssertPresent(t, "GET "+path+" footer area with footer menu", r.body[idx:], want)
 	}
 }
