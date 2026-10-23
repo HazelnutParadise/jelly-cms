@@ -1,0 +1,4 @@
+```html
+<p>嗨 <strong>世界</strong></p>
+<a href="https://example.com" onclick="x()">連結</a>
+```
