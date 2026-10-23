@@ -539,3 +539,136 @@ func TestMenusThemeFunctionRendersResolvedLinks(t *testing.T) {
 		t.Errorf("rendered header menu = %q, want %q", got, want)
 	}
 }
+
+// menuCustomURLBad lists custom item URLs that PUT /menus/:id/items must reject:
+// a script or data scheme (any letter case, with or without leading whitespace),
+// an empty URL, and a bare relative path that starts with neither "/" nor "#".
+var menuCustomURLBad = []string{
+	"javascript:alert(1)",
+	"JavaScript:alert(1)",
+	"data:text/html,x",
+	"vbscript:x",
+	"  javascript:alert(1)",
+	"",
+	"evil.example",
+}
+
+// menuCustomURLGood lists custom item URLs that PUT /menus/:id/items must accept.
+var menuCustomURLGood = []string{
+	"/about",
+	"#top",
+	"https://example.com/x?y=1",
+	"mailto:hi@example.com",
+	"tel:+886912345678",
+	"HTTP://EXAMPLE.COM",
+}
+
+func menuTestMarshal(t *testing.T, v any) string {
+	t.Helper()
+	body, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("encode request body: %v", err)
+	}
+	return string(body)
+}
+
+// TestMenusCustomURLValidation checks the custom item URL rule: a relative path
+// starting with "/" or "#", or an absolute URL whose scheme is http, https, mailto
+// or tel (case-insensitive). Other URLs get a 400 with an error body.
+func TestMenusCustomURLValidation(t *testing.T) {
+	h := newAccessHarness(t)
+	token := h.token(h.user("editor", "menus-url-editor"))
+	itemsPathOf := func(id uint) string { return fmt.Sprintf("/api/admin/menus/%d/items", id) }
+
+	for _, url := range menuCustomURLGood {
+		t.Run("accept "+url, func(t *testing.T) {
+			menu := menuTestCreate(t, h, token, `{"name":"網址接受"}`)
+			body := menuTestMarshal(t, []map[string]any{{"label": "連結", "type": "custom", "url": url}})
+			r := h.request(http.MethodPut, itemsPathOf(menu.ID), body, token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
+			menuTestCheck(t, r, "PUT custom url "+url, http.StatusOK)
+			items := menuTestItemsOf(t, h, token, menu.ID)
+			if len(items) != 1 || items[0].URL != url {
+				t.Errorf("stored items = %+v, want one custom item with url %q", items, url)
+			}
+		})
+	}
+
+	for _, url := range menuCustomURLBad {
+		t.Run(fmt.Sprintf("reject %q", url), func(t *testing.T) {
+			menu := menuTestCreate(t, h, token, `{"name":"網址拒絕"}`)
+			body := menuTestMarshal(t, []map[string]any{{"label": "連結", "type": "custom", "url": url}})
+			r := h.request(http.MethodPut, itemsPathOf(menu.ID), body, token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
+			menuTestCheck(t, r, "PUT custom url "+fmt.Sprintf("%q", url), http.StatusBadRequest)
+			var e map[string]any
+			menuTestDecode(t, r, "PUT rejected custom url", &e)
+			if msg, _ := e["error"].(string); msg == "" {
+				t.Errorf("rejected url %q: response has no error message; body=%q", url, r.body)
+			}
+			if n := menuTestCount(t, h, &core.MenuItem{}, "menu_id = ?", menu.ID); n != 0 {
+				t.Errorf("rejected url %q stored %d item rows, want 0", url, n)
+			}
+		})
+	}
+}
+
+// TestMenusCustomURLRejectLeavesTreeUnchanged checks that a PUT with a bad custom
+// URL, at the root or nested under a valid parent, is refused as a whole: the
+// previous tree is still returned by GET and no rows change.
+func TestMenusCustomURLRejectLeavesTreeUnchanged(t *testing.T) {
+	h := newAccessHarness(t)
+	token := h.token(h.user("editor", "menus-url-unchanged-editor"))
+	menu := menuTestCreate(t, h, token, `{"name":"網址不變"}`)
+	itemsPath := fmt.Sprintf("/api/admin/menus/%d/items", menu.ID)
+	put := func(body string) accessResult {
+		return h.request(http.MethodPut, itemsPath, body, token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
+	}
+
+	baseline := `[
+		{"label":"首頁","type":"home"},
+		{"label":"關於","type":"custom","url":"/about","children":[
+			{"label":"團隊","type":"custom","url":"/team"}
+		]}
+	]`
+	menuTestCheck(t, put(baseline), "PUT baseline items", http.StatusOK)
+
+	checkUnchanged := func(where string) {
+		t.Helper()
+		items := menuTestItemsOf(t, h, token, menu.ID)
+		if got := menuTestLabelsJoined(items); got != "首頁|關於" {
+			t.Errorf("%s: root labels = %q, want %q; items=%+v", where, got, "首頁|關於", items)
+			return
+		}
+		if items[1].URL != "/about" || len(items[1].Children) != 1 || items[1].Children[0].URL != "/team" {
+			t.Errorf("%s: tree changed: %+v", where, items)
+		}
+		if n := menuTestCount(t, h, &core.MenuItem{}, "menu_id = ?", menu.ID); n != 3 {
+			t.Errorf("%s: stored %d item rows, want 3", where, n)
+		}
+	}
+	checkUnchanged("after baseline")
+
+	for _, url := range menuCustomURLBad {
+		rootBad := menuTestMarshal(t, []map[string]any{
+			{"label": "新首頁", "type": "home"},
+			{"label": "壞", "type": "custom", "url": url},
+		})
+		childBad := menuTestMarshal(t, []map[string]any{
+			{"label": "新首頁", "type": "home"},
+			{"label": "關於", "type": "custom", "url": "/about", "children": []map[string]any{
+				{"label": "壞", "type": "custom", "url": url},
+			}},
+		})
+		for placement, body := range map[string]string{"root": rootBad, "child": childBad} {
+			t.Run(fmt.Sprintf("%s %q", placement, url), func(t *testing.T) {
+				r := put(body)
+				menuTestCheck(t, r, "PUT bad custom url at "+placement, http.StatusBadRequest)
+				checkUnchanged("after rejected " + placement + " url " + fmt.Sprintf("%q", url))
+			})
+		}
+	}
+
+	menus := menuTestList(t, h, token)
+	if got := menuTestItemsOf(t, h, token, menu.ID); len(got) != 2 {
+		t.Errorf("final root count = %d, want 2; menus=%+v", len(got), menus)
+	}
+}
