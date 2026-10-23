@@ -1091,3 +1091,240 @@ func TestCommentsForPostTreeCountAndOpen(t *testing.T) {
 		t.Errorf("commentsForPost open = true while comments_enabled=false, want false")
 	}
 }
+
+// --- 12. admin edit of a comment body --------------------------------------
+
+// commentsEditRow is the admin comment row returned by PUT /api/admin/comments/:id.
+type commentsEditRow struct {
+	ID       uint   `json:"id"`
+	ParentID *uint  `json:"parent_id"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Body     string `json:"body"`
+	BodyHTML string `json:"body_html"`
+	Status   string `json:"status"`
+}
+
+func commentsEditPath(id uint) string {
+	return fmt.Sprintf("/api/admin/comments/%d", id)
+}
+
+func commentsEditBody(t *testing.T, body string) string {
+	t.Helper()
+	return commentsJSON(t, map[string]any{"body": body})
+}
+
+func TestCommentsEditRewritesBodyAndKeepsIdentity(t *testing.T) {
+	h := newAccessHarness(t)
+	editor := h.user("editor", "cmt-edit-editor")
+	author := h.user("author", "cmt-edit-author")
+	post := commentsPublishedPost(t, h, author, "edit-post", nil)
+	parent := commentsSeed(t, h, commentsRow(post.ID, "Parent", "approved", 1))
+	c := commentsSeed(t, h, commentsReply(commentsRow(post.ID, "Edited", "approved", 2), parent.ID))
+
+	input := "  Changed **bold** <script>alert(1)</script> [site](https://e.com)  "
+	const want = "Changed **bold** <script>alert(1)</script> [site](https://e.com)"
+	wantHTML := renderCommentMarkdown(want)
+
+	r := commentsDo(t, h, http.MethodPut, commentsEditPath(c.ID), commentsEditBody(t, input), h.token(editor), "")
+	if !commentsOK(t, r, "editor PUT comment", http.StatusOK) {
+		return
+	}
+	var out commentsEditRow
+	if !commentsDecode(t, r, "editor PUT comment", &out) {
+		return
+	}
+	if out.ID != c.ID {
+		t.Errorf("PUT response id = %d, want %d", out.ID, c.ID)
+	}
+	if out.Body != want {
+		t.Errorf("PUT response body = %q, want trimmed %q", out.Body, want)
+	}
+	if out.BodyHTML != wantHTML {
+		t.Errorf("PUT response body_html = %q, want the sanitized render %q", out.BodyHTML, wantHTML)
+	}
+	if commentsScriptTag.MatchString(out.BodyHTML) {
+		t.Errorf("PUT response body_html kept a script tag: %q", out.BodyHTML)
+	}
+	if !strings.Contains(out.BodyHTML, "<strong>bold</strong>") {
+		t.Errorf("PUT response body_html did not render Markdown emphasis: %q", out.BodyHTML)
+	}
+	if !commentsHasNofollowLink(out.BodyHTML, "https://e.com") {
+		t.Errorf("PUT response body_html link lacks rel nofollow: %q", out.BodyHTML)
+	}
+	if out.Status != "approved" {
+		t.Errorf("PUT response status = %q, want approved (unchanged)", out.Status)
+	}
+	if out.Name != c.Name || out.Email != c.Email {
+		t.Errorf("PUT response name/email = %q/%q, want %q/%q", out.Name, out.Email, c.Name, c.Email)
+	}
+	if out.ParentID == nil || *out.ParentID != parent.ID {
+		t.Errorf("PUT response parent_id = %v, want %d", out.ParentID, parent.ID)
+	}
+
+	row, ok := commentsLoad(t, h.db, c.ID)
+	if !ok {
+		return
+	}
+	if row.Body != want {
+		t.Errorf("stored body = %q, want %q", row.Body, want)
+	}
+	if row.BodyHTML != wantHTML {
+		t.Errorf("stored body_html = %q, want %q", row.BodyHTML, wantHTML)
+	}
+	if row.Status != "approved" {
+		t.Errorf("stored status = %q, want approved (unchanged)", row.Status)
+	}
+	if row.Name != c.Name || row.Email != c.Email {
+		t.Errorf("stored name/email = %q/%q, want %q/%q", row.Name, row.Email, c.Name, c.Email)
+	}
+	if row.ParentID == nil || *row.ParentID != parent.ID {
+		t.Errorf("stored parent_id = %v, want %d", row.ParentID, parent.ID)
+	}
+	if row.PostID != post.ID {
+		t.Errorf("stored post_id = %d, want %d", row.PostID, post.ID)
+	}
+}
+
+func TestCommentsEditKeepsStatus(t *testing.T) {
+	h := newAccessHarness(t)
+	editor := h.user("editor", "cmt-edst-editor")
+	author := h.user("author", "cmt-edst-author")
+	post := commentsPublishedPost(t, h, author, "edit-status-post", nil)
+	token := h.token(editor)
+
+	for i, status := range []string{"pending", "approved", "spam"} {
+		c := commentsSeed(t, h, commentsRow(post.ID, "Kept"+status, status, i+1))
+		r := commentsDo(t, h, http.MethodPut, commentsEditPath(c.ID), commentsEditBody(t, "Edited while "+status), token, "")
+		if !commentsOK(t, r, "PUT "+status+" comment", http.StatusOK) {
+			continue
+		}
+		if got, ok := commentsStatusOf(t, r, "PUT "+status+" response"); ok && got != status {
+			t.Errorf("PUT response status for a %s comment = %q, want %q", status, got, status)
+		}
+		if row, ok := commentsLoad(t, h.db, c.ID); ok && row.Status != status {
+			t.Errorf("stored status after editing a %s comment = %q, want %q", status, row.Status, status)
+		}
+	}
+}
+
+func TestCommentsEditValidatesBody(t *testing.T) {
+	h := newAccessHarness(t)
+	editor := h.user("editor", "cmt-edv-editor")
+	author := h.user("author", "cmt-edv-author")
+	post := commentsPublishedPost(t, h, author, "edit-valid-post", nil)
+	c := commentsSeed(t, h, commentsRow(post.ID, "Valid", "approved", 1))
+	token := h.token(editor)
+	path := commentsEditPath(c.ID)
+
+	before := commentsSnapshot(t, h.db)
+	for _, tc := range []struct{ name, body string }{
+		{"empty", ""},
+		{"whitespace only", " \n\t "},
+		{"5001 characters", strings.Repeat("一", 5001)},
+	} {
+		commentsOK(t, commentsDo(t, h, http.MethodPut, path, commentsEditBody(t, tc.body), token, ""),
+			"PUT body "+tc.name, http.StatusBadRequest)
+	}
+	if after := commentsSnapshot(t, h.db); after != before {
+		t.Errorf("rejected PUT requests changed the comments table:\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+
+	limit := strings.Repeat("一", 5000)
+	r := commentsDo(t, h, http.MethodPut, path, commentsEditBody(t, "  "+limit+"  "), token, "")
+	if commentsOK(t, r, "PUT 5000 characters after trimming", http.StatusOK) {
+		if row, ok := commentsLoad(t, h.db, c.ID); ok && row.Body != limit {
+			t.Errorf("stored body length = %d runes, want the trimmed 5000", len([]rune(row.Body)))
+		}
+	}
+}
+
+func TestCommentsEditMissingOrTrashedIsNotFound(t *testing.T) {
+	h := newAccessHarness(t)
+	editor := h.user("editor", "cmt-edn-editor")
+	author := h.user("author", "cmt-edn-author")
+	post := commentsPublishedPost(t, h, author, "edit-missing-post", nil)
+	trashed := commentsSeed(t, h, commentsTrashed(commentsRow(post.ID, "Gone", "approved", 1)))
+	token := h.token(editor)
+
+	before := commentsSnapshot(t, h.db)
+	for _, id := range []uint{999999, trashed.ID} {
+		r := commentsDo(t, h, http.MethodPut, commentsEditPath(id), commentsEditBody(t, "x"), token, "")
+		if commentsOK(t, r, fmt.Sprintf("PUT comment %d", id), http.StatusNotFound) &&
+			!strings.Contains(r.body, "Comment not found") {
+			t.Errorf("PUT comment %d 404 body = %q, want the handler's \"Comment not found\" error", id, r.body)
+		}
+	}
+	if after := commentsSnapshot(t, h.db); after != before {
+		t.Errorf("PUT on a missing or trashed comment changed the comments table:\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+}
+
+func TestCommentsEditRoleGates(t *testing.T) {
+	h := newAccessHarness(t)
+	editor := h.user("editor", "cmt-edg-editor")
+	author := h.user("author", "cmt-edg-author")
+	post := commentsPublishedPost(t, h, editor, "edit-gate-post", nil)
+	c := commentsSeed(t, h, commentsRow(post.ID, "Gate", "pending", 1))
+	path := commentsEditPath(c.ID)
+	body := commentsEditBody(t, "Changed by a probe")
+
+	before := commentsSnapshot(t, h.db)
+	commentsOK(t, commentsDo(t, h, http.MethodPut, path, body, "", ""), "anonymous PUT comment", http.StatusUnauthorized)
+	commentsOK(t, commentsDo(t, h, http.MethodPut, path, body, h.token(author), ""), "author PUT comment", http.StatusForbidden)
+	if after := commentsSnapshot(t, h.db); after != before {
+		t.Errorf("anonymous or author PUT changed the comments table:\nbefore:\n%s\nafter:\n%s", before, after)
+	}
+	commentsOK(t, commentsDo(t, h, http.MethodPut, path, body, h.token(editor), ""), "editor PUT comment", http.StatusOK)
+}
+
+// --- 13. a staff reply approves the parent comment -------------------------
+
+func TestCommentsReplyApprovesParentWhenPending(t *testing.T) {
+	h := newAccessHarness(t)
+	editor := h.user("editor", "cmt-rpp-editor")
+	author := h.user("author", "cmt-rpp-author")
+	post := commentsPublishedPost(t, h, author, "reply-pending-post", nil)
+	parent := commentsSeed(t, h, commentsRow(post.ID, "Waiting", "pending", 1))
+
+	r := commentsDo(t, h, http.MethodPost, fmt.Sprintf("/api/admin/comments/%d/reply", parent.ID),
+		commentsJSON(t, map[string]any{"body": "Thanks for waiting"}), h.token(editor), "")
+	if !commentsOK(t, r, "editor reply to pending parent", http.StatusCreated) {
+		return
+	}
+	var reply struct {
+		ID uint `json:"id"`
+	}
+	if !commentsDecode(t, r, "editor reply to pending parent", &reply) {
+		return
+	}
+
+	row, ok := commentsLoad(t, h.db, parent.ID)
+	if ok {
+		if row.Status != "approved" {
+			t.Errorf("parent status after a staff reply = %q, want approved", row.Status)
+		}
+		if row.Name != parent.Name || row.Email != parent.Email || row.Body != parent.Body {
+			t.Errorf("parent name/email/body changed by the reply: %q/%q/%q", row.Name, row.Email, row.Body)
+		}
+	}
+	if res, ok := commentsPublicGet(t, h, post.ID); ok {
+		commentsSameIDs(t, "public list after a staff reply", commentsPublicIDs(res.Items), parent.ID, reply.ID)
+	}
+}
+
+func TestCommentsReplyApprovesParentLeavesApprovedAlone(t *testing.T) {
+	h := newAccessHarness(t)
+	editor := h.user("editor", "cmt-rpa-editor")
+	author := h.user("author", "cmt-rpa-author")
+	post := commentsPublishedPost(t, h, author, "reply-approved-post", nil)
+	parent := commentsSeed(t, h, commentsRow(post.ID, "Settled", "approved", 1))
+
+	r := commentsDo(t, h, http.MethodPost, fmt.Sprintf("/api/admin/comments/%d/reply", parent.ID),
+		commentsJSON(t, map[string]any{"body": "Noted"}), h.token(editor), "")
+	commentsOK(t, r, "editor reply to approved parent", http.StatusCreated)
+
+	if row, ok := commentsLoad(t, h.db, parent.ID); ok && row.Status != "approved" {
+		t.Errorf("approved parent status after a staff reply = %q, want approved", row.Status)
+	}
+}
