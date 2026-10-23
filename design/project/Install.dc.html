@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>安裝 Jelly CMS</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 22px;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.w{width:100%}.btn.dis{opacity:.4;cursor:not-allowed}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.ul{width:100%;min-height:42px;padding:8px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:16px;color:#15161A;box-sizing:border-box}
+label{display:block;font-size:13px;font-weight:600;color:#5F6470;margin-bottom:2px}
+.hint{margin:4px 0 0;font-size:13px;color:#5F6470}
+.lbl{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.step{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px}
+.step i{width:28px;height:28px;display:grid;place-items:center;border-radius:0 9px 0 9px;background:#EDEEF1;color:#5F6470;font-style:normal;font-family:"Bricolage Grotesque",sans-serif}
+.step.on i{background:#15161A;color:#fff}.step.done i{background:#13C2A3;color:#0B3A31}
+.mark{display:inline-block;width:26px;height:30px}
+</style>
+</helmet>
+<div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff; min-height: 100%">
+  <div class="topline"></div>
+  <main style="max-width: 1120px; margin: 0 auto; width: 100%; box-sizing: border-box; padding: 40px 32px 80px; display: flex; flex-direction: column; gap: 32px">
+    <header style="display: flex; align-items: flex-start; justify-content: space-between; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 12px">
+        <div style="display: inline-flex; align-items: center; gap: 10px; font-size: 16px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".8"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".82"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".9" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800" fill-opacity=".95"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>Jelly CMS</div>
+        <span class="stripe"></span>
+        <h1 class="d" style="font-size: 56px; letter-spacing: -.04em">安裝 Jelly CMS</h1>
+        <p style="margin: 0; color: #5F6470; max-width: 38em">設定資料庫與網站管理者，即可開始使用。所有輸入在斷線時都會保留。</p>
+      </div>
+      <button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>English</button>
+    </header>
+
+    <!-- 進度：三步 -->
+    <div style="display: flex; gap: 24px; flex-wrap: wrap"><span class="step done"><i>✓</i>資料庫</span><span class="step on"><i>2</i>網站與管理者</span><span class="step"><i>3</i>完成</span></div>
+
+    <form style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; align-items: start">
+      <section style="background: #F5F5F7; border-radius: 0 16px 0 16px; padding: 28px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; align-items: center; justify-content: space-between"><h2 class="d" style="font-size: 22px">資料庫設定</h2><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #0F6A45; background: #DCF3E9; padding: 4px 10px; border-radius: 0 8px 0 8px">連線成功</span></div>
+        <p style="margin: 0; color: #5F6470; font-size: 14px">輸入 PostgreSQL 連線資訊。不需要密碼時可留空。</p>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px">
+          <div><label for="h">資料庫主機</label><input id="h" class="ul" type="text" value="localhost"></div>
+          <div><label for="pt">連接埠</label><input id="pt" class="ul" type="text" value="5432"></div>
+          <div><label for="us">使用者</label><input id="us" class="ul" type="text" value="jelly"></div>
+          <div><label for="pw">密碼（依認證設定）</label><input id="pw" class="ul" type="password" value=""></div>
+        </div>
+        <div><label for="db">資料庫名稱</label><input id="db" class="ul" type="text" value="jelly"></div>
+        <div><label for="tz">時區</label><input id="tz" class="ul" type="text" value="Asia/Taipei"></div>
+        <button class="btn t w" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>重新測試連線</button>
+      </section>
+      <section style="background: #fff; box-shadow: inset 0 0 0 2px #15161A; border-radius: 0 16px 0 16px; padding: 28px; display: flex; flex-direction: column; gap: 16px">
+        <h2 class="d" style="font-size: 22px">網站與管理者</h2>
+        <p style="margin: 0; color: #5F6470; font-size: 14px">建立網站名稱與第一個管理者帳號。</p>
+        <div><label for="st">網站名稱</label><input id="st" class="ul" type="text" placeholder="榛果繽紛樂"><p class="hint">最多 200 個字元。</p></div>
+        <div><label for="au">管理者帳號</label><input id="au" class="ul" type="text" placeholder="admin"><p class="hint">最多 50 個字元。</p></div>
+        <div><label for="ae">管理者電子郵件</label><input id="ae" class="ul" type="email" placeholder="you@example.com"></div>
+        <div><label for="ap">管理者密碼</label><input id="ap" class="ul" type="password" placeholder="至少 12 位元組"><p class="hint">12 至 72 位元組，不能全為空白；中文依 UTF-8 位元組計算。</p><div style="display: flex; gap: 4px; margin-top: 8px" aria-hidden="true"><i style="flex: 1; height: 4px; background: #E8285B"></i><i style="flex: 1; height: 4px; background: #F5B800"></i><i style="flex: 1; height: 4px; background: #E2E3E8"></i><i style="flex: 1; height: 4px; background: #E2E3E8"></i></div></div>
+        <button class="btn p w" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>安裝 Jelly CMS</button>
+        <p style="margin: 0; font-size: 14px; color: #5F6470" role="status">安裝完成後會自動前往登入頁。</p>
+      </section>
+    </form>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

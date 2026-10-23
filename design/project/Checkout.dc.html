@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>前台結帳</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.ic{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
+.chip.nd:before{display:none}
+.ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DCE6FF;color:#1A3F9E}.bad{background:#FBE1DE;color:#9C2318}.mint{background:#D4F5EE;color:#0B5E4E}
+.mark{display:inline-block;width:22px;height:26px}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px;white-space:nowrap}
+.seg span.on{background:#15161A;color:#fff}
+.tg{position:relative;width:40px;height:22px;border-radius:0 11px 0 11px;background:#13C2A3;display:inline-block;flex:0 0 auto}.tg:after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;background:#fff;border-radius:0 7px 0 7px}
+.tg.off{background:#D9DBE0}.tg.off:after{right:auto;left:3px}
+.ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
+.mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
+.cube{position:absolute;border-radius:0 26% 0 26%}
+.kbd{display:inline-block;font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:#EDEEF1;color:#5F6470}
+
+body{font-size:15px}
+.ic{width:18px;height:18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 22px;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:46px;padding:0}.btn.sm{min-height:36px;padding:0 12px;font-size:13px}.btn.sm.i{width:36px}
+.nav a{color:#15161A;font-weight:600;font-size:15px;padding:0 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:0 8px 0 8px}
+.nav a.on{background:#15161A;color:#fff}
+.field{width:100%;box-sizing:border-box;min-height:46px;padding:0 14px;border:0;background:#F3F3F5;border-radius:0 10px 0 10px;font:inherit;font-size:15px;color:#15161A}
+.flbl{font-size:13px;font-weight:700;color:#15161A;display:block;margin-bottom:6px}
+.step{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px}
+.step i{width:28px;height:28px;display:grid;place-items:center;border-radius:0 9px 0 9px;background:#EDEEF1;color:#5F6470;font-style:normal;font-family:"Bricolage Grotesque",sans-serif}
+.step.on i{background:#15161A;color:#fff}.step.done i{background:#13C2A3;color:#fff}
+.opt{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:0 12px 0 12px;box-shadow:inset 0 0 0 1px #E2E3E8;cursor:pointer}
+.opt.on{box-shadow:inset 0 0 0 2px #15161A;background:#F8F8FA}
+.opt .rad{width:18px;height:18px;border-radius:0 6px 0 6px;box-shadow:inset 0 0 0 2px #B9BCC6;flex:0 0 auto}
+.opt.on .rad{background:#E8285B;box-shadow:inset 0 0 0 5px #fff,0 0 0 2px #E8285B}
+.mark{width:26px;height:30px}
+.entry{display:grid;grid-template-columns:96px minmax(0,1fr);gap:24px;padding:28px 0;border-top:1px solid #E2E3E8}
+.entry h3{margin:0 0 8px;font-size:26px}.entry h3 a{color:#15161A}
+.entry p{margin:0;color:#5F6470;line-height:1.7}
+.day{font-size:44px;line-height:1}.ym{font-size:12px;color:#5F6470;font-weight:700;letter-spacing:.06em}
+.cm{display:grid;grid-template-columns:44px minmax(0,1fr);gap:16px;padding:20px 0;border-top:1px solid #E2E3E8}
+.cm .av{width:44px;height:44px;display:grid;place-items:center;color:#fff;font-weight:800;border-radius:0 12px 0 12px}
+</style>
+</helmet>
+<div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff; min-height: 100vh">
+  <div class="topline"></div>
+  <header style="display: flex; align-items: center; gap: 24px; padding: 14px 40px; max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box">
+    <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 12px; color: #15161A; font-size: 20px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</a>
+    <nav class="nav" style="display: flex; gap: 4px; margin-left: auto"><a href="Main.dc.html">首頁</a><a href="PostList.dc.html">文章</a><a href="Shop.dc.html" class="on">商店</a><a href="Page.dc.html">關於</a></nav>
+    <a class="btn t" href="Cart.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>購物車<span style="background:#E8285B;color:#fff;font-size:11px;min-width:18px;height:18px;display:inline-grid;place-items:center;border-radius:0 6px 0 6px">2</span></a>
+  </header>
+  
+  <main style="max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box; padding: 32px 40px 96px; display: flex; flex-direction: column; gap: 32px">
+    <div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap">
+      <div style="display: flex; flex-direction: column; gap: 12px"><span class="stripe"></span><h1 class="d" style="font-size: 56px; letter-spacing: -.04em">結帳</h1></div>
+      <div style="display: flex; gap: 20px"><span class="step done"><i><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg></i>購物車</span><span class="step on"><i>2</i>結帳</span><span class="step"><i>3</i>付款</span><span class="step"><i>4</i>完成</span></div>
+    </div>
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 48px; align-items: start">
+      <form style="display: flex; flex-direction: column; gap: 36px" onsubmit="return false">
+        <section style="display: flex; flex-direction: column; gap: 16px">
+          <h2 class="d" style="font-size: 24px; display: flex; align-items: center; gap: 10px"><span class="chip nd" style="background:#15161A;color:#fff">1</span>聯絡方式</h2>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+            <div><label class="flbl" for="em">Email</label><input id="em" class="field" type="email" value="ting@example.com"><div style="font-size:12px;color:#5F6470;margin-top:6px">訂單通知與發票會寄到這裡。</div></div>
+            <div><label class="flbl" for="ph">手機</label><input id="ph" class="field" type="tel" placeholder="09xx xxx xxx"></div>
+          </div>
+          <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 14px"><input type="checkbox" style="accent-color:#E8285B;width:16px;height:16px;margin:0">建立帳號，下次免填（可選）</label>
+        </section>
+        <section style="display: flex; flex-direction: column; gap: 16px">
+          <h2 class="d" style="font-size: 24px; display: flex; align-items: center; gap: 10px"><span class="chip nd" style="background:#15161A;color:#fff">2</span>配送</h2>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px">
+            <label class="opt on"><span class="rad"></span><span><svg class="ic" viewBox="0 0 24 24"><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6"/><circle cx="7" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></svg></span><span><b>宅配</b><div style="font-size:12px;color:#5F6470">NT$ 80 · 2 天</div></span></label>
+            <label class="opt"><span class="rad"></span><span><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg></span><span><b>超商取貨</b><div style="font-size:12px;color:#5F6470">NT$ 60 · 3 天</div></span></label>
+            <label class="opt"><span class="rad"></span><span><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg></span><span><b>自取</b><div style="font-size:12px;color:#5F6470">免運 · 台中門市</div></span></label>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+            <div><label class="flbl" for="nm">收件人</label><input id="nm" class="field" type="text" value="賴庭蓁"></div>
+            <div><label class="flbl" for="zip">郵遞區號</label><input id="zip" class="field" type="text" placeholder="407"></div>
+            <div style="grid-column: 1 / -1"><label class="flbl" for="ad">地址</label><input id="ad" class="field" type="text" placeholder="台中市西屯區…"></div>
+          </div>
+        </section>
+        <section style="display: flex; flex-direction: column; gap: 16px">
+          <h2 class="d" style="font-size: 24px; display: flex; align-items: center; gap: 10px"><span class="chip nd" style="background:#15161A;color:#fff">3</span>付款</h2>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+            <label class="opt on"><span class="rad"></span><span><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18"/></svg></span><span><b>信用卡</b><div style="font-size:12px;color:#5F6470">綠界付款頁，支援一次付清、分期</div></span></label>
+            <label class="opt"><span class="rad"></span><span><svg class="ic" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span><span><b>ATM 轉帳</b><div style="font-size:12px;color:#5F6470">取得虛擬帳號，3 天內匯款</div></span></label>
+            <label class="opt"><span class="rad"></span><span><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg></span><span><b>超商代碼</b><div style="font-size:12px;color:#5F6470">7-11、全家、萊爾富</div></span></label>
+            <label class="opt"><span class="rad"></span><span><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></span><span><b>LINE Pay</b><div style="font-size:12px;color:#5F6470">藍新金流</div></span></label>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+            <div><label class="flbl" for="inv">發票</label><select id="inv" class="field"><option>個人電子發票（存手機條碼）</option><option>公司統編</option><option>捐贈</option></select></div>
+            <div><label class="flbl" for="bc">手機條碼</label><input id="bc" class="field" type="text" placeholder="/ABC1234"></div>
+          </div>
+        </section>
+      </form>
+      <aside style="position: sticky; top: 24px; background: #15161A; color: #fff; border-radius: 0 24px 0 24px; padding: 28px; display: flex; flex-direction: column; gap: 16px">
+        <div class="lbl" style="color: #B9BCC6">你的訂單</div>
+        <div style="display: flex; gap: 12px; align-items: center"><span style="width:48px;height:48px;background:#E8285B;border-radius:0 10px 0 10px;flex:0 0 auto"></span><span style="flex:1"><b>榛果可可醬 200g</b><div style="font-size:12px;color:#B9BCC6">× 1</div></span><b>NT$ 320</b></div>
+        <div style="display: flex; gap: 12px; align-items: center"><span style="width:48px;height:48px;background:#2F6BFF;border-radius:0 10px 0 10px;flex:0 0 auto"></span><span style="flex:1"><b>藍莓果凍 6 入</b><div style="font-size:12px;color:#B9BCC6">× 2</div></span><b>NT$ 480</b></div>
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 15px; padding-top: 16px; border-top: 1px solid #2A2B31"><span style="color:#B9BCC6">小計</span><b>NT$ 800</b><span style="color:#B9BCC6">宅配</span><b>NT$ 80</b></div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; padding-top: 16px; border-top: 1px solid #2A2B31"><span>總計</span><span class="d" style="font-size: 36px">NT$ 880</span></div>
+        <a class="btn p" href="OrderDone.dc.html" style="min-height: 56px; font-size: 17px"><svg class="ic" viewBox="0 0 24 24"><path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4"/></svg>前往付款 NT$ 880</a>
+        <div style="font-size: 12px; color: #9A9FAB; line-height: 1.6">按下去會前往綠界的付款頁。付款完成後回到本站看訂單結果。</div>
+        <a href="Cart.dc.html" style="color: #C9CBD3; font-size: 13px; display: inline-flex; align-items: center; gap: 6px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>回購物車修改</a>
+      </aside>
+    </div>
+  </main>
+  <footer style="background: #15161A; color: #EDEDF0; padding: 48px 40px; margin-top: auto"><div style="max-width: 1360px; margin: 0 auto; display: flex; justify-content: space-between; font-size: 13px; color: #9A9FAB"><span>© 榛果繽紛樂</span><span>Powered by Jelly CMS</span></div></footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1400}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>前台商品頁</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 22px;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.i{width:46px;padding:0}.btn.sm{min-height:38px;padding:0 14px;font-size:14px}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;font-size:12px;font-weight:700;border-radius:0 8px 0 8px;background:#EDEEF1;color:#15161A}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.nav a{color:#15161A;font-weight:600;font-size:15px;padding:0 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:0 8px 0 8px}
+.nav a.on{background:#15161A;color:#fff}
+.seg{display:inline-flex;gap:4px;padding:4px;background:#F3F3F5;border-radius:0 10px 0 10px}
+.seg span{min-height:36px;padding:0 14px;display:inline-flex;align-items:center;font-size:14px;font-weight:700;color:#5F6470;border-radius:0 8px 0 8px}
+.seg span.on{background:#15161A;color:#fff}
+.prose{font-size:16px;line-height:1.8}.prose p{margin:0 0 1em}.prose ul{padding-left:1.4em;margin:0 0 1em}
+.mark{display:inline-block;width:26px;height:30px}
+</style>
+</helmet>
+<div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff; min-height: 100vh">
+  <div class="topline"></div>
+  <header style="display: flex; align-items: center; gap: 24px; padding: 14px 40px; max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box">
+    <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 12px; color: #15161A; font-size: 20px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".8"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".82"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".9" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800" fill-opacity=".95"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</a>
+    <nav class="nav" style="display: flex; gap: 4px; margin-left: auto"><a href="Main.dc.html">首頁</a><a href="PostList.dc.html">文章</a><a href="Shop.dc.html" class="on">商店</a><a href="Page.dc.html">關於</a></nav>
+    <a class="btn t" href="Cart.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>購物車<span style="background: #E8285B; color: #fff; font-size: 11px; min-width: 18px; height: 18px; display: inline-grid; place-items: center; border-radius: 0 6px 0 6px">2</span></a>
+  </header>
+
+  <main style="max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box; padding: 24px 40px 96px">
+    <nav style="font-size: 13px; color: #5F6470; display: flex; gap: 8px; margin-bottom: 24px" aria-label="路徑"><a href="Shop.dc.html">商店</a><span>/</span><a href="Shop.dc.html">抹醬</a><span>/</span><b style="color: #15161A">榛果可可醬 200g</b></nav>
+    <div style="display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 48px; align-items: start">
+      <div style="display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px">
+        <div style="display: flex; flex-direction: column; gap: 8px"><div style="aspect-ratio: 1; background: #E8285B; border-radius: 0 10px 0 10px; box-shadow: inset 0 0 0 3px #15161A"></div><div style="aspect-ratio: 1; background: #F5F5F7; border-radius: 0 10px 0 10px"></div><div style="aspect-ratio: 1; background: #F5F5F7; border-radius: 0 10px 0 10px"></div><div style="aspect-ratio: 1; background: #F5F5F7; border-radius: 0 10px 0 10px"></div></div>
+        <div style="aspect-ratio: 1; background: #E8285B; border-radius: 0 32px 0 32px; display: grid; place-items: center; color: #fff; font-size: 32px" class="d">榛果可可醬</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 20px">
+        <span class="stripe"></span>
+        <div style="display: flex; gap: 8px"><span class="chip">抹醬</span><span class="chip" style="background: #DCF3E9; color: #0F6A45">有貨 · 剩 12</span></div>
+        <h1 class="d" style="font-size: 52px; letter-spacing: -.035em">榛果可可醬 200g</h1>
+        <div style="display: flex; align-items: baseline; gap: 12px"><span class="d" style="font-size: 40px">NT$ 320</span><span style="color: #5F6470; text-decoration: line-through">NT$ 360</span></div>
+        <p style="margin: 0; font-size: 17px; line-height: 1.7; color: #5F6470">台灣榛果慢火焙炒，配比利時可可。不加棕櫚油，開罐先攪一攪。</p>
+        <div><div class="lbl" style="margin-bottom: 8px">規格</div><div class="seg"><span class="on">200g</span><span>400g</span></div></div>
+        <div style="display: flex; align-items: center; gap: 12px">
+          <div style="display: inline-flex; align-items: center; background: #F3F3F5; border-radius: 0 10px 0 10px"><button class="btn t i" type="button" aria-label="減一"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><input type="text" value="1" aria-label="數量" style="width: 48px; text-align: center; border: 0; background: transparent; font: inherit; font-weight: 700; font-size: 16px"><button class="btn t i" type="button" aria-label="加一"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div>
+          <button class="btn p" type="button" style="flex: 1; min-height: 56px; font-size: 17px"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>加入購物車</button>
+          <button class="btn t i" type="button" aria-label="分享" style="min-height: 56px; width: 56px"><svg class="ic" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8 11l8-5M8 13l8 5"/></svg></button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; font-size: 13px">
+          <div style="background: #F5F5F7; border-radius: 0 10px 0 10px; padding: 12px; display: flex; flex-direction: column; gap: 4px"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6"/><circle cx="7" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></svg><b>2 天到貨</b><span style="color: #5F6470">滿 1,000 免運</span></div>
+          <div style="background: #F5F5F7; border-radius: 0 10px 0 10px; padding: 12px; display: flex; flex-direction: column; gap: 4px"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18"/><circle cx="7" cy="15" r="1" fill="currentColor"/></svg><b>綠界 · 藍新</b><span style="color: #5F6470">信用卡、ATM、超商</span></div>
+          <div style="background: #F5F5F7; border-radius: 0 10px 0 10px; padding: 12px; display: flex; flex-direction: column; gap: 4px"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg><b>7 天鑑賞</b><span style="color: #5F6470">食品拆封後除外</span></div>
+        </div>
+      </div>
+    </div>
+
+    <section style="margin-top: 72px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 48px; align-items: start">
+      <div class="prose"><h2 class="d" style="font-size: 28px; margin-bottom: 16px">關於這一罐</h2><p>榛果來自台中新社，每批焙炒 18 分鐘，碾到還留一點顆粒。可可用比利時 Callebaut 54%，甜度刻意壓低，抹吐司、拌優格都剛好。</p><ul><li>200g 玻璃罐，可回收</li><li>保存期限 12 個月，開封後冷藏 2 個月</li><li>不含棕櫚油、人工香料</li></ul><h2 class="d" style="font-size: 28px; margin: 32px 0 16px">成分與營養</h2><p>榛果 48%、可可 22%、蔗糖、葵花油、海鹽。每 100g：熱量 560 kcal、蛋白質 9g、脂肪 42g、碳水化合物 36g。</p></div>
+      <aside style="display: flex; flex-direction: column; gap: 12px"><div class="lbl">一起買</div><a href="Product.dc.html" style="display: flex; gap: 12px; align-items: center; padding: 12px; background: #F5F5F7; border-radius: 0 12px 0 12px; color: #15161A"><span style="width: 56px; height: 56px; background: #2F6BFF; border-radius: 0 10px 0 10px; flex: 0 0 auto"></span><span style="flex: 1"><b>藍莓果凍 6 入</b><div style="font-size: 13px; color: #5F6470">NT$ 240</div></span><button class="btn t sm i" type="button" aria-label="加入"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></a><a href="Product.dc.html" style="display: flex; gap: 12px; align-items: center; padding: 12px; background: #F5F5F7; border-radius: 0 12px 0 12px; color: #15161A"><span style="width: 56px; height: 56px; background: #F5B800; border-radius: 0 10px 0 10px; flex: 0 0 auto"></span><span style="flex: 1"><b>果凍杯 DIY 組</b><div style="font-size: 13px; color: #5F6470">NT$ 680</div></span><button class="btn t sm i" type="button" aria-label="加入"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></a></aside>
+    </section>
+  </main>
+  <footer style="background: #15161A; color: #EDEDF0; padding: 48px 40px; margin-top: auto"><div style="max-width: 1360px; margin: 0 auto; display: flex; justify-content: space-between; font-size: 13px; color: #9A9FAB"><span>© 榛果繽紛樂</span><span>Powered by Jelly CMS</span></div></footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1500}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

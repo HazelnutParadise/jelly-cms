@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>靜態頁面</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 22px;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.i{width:46px;padding:0}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.field{min-height:46px;padding:0 14px;border:0;background:#F3F3F5;border-radius:0 10px 0 10px;font:inherit;font-size:15px;color:#15161A}
+.lbl{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.nav a{color:#15161A;font-weight:600;font-size:15px;padding:0 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:0 8px 0 8px}
+.nav a.on{background:#15161A;color:#fff}
+.prose{font-size:18px;line-height:1.9;max-width:40em}.prose p{margin:0 0 1.25em}
+.prose h2{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;font-size:30px;letter-spacing:-.02em;margin:1.6em 0 .6em}
+.mark{display:inline-block;width:26px;height:30px}
+</style>
+</helmet>
+<div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff; min-height: 100vh">
+  <div class="topline"></div>
+  <header style="display: flex; align-items: center; gap: 24px; padding: 14px 40px; max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box">
+    <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 12px; color: #15161A; font-size: 20px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".8"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".82"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".9" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800" fill-opacity=".95"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</a>
+    <nav class="nav" style="display: flex; gap: 4px; margin-left: auto"><a href="Main.dc.html">首頁</a><a href="PostList.dc.html">文章</a><a href="Page.dc.html" class="on">關於</a></nav>
+    <form style="display: flex; gap: 6px; margin: 0"><label for="q" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">搜尋</label><input id="q" class="field" type="search" placeholder="搜尋" style="width: 200px"><button class="btn t i" type="button" aria-label="搜尋"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button></form>
+  </header>
+
+  <!-- 靜態頁：標題欄 + 兩欄內文，右欄放口味方塊和聯絡 -->
+  <main style="max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box; padding: 56px 40px 96px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 64px; align-items: start">
+    <div>
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 40px">
+        <span class="stripe"></span>
+        <div class="lbl">頁面</div>
+        <h1 class="d" style="font-size: 72px; letter-spacing: -.04em">關於我們</h1>
+      </div>
+      <div class="prose">
+        <p>歡迎來到榛果繽紛樂。這裡是一個用 Jelly CMS 架起來的網站：Go 寫的核心、QuickJS 外掛、可以在後台換顏色的主題。</p>
+        <h2>我們在做什麼</h2>
+        <p>寫軟體，也寫文章。大部分時候兩件事是同一件事：做出來，然後把過程寫下來。</p>
+        <h2>聯絡</h2>
+        <p>留言區還沒開，先用信箱找我們：[YOUR EMAIL]。</p>
+      </div>
+    </div>
+    <aside style="display: flex; flex-direction: column; gap: 12px">
+      <div style="position: relative; aspect-ratio: 1; background: #15161A; border-radius: 0 24px 0 24px; overflow: hidden" aria-hidden="true">
+        <span style="position: absolute; left: 12%; top: 12%; width: 38%; aspect-ratio: 1; background: #2F6BFF; opacity: .85; border-radius: 0 24% 0 24%"></span>
+        <span style="position: absolute; left: 32%; top: 30%; width: 38%; aspect-ratio: 1; background: #13C2A3; opacity: .85; border-radius: 0 24% 0 24%"></span>
+        <span style="position: absolute; left: 50%; top: 48%; width: 38%; aspect-ratio: 1; background: #E8285B; opacity: .92; border-radius: 0 24% 0 24%; rotate: -7deg"></span>
+      </div>
+      <div style="background: #F5F5F7; border-radius: 0 16px 0 16px; padding: 24px; display: flex; flex-direction: column; gap: 12px">
+        <div class="lbl">快速連結</div>
+        <a class="btn t" href="PostList.dc.html" style="justify-content: flex-start"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></svg>所有文章</a>
+        <a class="btn t" href="Search.dc.html" style="justify-content: flex-start"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>搜尋站內</a>
+      </div>
+    </aside>
+  </main>
+
+  <footer style="background: #15161A; color: #EDEDF0; padding: 48px 40px; margin-top: auto"><div style="max-width: 1360px; margin: 0 auto; display: flex; justify-content: space-between; font-size: 13px; color: #9A9FAB"><span>© 榛果繽紛樂</span><span>Powered by Jelly CMS</span></div></footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

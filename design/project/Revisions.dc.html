@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>後台版本比較</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.ic{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
+.chip.nd:before{display:none}
+.ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DCE6FF;color:#1A3F9E}.bad{background:#FBE1DE;color:#9C2318}.mint{background:#D4F5EE;color:#0B5E4E}
+.mark{display:inline-block;width:22px;height:26px}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px;white-space:nowrap}
+.seg span.on{background:#15161A;color:#fff}
+.tg{position:relative;width:40px;height:22px;border-radius:0 11px 0 11px;background:#13C2A3;display:inline-block;flex:0 0 auto}.tg:after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;background:#fff;border-radius:0 7px 0 7px}
+.tg.off{background:#D9DBE0}.tg.off:after{right:auto;left:3px}
+.ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
+.mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
+.cube{position:absolute;border-radius:0 26% 0 26%}
+.kbd{display:inline-block;font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:#EDEEF1;color:#5F6470}
+
+body{font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font-weight:700;font-size:13px;border:0;border-radius:0 9px 0 9px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}.btn.s{min-height:30px;font-size:12px;padding:0 10px}.btn.s.i{width:30px}.btn.danger{background:#FBE1DE;color:#9C2318}
+.rail{background:#15161A;color:#fff;display:flex;flex-direction:column;padding:14px 10px;gap:2px}
+.ns{font-size:11px;letter-spacing:.08em;color:#7E838F;padding:14px 12px 4px;text-transform:uppercase;font-weight:700}
+.nl{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 12px;border-radius:0 10px 0 10px;color:#C9CBD3;font-weight:600;font-size:13.5px}
+.nl:hover{background:#2A2B31;color:#fff}.nl.on{background:#E8285B;color:#fff}
+.nl .n{margin-left:auto;font-size:11px;background:#2A2B31;padding:1px 7px;border-radius:0 6px 0 6px;color:#C9CBD3}.nl.on .n{background:#fff;color:#E8285B}
+.nl.new:after{content:"新";margin-left:auto;font-size:10px;padding:1px 6px;border-radius:0 5px 0 5px;background:#13C2A3;color:#0B3A31}
+.nl.new .n{display:none}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#5F6470;padding:8px 10px;border-bottom:1px solid #E2E3E8;font-weight:700;white-space:nowrap}
+td{padding:10px;border-bottom:1px solid #EEEFF2;vertical-align:middle}
+tr:hover td{background:#F8F8FA}
+td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.act .btn{opacity:1}
+.cb{width:16px;height:16px;border-radius:0 5px 0 5px;box-shadow:inset 0 0 0 1.5px #B9BCC6;display:inline-block;vertical-align:middle;background:#fff}
+.cb.on{background:#15161A;box-shadow:none;position:relative}.cb.on:after{content:"";position:absolute;left:5px;top:2px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.card{background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 14px 0 14px;padding:16px}
+.srow{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.9fr);gap:8px 32px;align-items:center;padding:12px 0;border-top:1px solid #EEEFF2}
+.srow label{font-weight:700;font-size:14px;color:#15161A;display:block}.srow .h{font-size:12px;color:#5F6470;margin-top:2px}
+.srow .c{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:440px;background:#fff;box-shadow:-1px 0 0 #E2E3E8,-24px 0 48px rgba(21,22,26,.08);border-radius:0 0 0 24px;display:flex;flex-direction:column}
+.tree a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#15161A;font-weight:600;font-size:13.5px}
+.tree a.on{background:#15161A;color:#fff}.tree a .n{margin-left:auto;font-size:11px;color:#7E838F;font-weight:700}.tree a.on .n{color:#fff}
+.tree .lv1{padding-left:28px}.tree .lv2{padding-left:46px}
+.mi{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px 0 6px;background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 10px 0 10px;font-weight:600;font-size:13.5px}
+.mi .k{font-size:11px;color:#5F6470;font-weight:700;margin-left:auto}
+.mi.drop{box-shadow:inset 0 0 0 2px #2F6BFF;background:#F0F4FF}
+.diff{font:13px/1.7 ui-monospace,"SF Mono",Menlo,monospace;white-space:pre-wrap}
+.diff .a{background:#FBE1DE;color:#9C2318;text-decoration:line-through;padding:0 2px}.diff .b{background:#DCF3E9;color:#0F6A45;padding:0 2px}
+.log{font:12.5px/1.7 ui-monospace,"SF Mono",Menlo,monospace}
+.log .r{display:grid;grid-template-columns:150px 64px 110px minmax(0,1fr);gap:12px;padding:6px 10px;border-bottom:1px solid #EEEFF2;align-items:baseline}
+.log .r:hover{background:#F8F8FA}
+.lv{font-weight:800;font-size:11px;letter-spacing:.06em;padding:1px 6px;border-radius:0 5px 0 5px;text-align:center}
+.lv.i{background:#DCE6FF;color:#1A3F9E}.lv.w{background:#FCF0C8;color:#7A5200}.lv.e{background:#FBE1DE;color:#9C2318}.lv.d{background:#EDEEF1;color:#5F6470}
+.pal{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border-radius:0 10px 0 10px;font-weight:600;font-size:14px;color:#15161A}
+.pal.on{background:#15161A;color:#fff}.pal .k{margin-left:auto;font-size:11px;color:#9A9FAB;font-weight:700}.pal.on .k{color:#C9CBD3}
+.ph{display:flex;flex-direction:column;gap:8px}.ph i{display:block;height:12px;border-radius:0 5px 0 5px;background:linear-gradient(90deg,#EDEEF1 0 40%,#F6F6F8 50%,#EDEEF1 60%);background-size:200% 100%;animation:sh 1.4s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.step{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px}
+.step i{width:24px;height:24px;display:grid;place-items:center;border-radius:0 8px 0 8px;background:#EDEEF1;color:#5F6470;font-style:normal;font-family:"Bricolage Grotesque",sans-serif;font-size:12px}
+.step.on i{background:#15161A;color:#fff}.step.done i{background:#13C2A3;color:#fff}
+.av{width:28px;height:28px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;border-radius:0 9px 0 9px;flex:0 0 auto}
+</style>
+</helmet>
+<div style="width: 100%; min-height: 100vh; display: flex; flex-wrap: wrap; background: #fff; position: relative">
+  <aside class="rail" style="flex: 0 0 224px">
+    <a href="Dashboard.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 6px 12px 10px; color: #fff; font-size: 17px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#fff" fill-opacity=".9"/></svg>Jelly CMS</a>
+    <div class="ns">內容</div>
+    <a class="nl" href="Dashboard.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>儀表板</a>
+    <a class="nl on" href="Posts.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></svg>文章</a>
+    <a class="nl" href="Posts.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM3 10h18M9 10v10"/></svg>頁面</a>
+    <a class="nl new" href="Taxonomy.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/></svg>分類與標籤</a>
+    <a class="nl" href="Comments.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4z"/></svg>留言<span class="n">7</span></a>
+    <a class="nl" href="Media.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM21 15l-5-5-8 8"/><circle cx="8" cy="10" r="1.5"/></svg>附件</a>
+    <a class="nl new" href="Trash.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>回收桶</a>
+    <div class="ns">商店</div>
+    <a class="nl" href="Products.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>商品</a>
+    <a class="nl" href="Orders.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>訂單<span class="n">3</span></a>
+    <div class="ns">外觀</div>
+    <a class="nl" href="Themes.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>主題</a>
+    <a class="nl new" href="Menus.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>導覽選單</a>
+    <a class="nl" href="Plugins.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>外掛</a>
+    <div class="ns">系統</div>
+    <a class="nl new" href="Users.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0M16 4a3.5 3.5 0 0 1 0 7M22 20a7 7 0 0 0-5-6.7"/></svg>使用者</a>
+    <a class="nl new" href="Redirects.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10a4 4 0 0 1 0 8H4M8 11l-4 4 4 4"/></svg>轉址與 SEO</a>
+    <a class="nl new" href="Import.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M14 6a4 4 0 0 0 4 4l3-3-4-4-3 3zM14 6L4 16l4 4 10-10"/></svg>工具</a>
+    <a class="nl new" href="Logs.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM7 9l3 3-3 3M12 15h5"/></svg>日誌</a>
+    <a class="nl" href="Settings.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>設定</a>
+    <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 0 10px 0 10px; background: #2A2B31"><span style="width: 30px; height: 30px; display: grid; place-items: center; background: #E8285B; font-weight: 800; border-radius: 0 9px 0 9px">A</span><div><div style="font-weight: 700; font-size: 13px">管理員</div><a href="Profile.dc.html" style="color: #9A9FAB; font-size: 12px">個人帳號</a></div></div>
+  </aside>
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+    <div class="topline"></div>
+    <header style="display: flex; align-items: center; gap: 12px; padding: 10px 24px; border-bottom: 1px solid #EEEFF2">
+      <nav style="display: flex; align-items: center; gap: 8px; color: #5F6470; font-size: 13px" aria-label="路徑"><span>內容</span><span>/</span><span>文章</span><span>/</span><span>零失敗焦糖布丁</span><span>/</span><b style="color:#15161A">版本</b></nav>
+      <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:34px;width:260px;color:#5F6470;font-size:13px"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><input type="text" placeholder="搜尋或輸入指令…" aria-label="搜尋" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;color:#15161A"><span class="kbd">⌘K</span></label>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px"><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>回編輯器</button><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>還原到這個版本</button></div>
+    </header>
+    <main style="padding: 16px 24px 32px; display:grid; grid-template-columns: 280px minmax(0,1fr); gap:24px; align-items:start">
+    <aside style="position:sticky;top:16px;display:flex;flex-direction:column;gap:10px">
+      <div class="lbl">14 個版本</div>
+      <div class="tree" style="display:flex;flex-direction:column;gap:2px">
+        <a href="Revisions.dc.html" style="flex-direction:column;align-items:flex-start;min-height:0;padding:8px 10px;gap:2px"><span style="display:flex;align-items:center;gap:8px;width:100%"><span class="av" style="background:#E8285B;width:20px;height:20px;font-size:10px">H</span>目前（已發布）<span class="n">v14</span></span><span style="font-size:12px;color:#5F6470;font-weight:500">今天 15:40 · Hazel</span></a>
+        <a class="on" href="Revisions.dc.html" style="flex-direction:column;align-items:flex-start;min-height:0;padding:8px 10px;gap:2px"><span style="display:flex;align-items:center;gap:8px;width:100%"><span class="av" style="background:#2F6BFF;width:20px;height:20px;font-size:10px">T</span>自動儲存<span class="n">v13</span></span><span style="font-size:12px;color:#C9CBD3;font-weight:500">今天 15:12 · Ting · +84 −12</span></a>
+        <a href="Revisions.dc.html" style="flex-direction:column;align-items:flex-start;min-height:0;padding:8px 10px;gap:2px"><span style="display:flex;align-items:center;gap:8px;width:100%"><span class="av" style="background:#E8285B;width:20px;height:20px;font-size:10px">H</span>改標題<span class="n">v12</span></span><span style="font-size:12px;color:#5F6470;font-weight:500">昨天 22:03 · Hazel · +3 −3</span></a>
+        <a href="Revisions.dc.html" style="flex-direction:column;align-items:flex-start;min-height:0;padding:8px 10px;gap:2px"><span style="display:flex;align-items:center;gap:8px;width:100%"><span class="av" style="background:#E8285B;width:20px;height:20px;font-size:10px">H</span>發布<span class="n">v11</span></span><span style="font-size:12px;color:#5F6470;font-weight:500">10/21 09:30 · Hazel</span></a>
+        <a href="Revisions.dc.html" style="flex-direction:column;align-items:flex-start;min-height:0;padding:8px 10px;gap:2px"><span style="display:flex;align-items:center;gap:8px;width:100%"><span class="av" style="background:#13C2A3;width:20px;height:20px;font-size:10px">小</span>校稿<span class="n">v10</span></span><span style="font-size:12px;color:#5F6470;font-weight:500">10/20 · 小魚 · +0 −9</span></a>
+        <a href="Revisions.dc.html" style="color:#5F6470;font-weight:600"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>更早的 9 個</a>
+      </div>
+      <div style="font-size:12px;color:#5F6470;line-height:1.6;padding:10px;background:#F5F5F7;border-radius:0 10px 0 10px">自動儲存每 60 秒一次，只留最近 20 個；手動儲存和發布的版本永久保留。</div>
+    </aside>
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg>逐行比較</span><span><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>只看 v13</span><span><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>左右並排</span></div><span style="font-size:13px;color:#5F6470">比較 <b class="mono">v13</b> → <b class="mono">v14（目前）</b></span><label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">只顯示有變的段落<span class="tg"></span></label></div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #EEEFF2;font-size:12px;font-weight:700;color:#5F6470"><div style="padding:8px 14px;border-right:1px solid #EEEFF2">標題</div><div style="padding:8px 14px"></div></div>
+        <div class="diff" style="padding:12px 14px;border-bottom:1px solid #EEEFF2"><span class="a">焦糖布丁食譜</span><span class="b">零失敗焦糖布丁，重點在火</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #EEEFF2;font-size:12px;font-weight:700;color:#5F6470"><div style="padding:8px 14px">內文（Markdown） · 第 1–3 段相同，已收合</div></div>
+        <div class="diff" style="padding:12px 14px">## 焦糖
+焦糖只有<span class="a">大概十幾秒</span><span class="b">十秒</span>的窗口。<span class="b">這篇把爐火、鍋子、顏色都拍下來，照著做第一次就會成功。</span>
+
+1. 糖 80g 下鍋，<span class="a">中火</span><span class="b">中小火</span>，不要攪。
+2. 邊緣開始變色後輕晃鍋子。
+<span class="b">3. 顏色到「琥珀」就離火，餘溫還會再深一階。
+4. 立刻倒進模子，會冒煙是正常的。</span>
+<span class="a">3. 變成深褐色就可以倒了。</span>
+
+![焦糖顏色對照](/uploads/2026/10/caramel-<span class="a">1</span><span class="b">stages</span>.jpg)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #EEEFF2;border-bottom:1px solid #EEEFF2;font-size:12px;font-weight:700;color:#5F6470"><div style="padding:8px 14px">摘要與分類</div></div>
+        <div class="diff" style="padding:12px 14px">分類：食譜 › 甜點　標籤：<span class="b">+焦糖 +新手</span>　摘要：<span class="a">（空）</span><span class="b">焦糖只有十秒的窗口…</span></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;align-items:center;font-size:13px;color:#5F6470"><span class="diff"><span class="b">綠底</span>是目前版本新增、<span class="a">紅底</span>是 v13 有但現在沒有的。</span><button class="btn t s" type="button" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 15V4h11"/></svg>複製 v13 內文</button><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>從 v13 開新草稿</button></div>
+    </section>
+  </main>
+  </div>
+  
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

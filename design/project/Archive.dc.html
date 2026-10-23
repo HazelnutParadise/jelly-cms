@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>前台分類頁與留言區</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.ic{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
+.chip.nd:before{display:none}
+.ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DCE6FF;color:#1A3F9E}.bad{background:#FBE1DE;color:#9C2318}.mint{background:#D4F5EE;color:#0B5E4E}
+.mark{display:inline-block;width:22px;height:26px}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px;white-space:nowrap}
+.seg span.on{background:#15161A;color:#fff}
+.tg{position:relative;width:40px;height:22px;border-radius:0 11px 0 11px;background:#13C2A3;display:inline-block;flex:0 0 auto}.tg:after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;background:#fff;border-radius:0 7px 0 7px}
+.tg.off{background:#D9DBE0}.tg.off:after{right:auto;left:3px}
+.ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
+.mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
+.cube{position:absolute;border-radius:0 26% 0 26%}
+.kbd{display:inline-block;font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:#EDEEF1;color:#5F6470}
+
+body{font-size:15px}
+.ic{width:18px;height:18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 22px;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:46px;padding:0}.btn.sm{min-height:36px;padding:0 12px;font-size:13px}.btn.sm.i{width:36px}
+.nav a{color:#15161A;font-weight:600;font-size:15px;padding:0 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:0 8px 0 8px}
+.nav a.on{background:#15161A;color:#fff}
+.field{width:100%;box-sizing:border-box;min-height:46px;padding:0 14px;border:0;background:#F3F3F5;border-radius:0 10px 0 10px;font:inherit;font-size:15px;color:#15161A}
+.flbl{font-size:13px;font-weight:700;color:#15161A;display:block;margin-bottom:6px}
+.step{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px}
+.step i{width:28px;height:28px;display:grid;place-items:center;border-radius:0 9px 0 9px;background:#EDEEF1;color:#5F6470;font-style:normal;font-family:"Bricolage Grotesque",sans-serif}
+.step.on i{background:#15161A;color:#fff}.step.done i{background:#13C2A3;color:#fff}
+.opt{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:0 12px 0 12px;box-shadow:inset 0 0 0 1px #E2E3E8;cursor:pointer}
+.opt.on{box-shadow:inset 0 0 0 2px #15161A;background:#F8F8FA}
+.opt .rad{width:18px;height:18px;border-radius:0 6px 0 6px;box-shadow:inset 0 0 0 2px #B9BCC6;flex:0 0 auto}
+.opt.on .rad{background:#E8285B;box-shadow:inset 0 0 0 5px #fff,0 0 0 2px #E8285B}
+.mark{width:26px;height:30px}
+.entry{display:grid;grid-template-columns:96px minmax(0,1fr);gap:24px;padding:28px 0;border-top:1px solid #E2E3E8}
+.entry h3{margin:0 0 8px;font-size:26px}.entry h3 a{color:#15161A}
+.entry p{margin:0;color:#5F6470;line-height:1.7}
+.day{font-size:44px;line-height:1}.ym{font-size:12px;color:#5F6470;font-weight:700;letter-spacing:.06em}
+.cm{display:grid;grid-template-columns:44px minmax(0,1fr);gap:16px;padding:20px 0;border-top:1px solid #E2E3E8}
+.cm .av{width:44px;height:44px;display:grid;place-items:center;color:#fff;font-weight:800;border-radius:0 12px 0 12px}
+</style>
+</helmet>
+<div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff; min-height: 100vh">
+  <div class="topline"></div>
+  <header style="display: flex; align-items: center; gap: 24px; padding: 14px 40px; max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box">
+    <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 12px; color: #15161A; font-size: 20px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</a>
+    <nav class="nav" style="display: flex; gap: 4px; margin-left: auto"><a href="Main.dc.html">首頁</a><a href="PostList.dc.html" class="on">文章</a><a href="Shop.dc.html">商店</a><a href="Page.dc.html">關於</a></nav>
+    <a class="btn t" href="Cart.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>購物車<span style="background:#E8285B;color:#fff;font-size:11px;min-width:18px;height:18px;display:inline-grid;place-items:center;border-radius:0 6px 0 6px">2</span></a>
+  </header>
+  
+  <section style="background:#2F6BFF;color:#fff;padding:56px 40px 40px;position:relative;overflow:hidden">
+    <div style="position:absolute;left:1080px;top:-10px;width:272px;height:320px;opacity:0.9" aria-hidden="true"><span class="cube" style="left:32px;top:29px;width:102px;height:102px;background:#2F6BFF;opacity:.85"></span><span class="cube" style="left:83px;top:96px;width:102px;height:102px;background:#13C2A3;opacity:.85"></span><span class="cube" style="left:134px;top:166px;width:102px;height:102px;background:#E8285B;opacity:.92;transform:rotate(-7deg)"></span><span class="cube" style="left:38px;top:246px;width:45px;height:45px;background:#F5B800"></span><span class="cube" style="left:202px;top:54px;width:32px;height:32px;background:#15161A;opacity:.9"></span></div>
+    <div style="max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:12px;position:relative">
+      <span class="stripe" style="background:linear-gradient(90deg,#fff 0 52%,transparent 52% 60%,#fff 60% 82%,transparent 82% 88%,#fff 88% 100%)"></span>
+      <div class="lbl" style="color:#C9D8FF">分類 · 18 篇</div>
+      <h1 class="d" style="font-size:72px;letter-spacing:-.04em">食譜</h1>
+      <p style="margin:0;font-size:17px;max-width:30em;color:#E3EBFF">做過才敢寫。每篇食譜都有份量、時間，和哪一步最容易失敗。</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><span class="chip nd" style="background:#fff;color:#15161A">全部</span><a class="chip nd" href="Archive.dc.html" style="background:rgba(255,255,255,.18);color:#fff">甜點</a><a class="chip nd" href="Archive.dc.html" style="background:rgba(255,255,255,.18);color:#fff">抹醬</a><a class="chip nd" href="Archive.dc.html" style="background:rgba(255,255,255,.18);color:#fff">飲料</a></div>
+    </div>
+  </section>
+  <main style="max-width:1360px;margin:0 auto;width:100%;box-sizing:border-box;padding:24px 40px 96px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:48px;align-items:start">
+    <section>
+      <div style="display:flex;align-items:center;gap:12px;padding-bottom:16px"><span style="color:#5F6470;font-size:14px">第 1 頁，共 2 頁</span><div class="seg" style="margin-left:auto"><span class="on"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg>列表</span><span><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>格狀</span></div><a class="btn t sm" href="Archive.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>RSS</a></div>
+      <article class="entry"><div><div class="day mono">21</div><div class="ym">2026 · 10</div></div><div><h3><a href="Post.dc.html">零失敗焦糖布丁，重點在火</a></h3><p>焦糖只有十秒的窗口。這篇把爐火、鍋子、顏色都拍下來，照著做第一次就會成功。</p><div style="display:flex;gap:8px;margin-top:12px;align-items:center"><span class="chip">甜點</span><span style="font-size:13px;color:#5F6470;display:inline-flex;align-items:center;gap:4px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4z"/></svg>12</span></div></div></article>
+      <article class="entry"><div><div class="day mono">14</div><div class="ym">2026 · 10</div></div><div><h3><a href="Post.dc.html">榛果醬自己做，比買的便宜一半</a></h3><p>烤 12 分鐘、打 4 分鐘，剩下的時間都在等它涼。附三種濃稠度的比例。</p><div style="display:flex;gap:8px;margin-top:12px;align-items:center"><span class="chip">抹醬</span><span style="font-size:13px;color:#5F6470;display:inline-flex;align-items:center;gap:4px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4z"/></svg>4</span></div></div></article>
+      <article class="entry"><div><div class="day mono">02</div><div class="ym">2026 · 10</div></div><div><h3><a href="Post.dc.html">夏天的薄荷果凍，用吉利丁還是寒天</a></h3><p>兩種都做了。口感、融化速度、脫模難度一張表看完。</p><div style="display:flex;gap:8px;margin-top:12px;align-items:center"><span class="chip">甜點</span><span style="font-size:13px;color:#5F6470;display:inline-flex;align-items:center;gap:4px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4z"/></svg>27</span></div></div></article>
+
+      <section style="margin-top:56px;padding-top:32px;border-top:3px solid #15161A">
+        <div style="display:flex;align-items:baseline;gap:16px"><h2 class="d" style="font-size:32px">留言區</h2><span style="color:#5F6470">文章頁底部長這樣 · 12 則</span></div>
+        <form style="display:grid;grid-template-columns:44px minmax(0,1fr);gap:16px;margin-top:20px;padding:20px;background:#F5F5F7;border-radius:0 16px 0 16px" onsubmit="return false">
+          <span style="width:44px;height:44px;background:#15161A;color:#fff;display:grid;place-items:center;font-weight:800;border-radius:0 12px 0 12px">你</span>
+          <div style="display:flex;flex-direction:column;gap:10px"><textarea class="field" rows="3" placeholder="說點什麼。支援 Markdown，留言會先審核。" style="padding:12px 14px;resize:vertical"></textarea><div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px"><input class="field" type="text" placeholder="名字" style="background:#fff"><input class="field" type="email" placeholder="Email（不公開）" style="background:#fff"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4z"/></svg>送出</button></div></div>
+        </form>
+        <div class="cm"><span class="av" style="background:#2F6BFF">小</span><div><div style="display:flex;align-items:center;gap:10px"><b>小魚</b><span style="font-size:12px;color:#5F6470">2 天前</span><span class="chip ok" style="margin-left:4px">作者</span></div><p style="margin:8px 0;line-height:1.7">焦糖我總是煮過頭…這次看圖對顏色真的有差，謝謝！</p><div style="display:flex;gap:4px"><button class="btn x sm" type="button"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>回覆</button><button class="btn x sm" type="button"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M12 3l2.8 6 6.2.7-4.6 4.3 1.3 6.3L12 17l-5.7 3.3 1.3-6.3L3 9.7 9.2 9z"/></svg>3</button></div></div></div>
+        <div class="cm" style="padding-left:60px"><span class="av" style="background:#E8285B">H</span><div><div style="display:flex;align-items:center;gap:10px"><b>Hazel</b><span class="chip" style="background:#E8285B;color:#fff">站長</span><span style="font-size:12px;color:#5F6470">1 天前</span></div><p style="margin:8px 0;line-height:1.7">對，顏色到「琥珀」就要離火，餘溫還會再深一階。</p><div style="display:flex;gap:4px"><button class="btn x sm" type="button"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>回覆</button></div></div></div>
+        <div class="cm"><span class="av" style="background:#F5B800;color:#3A2E00">阿</span><div><div style="display:flex;align-items:center;gap:10px"><b>阿凱</b><span style="font-size:12px;color:#5F6470">剛剛</span><span class="chip warn">待審核，只有你看得到</span></div><p style="margin:8px 0;line-height:1.7">請問可以用黑糖嗎？</p></div></div>
+      </section>
+    </section>
+    <aside style="display:flex;flex-direction:column;gap:28px;position:sticky;top:24px">
+      <div><div class="lbl" style="margin-bottom:10px">其他分類</div><nav style="display:flex;flex-direction:column;gap:2px"><a href="Archive.dc.html" style="display:flex;justify-content:space-between;padding:8px 10px;color:#15161A;font-weight:600">開店日記<span style="color:#5F6470">9</span></a><a href="Archive.dc.html" style="display:flex;justify-content:space-between;padding:8px 10px;color:#15161A;font-weight:600">產地<span style="color:#5F6470">6</span></a><a href="Archive.dc.html" style="display:flex;justify-content:space-between;padding:8px 10px;color:#15161A;font-weight:600">公告<span style="color:#5F6470">3</span></a></nav></div>
+      <div><div class="lbl" style="margin-bottom:10px">標籤</div><div style="display:flex;gap:6px;flex-wrap:wrap"><a class="chip nd" href="Archive.dc.html">#榛果</a><a class="chip nd" href="Archive.dc.html">#吉利丁</a><a class="chip nd" href="Archive.dc.html">#焦糖</a><a class="chip nd" href="Archive.dc.html">#冰</a><a class="chip nd" href="Archive.dc.html">#新手</a><a class="chip nd" href="Archive.dc.html">#失敗紀錄</a></div></div>
+      <div><div class="lbl" style="margin-bottom:10px">作者頁、月份彙整</div><p style="margin:0;font-size:13px;color:#5F6470;line-height:1.7">同一版型：藍色頭換成薄荷（作者）或果凍黃（月份），標題換成作者名或「2026 年 10 月」。</p></div>
+    </aside>
+  </main>
+  <footer style="background: #15161A; color: #EDEDF0; padding: 48px 40px; margin-top: auto"><div style="max-width: 1360px; margin: 0 auto; display: flex; justify-content: space-between; font-size: 13px; color: #9A9FAB"><span>© 榛果繽紛樂</span><span>Powered by Jelly CMS</span></div></footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1700}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

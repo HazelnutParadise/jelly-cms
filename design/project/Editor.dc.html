@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>後台 Markdown 編輯器</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;font-size:14px;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.1;margin:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font-weight:700;font-size:13px;border:0;border-radius:0 9px 0 9px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
+.ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.ic{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.tool{width:30px;height:30px;display:inline-grid;place-items:center;border:0;background:transparent;border-radius:4px;color:#3A3D45;cursor:pointer}
+.tool:hover{background:#EDEEF1}.tool.on{background:#E6E7EB;color:#15161A}
+.tool .ic{width:16px;height:16px;stroke-width:1.6}
+.ed{border:1px solid #D9DBE0;border-radius:4px;background:#fff;display:flex;flex-direction:column;min-width:0}
+.edbar{display:flex;align-items:center;gap:1px;padding:4px 8px;border-bottom:1px solid #E6E7EB;flex-wrap:wrap}
+.edbar .sep{width:1px;height:18px;background:#E2E3E8;margin:0 6px}
+.panes{display:grid;grid-template-columns:1fr 1fr;min-height:560px}
+.srcwrap{display:grid;grid-template-columns:44px minmax(0,1fr);border-right:1px solid #E6E7EB;font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Noto Sans Mono CJK TC",monospace;font-size:13.5px;line-height:1.75}
+.gut{padding:16px 0;text-align:right;color:#B0B4BF;background:#FAFAFB;border-right:1px solid #EEEFF2;user-select:none;white-space:pre;padding-right:10px}
+.gut b{color:#15161A;font-weight:500}
+.src{width:100%;min-height:560px;box-sizing:border-box;padding:16px 18px;border:0;background:#fff;border-radius:0;font:inherit;line-height:inherit;color:#15161A;resize:none;outline:0;white-space:pre-wrap}
+.src::selection{background:#DCE6FF}
+.prev{min-height:560px;padding:16px 28px;font-size:15px;line-height:1.8;color:#15161A;background:#fff}
+.prev h2{font-family:inherit;font-size:22px;font-weight:700;letter-spacing:0;margin:4px 0 12px;line-height:1.35}.prev p{margin:0 0 14px}
+.prev blockquote{margin:0 0 14px;padding:0 0 0 14px;border-left:3px solid #D9DBE0;color:#3A3D45;font-weight:400}
+.prev pre{margin:0 0 14px;padding:12px 14px;background:#F6F7F9;color:#15161A;border:1px solid #E6E7EB;border-radius:4px;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:13px}
+.prev ul{margin:0 0 14px;padding-left:22px}
+.status{display:flex;align-items:center;gap:14px;padding:5px 12px;border-top:1px solid #E6E7EB;font-size:12px;color:#5F6470;background:#FAFAFB}
+.status b{font-weight:600;color:#3A3D45}
+.prop{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-top:1px solid #EEEFF2}
+.prop label{font-size:12px;font-weight:600;color:#5F6470}
+.ul{width:100%;min-height:32px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg span{min-height:28px;padding:0 10px;display:inline-flex;align-items:center;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px}
+.seg span.on{background:#15161A;color:#fff}
+.kbd{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:#EDEEF1;padding:1px 5px;border-radius:0 5px 0 5px;color:#5F6470}
+.mark{display:inline-block;width:22px;height:26px}
+</style>
+</helmet>
+<div style="width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #fff">
+  <div class="topline"></div>
+  <!-- 編輯器頂欄：專心模式，側欄收起成一顆返回鍵 -->
+  <header style="display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid #EEEFF2; position: sticky; top: 0; background: #fff">
+    <a class="btn t" href="Posts.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>文章</a>
+    <span style="color: #5F6470; font-size: 13px">／ 編輯</span>
+    <span class="chip warn">草稿</span>
+    <span style="color: #5F6470; font-size: 12px; display: inline-flex; align-items: center; gap: 6px"><svg class="ic" viewBox="0 0 24 24" style="width: 14px; height: 14px"><path d="M4 12l5 5L20 7"/></svg>自動儲存於 12:03 · 1,284 字 · 約 6 分鐘</span>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 6px">
+      <button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>預覽<span class="kbd">⌘⇧P</span></button>
+      <button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h8V4M8 20v-6h8v6"/></svg>儲存草稿<span class="kbd">⌘S</span></button>
+      <button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>發布</button>
+    </div>
+  </header>
+
+  <main style="flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; padding: 20px 24px 40px; align-items: start">
+    <section style="display: flex; flex-direction: column; gap: 12px; min-width: 0">
+      <label for="t" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">標題</label>
+      <input id="t" class="d" type="text" value="為什麼我們決定用 Go 重寫一個 CMS" style="width: 100%; box-sizing: border-box; border: 0; background: transparent; font-size: 40px; padding: 4px 0; color: #15161A">
+      <div class="ed">
+        <div class="edbar" role="toolbar" aria-label="Markdown">
+          <button class="tool" type="button" aria-label="標題"><svg class="ic" viewBox="0 0 24 24"><path d="M5 4v16M19 4v16M5 12h14"/></svg></button>
+          <button class="tool" type="button" aria-label="粗體"><svg class="ic" viewBox="0 0 24 24"><path d="M7 4h7a3.5 3.5 0 0 1 0 7H7zM7 11h8a3.5 3.5 0 0 1 0 7H7z"/></svg></button>
+          <button class="tool" type="button" aria-label="斜體"><svg class="ic" viewBox="0 0 24 24"><path d="M10 4h8M6 20h8M14 4l-4 16"/></svg></button>
+          <button class="tool" type="button" aria-label="刪除線"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16M8 7c0-2 2-3 4-3s4 1 4 3M8 17c0 2 2 3 4 3s4-1 4-3"/></svg></button>
+          <span class="sep"></span>
+          <button class="tool" type="button" aria-label="項目清單"><svg class="ic" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h1M4 12h1M4 18h1"/></svg></button>
+          <button class="tool" type="button" aria-label="編號清單"><svg class="ic" viewBox="0 0 24 24"><path d="M10 6h11M10 12h11M10 18h11M4 5l1-1v4M4 15h2l-2 3h2"/></svg></button>
+          <button class="tool" type="button" aria-label="待辦清單"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h6v6H3zM4 8l2 2 3-4M11 8h10M3 14h6v6H3zM11 17h10"/></svg></button>
+          <button class="tool" type="button" aria-label="引用"><svg class="ic" viewBox="0 0 24 24"><path d="M5 15h4V9H5v6zM5 15c0 3 1 4 3 5M15 15h4V9h-4v6zM15 15c0 3 1 4 3 5"/></svg></button>
+          <span class="sep"></span>
+          <button class="tool" type="button" aria-label="行內程式碼"><svg class="ic" viewBox="0 0 24 24"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg></button>
+          <button class="tool" type="button" aria-label="程式碼區塊"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM8 10l-3 3 3 3M16 10l3 3-3 3M13 9l-2 8"/></svg></button>
+          <button class="tool" type="button" aria-label="表格"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM3 10h18M3 15h18M9 4v16M15 4v16"/></svg></button>
+          <button class="tool" type="button" aria-label="分隔線"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12h18"/></svg></button>
+          <span class="sep"></span>
+          <button class="tool" type="button" aria-label="連結"><svg class="ic" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></svg></button>
+          <button class="tool" type="button" aria-label="圖片"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM21 15l-5-5-8 8"/><circle cx="8" cy="10" r="1.5"/></svg></button>
+          <button class="tool" type="button" aria-label="從附件庫插入"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg></button>
+          <span class="sep"></span>
+          <button class="tool" type="button" aria-label="復原"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+          <button class="tool" type="button" aria-label="重做"><svg class="ic" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+          <span style="margin-left: auto; display: inline-flex; gap: 1px"><button class="tool" type="button" aria-label="只看原稿"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h18v16H3z"/></svg></button><button class="tool on" type="button" aria-label="分割檢視"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM12 4v16"/></svg></button><button class="tool" type="button" aria-label="只看預覽"><svg class="ic" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="tool" type="button" aria-label="全螢幕"><svg class="ic" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button></span>
+        </div>
+        <div class="panes">
+          <div class="srcwrap"><div class="gut" aria-hidden="true">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+<b>13</b></div><label for="src" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Markdown 原稿</label><textarea id="src" class="src" spellcheck="false">## 為什麼要再做一個 CMS
+
+因為現有的選擇不是太重，就是太難客製。我們想要一個**安裝五分鐘**、寫作零阻力的東西。
+
+- 主題系統，顏色與版面可在後台調整
+- QuickJS 外掛，失敗不拖垮主程式
+
+&gt; 寫下來，才算數。
+
+```sh
+go run ./cmd/jelly-cms
+```
+
+![架構圖](/uploads/arch.png)</textarea></div>
+          <div class="prev" aria-live="polite">
+            <h2>為什麼要再做一個 CMS</h2>
+            <p>因為現有的選擇不是太重，就是太難客製。我們想要一個<strong>安裝五分鐘</strong>、寫作零阻力的東西。</p>
+            <ul><li>主題系統，顏色與版面可在後台調整</li><li>QuickJS 外掛，失敗不拖垮主程式</li></ul>
+            <blockquote>寫下來，才算數。</blockquote>
+            <pre>go run ./cmd/jelly-cms</pre>
+            <div style="aspect-ratio: 16 / 9; background: #F6F7F9; border: 1px solid #E6E7EB; border-radius: 4px; display: grid; place-items: center; color: #9A9FAB; font-size: 13px">架構圖 · /uploads/arch.png</div>
+          </div>
+        </div>
+        <div class="status"><span>Markdown</span><span>第 <b>13</b> 行，第 <b>1</b> 欄</span><span><b>1,284</b> 字 · 約 6 分鐘</span><span>拖曳或貼上圖片即上傳</span><span style="margin-left: auto">自動儲存 12:03</span><span>CommonMark + GFM</span></div>
+      </div>
+    </section>
+
+    <aside style="position: sticky; top: 64px; display: flex; flex-direction: column">
+      <div class="lbl" style="padding-bottom: 8px">屬性</div>
+      <div class="prop"><label>狀態</label><div class="seg"><span>草稿</span><span class="on">發布</span><span>排程</span></div></div>
+      <div class="prop"><label for="slug">網址</label><div style="display: flex; align-items: center; gap: 4px; color: #5F6470; font-size: 13px">/post/<input id="slug" class="ul" type="text" value="go-cms" style="flex: 1"></div></div>
+      <div class="prop"><label for="pub">發布時間</label><input id="pub" class="ul" type="text" value="2026-10-22 09:00"></div>
+      <div class="prop"><label for="au">作者</label><input id="au" class="ul" type="text" value="小榛"></div>
+      <div class="prop"><label>封面</label><div style="display: flex; align-items: center; gap: 10px"><div style="width: 72px; aspect-ratio: 4 / 3; background: #F5F5F7; border-radius: 0 8px 0 8px; display: grid; place-items: center; color: #9A9FAB; font-size: 11px; font-weight: 700">自動</div><div style="font-size: 12px; color: #5F6470; line-height: 1.5">預設用內文第一張圖。<br><a href="Media.dc.html" style="display: inline-flex; align-items: center; gap: 4px"><svg class="ic" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="M3 5h18v14H3zM21 15l-5-5-8 8"/><circle cx="8" cy="10" r="1.5"/></svg>另選一張</a></div></div></div>
+      <div class="prop"><label for="ex">摘要</label><textarea id="ex" class="ul" rows="3" style="resize: none" placeholder="留空則自動取前 110 字"></textarea></div>
+      <div class="prop"><label>SEO</label><div style="font-size: 12px; color: #5F6470; display: flex; flex-direction: column; gap: 4px"><b style="color: #1C47B8; font-size: 14px; font-weight: 600">為什麼我們決定用 Go 重寫一個 CMS · 榛果繽紛樂</b><span>example.com/post/go-cms</span><span>現有的選擇不是太重，就是太難客製。我們想要一個安裝五分鐘…</span></div></div>
+      <div class="prop" style="border-bottom: 1px solid #EEEFF2"><label>版本</label><div style="font-size: 12px; color: #5F6470; display: flex; flex-direction: column; gap: 4px"><span>12:03 自動儲存</span><span>11:40 小榛</span><a href="Editor.dc.html" style="display: inline-flex; align-items: center; gap: 4px"><svg class="ic" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>所有版本</a></div></div>
+      <button class="btn x" type="button" style="justify-content: flex-start; color: #9C2318; margin-top: 8px"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>移到回收桶</button>
+    </aside>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
