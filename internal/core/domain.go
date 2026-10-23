@@ -46,6 +46,15 @@ type Post struct {
 	Tags          []Tag          `json:"tags" gorm:"many2many:post_tags;"`
 	DeletedByID   *uint          `json:"deleted_by_id,omitempty"`
 	DeletedAt     gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
+
+	// Markdown source and render state (ticket 09). Content is the sanitized
+	// HTML rendered from Source; Format is html, md or jmd. RenderVersion and
+	// RenderTrust record the renderer and policy that produced Content, and
+	// stay internal.
+	Source        string `json:"source" gorm:"type:text"`
+	Format        string `json:"format" gorm:"size:8;default:html"`
+	RenderVersion int    `json:"-" gorm:"default:0"`
+	RenderTrust   string `json:"-" gorm:"size:8;default:strict"`
 }
 
 // CommentsAllowed treats a nil AllowComments as true.

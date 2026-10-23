@@ -1,0 +1,21 @@
+{{define "editor"}}{{/*
+  Shared editor shell (ticket 09, G1). Used by post_editor.html and
+  page_editor.html through {{template "editor" .}}.
+
+  Final shell (per design/project/Editor.dc.html, EditorFull, EditorFocus,
+  EditorLayout, EditorExport, and the 390px mobile single-column layout):
+    - toolbar: 原稿 / 分割 / 預覽 segments, 滿版 toggle, 專心 toggle, 匯出
+    - left rail: outline (TOC from the render response) and word/char stats
+    - center: CodeMirror 6 source pane (assets/codemirror/) with the slash menu
+      (open, filtered and empty states) and the diagnostics bar (YAML errors,
+      unknown attributes)
+    - right drawer: post settings and the block inspector for layout mode
+    - status bar: line and column, selection count, ⌘/ shortcut hint
+    - preview pane: rendered HTML from POST /api/admin/render, 250 ms debounce,
+      desktop and mobile width switch
+  Behaviour: autosave every 60 s and on blur (POST .../autosave), offline
+  banner while typing continues, image paste uploads to POST /api/admin/media
+  and replaces the placeholder.
+
+  This block is a placeholder. It renders nothing, and no page includes it yet.
+*/}}{{end}}

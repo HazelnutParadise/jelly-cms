@@ -16,6 +16,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// Ticket 09 G0 (docs/tickets/09-editor.md): these handlers still store the
+// request's content as sent. G0 changes them to render source through
+// markup.Render, ignore content when source is present, sanitize content-only
+// writes with the policy from renderTrustFor (editor_routes.go), and return
+// diagnostics. Until then a content-only write from an author can store
+// script; that is the G0 security fix.
 func registerPostRoutes(api *echo.Group) {
 	api.GET("/posts", listPosts)
 	api.POST("/posts", createPost)

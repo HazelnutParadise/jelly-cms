@@ -29,6 +29,7 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 	content := e.Group("/api/admin", auth.RequireRole("admin", "editor", "author"))
 	registerPostRoutes(content)
 	api := e.Group("/api/admin", auth.RequireRole("admin"))
+	registerEditorRoutes(e, content, api)
 
 	// Media
 	content.POST("/media", func(c echo.Context) error {

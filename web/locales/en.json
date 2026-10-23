@@ -478,5 +478,10 @@
     "rvNoId": "This item could not be found.",
     "rvToday": "Today",
     "rvYesterday": "Yesterday",
-    "rvUnknownUser": "Unknown"
+    "rvUnknownUser": "Unknown",
+    "editorFull": "Full screen",
+    "editorFocus": "Focus mode",
+    "editorLayout": "Layout mode",
+    "editorExport": "Export",
+    "widgets": "Widgets"
 }

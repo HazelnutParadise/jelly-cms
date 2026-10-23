@@ -478,5 +478,10 @@
     "rvNoId": "找不到這篇內容。",
     "rvToday": "今天",
     "rvYesterday": "昨天",
-    "rvUnknownUser": "未知"
+    "rvUnknownUser": "未知",
+    "editorFull": "滿版編輯",
+    "editorFocus": "專心模式",
+    "editorLayout": "版面模式",
+    "editorExport": "匯出",
+    "widgets": "元件"
 }
