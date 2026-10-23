@@ -3,9 +3,13 @@ package data
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log"
+	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -151,7 +155,91 @@ func MigrateDB(db *gorm.DB) error {
 		return err
 	}
 
-	return migrateOAuthIdentities(db)
+	if err := migrateOAuthIdentities(db); err != nil {
+		return err
+	}
+	return runEmbeddedMigrations(db)
+}
+
+// embeddedMigrationFiles holds the SQL migrations shipped with the binary.
+//
+//go:embed migrations/*.sql
+var embeddedMigrationFiles embed.FS
+
+// embeddedMigrationLockClass is the first key of pg_advisory_xact_lock for the
+// embedded migrations; the second key is the migration number. The OAuth
+// identity migration uses (731984201, 1), so the numbers never collide.
+const embeddedMigrationLockClass = 731984201
+
+// firstEmbeddedMigration is the lowest migration number this runner applies.
+// 0001 belongs to migrateOAuthIdentities, which runs before this runner.
+const firstEmbeddedMigration = 2
+
+// runEmbeddedMigrations applies every embedded migration numbered 0002 and up,
+// in ascending order. Each file runs in its own transaction under
+// pg_advisory_xact_lock(731984201, N), N being the file's number, so
+// concurrent processes serialise per migration. Every file is written to be
+// idempotent, so running the whole set again on a migrated database is a no-op.
+func runEmbeddedMigrations(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("database not initialized")
+	}
+
+	entries, err := fs.ReadDir(embeddedMigrationFiles, "migrations")
+	if err != nil {
+		return fmt.Errorf("read embedded migrations: %w", err)
+	}
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sql") {
+			names = append(names, entry.Name())
+		}
+	}
+	sort.Strings(names)
+
+	for _, name := range names {
+		number, err := embeddedMigrationNumber(name)
+		if err != nil {
+			return err
+		}
+		if number < firstEmbeddedMigration {
+			continue
+		}
+
+		migration, err := fs.ReadFile(embeddedMigrationFiles, path.Join("migrations", name))
+		if err != nil {
+			return fmt.Errorf("read migration %s: %w", name, err)
+		}
+
+		err = db.Transaction(func(tx *gorm.DB) error {
+			lock := fmt.Sprintf("SELECT pg_advisory_xact_lock(%d, %d)", embeddedMigrationLockClass, number)
+			if err := tx.Exec(lock).Error; err != nil {
+				return fmt.Errorf("lock migration %s: %w", name, err)
+			}
+			if err := tx.Exec(string(migration)).Error; err != nil {
+				return fmt.Errorf("apply migration %s: %w", name, err)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// embeddedMigrationNumber parses the numeric prefix of a file such as
+// "0002_user_account_fields.sql".
+func embeddedMigrationNumber(name string) (int, error) {
+	prefix, _, found := strings.Cut(name, "_")
+	if !found {
+		return 0, fmt.Errorf("migration %q has no number prefix", name)
+	}
+	number, err := strconv.Atoi(prefix)
+	if err != nil || number <= 0 {
+		return 0, fmt.Errorf("migration %q has an invalid number", name)
+	}
+	return number, nil
 }
 
 // Migrate runs auto-migration for core models on the global database handle.

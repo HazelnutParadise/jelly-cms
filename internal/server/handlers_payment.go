@@ -20,9 +20,11 @@ func InitPaymentService(db *gorm.DB) {
 
 // RegisterPaymentRoutes registers payment-related routes
 func RegisterPaymentRoutes(e *echo.Echo) {
-	// Public payment callback routes (no auth required)
+	// Public payment routes (no auth required). Providers notify on POST
+	// /notify (ticket 07). /callback is kept as a POST-only alias so existing
+	// provider settings keep working.
+	e.POST("/api/payment/:gateway/notify", HandlePaymentCallback)
 	e.POST("/api/payment/:gateway/callback", HandlePaymentCallback)
-	e.GET("/api/payment/:gateway/callback", HandlePaymentCallback)
 	e.GET("/api/payment/:gateway/return", HandlePaymentReturn)
 
 	// Protected payment routes
@@ -76,27 +78,22 @@ func HandleCreatePayment(c echo.Context) error {
 	return c.JSON(http.StatusOK, resp)
 }
 
-// HandlePaymentCallback handles payment gateway callback
+// HandlePaymentCallback handles payment gateway notifications. Only POST is
+// accepted: a notification that changes an order must not be triggered by a
+// GET link or a browser prefetch.
 func HandlePaymentCallback(c echo.Context) error {
+	if c.Request().Method != http.MethodPost {
+		return c.NoContent(http.StatusMethodNotAllowed)
+	}
 	gatewayName := c.Param("gateway")
 
 	// Get callback data (form or JSON)
 	var callbackData map[string]interface{}
-	if c.Request().Method == "POST" {
-		if err := c.Bind(&callbackData); err != nil {
-			// Try form data
-			form, _ := c.FormParams()
-			callbackData = make(map[string]interface{})
-			for k, v := range form {
-				if len(v) > 0 {
-					callbackData[k] = v[0]
-				}
-			}
-		}
-	} else {
-		// GET request - get from query params
+	if err := c.Bind(&callbackData); err != nil {
+		// Try form data
+		form, _ := c.FormParams()
 		callbackData = make(map[string]interface{})
-		for k, v := range c.QueryParams() {
+		for k, v := range form {
 			if len(v) > 0 {
 				callbackData[k] = v[0]
 			}

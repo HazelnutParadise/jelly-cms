@@ -2,8 +2,27 @@ package payment
 
 import (
 	"context"
+	"errors"
 	"time"
 )
+
+// ErrNotSupported is returned by QueryOrder and Refund when the provider has no
+// such operation (or it is not implemented yet). Callers must not treat it as
+// a successful query or refund.
+var ErrNotSupported = errors.New("payment: operation not supported")
+
+// ErrNotImplemented marks skeleton functions of ticket 07 that are not filled in yet.
+var ErrNotImplemented = errors.New("payment: not implemented")
+
+// Capabilities describes what a provider can do, for the checkout page.
+type Capabilities struct {
+	// Methods lists the payment method ids the provider handles, such as
+	// credit_card, atm, cvs or bank_transfer.
+	Methods []string
+	// Offline is true when the payment is confirmed by a person (bank transfer)
+	// instead of by a notification from the provider.
+	Offline bool
+}
 
 // PaymentGateway defines the interface for payment gateways
 type PaymentGateway interface {
@@ -21,6 +40,9 @@ type PaymentGateway interface {
 
 	// GetName returns the gateway name
 	GetName() string
+
+	// Capabilities returns the payment methods and whether the provider is offline
+	Capabilities() Capabilities
 }
 
 // CreateOrderRequest contains information needed to create a payment order

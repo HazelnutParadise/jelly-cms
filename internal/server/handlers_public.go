@@ -236,7 +236,8 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		slug := c.Param("slug")
 
 		// Skip known routes
-		if slug == "posts" || slug == "search" || slug == "about" || slug == "api" || slug == "admin" || slug == "auth" || slug == "login" || slug == "install" {
+		if slug == "posts" || slug == "search" || slug == "about" || slug == "api" || slug == "admin" || slug == "auth" || slug == "login" || slug == "install" ||
+			slug == "shop" || slug == "cart" || slug == "checkout" || slug == "orders" || slug == "account" {
 			return echo.ErrNotFound
 		}
 

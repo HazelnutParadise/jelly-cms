@@ -115,25 +115,21 @@ func (g *ECPayGateway) VerifyCallback(ctx context.Context, data map[string]inter
 	}, nil
 }
 
-func (g *ECPayGateway) QueryOrder(ctx context.Context, orderID string) (*OrderStatus, error) {
-	// ECPay query order implementation
-	// This would typically make an API call to ECPay
-	// For now, return a placeholder
-	return &OrderStatus{
-		OrderID: orderID,
-		Status:  PaymentStatusPending,
-	}, nil
+// Capabilities reports the card, ATM and convenience-store methods of ECPay.
+func (g *ECPayGateway) Capabilities() Capabilities {
+	return Capabilities{Methods: []string{"credit_card", "atm", "cvs"}, Offline: false}
 }
 
+// QueryOrder is not implemented for ECPay yet; it returns ErrNotSupported instead
+// of a made-up status.
+func (g *ECPayGateway) QueryOrder(ctx context.Context, orderID string) (*OrderStatus, error) {
+	return nil, ErrNotSupported
+}
+
+// Refund is not implemented for ECPay yet; it returns ErrNotSupported instead of
+// a made-up success.
 func (g *ECPayGateway) Refund(ctx context.Context, req RefundRequest) (*RefundResponse, error) {
-	// ECPay refund implementation
-	// This would typically make an API call to ECPay
-	return &RefundResponse{
-		RefundID:       fmt.Sprintf("REFUND_%s_%d", req.OrderID, time.Now().Unix()),
-		Status:         "success",
-		RefundedAmount: req.Amount,
-		RefundedAt:     time.Now(),
-	}, nil
+	return nil, ErrNotSupported
 }
 
 // generateCheckMacValue generates the CheckMacValue for ECPay
