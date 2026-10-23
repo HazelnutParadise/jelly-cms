@@ -114,7 +114,7 @@
     },
     "Media.dc.html": {
       "x": 4560,
-      "y": 7140,
+      "y": 7520,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 附件庫",
@@ -138,7 +138,7 @@
     },
     "Products.dc.html": {
       "x": 0,
-      "y": 8480,
+      "y": 8860,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 商品",
@@ -146,7 +146,7 @@
     },
     "ProductEditor.dc.html": {
       "x": 1520,
-      "y": 8480,
+      "y": 8860,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 商品編輯",
@@ -154,7 +154,7 @@
     },
     "Orders.dc.html": {
       "x": 3040,
-      "y": 8480,
+      "y": 8860,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 訂單",
@@ -162,7 +162,7 @@
     },
     "OrderDetail.dc.html": {
       "x": 4560,
-      "y": 8480,
+      "y": 8860,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 訂單明細（尚未實作）",
@@ -170,7 +170,7 @@
     },
     "Themes.dc.html": {
       "x": 0,
-      "y": 9820,
+      "y": 10200,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 主題與客製化",
@@ -178,15 +178,15 @@
     },
     "Plugins.dc.html": {
       "x": 1520,
-      "y": 9820,
+      "y": 10200,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 外掛",
       "expand": "fill"
     },
     "Settings.dc.html": {
-      "x": 3040,
-      "y": 11160,
+      "x": 6080,
+      "y": 11540,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 設定",
@@ -242,7 +242,7 @@
     },
     "Taxonomy.dc.html": {
       "x": 0,
-      "y": 7140,
+      "y": 7520,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 分類與標籤（尚未實作）",
@@ -250,7 +250,7 @@
     },
     "Menus.dc.html": {
       "x": 1520,
-      "y": 7140,
+      "y": 7520,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 導覽選單（尚未實作）",
@@ -258,7 +258,7 @@
     },
     "Comments.dc.html": {
       "x": 3040,
-      "y": 7140,
+      "y": 7520,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 留言管理（尚未實作）",
@@ -266,7 +266,7 @@
     },
     "Users.dc.html": {
       "x": 0,
-      "y": 11160,
+      "y": 11540,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 使用者與角色（尚未實作）",
@@ -274,7 +274,7 @@
     },
     "Profile.dc.html": {
       "x": 1520,
-      "y": 11160,
+      "y": 11540,
       "w": 1440,
       "h": 1100,
       "title": "後台 · 個人帳號（尚未實作）",
@@ -297,48 +297,48 @@
       "expand": "fill"
     },
     "Import.dc.html": {
-      "x": 12160,
-      "y": 11160,
+      "x": 16720,
+      "y": 11540,
       "w": 1440,
       "h": 1000,
       "title": "後台 · WordPress 匯入（尚未實作）",
       "expand": "fill"
     },
     "Backup.dc.html": {
-      "x": 13680,
-      "y": 11160,
+      "x": 18240,
+      "y": 11540,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 備份與匯出（尚未實作）",
       "expand": "fill"
     },
     "Redirects.dc.html": {
-      "x": 9120,
-      "y": 11160,
+      "x": 13680,
+      "y": 11540,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 轉址與 SEO（尚未實作）",
       "expand": "fill"
     },
     "Logs.dc.html": {
-      "x": 10640,
-      "y": 11160,
+      "x": 15200,
+      "y": 11540,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 系統日誌（尚未實作）",
       "expand": "fill"
     },
     "Palette.dc.html": {
-      "x": 15200,
-      "y": 11160,
+      "x": 19760,
+      "y": 11540,
       "w": 1440,
       "h": 1000,
       "title": "後台 · ⌘K 指令面板（尚未實作）",
       "expand": "fill"
     },
     "States.dc.html": {
-      "x": 16720,
-      "y": 11160,
+      "x": 21280,
+      "y": 11540,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 空白、載入、錯誤、無權限（尚未實作）",
@@ -357,16 +357,16 @@
       "h": 1000,
       "title": "後台 · 更新 · 執行檔可直接更新（尚未實作）",
       "expand": "fill",
-      "x": 4560,
-      "y": 11160
+      "x": 9120,
+      "y": 11540
     },
     "UpdateContainer.dc.html": {
       "w": 1440,
       "h": 1000,
       "title": "後台 · 更新 · 容器只提示、換映像（尚未實作）",
       "expand": "fill",
-      "x": 6080,
-      "y": 11160
+      "x": 10640,
+      "y": 11540
     },
     "Author.dc.html": {
       "w": 1440,
@@ -421,8 +421,8 @@
       "h": 1100,
       "title": "後台 · 設定 · 快取與佇列（尚未實作）",
       "expand": "fill",
-      "y": 11160,
-      "x": 7600
+      "y": 11540,
+      "x": 12160
     },
     "EditorLayout.dc.html": {
       "w": 1440,
@@ -439,6 +439,70 @@
       "expand": "fill",
       "x": 10640,
       "y": 5800
+    },
+    "Notifications.dc.html": {
+      "w": 1440,
+      "h": 1000,
+      "title": "後台 · 通知中心與通知設定（尚未實作）",
+      "expand": "fill",
+      "x": 3040,
+      "y": 11540
+    },
+    "Tokens.dc.html": {
+      "w": 1440,
+      "h": 1000,
+      "title": "後台 · 個人帳號 · API 權杖（尚未實作）",
+      "expand": "fill",
+      "x": 4560,
+      "y": 11540
+    },
+    "MediaPolicies.dc.html": {
+      "w": 1440,
+      "h": 1000,
+      "title": "後台 · 附件 · 儲存策略與分組（尚未實作）",
+      "expand": "fill",
+      "x": 6080,
+      "y": 7520
+    },
+    "AppStore.dc.html": {
+      "w": 1440,
+      "h": 1000,
+      "title": "後台 · 應用市場（尚未實作）",
+      "expand": "fill",
+      "x": 3040,
+      "y": 10200
+    },
+    "PluginDetail.dc.html": {
+      "w": 1440,
+      "h": 1000,
+      "title": "後台 · 外掛詳情與擴充設定（尚未實作）",
+      "expand": "fill",
+      "x": 4560,
+      "y": 10200
+    },
+    "SettingsRoutes.dc.html": {
+      "w": 1440,
+      "h": 1300,
+      "title": "後台 · 設定 · 閱讀與網址、程式碼注入、維護模式（尚未實作）",
+      "expand": "fill",
+      "x": 7600,
+      "y": 11540
+    },
+    "Maintenance.dc.html": {
+      "w": 1440,
+      "h": 900,
+      "title": "前台 · 維護模式（尚未實作）",
+      "expand": "fill",
+      "x": 15200,
+      "y": 0
+    },
+    "Coupons.dc.html": {
+      "w": 1440,
+      "h": 1000,
+      "title": "後台 · 折扣碼與行銷（尚未實作）",
+      "expand": "fill",
+      "x": 6080,
+      "y": 8860
     }
   },
   "order": [
@@ -452,6 +516,7 @@
     "Page.dc.html",
     "Search.dc.html",
     "NotFound.dc.html",
+    "Maintenance.dc.html",
     "Shop.dc.html",
     "ShopCategory.dc.html",
     "Product.dc.html",
@@ -478,15 +543,22 @@
     "Menus.dc.html",
     "Comments.dc.html",
     "Media.dc.html",
+    "MediaPolicies.dc.html",
     "Products.dc.html",
     "ProductEditor.dc.html",
     "Orders.dc.html",
     "OrderDetail.dc.html",
+    "Coupons.dc.html",
     "Themes.dc.html",
     "Plugins.dc.html",
+    "AppStore.dc.html",
+    "PluginDetail.dc.html",
     "Users.dc.html",
     "Profile.dc.html",
+    "Notifications.dc.html",
+    "Tokens.dc.html",
     "Settings.dc.html",
+    "SettingsRoutes.dc.html",
     "Update.dc.html",
     "UpdateContainer.dc.html",
     "Infra.dc.html",
@@ -503,7 +575,7 @@
       "y": -260,
       "text": "前台 · 預設主題 Jelly",
       "kind": "title1",
-      "maxW": 15120
+      "maxW": 16640
     },
     "t1": {
       "x": 0,
@@ -528,34 +600,34 @@
     },
     "t4": {
       "x": 0,
-      "y": 6880,
+      "y": 7260,
       "text": "後台 · 內容組織",
       "kind": "title1",
-      "maxW": 6000
+      "maxW": 7520
     },
     "t5": {
       "x": 0,
-      "y": 8220,
+      "y": 8600,
       "text": "後台 · 商店",
       "kind": "title1",
-      "maxW": 6000
+      "maxW": 7520
     },
     "t6": {
       "x": 0,
-      "y": 9560,
+      "y": 9940,
       "text": "後台 · 外觀與擴充",
       "kind": "title1",
-      "maxW": 3000
+      "maxW": 6000
     },
     "t7": {
       "x": 0,
-      "y": 10900,
+      "y": 11280,
       "text": "後台 · 帳號與系統",
       "kind": "title1",
-      "maxW": 18160
+      "maxW": 22720
     },
     "s-system": {
-      "x": 16640,
+      "x": 18160,
       "y": -140,
       "w": 420,
       "text": "視覺系統\n底：白 #FFFFFF／墨 #15161A，灰階全部從墨色調出。\n口味色：覆盆子 #E8285B（主要動作）、電光藍 #2F6BFF（連結、焦點）、薄荷 #13C2A3、果凍黃 #F5B800。\n形狀：只圓對角兩個角（右上、左下），hover 時圓角長大。\n字：Bricolage Grotesque 800 標題 + Noto Sans TC 內文。\n裝飾：三色斜切短線（賽車塗裝）、頁面最頂端三色細線、果凍丁拼盤。\n按鈕一律帶圖示。",
