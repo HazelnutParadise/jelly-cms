@@ -1,11 +1,10 @@
 {{define "content"}}
-<article>
+<article class="static-page">
     <header class="article-head">
+        <span class="stripes" aria-hidden="true"></span>
         <div class="label">頁面</div>
-        <h1>{{.Title}}</h1>
+        <h1>{{.Page.Title}}</h1>
     </header>
-    <div class="prose">
-        {{.Content}}
-    </div>
+    <div class="prose">{{.Content}}</div>
 </article>
 {{end}}

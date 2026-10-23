@@ -29,11 +29,19 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
   <div style="height: 3px; background: linear-gradient(90deg, #E8285B 0 64%, #2F6BFF 64% 86%, #13C2A3 86% 100%)"></div>
   <header style="display: flex; align-items: center; gap: 10px; padding: 12px 16px">
     <a href="MobileHome.dc.html" style="display: inline-flex; align-items: center; gap: 8px; color: #15161A; font-size: 17px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".8"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".82"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".9" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800" fill-opacity=".95"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</a>
-    <button class="btn t i" type="button" aria-label="搜尋" style="margin-left: auto"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
-    <button class="btn t i" type="button" aria-label="選單"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <button class="btn t i" type="button" aria-label="搜尋" aria-expanded="false" aria-controls="mobile-search" style="margin-left: auto"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
+    <button class="btn t i" type="button" aria-label="選單" aria-expanded="false" aria-controls="mobile-nav"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </header>
+  <form id="mobile-search" role="search" action="/search" method="get" hidden aria-hidden="true" style="display: none; gap: 6px; padding: 0 16px 12px">
+    <label for="mobile-q" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">搜尋文章</label>
+    <input id="mobile-q" class="field" type="search" name="q" placeholder="搜尋文章" style="flex: 1; min-width: 0">
+    <button class="btn t i" type="submit" aria-label="搜尋"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
+  </form>
+  <nav id="mobile-nav" hidden aria-hidden="true" aria-label="主選單" style="display: none; padding: 0 16px 12px; gap: 6px; flex-wrap: wrap">
+    <a class="btn t" href="MobileHome.dc.html">首頁</a><a class="btn t" href="PostList.dc.html">文章</a><a class="btn t" href="Page.dc.html">關於</a>
+  </nav>
   <main style="flex: 1; overflow: hidden; display: flex; flex-direction: column">
-    <section style="background: #15161A; color: #fff; padding: 28px 16px 24px; position: relative; overflow: hidden">
+    <section style="background: #15161A; color: #F2F3F7; padding: 28px 16px 24px; position: relative; overflow: hidden">
       <span style="position: absolute; right: -6%; top: -16%; width: 34%; aspect-ratio: 1; background: #2F6BFF; opacity: .8; border-radius: 0 24% 0 24%" aria-hidden="true"></span>
       <span style="position: absolute; right: 6%; top: 24%; width: 30%; aspect-ratio: 1; background: #E8285B; opacity: .9; border-radius: 0 24% 0 24%; rotate: -7deg" aria-hidden="true"></span>
       <div style="position: relative; display: flex; flex-direction: column; gap: 10px">
@@ -49,10 +57,10 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
     </div>
     <section style="padding: 24px 16px 0; display: flex; flex-direction: column; gap: 10px">
       <div style="display: flex; align-items: center; justify-content: space-between"><h2 class="d" style="font-size: 24px">最新文章</h2><span class="chip">6 篇</span></div>
-      <article class="card" style="background: #15161A; color: #fff; box-shadow: none; min-height: 150px; justify-content: flex-end">
+      <article class="card" style="background: #15161A; color: #F2F3F7; box-shadow: none; min-height: 150px; justify-content: flex-end">
         <div style="display: flex; gap: 6px"><span class="chip" style="background: #2A2B31; color: #fff">2026.10.22</span><span class="chip" style="background: #E8285B; color: #fff">主打</span></div>
-        <h3 class="d" style="font-size: 24px"><a href="Post.dc.html" style="color: #fff">為什麼我們決定用 Go 重寫一個 CMS</a></h3>
-        <a href="Post.dc.html" style="color: #fff; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 6px">閱讀全文<svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a>
+        <h3 class="d" style="font-size: 24px"><a href="Post.dc.html" style="color: #F2F3F7">為什麼我們決定用 Go 重寫一個 CMS</a></h3>
+        <a href="Post.dc.html" style="color: #F2F3F7; font-weight: 700; font-size: 14px; display: inline-flex; align-items: center; gap: 6px">閱讀全文<svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a>
       </article>
       <article class="card">
         <div style="display: flex; justify-content: space-between; align-items: center"><span class="chip">2026.10.19</span><span style="width: 12px; height: 12px; background: #2F6BFF; border-radius: 0 4px 0 4px"></span></div>
