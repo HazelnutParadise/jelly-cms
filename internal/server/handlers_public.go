@@ -13,7 +13,30 @@ import (
 
 	datapkg "github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
+
+// Public theme pages (ticket 05). Every public render goes through tm.RenderWithDB and carries
+// SiteTitle, Title and CurrentPath. Public scope is archivePublicPosts (handlers_archives.go).
+//
+//	GET /                 index.html   data: IsHome bool, Posts []core.Post (6, Author/Categories preloaded),
+//	                                   Featured *core.Post (pinned first, else newest, never repeated in Posts),
+//	                                   Stats publicSiteStats{PostCount, AuthorCount int64; SinceYear int},
+//	                                   Intro string (option site_description)
+//	GET /posts            posts.html   data: Posts, Page, TotalPages, Total int64, PageSize int (10),
+//	                                   Categories []core.Category (visible top level, PostCount, max 6)
+//	GET /post/:slug       post.html    data: Post (Author/Categories/Tags preloaded, content with heading ids),
+//	                                   ReadingMinutes int, TOC []theme.TOCEntry{ID, Text, Level},
+//	                                   Prev, Next *core.Post, AuthorCard authorCard{Name, Bio, AvatarURL, Username; PostCount int64},
+//	                                   Comments, CommentCount, CommentsOpen
+//	GET /:slug            page.html    data: Page core.Post, IsPage bool, Content template.HTML
+//	                                   (only type=page, published, public, not scheduled, not trashed)
+//	GET /search?q=&page=  search.html  data: Query string, Results []searchResult{Post core.Post; Title, Snippet template.HTML},
+//	                                   Total int64, Page, TotalPages (see search.go)
+//	unknown path         error.html   data: Error ErrorPage (existing; rendered through RenderWithDB)
+//	maintenance          maintenance.html  data: Message, StartedAt time.Time, ElapsedMinutes, RetryAfter, SiteTitle (see maintenance.go)
+//
+// Stubs below are contract placeholders; the live handlers in RegisterPublicRoutes are unchanged.
 
 func getSiteTitle() string {
 	var option core.Option
@@ -261,4 +284,45 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		}
 		return c.HTMLBlob(http.StatusOK, html)
 	})
+}
+
+// publicSiteStats holds the home page statistics. The contract's name for this type is publicStats; the
+// function publicStats below keeps that name, so the struct is named publicSiteStats (Go forbids both).
+type publicSiteStats struct {
+	PostCount   int64
+	AuthorCount int64
+	SinceYear   int
+}
+
+// authorCard is the author box on a post page.
+type authorCard struct {
+	Name      string
+	Bio       string
+	AvatarURL string
+	Username  string
+	PostCount int64
+}
+
+// publicStats counts public posts and authors and finds the site's opening year (year of the earliest
+// public post, else the current year). Not implemented yet: returns zero values.
+func publicStats(db *gorm.DB) (publicSiteStats, error) {
+	return publicSiteStats{}, nil
+}
+
+// publicPostBySlug loads one post by slug within the public scope. It returns gorm.ErrRecordNotFound when
+// the post is not public (draft, private, scheduled, trashed, or not a post). Not implemented yet.
+func publicPostBySlug(db *gorm.DB, slug string) (core.Post, error) {
+	return core.Post{}, gorm.ErrRecordNotFound
+}
+
+// prevNextPosts returns the public posts adjacent to post in the list order (previous = newer neighbour,
+// next = older). Either pointer is nil at the ends. Not implemented yet.
+func prevNextPosts(db *gorm.DB, post core.Post) (prev, next *core.Post, err error) {
+	return nil, nil, nil
+}
+
+// authorCardFor builds the author box for user, with the author's public post count. The display name
+// falls back to the username and an empty bio is kept empty. Not implemented yet: returns zero values.
+func authorCardFor(db *gorm.DB, user core.User) authorCard {
+	return authorCard{}
 }

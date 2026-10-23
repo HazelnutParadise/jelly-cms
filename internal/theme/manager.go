@@ -160,6 +160,12 @@ func (m *Manager) RenderWithDB(templateName string, data interface{}, db interfa
 			"excerpt":    Excerpt,
 			"initial":    Initial,
 			"firstImage": FirstImage,
+			// public theme functions (funcs.go); stubs until ticket 05 B2/B3 land
+			"readingTime": ReadingTime,
+			"highlight":   Highlight,
+			"snippet":     Snippet,
+			"headingIDs":  headingIDsForTemplate,
+			"flavor":      Flavor,
 			"themeColor": func(colors map[string]string, key string, defaultValue string) string {
 				if colors == nil {
 					return defaultValue

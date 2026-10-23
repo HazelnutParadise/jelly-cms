@@ -158,6 +158,9 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	// Content organisation: taxonomy, menus, comments, trash, revisions, archives
 	registerContentRoutes(e, tm, renderAdmin)
 
+	// Maintenance gate for public pages (pass-through until implemented, see maintenance.go)
+	e.Use(maintenanceMiddleware(tm))
+
 	// Public Routes (Catch-all should be last)
 	registerAccountPages(e)
 	RegisterPublicRoutes(e, tm)

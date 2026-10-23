@@ -1,0 +1,2 @@
+# Characters to keep in the woff2 font subsets (one line per run of characters). Lists the characters that
+# pyftsubset keeps; this file is a placeholder and the list is not written yet.
