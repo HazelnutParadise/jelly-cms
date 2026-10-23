@@ -61,33 +61,60 @@ func NewRuntime() (*Runtime, error) {
 // When a plugin with the same id is already loaded it is replaced, but only
 // after the new version loaded and booted successfully.
 func (m *Runtime) Load(ctx context.Context, dir string) error {
-	return m.install(ctx, dir, false)
+	return m.install(ctx, dir, false, "")
 }
 
 // Reload hot reloads the plugin stored in dir. The running version keeps
 // serving hooks when the new version fails to load or to boot.
 func (m *Runtime) Reload(ctx context.Context, dir string) error {
-	return m.install(ctx, dir, true)
+	return m.install(ctx, dir, true, "")
 }
 
-// install builds a candidate worker and swaps it in once it is ready.
-func (m *Runtime) install(ctx context.Context, dir string, reload bool) error {
+// ReloadForID hot reloads an already loaded plugin from its own directory.
+// The manifest read by this call has to declare pluginID before a candidate
+// worker starts, and the plugin has to stay loaded until the swap. This keeps
+// a request from reloading another plugin or resurrecting an unloaded one.
+func (m *Runtime) ReloadForID(ctx context.Context, pluginID, dir string) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
-	// Reject work on a closed runtime before any worker starts.
+	if !pluginIDPattern.MatchString(pluginID) {
+		return fmt.Errorf("plugin id %q is missing or invalid", pluginID)
+	}
+
+	return m.install(ctx, dir, true, pluginID)
+}
+
+// install builds a candidate worker and swaps it in once it is ready. A
+// non-empty expectedID binds the candidate to that already loaded plugin.
+func (m *Runtime) install(ctx context.Context, dir string, reload bool, expectedID string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	// Reject work on a closed runtime or, in bound mode, on a plugin that is
+	// no longer loaded before any worker starts.
 	m.mu.RLock()
 	closed := m.closed
+	loaded := expectedID == "" || m.plugins[expectedID] != nil
 	m.mu.RUnlock()
 
 	if closed {
 		return errRuntimeClosed
 	}
 
+	if !loaded {
+		return fmt.Errorf("plugin %s is not loaded", expectedID)
+	}
+
 	meta, entryPath, err := readPluginManifest(dir)
 	if err != nil {
 		return err
+	}
+
+	if expectedID != "" && meta.ID != expectedID {
+		return fmt.Errorf("plugin manifest declares %q instead of %q", meta.ID, expectedID)
 	}
 
 	script, err := readFileLimited(entryPath, maxEntryBytes)
@@ -140,6 +167,14 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool) error {
 		worker.terminate()
 
 		return errRuntimeClosed
+	}
+	if expectedID != "" {
+		if _, ok := m.plugins[expectedID]; !ok {
+			m.mu.Unlock()
+			worker.terminate()
+
+			return fmt.Errorf("plugin %s is not loaded", expectedID)
+		}
 	}
 	previous := m.plugins[meta.ID]
 	if previous == nil {
