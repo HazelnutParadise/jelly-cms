@@ -281,7 +281,7 @@
       "expand": "fill"
     },
     "Trash.dc.html": {
-      "x": 10640,
+      "x": 13680,
       "y": 5800,
       "w": 1440,
       "h": 1000,
@@ -289,7 +289,7 @@
       "expand": "fill"
     },
     "Revisions.dc.html": {
-      "x": 9120,
+      "x": 12160,
       "y": 5800,
       "w": 1440,
       "h": 1000,
@@ -423,6 +423,22 @@
       "expand": "fill",
       "y": 11160,
       "x": 7600
+    },
+    "EditorLayout.dc.html": {
+      "w": 1440,
+      "h": 1380,
+      "title": "後台 · 編輯器版面模式 · 拖拉區塊（尚未實作）",
+      "expand": "fill",
+      "x": 9120,
+      "y": 5800
+    },
+    "EditorExport.dc.html": {
+      "w": 1440,
+      "h": 1000,
+      "title": "後台 · 匯出單篇（尚未實作）",
+      "expand": "fill",
+      "x": 10640,
+      "y": 5800
     }
   },
   "order": [
@@ -454,6 +470,8 @@
     "EditorFull.dc.html",
     "EditorFocus.dc.html",
     "EditorFocus2.dc.html",
+    "EditorLayout.dc.html",
+    "EditorExport.dc.html",
     "Revisions.dc.html",
     "Trash.dc.html",
     "Taxonomy.dc.html",
@@ -506,7 +524,7 @@
       "y": 5540,
       "text": "後台 · 寫作　— 標「尚未實作」的是程式還沒有的畫面",
       "kind": "title1",
-      "maxW": 12080
+      "maxW": 15120
     },
     "t4": {
       "x": 0,
