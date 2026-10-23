@@ -17,6 +17,8 @@ const (
 	principalBearer    principalSource = "bearer"
 	principalJWTCookie principalSource = "jwt_cookie"
 	principalSession   principalSource = "session"
+	// principalAPIToken marks a "jly_" personal API token (ticket 06).
+	principalAPIToken principalSource = "api_token"
 )
 
 type principal struct {
@@ -24,6 +26,19 @@ type principal struct {
 	LoginID   string
 	ExpiresAt time.Time
 	Source    principalSource
+	// Scopes are the role templates of an API token principal. Empty for
+	// browser and JWT principals, which use the owner's role directly.
+	Scopes []string
+	// TokenID is the api_tokens row of an API token principal.
+	TokenID uint
+}
+
+// resolveTokenPrincipal resolves a "jly_" API token to its owner: it looks the
+// SHA-256 hash up, rejects revoked or expired tokens and inactive owners.
+// Stub: not wired into resolvePrincipal yet, so it always fails.
+func resolveTokenPrincipal(raw string) (*principal, error) {
+	_ = raw
+	return nil, errors.New("api tokens are not supported yet")
 }
 
 func resolvePrincipal(c echo.Context, db *gorm.DB, allowSession bool) (*principal, error) {

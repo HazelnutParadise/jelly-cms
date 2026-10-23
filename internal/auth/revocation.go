@@ -94,3 +94,22 @@ func revokeLoginIDs(ids []string) error {
 		return nil
 	})
 }
+
+// revokeLoginHashes marks the given login hashes as revoked until expiresAt
+// and sets revoked_at on their login_sessions rows. Stub: returns nil.
+func revokeLoginHashes(db *gorm.DB, hashes []string, expiresAt time.Time) error {
+	_ = db
+	_ = hashes
+	_ = expiresAt
+	return nil
+}
+
+// RevokeUserLogins revokes every login of userID except exceptHash, which may
+// be empty. Used by password changes, status changes and "sign out everywhere"
+// (ticket 06). Stub: returns nil.
+func RevokeUserLogins(db *gorm.DB, userID uint, exceptHash string) error {
+	_ = db
+	_ = userID
+	_ = exceptHash
+	return nil
+}

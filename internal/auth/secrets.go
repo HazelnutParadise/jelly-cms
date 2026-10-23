@@ -22,6 +22,17 @@ type secretFile struct {
 	Version       int    `json:"version"`
 	SessionSecret string `json:"session_secret"`
 	JWTSecret     string `json:"jwt_secret"`
+	// TOTPKey encrypts two-step verification secrets (AES-GCM). It is optional
+	// so files written before ticket 06 stay valid: a missing key is generated
+	// on demand and written back, and rotating the JWT secret does not touch it.
+	TOTPKey string `json:"totp_key,omitempty"`
+}
+
+// loadOrCreateTOTPKey returns the TOTP encryption key stored at path, adding a
+// newly generated one when the file lacks it. Stub: not wired yet and always fails.
+func loadOrCreateTOTPKey(path string) ([]byte, error) {
+	_ = path
+	return nil, fmt.Errorf("totp key is not implemented")
 }
 
 func secretFilePath() string {

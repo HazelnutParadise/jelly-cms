@@ -14,10 +14,26 @@ type User struct {
 	Email     string    `json:"email" gorm:"uniqueIndex;size:255"`
 	Password  string    `json:"-"` // Hash
 	AvatarURL string    `json:"avatar_url"`
-	Role      string    `json:"role" gorm:"default:editor"` // admin, editor, author
+	Role      string    `json:"role" gorm:"default:author"` // admin, editor, author, customer
 	Provider  string    `json:"provider"`                   // local, google, github
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// Account self-service (ticket 06). Columns are created by migration 0002.
+	DisplayName       string     `json:"display_name" gorm:"size:120;not null;default:''"`
+	Bio               string     `json:"bio" gorm:"type:text;not null;default:''"`
+	Locale            string     `json:"locale" gorm:"size:10;not null;default:'zh-TW'"`
+	UITheme           string     `json:"ui_theme" gorm:"column:ui_theme;size:10;not null;default:'system'"` // system, light, dark
+	Status            string     `json:"status" gorm:"size:16;not null;default:'active'"`                   // active, invited, disabled
+	DisabledAt        *time.Time `json:"disabled_at"`
+	LastLoginAt       *time.Time `json:"last_login_at"`
+	PasswordChangedAt *time.Time `json:"password_changed_at"`
+	EmailVerifiedAt   *time.Time `json:"email_verified_at"`
+
+	// Pending email change; never serialised to clients.
+	PendingEmail          string     `json:"-" gorm:"size:255;not null;default:''"`
+	PendingEmailHash      string     `json:"-" gorm:"column:pending_email_hash;size:64;not null;default:''"`
+	PendingEmailExpiresAt *time.Time `json:"-"`
 }
 
 // Post represents a content page or blog post.

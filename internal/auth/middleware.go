@@ -75,6 +75,23 @@ func RequireRole(roles ...string) echo.MiddlewareFunc {
 	}
 }
 
+// RequireInteractive rejects API token principals on endpoints that only a
+// browser session or JWT may use (ticket 06, 互動限定). Stub: passes every request through.
+func RequireInteractive() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return next
+	}
+}
+
+// RequirePermission allows a request when its principal holds every listed
+// permission, such as content_read or orders_read (ticket 06). Stub: passes every request through.
+func RequirePermission(perms ...string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		_ = perms
+		return next
+	}
+}
+
 // GetUserFromContext retrieves the user from echo context
 func GetUserFromContext(c echo.Context) (*core.User, bool) {
 	user, ok := c.Get("user").(*core.User)

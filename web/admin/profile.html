@@ -1,0 +1,9 @@
+{{define "title"}}{{.T.account}}{{end}}
+{{define "content"}}
+<!-- 個人帳號六分頁（docs/tickets/06-accounts.md，design/project/Profile、Tokens、Notifications.dc.html）。
+     骨架佔位：實作時依設計板重寫；分頁由 ?tab=profile|notifications|tokens|security|devices|identities 決定。 -->
+<section class="page-head">
+    <h1>{{.T.account}}</h1>
+</section>
+{{template "state-empty" (dict "title" .T.account "text" "")}}
+{{end}}
