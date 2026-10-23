@@ -71,7 +71,15 @@ func createPost(c echo.Context) error {
 		if err := core.NewPostService(tx).Create(&post); err != nil {
 			return err
 		}
-		return applyPostTerms(tx, &post, input)
+		if err := applyPostTerms(tx, &post, input); err != nil {
+			return err
+		}
+		kind := "manual"
+		if post.Status == "published" {
+			kind = "publish"
+		}
+		_, err := RecordRevision(tx, post, user.ID, kind)
+		return err
 	})
 	if err != nil {
 		return termWriteError(c, err, "Unable to create post")
@@ -144,7 +152,19 @@ func updatePost(c echo.Context) error {
 		if result.RowsAffected == 0 {
 			return gorm.ErrRecordNotFound
 		}
-		return applyPostTerms(tx, &existing, input)
+		if err := applyPostTerms(tx, &existing, input); err != nil {
+			return err
+		}
+		next := existing
+		if _, err := applyPostInput(&next, input); err != nil {
+			return err
+		}
+		if kind, ok := revisionKindFor(existing, next, input); ok {
+			if _, err := RecordRevision(tx, next, user.ID, kind); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
@@ -172,16 +192,25 @@ func deletePost(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
 	}
-	query := data.DB.Where("id = ?", id)
-	if user.Role == "author" {
-		query = query.Where("author_id = ? AND type = ?", user.ID, "post")
-	}
-	result := query.Delete(&core.Post{})
-	if result.Error != nil {
+	// Soft delete: the post moves to the recycle bin with its slug suffixed so the slug is free again.
+	var post core.Post
+	if err := visiblePostQuery(data.DB, user, id).First(&post).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to delete post"})
 	}
-	if result.RowsAffected == 0 {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
+	err = data.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&post).Updates(map[string]any{
+			"slug":          trashedSlug(post.Slug, id),
+			"deleted_by_id": user.ID,
+		}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&post).Error
+	})
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to delete post"})
 	}
 	return c.JSON(http.StatusOK, map[string]string{"message": "Deleted"})
 }
