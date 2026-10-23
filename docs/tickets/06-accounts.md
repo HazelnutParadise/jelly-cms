@@ -17,6 +17,7 @@ Status：draft（本工作單只交付契約、設計板補齊、骨架與失敗
 - [ ] 待審留言會通知管理員與編輯；新裝置登入會發安全通知給本人；邀請被接受會通知管理員。
 - [ ] 成員看到自己的登入裝置（瀏覽器／系統、遮罩 IP、建立與最近活動時間、「這台」標記、新裝置標記），能登出單一裝置或其他所有裝置；登出會把該登入標記為已撤銷。
 - [ ] 成員能啟用兩步驟驗證（顯示密鑰與 QR、輸入一次驗證碼後啟用、一次性顯示 10 組備用碼）、重新產生備用碼、關閉（要密碼加驗證碼或備用碼）。啟用後本機登入分兩步：密碼正確後拿到 5 分鐘的 `mfa_token`，再送驗證碼或備用碼；錯 5 次鎖 15 分鐘；同一個時間片的驗證碼不能重複使用。OAuth 登入信任提供者，不再要求驗證碼。
+- [ ] 只有 admin、editor、author 能進 `/admin/*` 頁面與 `/api/admin/*`；其他角色（例如商店工作單將建立的 `customer`）即使登入也拿到 403，頁面導向首頁。OAuth 第一次登入建立的帳號角色取自選項 `oauth_default_role`（預設 `author`），不再寫死。
 - [ ] 後台頁面照設計稿：使用者與角色（含邀請面板、權限矩陣、刪除轉移面板）、個人帳號六個分頁、通知中心（列表與偏好）、登入頁的驗證碼步驟、接受邀請與重設密碼頁；側欄「使用者」入口（系統區、僅 admin）與 ⌘K「邀請使用者」指令。
 
 ## 錯誤與邊界
@@ -98,6 +99,7 @@ Status：draft（本工作單只交付契約、設計板補齊、骨架與失敗
 8. `login_attempts.go`：`/auth/login/2fa`、接受邀請、重設密碼都套 `ProtectLoginAttempts`。
 9. `api_documentation.go`：補 S／A 端點與 `ApiTokenAuth` bearer scheme，`/api/docs` 作為別名。
 10. 新路由檔 `internal/server/account_routes.go`、`users_routes.go`，在 `/:slug` 之前註冊；側欄 `RegisterNav{Key:"users", Section:"system", Roles:["admin"]}`，⌘K `invite-user`。
+11. `internal/server/routes.go` 的 `/admin` 群組與 `renderAdmin` 加 `auth.RequireRole("admin","editor","author")`（頁面：非員工 302 到 `/`；API：403）；`internal/auth` 的 `createOAuthUser` 角色改讀選項 `oauth_default_role`，預設 `author`，值必須是已知角色。
 
 ### 頁面
 
