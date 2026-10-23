@@ -10,8 +10,7 @@ CSS = H.CSS + '''
 .tri span{min-height:24px;padding:0 8px;display:inline-flex;align-items:center;font-size:11.5px;font-weight:700;color:#5F6470;border-radius:0 6px 0 6px}
 .tri span.ok{background:#13C2A3;color:#fff}.tri span.no{background:#E8285B;color:#fff}.tri span.in{background:#15161A;color:#fff}
 '''
-nav_items=[("globe","網站","Settings.dc.html"),("list","閱讀與網址","SettingsRoutes.dc.html"),("search","搜尋引擎與 AI 爬蟲","SettingsCrawlers.dc.html"),("key","登入與註冊","Settings.dc.html"),("comment","留言","Settings.dc.html"),("card","金流","Settings.dc.html"),("truck","運送","Settings.dc.html"),("mail","郵件與通知","Settings.dc.html"),("db","快取與佇列","Infra.dc.html"),("terminal","程式碼注入","SettingsRoutes.dc.html"),("download","更新","Update.dc.html")]
-nav='<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px" aria-label="設定分類">'+"".join(f'<a href="{h}"{" class=\"on\"" if l=="搜尋引擎與 AI 爬蟲" else ""}>{I(ic,14)}{l}</a>' for ic,l,h in nav_items)+'</nav>'
+nav=H.settings_nav("搜尋引擎與 AI 爬蟲")
 
 def tri(v): # v in ok/no/in
     return f'<span class="tri"><span class="{"ok" if v=="ok" else ""}">允許</span><span class="{"no" if v=="no" else ""}">封鎖</span></span>'
