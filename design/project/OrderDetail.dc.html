@@ -32,15 +32,19 @@ table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;font
 .tl{display:flex;gap:12px;font-size:13px}.tl time{color:#5F6470;flex:0 0 96px;font-family:ui-monospace,Menlo,monospace;font-size:12px}
 .ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mark{display:inline-block;width:22px;height:26px}
+.stripe{display:block;width:40px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px}
+.seg span.on{background:#15161A;color:#fff}
 </style>
 </helmet>
 <div style="width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #fff">
   <div class="topline"></div>
   <header style="display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid #EEEFF2; position: sticky; top: 0; background: #fff">
     <a class="btn t" href="Orders.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>訂單</a>
-    <span class="d" style="font-size: 20px">#1023</span>
+    <span class="d mono" style="font-size: 20px; letter-spacing: .01em">JL-2026-0417</span>
     <span class="chip info">已付款</span>
-    <span style="color: #5F6470; font-size: 13px">2026/10/21 22:10 · 藍新 ATM</span>
+    <span style="color: #5F6470; font-size: 13px">2026/10/21 22:10 · 綠界 ATM</span>
     <div style="margin-left: auto; display: flex; align-items: center; gap: 6px">
       <button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></svg>列印出貨單</button>
       <button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>退款</button>
@@ -57,12 +61,12 @@ table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;font
         <table>
           <thead><tr><th>商品</th><th>SKU</th><th class="a">單價</th><th class="a">數量</th><th class="a">小計</th></tr></thead>
           <tbody>
-            <tr><td style="font-weight: 700"><span style="display: inline-block; width: 28px; height: 28px; background: #F5B800; border-radius: 0 8px 0 8px; vertical-align: middle; margin-right: 10px"></span>限量禮盒</td><td class="mono">GB-01</td><td class="a mono">NT$ 1,280</td><td class="a mono">1</td><td class="a mono">NT$ 1,280</td></tr>
+            <tr><td style="font-weight: 700"><span style="display: inline-block; width: 28px; height: 28px; background: #F5B800; border-radius: 0 8px 0 8px; vertical-align: middle; margin-right: 10px"></span>限量禮盒</td><td class="mono">GB-01</td><td class="a mono">NT$1,280</td><td class="a mono">1</td><td class="a mono">NT$1,280</td></tr>
           </tbody>
           <tfoot>
-            <tr><td colspan="4" class="a" style="color: #5F6470; border: 0; padding-top: 12px">小計</td><td class="a mono" style="border: 0; padding-top: 12px">NT$ 1,280</td></tr>
-            <tr><td colspan="4" class="a" style="color: #5F6470; border: 0">運費</td><td class="a mono" style="border: 0">NT$ 0</td></tr>
-            <tr><td colspan="4" class="a" style="border: 0; font-weight: 700">總計</td><td class="a" style="border: 0"><b class="d" style="font-size: 22px">NT$ 1,280</b></td></tr>
+            <tr><td colspan="4" class="a" style="color: #5F6470; border: 0; padding-top: 12px">小計</td><td class="a mono" style="border: 0; padding-top: 12px">NT$1,280</td></tr>
+            <tr><td colspan="4" class="a" style="color: #5F6470; border: 0">運費</td><td class="a mono" style="border: 0">NT$0</td></tr>
+            <tr><td colspan="4" class="a" style="border: 0; font-weight: 700">總計</td><td class="a" style="border: 0"><b class="d" style="font-size: 22px">NT$1,280</b></td></tr>
           </tfoot>
         </table>
       </div>
@@ -70,9 +74,10 @@ table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;font
         <h2 class="d" style="font-size: 16px; margin-bottom: 8px">時間軸</h2>
         <div style="display: flex; flex-direction: column; gap: 8px">
           <div class="tl"><time>10/21 22:10</time><span>訂單成立（訪客結帳）</span></div>
-          <div class="tl"><time>10/21 22:11</time><span>藍新回傳 ATM 虛擬帳號，通知已寄出</span></div>
+          <div class="tl"><time>10/21 22:10</time><span>庫存保留（下單時）：限量禮盒 1 件，ATM 保留 72 小時，逾期未付自動釋放</span></div>
+          <div class="tl"><time>10/21 22:11</time><span>綠界回傳 ATM 虛擬帳號，通知已寄出</span></div>
           <div class="tl"><time>10/22 08:03</time><span>付款通知驗證通過，<span class="chip info">已付款</span></span></div>
-          <div class="tl"><time>10/22 08:03</time><span>庫存扣減：限量禮盒 1 → 0，<a href="Products.dc.html">已缺貨</a></span></div>
+          <div class="tl"><time>10/22 08:03</time><span>庫存確認（付款完成）：限量禮盒保留轉為售出，<a href="Products.dc.html">已缺貨</a></span></div>
         </div>
       </div>
       <div>
@@ -95,7 +100,12 @@ table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;font
       </div>
       <div class="box">
         <span class="lbl">付款</span>
-        <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px"><span style="color: #5F6470">金流</span><b>藍新 NewebPay</b><span style="color: #5F6470">方式</span><b>ATM 轉帳</b><span style="color: #5F6470">交易號</span><b class="mono">NP2026102200133</b><span style="color: #5F6470">狀態</span><span class="chip ok" style="justify-self: start">驗證通過</span></div>
+        <div style="display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13px"><span style="color: #5F6470">金流</span><b>綠界 ECPay</b><span style="color: #5F6470">方式</span><b>ATM 轉帳</b><span style="color: #5F6470">交易號</span><b class="mono">JL202610220013345678</b><span style="color: #5F6470">狀態</span><span class="chip ok" style="justify-self: start">驗證通過</span></div>
+        <div style="border-top: 1.5px dashed #D9DBE0; padding-top: 10px; display: flex; flex-direction: column; gap: 8px">
+          <div style="font-size: 12px; color: #5F6470; line-height: 1.6">只有「銀行轉帳」且還沒付款的訂單會出現這顆，不會顯示在金流訂單上。</div>
+          <button class="btn t" type="button" style="justify-content: flex-start"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>人工確認收款</button>
+          <div style="font-size: 12px; color: #5F6470">按下後訂單變「已付款」，庫存保留轉為售出，時間軸記下是誰確認的。</div>
+        </div>
       </div>
       <div class="box" style="background: #15161A; color: #fff">
         <span class="lbl" style="color: #B9BCC6">更改狀態</span>
@@ -105,11 +115,21 @@ table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;font
           <button class="btn" type="button" style="background: #2A2B31; justify-content: flex-start; color: #FF8FA8"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>取消訂單</button>
         </div>
       </div>
+      <div style="display: flex; align-items: center; gap: 8px; color: #5F6470; font-size: 12px; padding: 4px 2px 0"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>按上方「退款」會打開這張面板</div>
+      <div class="box" style="background: #fff; box-shadow: inset 0 0 0 1px #E2E3E8; gap: 12px">
+        <div style="display: flex; align-items: center; gap: 8px"><span class="stripe"></span><b style="font-size: 15px">退款</b><span class="chip info" style="margin-left: auto">已付 NT$1,280</span></div>
+        <div><span class="lbl" style="display: block">退款方式</span><div class="seg" style="margin-top: 6px"><span>全額</span><span class="on">部分退款</span></div></div>
+        <div><label for="ra" class="lbl">退款金額 (NT$)</label><input id="ra" class="ul mono" type="text" value="500" style="font-size: 16px"><div style="font-size: 12px; color: #5F6470; margin-top: 4px">最多可退 NT$1,280，已退 NT$0。金額以元輸入。</div></div>
+        <div><label for="rr" class="lbl">原因</label><select id="rr" class="ul"><option>顧客要求</option><option>商品瑕疵</option><option>缺貨</option><option>其他</option></select></div>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600"><input type="checkbox" style="accent-color: #E8285B; width: 16px; height: 16px; margin: 0">同時回補庫存</label>
+        <div style="font-size: 12px; color: #5F6470; line-height: 1.6">ATM 付款無法原路退回，確認後請另外匯款給顧客；系統只記帳並寄通知。</div>
+        <div style="display: flex; gap: 8px"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>確認退款 NT$500</button><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>取消</button></div>
+      </div>
     </aside>
   </main>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1400}}'>
 class Component extends DCLogic {
   renderVals() { return {}; }
 }

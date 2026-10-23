@@ -69,6 +69,7 @@ ICONS = {
  "grid": '<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>',
  "chevron-d": '<path d="M6 9l6 6 6-6"/>',
  "chevron-r": '<path d="M9 6l6 6-6 6"/>',
+ "ticket": '<path d="M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4zM14 6v2M14 11v2M14 16v2"/>',
  "wp": '<circle cx="12" cy="12" r="9"/><path d="M5 9l3 9 3-7 3 7 3-9M9 9h2M14 9h2"/>',
 }
 def I(name, size=None, extra=""):
@@ -223,7 +224,7 @@ def front(active, main, cart=True):
 NAV = [
  ("內容", [("dashboard","Dashboard.dc.html","儀表板","home",None),("posts","Posts.dc.html","文章","doc",None),("pages","Posts.dc.html","頁面","page",None),
           ("taxonomy","Taxonomy.dc.html","分類與標籤","tag","new"),("comments","Comments.dc.html","留言","comment","7"),("media","Media.dc.html","附件","image",None),("trash","Trash.dc.html","回收桶","trash","new")]),
- ("商店", [("products","Products.dc.html","商品","box",None),("orders","Orders.dc.html","訂單","cart","3")]),
+ ("商店", [("products","Products.dc.html","商品","box",None),("orders","Orders.dc.html","訂單","cart","3"),("coupons","Coupons.dc.html","折扣碼","ticket",None)]),
  ("外觀", [("themes","Themes.dc.html","主題","theme",None),("menus","Menus.dc.html","導覽選單","menu","new"),("plugins","Plugins.dc.html","外掛","plug",None)]),
  ("系統", [("users","Users.dc.html","使用者","users","new"),("redirects","Redirects.dc.html","轉址與 SEO","redirect","new"),("tools","Import.dc.html","工具","tools","new"),("logs","Logs.dc.html","日誌","terminal","new"),("settings","Settings.dc.html","設定","settings",None)]),
 ]
@@ -281,7 +282,7 @@ pages["Checkout"] = ("前台結帳", FRONT_CSS, 1440, 1400, front("shop", f'''
           <h2 class="d" style="font-size: 24px; display: flex; align-items: center; gap: 10px"><span class="chip nd" style="background:#15161A;color:#fff">2</span>配送</h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px">
             <label class="opt on"><span class="rad"></span><span>{I("truck")}</span><span><b>宅配</b><div style="font-size:12px;color:#5F6470">NT$ 80 · 2 天</div></span></label>
-            <label class="opt"><span class="rad"></span><span>{I("box")}</span><span><b>超商取貨</b><div style="font-size:12px;color:#5F6470">NT$ 60 · 3 天</div></span></label>
+            <label class="opt" aria-disabled="true" style="opacity:.55;cursor:not-allowed;background:#F8F8FA"><span class="rad" style="box-shadow:inset 0 0 0 2px #D9DBE0"></span><span>{I("box")}</span><span><b>超商取貨</b><div style="font-size:12px;color:#5F6470;margin-top:2px"><span class="chip nd">稍後開放</span></div></span></label>
             <label class="opt"><span class="rad"></span><span>{I("home")}</span><span><b>自取</b><div style="font-size:12px;color:#5F6470">免運 · 台中門市</div></span></label>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
@@ -310,6 +311,7 @@ pages["Checkout"] = ("前台結帳", FRONT_CSS, 1440, 1400, front("shop", f'''
         <div style="display: flex; gap: 12px; align-items: center"><span style="width:48px;height:48px;background:#2F6BFF;border-radius:0 10px 0 10px;flex:0 0 auto"></span><span style="flex:1"><b>藍莓果凍 6 入</b><div style="font-size:12px;color:#B9BCC6">× 2</div></span><b>NT$ 480</b></div>
         <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 15px; padding-top: 16px; border-top: 1px solid #2A2B31"><span style="color:#B9BCC6">小計</span><b>NT$ 800</b><span style="color:#B9BCC6">宅配</span><b>NT$ 80</b></div>
         <div style="display: flex; align-items: baseline; justify-content: space-between; padding-top: 16px; border-top: 1px solid #2A2B31"><span>總計</span><span class="d" style="font-size: 36px">NT$ 880</span></div>
+        <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; line-height: 1.6; color: #E3E4E8"><input type="checkbox" checked style="accent-color:#E8285B;width:16px;height:16px;margin:2px 0 0;flex:0 0 auto">我已閱讀並同意<a href="Page.dc.html" style="color:#8FB0FF">購物須知與退換貨政策</a></label>
         <a class="btn p" href="OrderDone.dc.html" style="min-height: 56px; font-size: 17px">{I("lock")}前往付款 NT$ 880</a>
         <div style="font-size: 12px; color: #9A9FAB; line-height: 1.6">按下去會前往綠界的付款頁。付款完成後回到本站看訂單結果。</div>
         <a href="Cart.dc.html" style="color: #C9CBD3; font-size: 13px; display: inline-flex; align-items: center; gap: 6px">{I("arrow-l",14)}回購物車修改</a>
@@ -391,11 +393,18 @@ def row_tax(name, slug, n, lv=0, color=None, kind="分類"):
     arrow = '<span style="color:#B9BCC6;margin-right:6px">└</span>' if lv else ""
     return f'<tr><td style="width:36px"><span class="cb"></span></td><td{pad}>{arrow}{dot}<b>{name}</b></td><td style="color:#5F6470">/{slug}</td><td class="mono" style="font-size:15px">{n}</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="看前台">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>'
 
-pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS, 1440, 1000, admin("taxonomy", ["內容","分類與標籤"],
+def prow(name, slug, n, lv=0, color=None, sel=False):
+    pad = f' style="padding-left:{10+lv*22}px"' if lv else ""
+    dot = f'<span style="width:10px;height:10px;background:{color};border-radius:0 3px 0 3px;display:inline-block;margin-right:8px;vertical-align:middle"></span>' if color else ""
+    arrow = '<span style="color:#B9BCC6;margin-right:6px">└</span>' if lv else ""
+    bg = ' style="background:#F8F9FF"' if sel else ""
+    return f'<tr{bg}><td style="width:36px"><span class="cb{" on" if sel else ""}"></span></td><td{pad}>{arrow}{dot}<b>{name}</b></td><td style="color:#5F6470">/shop/c/{slug}</td><td class="mono" style="font-size:15px">{n}</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="看前台">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>'
+
+pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS, 1440, 1300, admin("taxonomy", ["內容","分類與標籤"],
   f'<button class="btn t" type="button">{I("upload")}從 WordPress 匯入</button><button class="btn p" type="button">{I("plus")}新增分類</button>',
   f'''<main style="padding: 16px 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start">
     <section>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">{I("folder",14)}分類 <b>7</b></span><span>{I("tag",14)}標籤 <b>42</b></span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="篩選" aria-label="篩選" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><button class="btn t s" type="button">{I("drag")}拖曳排序</button></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">{I("folder",14)}分類 <b>7</b></span><span>{I("tag",14)}標籤 <b>42</b></span><span>{I("box",14)}商品分類 <b>5</b></span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="篩選" aria-label="篩選" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><button class="btn t s" type="button">{I("drag")}拖曳排序</button></div>
       <table>
         <thead><tr><th><span class="cb"></span></th><th>名稱</th><th>網址</th><th>文章</th><th></th></tr></thead>
         <tbody>
@@ -418,6 +427,37 @@ pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS, 1440, 1000, admin("taxo
       <div><span class="lbl">上層分類</span><select class="ul"><option>食譜</option><option>（無）</option><option>開店日記</option></select></div>
       <div><span class="lbl">顏色（前台卡片會用）</span><div style="display:flex;gap:6px;margin-top:6px"><span style="width:28px;height:28px;background:#2F6BFF;border-radius:0 9px 0 9px;box-shadow:0 0 0 2px #fff,0 0 0 4px #15161A"></span><span style="width:28px;height:28px;background:#E8285B;border-radius:0 9px 0 9px"></span><span style="width:28px;height:28px;background:#13C2A3;border-radius:0 9px 0 9px"></span><span style="width:28px;height:28px;background:#F5B800;border-radius:0 9px 0 9px"></span><span style="width:28px;height:28px;background:#15161A;border-radius:0 9px 0 9px"></span></div></div>
       <div><span class="lbl">描述（SEO 與分類頁開頭）</span><textarea class="ul" rows="3">做過才敢寫。每篇食譜都有份量、時間，和哪一步最容易失敗。</textarea></div>
+      <div style="display:flex;gap:8px;margin-top:4px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("external")}看前台</button><button class="btn x i" type="button" aria-label="刪除" style="margin-left:auto;color:#9C2318">{I("trash")}</button></div>
+    </aside>
+  </main>
+  <div style="margin:4px 24px 0;padding-top:14px;border-top:1px dashed #D9DBE0;display:flex;align-items:center;gap:10px;color:#5F6470;font-size:13px">{I("box",14)}<b style="color:#15161A">切到「商品分類」分段</b>商品有自己的分類樹，網址是 <span class="mono">/shop/c/…</span>，跟文章分類互不相干。</div>
+  <main style="padding: 16px 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start">
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span>{I("folder",14)}分類 <b>7</b></span><span>{I("tag",14)}標籤 <b>42</b></span><span class="on">{I("box",14)}商品分類 <b>5</b></span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="篩選" aria-label="篩選商品分類" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><button class="btn t s" type="button">{I("drag")}拖曳排序</button><button class="btn p s" type="button">{I("plus")}新增商品分類</button></div>
+      <table>
+        <thead><tr><th><span class="cb"></span></th><th>名稱</th><th>網址</th><th>商品</th><th></th></tr></thead>
+        <tbody>
+          {prow("果凍","jelly",18,0,"#2F6BFF")}
+          {prow("水果","jelly-fruit",8,1,sel=True)}
+          {prow("茶與咖啡","jelly-tea-coffee",5,1)}
+          {prow("禮盒","gift-box",6,0,"#F5B800")}
+          {prow("器具","tools",4,0,"#13C2A3")}
+        </tbody>
+      </table>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px;font-size:12px;color:#5F6470">{I("alert",14)}刪除商品分類不會刪商品，商品會回到「未分類」。一個商品可以同時放進多個分類，父分類的數量含子分類。</div>
+      <div class="card" style="margin-top:20px;display:flex;gap:12px;align-items:flex-start;background:#F8F9FF">
+        <span style="width:36px;height:36px;display:grid;place-items:center;background:#2F6BFF;color:#fff;border-radius:0 10px 0 10px;flex:0 0 auto">{I("box")}</span>
+        <div style="font-size:13px;line-height:1.7"><b>商品分類跟文章分類是兩棵樹。</b><br>文章的「食譜」「甜點」不會出現在商店，商品的「果凍」「禮盒」也不會出現在文章。兩邊可以有同名分類，網址各自獨立：文章在 <span class="mono">/recipes</span>，商品在 <span class="mono">/shop/c/jelly</span>。</div>
+      </div>
+    </section>
+    <aside class="card" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">編輯：水果</b><span class="chip info" style="margin-left:auto">果凍 的子分類</span></div>
+      <div><span class="lbl">名稱</span><input class="ul" type="text" value="水果"></div>
+      <div><span class="lbl">網址</span><div style="display:flex;align-items:center;gap:6px"><span style="color:#9A9FAB;font-size:13px">/shop/c/</span><input class="ul" type="text" value="jelly-fruit"></div></div>
+      <div><span class="lbl">上層分類</span><select class="ul"><option>果凍</option><option>（無）</option><option>禮盒</option><option>器具</option></select></div>
+      <div><span class="lbl">封面圖（分類頁頂端）</span><div style="display:flex;align-items:center;gap:10px;margin-top:6px"><span style="width:56px;height:56px;background:#E8285B;border-radius:0 12px 0 12px;flex:0 0 auto"></span><button class="btn t s" type="button">{I("image",14)}從附件庫選</button></div></div>
+      <div><span class="lbl">描述（SEO 與分類頁開頭）</span><textarea class="ul" rows="3">真的水果榨汁做的，不加香精。冷藏寄出，兩天內到貨最好吃。</textarea></div>
+      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">在商店隱藏（網址仍可進入）<span class="tg off"></span></label>
       <div style="display:flex;gap:8px;margin-top:4px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("external")}看前台</button><button class="btn x i" type="button" aria-label="刪除" style="margin-left:auto;color:#9C2318">{I("trash")}</button></div>
     </aside>
   </main>'''))
