@@ -10,7 +10,9 @@ WordPress 對照來源：https://wordpress.org/about/features/ 。內容遷移�
 
 沿用 Go、Echo、GORM、PostgreSQL、HTML templates、QuickJS，不另建前端框架。快取與背景工作佇列是可抽換介面：預設記憶體快取與 PostgreSQL 佇列，不依賴外部服務；可切換為 Redis／Valkey（頁面與物件快取、工作階段、限流計數、Redis Streams 佇列），NATS JetStream 作為佇列可選，其他中介軟體由外掛提供。外掛只能透過介面使用自己的命名空間。
 
-瀏覽器 → HTTP 路由與登入／權限檢查 → 領域服務 → PostgreSQL；公開內容經主題模板輸出。OAuth 與金流設定由後台管理。金流與 OAuth 外部服務是獨立信任邊界。
+瀏覽器 → HTTP 路由與登入／權限檢查 → 領域服務 → PostgreSQL；公開內容經主題模板輸出。
+
+前端資源全部由 Jelly CMS 自己提供：後台與預設主題不得從 CDN 或外部網址載入腳本、樣式、字型或圖示，所有第三方套件（例如 Markdown 轉換器、Web Components 元件庫、字型）以建置後的檔案自帶在 `web/` 下，離線環境下每一頁都要完整可用。自帶套件的版本在每次發版前更新到最新版，流程見 `docs/release-checklist.md`。OAuth 與金流設定由後台管理。金流與 OAuth 外部服務是獨立信任邊界。
 
 程式與測試由不同代理負責。主代理定義行為、審查完整差異、獨立執行測試與瀏覽器驗收，不撰寫程式。實作者不能修改驗收測試。沒有驗證的能力不標示完成。
 
