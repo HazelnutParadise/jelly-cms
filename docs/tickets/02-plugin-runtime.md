@@ -84,3 +84,5 @@ qjs v0.0.6 的 Eval 參數是檔名，內嵌程式需 Code 選項。SetFunc 綁�
 減法審查：沿用現有 runtime 的候選交換與 worker 限制，不新增外掛管理器、背景佇列或 UI。完整驗收為成功換版、失敗留舊版、另一外掛及另一網站隔離三個流程，另以 main 原畫面的重載按鈕實際操作。
 
 本段已由主代理先重現假成功，再驗證八個新增 HTTP 案例及完整 PostgreSQL 競態測試：332 個頂層案例通過、7 個子程序 helper 跳過，零失敗與競態警告。gofmt、go vet、原生／Windows amd64／macOS amd64 編譯通過，獨立對抗性審查沒有已確認缺陷。隔離瀏覽器以 main 原頁完成成功換版、損壞候選、ID 不符與取消操作，真實 JavaScript 輸出證明版本與外掛隔離；UI 與設計沒有改動。交付與 CI 結果見 [PR #21](https://github.com/HazelnutParadise/jelly-cms/pull/21)，本段結束後依使用者指示暫停。
+
+首次兩組 Linux CI 均在整套 180 秒上限到期時停在既有回收桶測試初始化，並非重載案例的斷言失敗。保留原始紀錄，整套 watchdog 調為 240 秒；單次取消與載入逾時的測試限制及所有斷言保持不變，結果追蹤於 PR #21。
