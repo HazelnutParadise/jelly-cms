@@ -21,6 +21,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	e.Use(gate.middleware)
 	e.Use(installStateMiddleware)
 	e.Use(I18nMiddleware)
+	e.Use(maintenanceMiddleware(tm))
 	e.Static("/uploads", "data/uploads")
 	e.Static("/admin/assets", "web/admin/assets")
 
@@ -157,9 +158,6 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 
 	// Content organisation: taxonomy, menus, comments, trash, revisions, archives
 	registerContentRoutes(e, tm, renderAdmin)
-
-	// Maintenance gate for public pages (pass-through until implemented, see maintenance.go)
-	e.Use(maintenanceMiddleware(tm))
 
 	// Public Routes (Catch-all should be last)
 	registerAccountPages(e)

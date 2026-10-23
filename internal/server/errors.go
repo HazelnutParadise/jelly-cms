@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
 )
@@ -78,11 +79,19 @@ func newHTTPErrorHandler(tm *theme.Manager) echo.HTTPErrorHandler {
 			if key, ok := errorTitles[code]; ok {
 				page.Title = translate(t, key)
 			}
-			html, rerr := tm.Render("error.html", map[string]interface{}{
-				"SiteTitle": siteTitleOrDefault(),
-				"Title":     page.Title,
-				"Error":     page,
-			})
+			values := map[string]interface{}{
+				"SiteTitle":   siteTitleOrDefault(),
+				"Title":       page.Title,
+				"CurrentPath": path,
+				"Error":       page,
+			}
+			var html []byte
+			var rerr error
+			if data.DB == nil {
+				html, rerr = tm.Render("error.html", values)
+			} else {
+				html, rerr = tm.RenderWithDB("error.html", values, data.DB)
+			}
 			if rerr == nil {
 				_ = c.HTMLBlob(code, html)
 				return

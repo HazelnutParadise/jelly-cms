@@ -1,293 +1,24 @@
 package server
 
 import (
+	"errors"
 	"html/template"
+	"log"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
-	"github.com/HazelnutParadise/jelly-cms/internal/data"
-	"github.com/HazelnutParadise/jelly-cms/internal/theme"
-
 	datapkg "github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
 
-// Public theme pages (ticket 05). Every public render goes through tm.RenderWithDB and carries
-// SiteTitle, Title and CurrentPath. Public scope is archivePublicPosts (handlers_archives.go).
-//
-//	GET /                 index.html   data: IsHome bool, Posts []core.Post (6, Author/Categories preloaded),
-//	                                   Featured *core.Post (pinned first, else newest, never repeated in Posts),
-//	                                   Stats publicSiteStats{PostCount, AuthorCount int64; SinceYear int},
-//	                                   Intro string (option site_description)
-//	GET /posts            posts.html   data: Posts, Page, TotalPages, Total int64, PageSize int (10),
-//	                                   Categories []core.Category (visible top level, PostCount, max 6)
-//	GET /post/:slug       post.html    data: Post (Author/Categories/Tags preloaded, content with heading ids),
-//	                                   ReadingMinutes int, TOC []theme.TOCEntry{ID, Text, Level},
-//	                                   Prev, Next *core.Post, AuthorCard authorCard{Name, Bio, AvatarURL, Username; PostCount int64},
-//	                                   Comments, CommentCount, CommentsOpen
-//	GET /:slug            page.html    data: Page core.Post, IsPage bool, Content template.HTML
-//	                                   (only type=page, published, public, not scheduled, not trashed)
-//	GET /search?q=&page=  search.html  data: Query string, Results []searchResult{Post core.Post; Title, Snippet template.HTML},
-//	                                   Total int64, Page, TotalPages (see search.go)
-//	unknown path         error.html   data: Error ErrorPage (existing; rendered through RenderWithDB)
-//	maintenance          maintenance.html  data: Message, StartedAt time.Time, ElapsedMinutes, RetryAfter, SiteTitle (see maintenance.go)
-//
-// Stubs below are contract placeholders; the live handlers in RegisterPublicRoutes are unchanged.
+const publicPostsPageSize = 10
 
-func getSiteTitle() string {
-	var option core.Option
-	if err := datapkg.DB.Where("key = ?", "site_title").First(&option).Error; err == nil {
-		return option.Value
-	}
-	return "Jelly CMS"
-}
-
-func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
-	// Home page - show latest posts
-	e.GET("/", func(c echo.Context) error {
-		var posts []core.Post
-		datapkg.DB.Where("type = ? AND status = ?", "post", "published").
-			Preload("Author").
-			Order("created_at DESC").
-			Limit(10).
-			Find(&posts)
-
-		data := map[string]interface{}{
-			"SiteTitle": getSiteTitle(),
-			"Title":     "首頁",
-			"Posts":     posts,
-			"IsHome":    true,
-		}
-
-		html, err := tm.RenderWithDB("index.html", data, datapkg.DB)
-		if err != nil {
-			return c.String(http.StatusInternalServerError, err.Error())
-		}
-		return c.HTMLBlob(http.StatusOK, html)
-	})
-
-	// Posts listing page
-	e.GET("/posts", func(c echo.Context) error {
-		page, _ := strconv.Atoi(c.QueryParam("page"))
-		if page < 1 {
-			page = 1
-		}
-		pageSize := 10
-		offset := (page - 1) * pageSize
-
-		var posts []core.Post
-		var total int64
-		datapkg.DB.Where("type = ? AND status = ?", "post", "published").
-			Preload("Author").
-			Order("created_at DESC").
-			Limit(pageSize).
-			Offset(offset).
-			Find(&posts)
-		datapkg.DB.Model(&core.Post{}).Where("type = ? AND status = ?", "post", "published").Count(&total)
-
-		totalPages := int((total + int64(pageSize) - 1) / int64(pageSize))
-
-		data := map[string]interface{}{
-			"SiteTitle":  getSiteTitle(),
-			"Title":      "文章總覽",
-			"Posts":      posts,
-			"Page":       page,
-			"TotalPages": totalPages,
-			"IsPosts":    true,
-		}
-
-		html, err := tm.RenderWithDB("posts.html", data, datapkg.DB)
-		if err != nil {
-			// Fallback to index if posts.html doesn't exist
-			html, err = tm.RenderWithDB("index.html", data, datapkg.DB)
-			if err != nil {
-				return c.String(http.StatusInternalServerError, err.Error())
-			}
-		}
-		return c.HTMLBlob(http.StatusOK, html)
-	})
-
-	// Single post page
-	e.GET("/post/:slug", func(c echo.Context) error {
-		slug := c.Param("slug")
-		var post core.Post
-		if err := datapkg.DB.Where("slug = ? AND type = ? AND status = ?", slug, "post", "published").
-			Preload("Author").
-			First(&post).Error; err != nil {
-			return echo.ErrNotFound
-		}
-
-		comments, commentCount, commentsOpen := commentsForPost(post, commentViewerSignedIn(c))
-		data := map[string]interface{}{
-			"SiteTitle":    getSiteTitle(),
-			"Post":         post,
-			"Title":        post.Title,
-			"IsPost":       true,
-			"Comments":     comments,
-			"CommentCount": commentCount,
-			"CommentsOpen": commentsOpen,
-		}
-
-		html, err := tm.RenderWithDB("post.html", data, datapkg.DB)
-		if err != nil {
-			// Fallback to index if post.html doesn't exist
-			data["Content"] = template.HTML(post.Content)
-			html, err = tm.RenderWithDB("index.html", data, datapkg.DB)
-			if err != nil {
-				return c.String(http.StatusInternalServerError, err.Error())
-			}
-		}
-		return c.HTMLBlob(http.StatusOK, html)
-	})
-
-	// About page
-	e.GET("/about", func(c echo.Context) error {
-		var page core.Post
-		if err := datapkg.DB.Where("slug = ? AND type = ? AND status = ?", "about", "page", "published").First(&page).Error; err != nil {
-			// Create default about page if not exists
-			page = core.Post{
-				Title:   "關於我們",
-				Slug:    "about",
-				Content: "<p>歡迎來到 Jelly CMS！這是一個現代化的內容管理系統。</p>",
-				Type:    "page",
-				Status:  "published",
-			}
-		}
-
-		data := map[string]interface{}{
-			"SiteTitle": getSiteTitle(),
-			"Title":     page.Title,
-			"Content":   template.HTML(page.Content),
-			"IsPage":    true,
-		}
-
-		// Try to render page.html first
-		html, err := tm.RenderWithDB("page.html", data, datapkg.DB)
-		if err != nil {
-			// If page.html doesn't exist or fails, try index.html
-			html, err = tm.RenderWithDB("index.html", data, datapkg.DB)
-			if err != nil {
-				// If both fail, return error with details
-				return c.String(http.StatusInternalServerError, "Template render error: "+err.Error())
-			}
-		}
-		return c.HTMLBlob(http.StatusOK, html)
-	})
-
-	// Search page
-	e.GET("/search", func(c echo.Context) error {
-		query := c.QueryParam("q")
-		var posts []core.Post
-
-		if query != "" {
-			searchQuery := "%" + strings.ToLower(query) + "%"
-			data.DB.Where("type = ? AND status = ? AND (LOWER(title) LIKE ? OR LOWER(content) LIKE ?)", "post", "published", searchQuery, searchQuery).
-				Preload("Author").
-				Order("created_at DESC").
-				Find(&posts)
-		}
-
-		data := map[string]interface{}{
-			"SiteTitle": getSiteTitle(),
-			"Title":     "搜尋結果",
-			"Query":     query,
-			"Posts":     posts,
-			"IsSearch":  true,
-		}
-
-		html, err := tm.RenderWithDB("search.html", data, datapkg.DB)
-		if err != nil {
-			html, err = tm.RenderWithDB("index.html", data, datapkg.DB)
-			if err != nil {
-				return c.String(http.StatusInternalServerError, err.Error())
-			}
-		}
-		return c.HTMLBlob(http.StatusOK, html)
-	})
-
-	// Search API
-	e.GET("/api/search", func(c echo.Context) error {
-		query := c.QueryParam("q")
-		if query == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Query parameter 'q' is required"})
-		}
-
-		var posts []core.Post
-		searchQuery := "%" + strings.ToLower(query) + "%"
-		data.DB.Where("type = ? AND status = ? AND (LOWER(title) LIKE ? OR LOWER(content) LIKE ?)", "post", "published", searchQuery, searchQuery).
-			Order("created_at DESC").
-			Limit(20).
-			Find(&posts)
-
-		// Return simplified post data
-		type PostSummary struct {
-			ID        uint      `json:"id"`
-			Title     string    `json:"title"`
-			Slug      string    `json:"slug"`
-			Excerpt   string    `json:"excerpt"`
-			CreatedAt time.Time `json:"created_at"`
-		}
-
-		results := make([]PostSummary, len(posts))
-		for i, post := range posts {
-			excerpt := post.Content
-			if len(excerpt) > 200 {
-				excerpt = excerpt[:200] + "..."
-			}
-			results[i] = PostSummary{
-				ID:        post.ID,
-				Title:     post.Title,
-				Slug:      post.Slug,
-				Excerpt:   excerpt,
-				CreatedAt: post.CreatedAt,
-			}
-		}
-
-		return c.JSON(http.StatusOK, map[string]interface{}{
-			"query": query,
-			"posts": results,
-			"count": len(results),
-		})
-	})
-
-	// Generic page route (must be last to avoid conflicts)
-	e.GET("/:slug", func(c echo.Context) error {
-		slug := c.Param("slug")
-
-		// Skip known routes
-		if slug == "posts" || slug == "search" || slug == "about" || slug == "api" || slug == "admin" || slug == "auth" || slug == "login" || slug == "install" {
-			return echo.ErrNotFound
-		}
-
-		var post core.Post
-		if err := datapkg.DB.Where("slug = ? AND status = ?", slug, "published").First(&post).Error; err != nil {
-			return echo.ErrNotFound
-		}
-
-		data := map[string]interface{}{
-			"SiteTitle": getSiteTitle(),
-			"Title":     post.Title,
-			"Content":   template.HTML(post.Content),
-			"IsPage":    true,
-		}
-
-		html, err := tm.RenderWithDB("page.html", data, datapkg.DB)
-		if err != nil {
-			html, err = tm.RenderWithDB("index.html", data, datapkg.DB)
-			if err != nil {
-				return c.String(http.StatusInternalServerError, err.Error())
-			}
-		}
-		return c.HTMLBlob(http.StatusOK, html)
-	})
-}
-
-// publicSiteStats holds the home page statistics. The contract's name for this type is publicStats; the
-// function publicStats below keeps that name, so the struct is named publicSiteStats (Go forbids both).
+// publicSiteStats holds the home page statistics.
 type publicSiteStats struct {
 	PostCount   int64
 	AuthorCount int64
@@ -303,26 +34,469 @@ type authorCard struct {
 	PostCount int64
 }
 
-// publicStats counts public posts and authors and finds the site's opening year (year of the earliest
-// public post, else the current year). Not implemented yet: returns zero values.
+func getSiteTitle() string {
+	if datapkg.DB == nil {
+		return "Jelly CMS"
+	}
+	var option core.Option
+	if err := datapkg.DB.Where("key = ?", "site_title").First(&option).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Printf("load site title: %v", err)
+		}
+		return "Jelly CMS"
+	}
+	if option.Value == "" {
+		return "Jelly CMS"
+	}
+	return option.Value
+}
+
+func publicSiteTitle(db *gorm.DB) (string, error) {
+	if db == nil {
+		return "Jelly CMS", nil
+	}
+	var option core.Option
+	err := db.Where("key = ?", "site_title").First(&option).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "Jelly CMS", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if option.Value == "" {
+		return "Jelly CMS", nil
+	}
+	return option.Value, nil
+}
+
+func publicOption(db *gorm.DB, key string) (string, error) {
+	var option core.Option
+	err := db.Where("key = ?", key).First(&option).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return option.Value, nil
+}
+
+func publicRender(c echo.Context, tm *theme.Manager, db *gorm.DB, file, title string, values map[string]interface{}) error {
+	siteTitle, err := publicSiteTitle(db)
+	if err != nil {
+		return err
+	}
+	values["SiteTitle"] = siteTitle
+	values["Title"] = title
+	values["CurrentPath"] = c.Request().URL.Path
+
+	body, err := tm.RenderWithDB(file, values, db)
+	if err != nil {
+		return err
+	}
+	return c.HTMLBlob(http.StatusOK, body)
+}
+
+func publicPostPreloads(db *gorm.DB) *gorm.DB {
+	return db.Preload("Author").
+		Preload("Categories", func(tx *gorm.DB) *gorm.DB {
+			return tx.Where("categories.hide_from_list = ?", false).Order("categories.position ASC, categories.name ASC")
+		}).
+		Preload("Tags", func(tx *gorm.DB) *gorm.DB {
+			return tx.Order("tags.name ASC")
+		})
+}
+
+func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
+	e.GET("/", func(c echo.Context) error {
+		db := datapkg.DB
+		if db == nil {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
+		}
+		db = db.WithContext(c.Request().Context())
+
+		stats, err := publicStats(db)
+		if err != nil {
+			return err
+		}
+		intro, err := publicOption(db, "site_description")
+		if err != nil {
+			return err
+		}
+
+		posts := make([]core.Post, 0, 5)
+		var latest []core.Post
+		err = publicPostPreloads(publicPostVisibility(db).Where("posts.type = ?", "post")).
+			Order("posts.pinned DESC, " + archivePostDate + " DESC, posts.id DESC").
+			Limit(6).Find(&latest).Error
+		if err != nil {
+			return err
+		}
+		var featured *core.Post
+		if len(latest) > 0 {
+			featured = &latest[0]
+			posts = append(posts, latest[1:]...)
+		}
+
+		return publicRender(c, tm, db, "index.html", "首頁", map[string]interface{}{
+			"IsHome":   true,
+			"Posts":    posts,
+			"Featured": featured,
+			"Stats":    stats,
+			"Intro":    intro,
+		})
+	})
+
+	e.GET("/posts", func(c echo.Context) error {
+		db := datapkg.DB
+		if db == nil {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
+		}
+		db = db.WithContext(c.Request().Context())
+		page := publicPageParam(c)
+
+		var total int64
+		if err := publicPostVisibility(db).Where("posts.type = ?", "post").Count(&total).Error; err != nil {
+			return err
+		}
+		totalPages := publicTotalPages(total, publicPostsPageSize)
+		if page > 1 && page > totalPages {
+			return echo.ErrNotFound
+		}
+		if page-1 > int(^uint(0)>>1)/publicPostsPageSize {
+			return echo.ErrNotFound
+		}
+
+		posts := make([]core.Post, 0, publicPostsPageSize)
+		err := publicPostPreloads(publicPostVisibility(db).Where("posts.type = ?", "post")).
+			Order("posts.pinned DESC, " + archivePostDate + " DESC, posts.id DESC").
+			Limit(publicPostsPageSize).Offset((page - 1) * publicPostsPageSize).
+			Find(&posts).Error
+		if err != nil {
+			return err
+		}
+
+		var categories []core.Category
+		if err := db.Order("position ASC, name ASC, id ASC").Find(&categories).Error; err != nil {
+			return err
+		}
+		counts, err := archiveCategoryCounts(categories)
+		if err != nil {
+			return err
+		}
+		visibleCategories := make([]core.Category, 0, 6)
+		for _, category := range categories {
+			if category.ParentID != nil || category.HideFromList {
+				continue
+			}
+			category.PostCount = counts[category.ID]
+			visibleCategories = append(visibleCategories, category)
+			if len(visibleCategories) == 6 {
+				break
+			}
+		}
+
+		return publicRender(c, tm, db, "posts.html", "文章總覽", map[string]interface{}{
+			"IsPosts":    true,
+			"Posts":      posts,
+			"Page":       page,
+			"TotalPages": totalPages,
+			"Total":      total,
+			"PageSize":   publicPostsPageSize,
+			"Categories": visibleCategories,
+		})
+	})
+
+	e.GET("/post/:slug", func(c echo.Context) error {
+		db := datapkg.DB
+		if db == nil {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
+		}
+		db = db.WithContext(c.Request().Context())
+		post, err := publicPostBySlug(db, c.Param("slug"))
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return echo.ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+
+		content, toc := theme.HeadingIDs(post.Content)
+		post.Content = content
+		prev, next, err := prevNextPosts(db, post)
+		if err != nil {
+			return err
+		}
+		comments, commentCount, commentsOpen, err := publicCommentsForPost(db, c, post)
+		if err != nil {
+			return err
+		}
+		return publicRender(c, tm, db, "post.html", post.Title, map[string]interface{}{
+			"IsPost":         true,
+			"Post":           post,
+			"ReadingMinutes": theme.ReadingTime(post.Content),
+			"TOC":            toc,
+			"Prev":           prev,
+			"Next":           next,
+			"AuthorCard":     authorCardFor(db, post.Author),
+			"Comments":       comments,
+			"CommentCount":   commentCount,
+			"CommentsOpen":   commentsOpen,
+		})
+	})
+
+	e.GET("/search", func(c echo.Context) error {
+		db := datapkg.DB
+		if db == nil {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
+		}
+		db = db.WithContext(c.Request().Context())
+		query := c.QueryParam("q")
+		page := publicPageParam(c)
+		results := []searchResult{}
+		var total int64
+		if query != "" {
+			var err error
+			results, total, err = searchPublicPosts(db, query, page, publicPostsPageSize)
+			if err != nil {
+				return err
+			}
+			if page > 1 && page > publicTotalPages(total, publicPostsPageSize) {
+				return echo.ErrNotFound
+			}
+		}
+		totalPages := publicTotalPages(total, publicPostsPageSize)
+		return publicRender(c, tm, db, "search.html", "搜尋結果", map[string]interface{}{
+			"IsSearch":   true,
+			"Query":      query,
+			"Results":    results,
+			"Total":      total,
+			"Page":       page,
+			"TotalPages": totalPages,
+		})
+	})
+
+	e.GET("/api/search", func(c echo.Context) error {
+		query := c.QueryParam("q")
+		if query == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Query parameter 'q' is required"})
+		}
+		if datapkg.DB == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+		}
+
+		results, _, err := searchPublicPosts(datapkg.DB.WithContext(c.Request().Context()), query, 1, 20)
+		if err != nil {
+			return err
+		}
+		type postSummary struct {
+			ID        uint      `json:"id"`
+			Title     string    `json:"title"`
+			Slug      string    `json:"slug"`
+			Excerpt   string    `json:"excerpt"`
+			CreatedAt time.Time `json:"created_at"`
+		}
+		summaries := make([]postSummary, 0, len(results))
+		for _, result := range results {
+			text := plainText(result.Post.Content)
+			runes := []rune(text)
+			if len(runes) > 200 {
+				text = string(runes[:200]) + "..."
+			}
+			summaries = append(summaries, postSummary{
+				ID:        result.Post.ID,
+				Title:     result.Post.Title,
+				Slug:      result.Post.Slug,
+				Excerpt:   text,
+				CreatedAt: result.Post.CreatedAt,
+			})
+		}
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"query": query,
+			"posts": summaries,
+			"count": len(summaries),
+		})
+	})
+
+	// Generic page route must remain last so specific public routes take precedence.
+	e.GET("/:slug", func(c echo.Context) error {
+		slug := c.Param("slug")
+		switch slug {
+		case "posts", "search", "post", "c", "t", "author", "archive", "api", "admin", "auth", "login", "install", "uploads", "themes":
+			return echo.ErrNotFound
+		}
+		db := datapkg.DB
+		if db == nil {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
+		}
+		db = db.WithContext(c.Request().Context())
+		var page core.Post
+		err := publicPostVisibility(db).Where("posts.type = ? AND posts.slug = ?", "page", slug).
+			Preload("Author").
+			First(&page).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return echo.ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		return publicRender(c, tm, db, "page.html", page.Title, map[string]interface{}{
+			"IsPage":  true,
+			"Page":    page,
+			"Content": template.HTML(page.Content),
+		})
+	})
+}
+
+func publicPageParam(c echo.Context) int {
+	value, err := strconv.ParseInt(c.QueryParam("page"), 10, 64)
+	if err != nil {
+		if numberError, ok := err.(*strconv.NumError); ok && errors.Is(numberError.Err, strconv.ErrRange) {
+			return int(^uint(0) >> 1)
+		}
+		return 1
+	}
+	if value < 1 {
+		return 1
+	}
+	maxInt := int64(^uint(0) >> 1)
+	if value > maxInt {
+		return int(maxInt)
+	}
+	return int(value)
+}
+
+func publicTotalPages(total int64, size int) int {
+	if total <= 0 || size <= 0 {
+		return 0
+	}
+	pages := (total-1)/int64(size) + 1
+	maxInt := int64(^uint(0) >> 1)
+	if pages > maxInt {
+		return int(maxInt)
+	}
+	return int(pages)
+}
+
 func publicStats(db *gorm.DB) (publicSiteStats, error) {
-	return publicSiteStats{}, nil
+	if db == nil {
+		return publicSiteStats{}, gorm.ErrInvalidDB
+	}
+	stats := publicSiteStats{SinceYear: time.Now().Year()}
+	if err := publicPostVisibility(db).Where("posts.type = ?", "post").Count(&stats.PostCount).Error; err != nil {
+		return publicSiteStats{}, err
+	}
+	if err := publicPostVisibility(db).Where("posts.type = ?", "post").
+		Distinct("posts.author_id").Count(&stats.AuthorCount).Error; err != nil {
+		return publicSiteStats{}, err
+	}
+	var earliest core.Post
+	err := publicPostVisibility(db).Where("posts.type = ?", "post").
+		Select("posts.id, posts.created_at, posts.published_at").
+		Order(archivePostDate + " ASC, posts.id ASC").First(&earliest).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return stats, nil
+	}
+	if err != nil {
+		return publicSiteStats{}, err
+	}
+	if earliest.PublishedAt != nil {
+		stats.SinceYear = earliest.PublishedAt.Year()
+	} else {
+		stats.SinceYear = earliest.CreatedAt.Year()
+	}
+	return stats, nil
 }
 
-// publicPostBySlug loads one post by slug within the public scope. It returns gorm.ErrRecordNotFound when
-// the post is not public (draft, private, scheduled, trashed, or not a post). Not implemented yet.
 func publicPostBySlug(db *gorm.DB, slug string) (core.Post, error) {
-	return core.Post{}, gorm.ErrRecordNotFound
+	if db == nil {
+		return core.Post{}, gorm.ErrInvalidDB
+	}
+	var post core.Post
+	err := publicPostVisibility(db).Where("posts.type = ? AND posts.slug = ?", "post", slug).
+		Preload("Author").
+		Preload("Categories", func(tx *gorm.DB) *gorm.DB {
+			return tx.Where("categories.hide_from_list = ?", false).Order("categories.position ASC, categories.name ASC")
+		}).
+		Preload("Tags", func(tx *gorm.DB) *gorm.DB { return tx.Order("tags.name ASC") }).
+		First(&post).Error
+	return post, err
 }
 
-// prevNextPosts returns the public posts adjacent to post in the list order (previous = newer neighbour,
-// next = older). Either pointer is nil at the ends. Not implemented yet.
+// prevNextPosts returns the nearest older post as prev and newer post as next, with IDs as stable tie-breakers.
 func prevNextPosts(db *gorm.DB, post core.Post) (prev, next *core.Post, err error) {
-	return nil, nil, nil
+	if db == nil {
+		return nil, nil, gorm.ErrInvalidDB
+	}
+	date := post.CreatedAt
+	if post.PublishedAt != nil {
+		date = *post.PublishedAt
+	}
+	scope := func() *gorm.DB {
+		return publicPostVisibility(db).Where("posts.type = ?", "post").Where("posts.id <> ?", post.ID)
+	}
+	load := func(query *gorm.DB, order string) (*core.Post, error) {
+		var adjacent core.Post
+		err := publicPostPreloads(query).Order(order).First(&adjacent).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		return &adjacent, nil
+	}
+
+	prev, err = load(scope().Where("("+archivePostDate+" < ?) OR ("+archivePostDate+" = ? AND posts.id < ?)", date, date, post.ID),
+		archivePostDate+" DESC, posts.id DESC")
+	if err != nil {
+		return nil, nil, err
+	}
+	next, err = load(scope().Where("("+archivePostDate+" > ?) OR ("+archivePostDate+" = ? AND posts.id > ?)", date, date, post.ID),
+		archivePostDate+" ASC, posts.id ASC")
+	if err != nil {
+		return nil, nil, err
+	}
+	return prev, next, nil
 }
 
-// authorCardFor builds the author box for user, with the author's public post count. The display name
-// falls back to the username and an empty bio is kept empty. Not implemented yet: returns zero values.
 func authorCardFor(db *gorm.DB, user core.User) authorCard {
-	return authorCard{}
+	name := user.DisplayName
+	if name == "" {
+		name = user.Username
+	}
+	card := authorCard{Name: name, Bio: user.Bio, AvatarURL: user.AvatarURL, Username: user.Username}
+	if db == nil {
+		log.Printf("count public posts for author %d: database is not initialized", user.ID)
+		return card
+	}
+	if err := publicPostVisibility(db).Where("posts.type = ? AND posts.author_id = ?", "post", user.ID).
+		Count(&card.PostCount).Error; err != nil {
+		log.Printf("count public posts for author %d: %v", user.ID, err)
+	}
+	return card
+}
+
+func publicCommentsForPost(db *gorm.DB, c echo.Context, post core.Post) ([]core.Comment, int, bool, error) {
+	var comments []core.Comment
+	err := db.WithContext(c.Request().Context()).
+		Preload("Author", commentPreviewAuthor).
+		Where("post_id = ? AND status = ?", post.ID, "approved").
+		Order("created_at ASC, id ASC").Find(&comments).Error
+	if err != nil {
+		return nil, 0, false, err
+	}
+
+	values := map[string]string{"comments_enabled": "true", "comments_registered_only": "false"}
+	var options []core.Option
+	if err := db.Where("key IN ?", []string{"comments_enabled", "comments_registered_only"}).Find(&options).Error; err != nil {
+		return nil, 0, false, err
+	}
+	for _, option := range options {
+		values[option.Key] = option.Value
+	}
+	_, signedInErr := auth.GetCurrentUser(c)
+	open := post.CommentsAllowed() && values["comments_enabled"] != "false" &&
+		(signedInErr == nil || values["comments_registered_only"] != "true")
+	return buildCommentTree(comments), len(comments), open, nil
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -425,11 +426,35 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 		if err := c.Bind(&req); err != nil {
 			return err
 		}
+		if data.DB == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+		}
+		db := data.DB.WithContext(c.Request().Context())
+		maintenance := make(map[string]string, 3)
+		for _, key := range []string{maintenanceEnabledKey, maintenanceMessageKey, maintenanceStartedKey} {
+			if value, ok := req[key]; ok {
+				maintenance[key] = value
+				delete(req, key)
+			}
+		}
+		if len(maintenance) > 0 {
+			if err := saveMaintenanceOptions(db, maintenance); err != nil {
+				status := http.StatusServiceUnavailable
+				if errors.Is(err, errInvalidMaintenanceSetting) {
+					status = http.StatusBadRequest
+				}
+				return c.JSON(status, map[string]string{"error": "Unable to save settings"})
+			}
+		}
 		for k, v := range req {
 			var opt core.Option
-			data.DB.FirstOrCreate(&opt, core.Option{Key: k})
+			if err := db.FirstOrCreate(&opt, core.Option{Key: k}).Error; err != nil {
+				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Unable to save settings"})
+			}
 			opt.Value = v
-			data.DB.Save(&opt)
+			if err := db.Save(&opt).Error; err != nil {
+				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Unable to save settings"})
+			}
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "Settings saved"})
 	})

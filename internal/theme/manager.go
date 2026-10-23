@@ -3,6 +3,7 @@ package theme
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"os"
@@ -21,6 +22,7 @@ import (
 type Manager struct {
 	themesDir   string
 	activeTheme string
+	generation  uint64
 	mu          sync.RWMutex
 	cache       map[string]*template.Template
 	extraFuncs  template.FuncMap
@@ -55,6 +57,7 @@ func (m *Manager) Activate(name string) error {
 		return err
 	}
 	m.activeTheme = name
+	m.generation++
 	m.cache = make(map[string]*template.Template) // Clear cache
 	return nil
 }
@@ -75,6 +78,7 @@ func (m *Manager) RegisterFunc(name string, fn interface{}) {
 		m.extraFuncs = template.FuncMap{}
 	}
 	m.extraFuncs[name] = fn
+	m.generation++
 	m.cache = map[string]*template.Template{}
 }
 
@@ -86,135 +90,136 @@ func (m *Manager) Render(templateName string, data interface{}) ([]byte, error) 
 func (m *Manager) RenderWithDB(templateName string, data interface{}, db interface {
 	First(dest interface{}, conds ...interface{}) *gorm.DB
 }) ([]byte, error) {
-	m.mu.RLock()
-	active := m.activeTheme
-	m.mu.RUnlock()
+	return m.renderTemplate(templateName, data, db, true)
+}
 
+// RenderPage renders one standalone theme template and its partials without layout.html.
+func (m *Manager) RenderPage(templateName string, data interface{}) ([]byte, error) {
+	return m.renderTemplate(templateName, data, nil, false)
+}
+
+// RenderPageWithDB renders a standalone theme template with theme settings loaded from the database.
+func (m *Manager) RenderPageWithDB(templateName string, data interface{}, db interface {
+	First(dest interface{}, conds ...interface{}) *gorm.DB
+}) ([]byte, error) {
+	return m.renderTemplate(templateName, data, db, false)
+}
+
+func (m *Manager) renderTemplate(templateName string, data interface{}, db interface {
+	First(dest interface{}, conds ...interface{}) *gorm.DB
+}, withLayout bool) ([]byte, error) {
+	m.mu.RLock()
+	active, generation := m.activeTheme, m.generation
+	m.mu.RUnlock()
 	if active == "" {
 		return nil, fmt.Errorf("no active theme")
 	}
 
-	// Inject theme settings into data
 	if db != nil {
 		settings, err := m.GetSettings(active, db)
-		if err == nil && settings != nil {
-			// Parse settings and inject into data map
-			if dataMap, ok := data.(map[string]interface{}); ok {
-				var colors map[string]string
-				var layout map[string]interface{}
-				var custom map[string]interface{}
-
-				if len(settings.Colors) > 0 {
-					json.Unmarshal(settings.Colors, &colors)
+		if err != nil {
+			return nil, fmt.Errorf("load theme settings: %w", err)
+		}
+		if dataMap, ok := data.(map[string]interface{}); ok {
+			var colors map[string]string
+			var layout map[string]interface{}
+			var custom map[string]interface{}
+			if len(settings.Colors) > 0 {
+				if err := json.Unmarshal(settings.Colors, &colors); err != nil {
+					return nil, fmt.Errorf("decode theme colors: %w", err)
 				}
-				if len(settings.Layout) > 0 {
-					json.Unmarshal(settings.Layout, &layout)
-				}
-				if len(settings.Custom) > 0 {
-					json.Unmarshal(settings.Custom, &custom)
-				}
-
-				dataMap["ThemeColors"] = colors
-				dataMap["ThemeLayout"] = layout
-				dataMap["ThemeCustom"] = custom
 			}
+			if len(settings.Layout) > 0 {
+				if err := json.Unmarshal(settings.Layout, &layout); err != nil {
+					return nil, fmt.Errorf("decode theme layout: %w", err)
+				}
+			}
+			if len(settings.Custom) > 0 {
+				if err := json.Unmarshal(settings.Custom, &custom); err != nil {
+					return nil, fmt.Errorf("decode theme custom settings: %w", err)
+				}
+			}
+			dataMap["ThemeColors"] = colors
+			dataMap["ThemeLayout"] = layout
+			dataMap["ThemeCustom"] = custom
 		}
 	}
 
-	// Check cache
+	cacheKey := fmt.Sprintf("%s\x00%d\x00%t\x00%s", active, generation, withLayout, templateName)
 	m.mu.RLock()
-	tmpl, ok := m.cache[templateName]
+	tmpl := m.cache[cacheKey]
 	m.mu.RUnlock()
-
-	if !ok {
-		// Parse template with custom functions
+	if tmpl == nil {
 		themeDir := filepath.Join(m.themesDir, active)
-		layoutPath := filepath.Join(themeDir, "layout.html")
 		tmplPath := filepath.Join(themeDir, templateName)
-
-		funcMap := template.FuncMap{
-			// menu is overridden by the server through RegisterFunc; the stub keeps
-			// themes that call it renderable before registration (previews, tests).
-			"menu": func(string) interface{} { return nil },
-			"substr": func(s string, start, end int) string {
-				if start < 0 {
-					start = 0
-				}
-				if end > len(s) {
-					end = len(s)
-				}
-				if start >= end {
-					return ""
-				}
-				return s[start:end]
-			},
-			"add": func(a, b int) int {
-				return a + b
-			},
-			"sub": func(a, b int) int {
-				return a - b
-			},
-			"safeHTML": func(s string) template.HTML {
-				return template.HTML(s)
-			},
-			"excerpt":    Excerpt,
-			"initial":    Initial,
-			"firstImage": FirstImage,
-			// public theme functions (funcs.go); stubs until ticket 05 B2/B3 land
-			"readingTime": ReadingTime,
-			"highlight":   Highlight,
-			"snippet":     Snippet,
-			"headingIDs":  headingIDsForTemplate,
-			"flavor":      Flavor,
-			"themeColor": func(colors map[string]string, key string, defaultValue string) string {
-				if colors == nil {
-					return defaultValue
-				}
-				if val, ok := colors[key]; ok && val != "" {
-					return val
-				}
-				return defaultValue
-			},
-			"themeLayout": func(layout map[string]interface{}, key string, defaultValue interface{}) interface{} {
-				if layout == nil {
-					return defaultValue
-				}
-				if val, ok := layout[key]; ok {
-					return val
-				}
-				return defaultValue
-			},
-		}
-
-		m.mu.RLock()
-		for name, fn := range m.extraFuncs {
-			funcMap[name] = fn
-		}
-		m.mu.RUnlock()
-
+		funcMap := m.templateFuncs()
 		var err error
-		// Check if template file exists, if not, try to use layout only
-		if _, err := os.Stat(tmplPath); os.IsNotExist(err) {
-			// Template file doesn't exist, return error so handler can fallback
-			return nil, fmt.Errorf("template %s not found", templateName)
+		if withLayout {
+			tmpl, err = parseRenderSet(funcMap, themeDir, filepath.Join(themeDir, "layout.html"), tmplPath)
+		} else {
+			tmpl, err = parseStandaloneRenderSet(funcMap, themeDir, tmplPath)
 		}
-
-		tmpl, err = parseRenderSet(funcMap, themeDir, layoutPath, tmplPath)
 		if err != nil {
 			return nil, err
 		}
-
 		m.mu.Lock()
-		m.cache[templateName] = tmpl
+		if m.generation == generation && m.activeTheme == active {
+			m.cache[cacheKey] = tmpl
+		}
 		m.mu.Unlock()
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, "layout", data); err != nil {
+	executeName := filepath.Base(templateName)
+	if withLayout {
+		executeName = "layout"
+	}
+	if err := tmpl.ExecuteTemplate(&buf, executeName, data); err != nil {
 		return nil, err
 	}
-
 	return buf.Bytes(), nil
+}
+
+func (m *Manager) templateFuncs() template.FuncMap {
+	funcMap := template.FuncMap{
+		"menu": func(string) interface{} { return nil },
+		"substr": func(s string, start, end int) string {
+			if start < 0 {
+				start = 0
+			}
+			if end > len(s) {
+				end = len(s)
+			}
+			if start >= end {
+				return ""
+			}
+			return s[start:end]
+		},
+		"add":      func(a, b int) int { return a + b },
+		"sub":      func(a, b int) int { return a - b },
+		"safeHTML": func(s string) template.HTML { return template.HTML(s) },
+		"excerpt":  Excerpt, "initial": Initial, "firstImage": FirstImage,
+		"readingTime": ReadingTime, "highlight": Highlight, "snippet": Snippet,
+		"headingIDs": headingIDsForTemplate, "flavor": Flavor,
+		"themeColor": func(colors map[string]string, key, defaultValue string) string {
+			if val, ok := colors[key]; ok && val != "" {
+				return val
+			}
+			return defaultValue
+		},
+		"themeLayout": func(layout map[string]interface{}, key string, defaultValue interface{}) interface{} {
+			if val, ok := layout[key]; ok {
+				return val
+			}
+			return defaultValue
+		},
+	}
+	m.mu.RLock()
+	for name, fn := range m.extraFuncs {
+		funcMap[name] = fn
+	}
+	m.mu.RUnlock()
+	return funcMap
 }
 
 // parseRenderSet parses the layout, the page template and every partial in
@@ -236,6 +241,32 @@ func parseRenderSet(funcMap template.FuncMap, themeDir, layoutPath, tmplPath str
 		name := filepath.Base(path)
 		if name == pageName {
 			continue // already parsed as the page itself
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read partial %s: %w", name, err)
+		}
+		if _, err := tmpl.New(name).Parse(string(content)); err != nil {
+			return nil, fmt.Errorf("parse partial %s: %w", name, err)
+		}
+	}
+	return tmpl, nil
+}
+
+func parseStandaloneRenderSet(funcMap template.FuncMap, themeDir, tmplPath string) (*template.Template, error) {
+	partials, err := partialPaths(themeDir)
+	if err != nil {
+		return nil, err
+	}
+	pageName := filepath.Base(tmplPath)
+	tmpl, err := template.New(pageName).Funcs(funcMap).ParseFiles(tmplPath)
+	if err != nil {
+		return nil, err
+	}
+	for _, path := range partials {
+		name := filepath.Base(path)
+		if name == pageName {
+			continue
 		}
 		content, err := os.ReadFile(path)
 		if err != nil {
@@ -272,9 +303,12 @@ func (m *Manager) GetSettings(themeName string, db interface {
 }) (*core.ThemeSettings, error) {
 	var settings core.ThemeSettings
 	result := db.First(&settings, "theme_name = ?", themeName)
-	if result.Error != nil {
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		// Return default settings if not found
 		return &core.ThemeSettings{ThemeName: themeName}, nil
+	}
+	if result.Error != nil {
+		return nil, result.Error
 	}
 	return &settings, nil
 }

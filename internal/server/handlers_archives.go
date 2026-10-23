@@ -87,13 +87,17 @@ func newArchiveAuthor(u core.User, count int64) archiveAuthorEntry {
 	return archiveAuthorEntry{User: u, PostCount: count, Initial: archiveInitial(u.Username)}
 }
 
-// archivePublicPosts scopes the posts table to what visitors may read: published, public, not trashed
-// (the soft delete scope of the model), and not scheduled for the future.
-func archivePublicPosts(db *gorm.DB) *gorm.DB {
+// publicPostVisibility scopes posts to what visitors may read, without choosing a content type.
+func publicPostVisibility(db *gorm.DB) *gorm.DB {
 	return db.Model(&core.Post{}).
-		Where("posts.type = ? AND posts.status = ?", "post", "published").
+		Where("posts.status = ?", "published").
 		Where("(posts.visibility = ? OR posts.visibility = '' OR posts.visibility IS NULL)", "public").
 		Where("COALESCE(posts.published_at, posts.created_at) <= ?", time.Now())
+}
+
+// archivePublicPosts keeps archive pages scoped to public posts, not pages.
+func archivePublicPosts(db *gorm.DB) *gorm.DB {
+	return publicPostVisibility(db).Where("posts.type = ?", "post")
 }
 
 const archivePostDate = "COALESCE(posts.published_at, posts.created_at)"
