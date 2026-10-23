@@ -297,7 +297,7 @@
       "expand": "fill"
     },
     "Import.dc.html": {
-      "x": 16720,
+      "x": 18240,
       "y": 11640,
       "w": 1440,
       "h": 1000,
@@ -305,7 +305,7 @@
       "expand": "fill"
     },
     "Backup.dc.html": {
-      "x": 18240,
+      "x": 19760,
       "y": 11640,
       "w": 1440,
       "h": 1000,
@@ -313,7 +313,7 @@
       "expand": "fill"
     },
     "Redirects.dc.html": {
-      "x": 13680,
+      "x": 15200,
       "y": 11640,
       "w": 1440,
       "h": 1000,
@@ -321,7 +321,7 @@
       "expand": "fill"
     },
     "Logs.dc.html": {
-      "x": 15200,
+      "x": 16720,
       "y": 11640,
       "w": 1440,
       "h": 1000,
@@ -329,7 +329,7 @@
       "expand": "fill"
     },
     "Palette.dc.html": {
-      "x": 19760,
+      "x": 21280,
       "y": 11640,
       "w": 1440,
       "h": 1000,
@@ -337,7 +337,7 @@
       "expand": "fill"
     },
     "States.dc.html": {
-      "x": 21280,
+      "x": 22800,
       "y": 11640,
       "w": 1440,
       "h": 1000,
@@ -357,7 +357,7 @@
       "h": 1000,
       "title": "後台 · 更新 · 執行檔可直接更新（尚未實作）",
       "expand": "fill",
-      "x": 9120,
+      "x": 10640,
       "y": 11640
     },
     "UpdateContainer.dc.html": {
@@ -365,7 +365,7 @@
       "h": 1000,
       "title": "後台 · 更新 · 容器只提示、換映像（尚未實作）",
       "expand": "fill",
-      "x": 10640,
+      "x": 12160,
       "y": 11640
     },
     "Author.dc.html": {
@@ -422,7 +422,7 @@
       "title": "後台 · 設定 · 快取與佇列（尚未實作）",
       "expand": "fill",
       "y": 11640,
-      "x": 12160
+      "x": 13680
     },
     "EditorLayout.dc.html": {
       "w": 1440,
@@ -519,6 +519,14 @@
       "expand": "fill",
       "x": 6080,
       "y": 10200
+    },
+    "SettingsCrawlers.dc.html": {
+      "w": 1440,
+      "h": 1360,
+      "title": "後台 · 設定 · 搜尋引擎與 AI 爬蟲（尚未實作）",
+      "expand": "fill",
+      "x": 9120,
+      "y": 11640
     }
   },
   "order": [
@@ -577,6 +585,7 @@
     "Tokens.dc.html",
     "Settings.dc.html",
     "SettingsRoutes.dc.html",
+    "SettingsCrawlers.dc.html",
     "Update.dc.html",
     "UpdateContainer.dc.html",
     "Infra.dc.html",
@@ -642,7 +651,7 @@
       "y": 11380,
       "text": "後台 · 帳號與系統",
       "kind": "title1",
-      "maxW": 22720
+      "maxW": 24240
     },
     "s-system": {
       "x": 18160,
