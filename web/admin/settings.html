@@ -3,6 +3,7 @@
 <style>
     .gateway-card { transition: opacity .12s ease; }
     .gateway-card.disabled .setting-row:not(.toggle-row) { opacity: .45; }
+    .tabs > a.tab { text-decoration: none; }
 </style>
 {{end}}
 {{define "content"}}
@@ -12,14 +13,14 @@
     </div>
 </div>
 
-<div class="tabs" role="tablist">
-    <button class="tab active" onclick="switchTab('general')">General</button>
-    <button class="tab" onclick="switchTab('oauth')">OAuth</button>
-    <button class="tab" onclick="switchTab('payment')">Payment Gateways</button>
-</div>
+<nav class="tabs" role="tablist" aria-label="{{.T.settings}}">
+    {{range .Tabs}}<a class="tab{{if .Active}} active{{end}}" role="tab" aria-selected="{{if .Active}}true{{else}}false{{end}}" href="{{.Href}}">{{with index $.T .Label}}{{.}}{{else}}{{.Label}}{{end}}</a>{{end}}
+    <a class="tab" href="/admin/tools/backup">{{.T.tools}}</a>
+    <a class="tab" href="/admin/logs">{{.T.logs}}</a>
+</nav>
 
 <!-- General Settings -->
-<div id="generalTab" class="tab-content active">
+<div id="generalTab" class="tab-content{{if and .ActiveTab (eq .ActiveTab "site")}} active{{end}}">
     <form id="settingsForm" class="settings-group">
         <div class="settings-group-head">
             <div>
@@ -58,7 +59,7 @@
 </div>
 
 <!-- OAuth Settings -->
-<div id="oauthTab" class="tab-content">
+<div id="oauthTab" class="tab-content{{if and .ActiveTab (eq .ActiveTab "auth")}} active{{end}}">
     <form id="googleForm" class="settings-group gateway-card" data-gateway="google">
         <div class="settings-group-head">
             <div>
@@ -113,7 +114,7 @@
 </div>
 
 <!-- Payment Gateway Settings -->
-<div id="paymentTab" class="tab-content">
+<div id="paymentTab" class="tab-content{{if and .ActiveTab (eq .ActiveTab "payment")}} active{{end}}">
     <form id="ecpayForm" class="settings-group gateway-card" data-gateway="ecpay">
         <div class="settings-group-head">
             <div>
@@ -190,21 +191,12 @@
 </div>
 {{end}}
 {{define "scripts"}}
+<!-- Tabs registered by other tickets have no pane here yet. -->
+<div id="pendingTab" class="tab-content{{if not (or (and .ActiveTab (eq .ActiveTab "site")) (and .ActiveTab (eq .ActiveTab "auth")) (and .ActiveTab (eq .ActiveTab "payment")))}} active{{end}}">
+    <p class="hint">{{.T.settingsTabPending}}</p>
+</div>
+
 <script>
-    function switchTab(tabName) {
-        // Hide all tabs
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-
-        // Show selected tab
-        document.getElementById(tabName + 'Tab').classList.add('active');
-        event.target.classList.add('active');
-    }
-
     async function loadSettings() {
         try {
             const res = await fetch('/api/admin/settings');

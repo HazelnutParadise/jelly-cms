@@ -81,6 +81,10 @@ func installStateMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if isInstallEndpoint(c.Request().URL.Path) {
 			return next(c)
 		}
+		// Liveness probes must answer before installation finishes.
+		if c.Request().URL.Path == "/healthz" {
+			return next(c)
+		}
 
 		if !install.IsInstalled() {
 			return c.Redirect(http.StatusFound, "/install")
