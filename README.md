@@ -889,6 +889,8 @@ Authorization: Bearer <your-jwt-token>
 - `GET /api/admin/plugins` - 取得外掛列表
 - `POST /api/admin/plugins/:id/reload` - 重新載入外掛
 
+重載只接受此網站已載入的外掛 ID，從 `data/plugins/<id>` 讀取新版本。manifest 的 ID 必須與目標相同，腳本與 OnBoot 成功後才交換版本並回應 `200`。未知 ID 回應 `404`，網站未提供 runtime 回應 `503`，候選載入失敗回應一般 `500` 並保留執行中的版本。匿名／非管理員依上述規則回應 `401`／`403`。
+
 ### 支付 API
 
 - `POST /api/payment/create` - 建立支付訂單
