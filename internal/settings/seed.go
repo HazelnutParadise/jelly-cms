@@ -63,7 +63,7 @@ func seedSpecs() []Spec {
 		s("seo_indexnow_key", KindSecret, "", "crawlers"),
 		s("seo_title_format", KindString, "{title} - {site}", "crawlers"),
 		s("seo_default_og_image", KindString, "", "crawlers"),
-		s("ai_policy_preset", KindString, "block-training", "crawlers"),
+		s("ai_policy_preset", KindString, "block_training_allow_search", "crawlers"),
 		s("ai_bots", KindJSON, "{}", "crawlers"),
 		s("ai_custom_rules", KindJSON, "[]", "crawlers"),
 		s("ai_block_server_side", KindBool, "false", "crawlers"),

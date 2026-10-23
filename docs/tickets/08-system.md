@@ -63,7 +63,7 @@ Status：draft（本工作單只交付設計板補齊、契約、骨架與失敗
 type Spec struct{ Key, Kind string /* string|int|bool|json|secret */; Default string; MaxBytes int; Tab string }
 func Register(specs ...Spec); func Get(ctx, key) string; func Set(ctx, actor uint, kv map[string]string) error; func Masked(key, value string) string
 
-// internal/version：ldflags 注入 Version、Commit、BuiltAt；Runtime() {Kind container|kubernetes|package|binary; DetectedBy string; Writable bool}
+// internal/version：ldflags 注入 Version、Commit、BuiltAt；Runtime() {Kind container|kubernetes|package|binary; DetectedBy string; Writable bool}；偵測邏輯放在 internal/update：`DetectRuntime(Probe{Env, Files, Executable, ExecDirWritable}) version.RuntimeInfo`，version.Runtime() 組出真實 Probe 後呼叫它
 
 // internal/syslog：Sink 寫 system_logs，Redact(fields)；echo 中介層 RequestID（req_ 前綴）與 HTTP 存取記錄（錯誤與 > 1 s）
 
@@ -108,7 +108,18 @@ func Switch(ctx, from, to Queue) error
 
 ### 選項鍵
 
-網站：`site_title`、`site_description`、`site_language`、`site_timezone`。網址：`permalink_post`（`/post/{slug}`）、`permalink_legacy`（JSON ≤ 5）、`permalink_category_prefix`（`/c`）、`permalink_tag_prefix`（`/t`）、`permalink_author_prefix`（`/author`）、`permalink_archive_prefix`（`/archive`）、`slug_strategy`、`home_show`、`home_page_id`、`per_page_home|taxonomy|author|search`（10）、`excerpt_auto_length`（110）、`feed_mode`、`feed_items`。SEO：`seo_index_site`、`seo_index_types`（JSON）、`seo_images_index`、`seo_snippet_mode`、`seo_indexnow_enabled`、`seo_indexnow_key`、`seo_title_format`、`seo_default_og_image`。AI：`ai_policy_preset`、`ai_bots`（JSON）、`ai_custom_rules`（JSON）、`ai_block_server_side`、`tdm_reservation`、`tdm_policy_url`、`llms_txt_enabled`、`llms_txt_intro`。注入：`inject_head_all`、`inject_head_content`、`inject_footer`、`inject_on_commerce`（false）。維護：05 的三個鍵加 `maintenance_retry_after`（600）。基礎設施：`cache_driver`、`cache_url_enc`、`cache_ttl_page`、`cache_object_enabled`、`queue_driver`、`queue_url_enc`、`queue_workers`、`queue_paused`。日誌：`logs_retention_days`（30）、`logs_error_retention_days`（90）、`logs_http_level`。更新：`update_auto_check`、`update_channel`、`update_on_new`、`update_auto_time`、`update_keep_versions`、`update_latest`。備份：`backup_enabled`、`backup_time`（03:00）、`backup_keep_daily`（14）、`backup_keep_weekly_months`（3）、`backup_local_keep`（3）、`backup_policy_id`。附件：`media_webp`、`media_thumb_sizes`、`media_strip_exif`、`media_max_bytes`（20 MB）、`media_allowed_types`。郵件：`mail_host|port|user|password_enc|from|tls|enabled`。秘密一律 `*_enc`（AES-GCM，金鑰 `settings_key` 存 `data/auth-secrets.json`）或 `env:JELLY_*` 參照。
+網站：`site_title`、`site_description`、`site_language`、`site_timezone`。網址：`permalink_post`（`/post/{slug}`）、`permalink_legacy`（JSON ≤ 5）、`permalink_category_prefix`（`/c`）、`permalink_tag_prefix`（`/t`）、`permalink_author_prefix`（`/author`）、`permalink_archive_prefix`（`/archive`）、`slug_strategy`、`home_show`、`home_page_id`、`per_page_home|taxonomy|author|search`（10）、`excerpt_auto_length`（110）、`feed_mode`、`feed_items`。SEO：`seo_index_site`、`seo_index_types`（JSON）、`seo_images_index`、`seo_snippet_mode`、`seo_indexnow_enabled`、`seo_indexnow_key`、`seo_title_format`、`seo_default_og_image`。AI：`ai_policy_preset`（`block_training_allow_search` 預設｜`block_all`｜`allow_all`）、`ai_bots`（JSON）、`ai_custom_rules`（JSON）、`ai_block_server_side`、`tdm_reservation`、`tdm_policy_url`、`llms_txt_enabled`、`llms_txt_intro`。注入：`inject_head_all`、`inject_head_content`、`inject_footer`、`inject_on_commerce`（false）。維護：05 的三個鍵加 `maintenance_retry_after`（600）。基礎設施：`cache_driver`、`cache_url_enc`、`cache_ttl_page`、`cache_object_enabled`、`queue_driver`、`queue_url_enc`、`queue_workers`、`queue_paused`。日誌：`logs_retention_days`（30）、`logs_error_retention_days`（90）、`logs_http_level`。更新：`update_auto_check`、`update_channel`、`update_on_new`、`update_auto_time`、`update_keep_versions`、`update_latest`。備份：`backup_enabled`、`backup_time`（03:00）、`backup_keep_daily`（14）、`backup_keep_weekly_months`（3）、`backup_local_keep`（3）、`backup_policy_id`。附件：`media_webp`、`media_thumb_sizes`、`media_strip_exif`、`media_max_bytes`（20 MB）、`media_allowed_types`。郵件：`mail_host|port|user|password_enc|from|tls|enabled`。秘密一律 `*_enc`（AES-GCM，金鑰 `settings_key` 存 `data/auth-secrets.json`）或 `env:JELLY_*` 參照。
+
+### 測試另外釘下的約定（08c、08d）
+
+- 測試用環境變數（實作必須支援，正式環境不設）：`JELLY_TEST_ALLOW_LOOPBACK=1` 讓 `safehttp` 允許連 127.0.0.1 的假伺服器（只在此旗標下放行，預設仍封鎖）；`JELLY_UPDATE_API_BASE`、`JELLY_UPDATE_PUBLIC_KEY`（base64 的 minisign 公鑰行，legacy `Ed` 演算法）、`JELLY_UPDATE_EXECUTABLE`；`JELLY_STORE_CATALOG_URL`、`JELLY_STORE_PUBLIC_KEY`。
+- 回 202 的工作（備份、還原、匯入、更新、商店安裝）在測試情境下同步執行完才回應，效果立即可讀。
+- 回應鍵：匯入摘要 `posts`、`pages`、`attachments`、`comments`、`authors`，試跑回 `conflicts`，狀態字串 `cancelled`，封鎖來源列在 `blocked`；更新狀態 `failed`、`rolled_back`，容器 409 帶 `runtime`；附件策略使用中回 409 `policy_in_use`。
+- 請求欄位：備份 `content`、`note`、`passphrase`、`confirm`，排程 `enabled`、`time`、`keep_daily`；匯出 `format`；策略搬移 `to_policy_id`；更新 `channel`；商店安裝 `accept_permissions`（權限雜湊）；上傳欄位一律 `file`。
+- 外掛 manifest：`settings [{key,type,min,max}]`、`permissions [{name}]`（已強制者標 `enforced`）、`actions`。
+- 匯入的作者建成受邀使用者（06 的 `user_invites`）；舊 `uploads/` 匯入在同一個資料庫上再次 `RegisterRoutes` 時執行。
+- 08b：轉址規則的 JSON 欄位與資料表欄名相同；CSV 匯入 multipart 欄位 `file`，表頭 `from_path,to_url,kind`；測試端點回 `chain`；404 清單項目 `path`、`count`、`suggestion`；爬蟲統計 `bot`、`action`、`count`；維護回 `enabled`、`message`、`retry_after`、`elapsed_minutes`；自訂規則 `user_agent`、`action`、`path`；`seo_ai` 關閉值 `noai`。互動限定 = `jwt_token` cookie 加 `X-Jelly-CSRF` 且無 Authorization，Bearer 打注入寫入回 403。點擊數由 `redirects.FlushHits()` 落庫；維護中 `/robots.txt` 回 503 帶 `Retry-After`，`/admin` 維持 200。更改 `ai_policy_preset` 即重算 robots，不另設目錄更新端點。
+- 跳過而非失敗：通知相關（需 06 的 notify）、S3 策略（minio-go 尚未進 go.mod）。
 
 ### 安全規則
 
@@ -133,7 +144,7 @@ func Switch(ctx, from, to Queue) error
 
 1. 08-0 設計板：五個設定分頁、分頁列統一、網址預設、Redirects 的 SEO 分頁、Infra 去 Memcached、Palette／States 狀態；canvas 發佈。
 2. 08a 基礎：五個安全修正、`settings` 登記與遮罩、分頁註冊與頁面、`version` 與 `schema_migrations`、`syslog` 與日誌頁、`cache`／`queue`／`schedule` 與基礎設施頁、郵件設定、⌘K 指令。測試：`settings_integration_test.go`、`logs_integration_test.go`、`infra_integration_test.go`、`internal/cache`、`internal/queue`、`internal/schedule` 契約測試、`internal/data` 遷移。
-3. 08b 網址與 SEO：保留別名、網址樣式與舊樣式 301、轉址與 404 紀錄、sitemap／robots／feed／llms／TDM、爬蟲設定、文章與商品的 SEO 欄位、注入、維護模式管理。測試：`routes_integration_test.go`、`redirects_integration_test.go`、`seo_integration_test.go`、`injection_integration_test.go`、`maintenance_admin_integration_test.go`。
+3. 08b 網址與 SEO：保留別名、網址樣式與舊樣式 301、轉址與 404 紀錄、sitemap／robots／feed／llms／TDM、爬蟲設定、文章與商品的 SEO 欄位、注入、維護模式管理。測試：`routes_settings_integration_test.go`、`redirects_integration_test.go`、`seo_integration_test.go`、`injection_integration_test.go`、`maintenance_admin_integration_test.go`。
 4. 08c 維運：備份、匯出、還原、WXR 匯入、更新檢查與套用與退回、`release.yml`、Dockerfile（ldflags、healthz、非 root）。測試：`backup_integration_test.go`、`import_integration_test.go`、`update_integration_test.go`（假 GitHub、假執行檔）。
 5. 08d 擴充：manifest v2、`plugin_data`、啟用停用、host API、應用市場、外掛詳情、附件模型與策略與分組、上傳強化。測試：`store_integration_test.go`、`plugin_detail_integration_test.go`、`media_policies_integration_test.go`。
 6. 08e 驗收：真實伺服器走完改網址樣式 → 舊網址 301 → 開維護 → 看日誌 → 備份與還原 → 匯入 WXR → 從市場安裝外掛並改設定 → 切換佇列後端不掉工作。
