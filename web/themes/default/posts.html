@@ -1,4 +1,10 @@
 {{define "content"}}
+<style>
+    .entry-cats { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .entry-cats .chip { position: relative; z-index: 1; }
+    .entry-cats a.chip:hover { background: var(--ink); color: var(--surface); }
+    .entry.is-featured .entry-cats a.chip:hover { background: var(--surface); color: var(--ink); }
+</style>
 <header class="page-head">
     <div class="label">文章</div>
     <h1>文章總覽</h1>
@@ -16,6 +22,7 @@
         </div>
         <h2 class="entry-title"><a href="/post/{{$post.Slug}}">{{$post.Title}}</a></h2>
         <p class="entry-excerpt">{{excerpt $post.Content 160}}</p>
+        {{with $post.Categories}}<div class="entry-cats">{{range .}}{{if not .HideFromList}}<a class="chip" href="/c/{{.Slug}}">{{.Name}}</a>{{end}}{{end}}</div>{{end}}
         <div class="entry-meta">
             {{if $post.Author.Username}}<span class="by">{{$post.Author.Username}}</span>{{end}}
             <a class="entry-more" href="/post/{{$post.Slug}}">閱讀全文<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>

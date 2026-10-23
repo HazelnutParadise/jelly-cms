@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"unicode"
@@ -22,6 +23,7 @@ type Manager struct {
 	activeTheme string
 	mu          sync.RWMutex
 	cache       map[string]*template.Template
+	extraFuncs  template.FuncMap
 }
 
 func NewManager(themesDir string) *Manager {
@@ -61,6 +63,19 @@ func (m *Manager) GetActive() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.activeTheme
+}
+
+// RegisterFunc adds a template function available to every theme template,
+// for example "menu" or "comments" provided by the server package. It clears
+// the template cache so the next render picks it up.
+func (m *Manager) RegisterFunc(name string, fn interface{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.extraFuncs == nil {
+		m.extraFuncs = template.FuncMap{}
+	}
+	m.extraFuncs[name] = fn
+	m.cache = map[string]*template.Template{}
 }
 
 func (m *Manager) Render(templateName string, data interface{}) ([]byte, error) {
@@ -118,6 +133,9 @@ func (m *Manager) RenderWithDB(templateName string, data interface{}, db interfa
 		tmplPath := filepath.Join(themeDir, templateName)
 
 		funcMap := template.FuncMap{
+			// menu is overridden by the server through RegisterFunc; the stub keeps
+			// themes that call it renderable before registration (previews, tests).
+			"menu": func(string) interface{} { return nil },
 			"substr": func(s string, start, end int) string {
 				if start < 0 {
 					start = 0
@@ -162,6 +180,12 @@ func (m *Manager) RenderWithDB(templateName string, data interface{}, db interfa
 			},
 		}
 
+		m.mu.RLock()
+		for name, fn := range m.extraFuncs {
+			funcMap[name] = fn
+		}
+		m.mu.RUnlock()
+
 		var err error
 		// Check if template file exists, if not, try to use layout only
 		if _, err := os.Stat(tmplPath); os.IsNotExist(err) {
@@ -169,7 +193,7 @@ func (m *Manager) RenderWithDB(templateName string, data interface{}, db interfa
 			return nil, fmt.Errorf("template %s not found", templateName)
 		}
 
-		tmpl, err = template.New("layout").Funcs(funcMap).ParseFiles(layoutPath, tmplPath)
+		tmpl, err = parseRenderSet(funcMap, themeDir, layoutPath, tmplPath)
 		if err != nil {
 			return nil, err
 		}
@@ -185,6 +209,55 @@ func (m *Manager) RenderWithDB(templateName string, data interface{}, db interfa
 	}
 
 	return buf.Bytes(), nil
+}
+
+// parseRenderSet parses the layout, the page template and every partial in
+// themeDir. Partials are files whose base name starts with "_" and ends with
+// ".html"; they hold {{define}} blocks that any page may call. Each partial is
+// parsed on its own so a failure names the file. The result is cached with the
+// page, so partials are parsed once per cached page, like layout.html.
+func parseRenderSet(funcMap template.FuncMap, themeDir, layoutPath, tmplPath string) (*template.Template, error) {
+	partials, err := partialPaths(themeDir)
+	if err != nil {
+		return nil, err
+	}
+	tmpl, err := template.New("layout").Funcs(funcMap).ParseFiles(layoutPath, tmplPath)
+	if err != nil {
+		return nil, err
+	}
+	pageName := filepath.Base(tmplPath)
+	for _, path := range partials {
+		name := filepath.Base(path)
+		if name == pageName {
+			continue // already parsed as the page itself
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read partial %s: %w", name, err)
+		}
+		if _, err := tmpl.New(name).Parse(string(content)); err != nil {
+			return nil, fmt.Errorf("parse partial %s: %w", name, err)
+		}
+	}
+	return tmpl, nil
+}
+
+// partialPaths returns the partial files in themeDir, sorted by name.
+func partialPaths(themeDir string) ([]string, error) {
+	entries, err := os.ReadDir(themeDir)
+	if err != nil {
+		return nil, err
+	}
+	var paths []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasPrefix(name, "_") || !strings.HasSuffix(name, ".html") {
+			continue
+		}
+		paths = append(paths, filepath.Join(themeDir, name))
+	}
+	sort.Strings(paths)
+	return paths, nil
 }
 
 // GetSettings retrieves theme settings from database

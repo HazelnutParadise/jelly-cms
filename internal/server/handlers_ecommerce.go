@@ -60,14 +60,7 @@ func RegisterEcommerceRoutes(e *echo.Echo) {
 		return c.JSON(http.StatusOK, product)
 	})
 
-	api.DELETE("/products/:id", func(c echo.Context) error {
-		productService := core.NewProductService(data.DB)
-		id, _ := strconv.Atoi(c.Param("id"))
-		if err := productService.Delete(uint(id)); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, map[string]string{"message": "Deleted"})
-	})
+	api.DELETE("/products/:id", softDeleteProduct)
 
 	// Orders (Basic View)
 	api.GET("/orders", func(c echo.Context) error {

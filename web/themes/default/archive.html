@@ -1,0 +1,181 @@
+{{define "content"}}
+<style>
+    /* 彙整頁共用：頭板（依口味換色）＋ 列表 ＋ 側欄。對照 design/project/Archive.dc.html */
+    .arc-head { --bg: var(--secondary); --fg: #fff; position: relative; overflow: hidden; isolation: isolate; display: grid; gap: .75rem; align-content: end; padding: clamp(2rem, 5vw, 3.5rem) clamp(1.25rem, 4vw, 2.5rem) clamp(1.5rem, 3vw, 2.25rem); margin-bottom: 1.5rem; background: var(--bg); color: var(--fg); border-radius: var(--r-lg); }
+    .arc-head--primary { --bg: var(--primary); --fg: #fff; }
+    .arc-head--accent { --bg: var(--accent); --fg: #0B3A31; }
+    .arc-head--warning { --bg: var(--warning); --fg: #3A2E00; }
+    .arc-head--ink, .arc-head--dark { --bg: var(--dark); --fg: #fff; }
+    .arc-head > :not(.arc-art) { position: relative; z-index: 1; }
+    .arc-head a { color: inherit; }
+    .arc-head a:hover { color: inherit; text-decoration: underline; }
+    .arc-stripe { display: block; width: 3.5rem; height: 3px; transform: skewX(-32deg); transform-origin: left bottom; background: linear-gradient(90deg, var(--fg) 0 52%, transparent 52% 60%, var(--fg) 60% 82%, transparent 82% 88%, var(--fg) 88% 100%); }
+    .arc-label { font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--fg) 72%, var(--bg)); }
+    .arc-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; font-size: .875rem; font-weight: 600; color: color-mix(in srgb, var(--fg) 80%, var(--bg)); }
+    .arc-title { font-size: clamp(2.5rem, 7vw, 4.5rem); letter-spacing: -.04em; overflow-wrap: anywhere; }
+    .arc-desc { font-size: 1.0625rem; max-width: 30em; line-height: 1.6; color: color-mix(in srgb, var(--fg) 86%, var(--bg)); }
+    .arc-chips { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .5rem; }
+    .arc-chips .arc-hint { font-size: .8125rem; color: color-mix(in srgb, var(--fg) 72%, var(--bg)); }
+    .arc-chip { display: inline-flex; align-items: center; min-height: 1.75rem; padding: 0 .7rem; font-size: .8125rem; font-weight: 700; border-radius: var(--r-sm); background: color-mix(in srgb, var(--fg) 18%, transparent); color: var(--fg); }
+    .arc-chip.is-on { background: var(--fg); color: var(--bg); }
+    .arc-head a.arc-chip:hover { background: color-mix(in srgb, var(--fg) 32%, transparent); text-decoration: none; }
+    .arc-art { position: absolute; right: clamp(.5rem, 4vw, 3rem); top: -1rem; width: 17rem; height: 20rem; opacity: .9; pointer-events: none; z-index: 0; }
+    .arc-art i { position: absolute; display: block; aspect-ratio: 1; border-radius: 0 26% 0 26%; }
+    .arc-art i:nth-child(1) { left: 12%; top: 9%; width: 37.5%; background: var(--secondary); opacity: .85; }
+    .arc-art i:nth-child(2) { left: 30%; top: 30%; width: 37.5%; background: var(--accent); opacity: .85; }
+    .arc-art i:nth-child(3) { left: 49%; top: 52%; width: 37.5%; background: var(--primary); opacity: .92; rotate: -7deg; }
+    .arc-art i:nth-child(4) { left: 14%; top: 77%; width: 16.5%; background: var(--warning); }
+    .arc-art i:nth-child(5) { left: 74%; top: 17%; width: 11.8%; background: var(--dark); opacity: .9; }
+
+    .arc-body { display: grid; grid-template-columns: minmax(0, 1fr) 18.75rem; gap: clamp(1.5rem, 4vw, 3rem); align-items: start; }
+    .arc-bar { display: flex; align-items: center; gap: .75rem; padding-bottom: 1rem; color: var(--muted); font-size: .875rem; }
+    .arc-list { list-style: none; }
+    .arc-entry { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: 1.5rem; padding: 1.75rem 0; border-top: 1px solid var(--outline); }
+    .arc-entry:last-child { border-bottom: 1px solid var(--outline); }
+    .arc-date { display: grid; align-content: start; line-height: 1; }
+    .arc-date b { font-family: var(--font-display); font-size: 2.75rem; font-weight: 800; letter-spacing: -.04em; }
+    .arc-date span { font-size: .75rem; font-weight: 700; letter-spacing: .06em; color: var(--muted); margin-top: .35rem; }
+    .arc-entry h3 { font-size: clamp(1.25rem, 2.6vw, 1.625rem); margin-bottom: .5rem; overflow-wrap: anywhere; }
+    .arc-entry h3 a { color: var(--ink); }
+    .arc-entry h3 a:hover { color: var(--link); }
+    .arc-entry p { color: var(--muted); line-height: 1.7; overflow-wrap: anywhere; }
+    .arc-foot { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .75rem; }
+    .arc-foot .by { color: var(--muted); font-size: .8125rem; }
+    .arc-foot a.chip:hover, .arc-side a.chip:hover { background: var(--ink); color: var(--surface); }
+
+    .arc-side { display: grid; gap: 1.75rem; position: sticky; top: 6rem; }
+    .arc-side .label { display: block; margin-bottom: .6rem; }
+    .arc-side p { font-size: .8125rem; color: var(--muted); line-height: 1.7; }
+    .arc-nav { display: grid; gap: .125rem; }
+    .arc-nav a { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem .65rem; color: var(--ink); font-weight: 600; border-radius: var(--r-sm); }
+    .arc-nav a span { color: var(--muted); }
+    .arc-nav a:hover { background: var(--surface-mid); color: var(--ink); }
+    .arc-nav a.on { background: var(--ink); color: var(--surface); }
+    .arc-nav a.on span { color: inherit; }
+    .arc-side-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .arc-avatar { display: grid; place-items: center; flex: 0 0 auto; background: var(--ink); color: #fff; font-family: var(--font-display); font-weight: 800; overflow: hidden; }
+    .arc-nav .arc-avatar { width: 1.625rem; height: 1.625rem; font-size: .75rem; border-radius: 0 .5rem 0 .5rem; }
+    .arc-nav .arc-who { display: inline-flex; align-items: center; gap: .65rem; }
+
+    @media (max-width: 960px) {
+        .arc-body { grid-template-columns: 1fr; }
+        .arc-side { position: static; }
+        .arc-art { opacity: .35; }
+    }
+    @media (max-width: 720px) {
+        .arc-head { border-radius: var(--r-md); }
+        .arc-entry { grid-template-columns: 1fr; gap: .5rem; }
+        .arc-date { display: flex; gap: .75rem; align-items: baseline; }
+        .arc-date b { font-size: 1.5rem; }
+    }
+
+    .arc-intro { display: grid; gap: .75rem; margin-bottom: clamp(2rem, 5vw, 3rem); }
+    .arc-intro-title { font-size: clamp(2.25rem, 6vw, 3.5rem); letter-spacing: -.04em; }
+    .arc-intro .arc-stripe { --fg: var(--primary); background: linear-gradient(90deg, var(--primary) 0 52%, transparent 52% 60%, var(--secondary) 60% 82%, transparent 82% 88%, var(--accent) 88% 100%); }
+    .arc-intro p { color: var(--muted); font-size: 1.0625rem; }
+    .arc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(2rem, 5vw, 3rem); align-items: start; }
+    .arc-grid h2 { display: flex; align-items: center; gap: .6rem; font-size: 1.5rem; margin-bottom: 1rem; }
+    .arc-grid h2 small { font-size: .875rem; font-weight: 600; color: var(--muted); }
+    .arc-none { color: var(--muted); }
+    .arc-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .625rem; }
+    .arc-tile { --bg: var(--secondary); --fg: #fff; position: relative; display: flex; flex-direction: column; gap: .25rem; padding: 1.125rem; background: var(--bg); color: var(--fg); border-radius: var(--r-md); transition: border-radius .25s ease; }
+    .arc-tile:nth-child(4n+2) { --bg: var(--primary); }
+    .arc-tile:nth-child(4n+3) { --bg: var(--accent); --fg: #0B3A31; }
+    .arc-tile:nth-child(4n+4) { --bg: var(--warning); --fg: #3A2E00; }
+    .arc-tile:hover { border-radius: var(--r-md-hover); }
+    .arc-tile a { color: inherit; }
+    .arc-tile-title { font-family: var(--font-display); font-weight: 800; font-size: 1.5rem; line-height: 1.15; letter-spacing: -.015em; overflow-wrap: anywhere; }
+    .arc-tile-title::after { content: ""; position: absolute; inset: 0; }
+    .arc-tile-count { font-size: .8125rem; opacity: .85; }
+    .arc-subs { list-style: none; display: grid; gap: .125rem; margin-top: .35rem; font-size: .875rem; position: relative; z-index: 1; }
+    .arc-subs .arc-subs { margin: 0 0 0 .9rem; }
+    .arc-subs a { display: inline-block; opacity: .9; }
+    .arc-subs a:hover { opacity: 1; text-decoration: underline; }
+    .arc-subs small { opacity: .75; margin-left: .35rem; }
+    .arc-people { display: grid; gap: .5rem; }
+    .arc-person { display: flex; align-items: center; gap: .875rem; padding: .75rem; color: var(--ink); box-shadow: inset 0 0 0 1px var(--outline); border-radius: var(--r-md); transition: box-shadow .15s ease, border-radius .25s ease; }
+    .arc-person:hover { color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); border-radius: var(--r-md-hover); }
+    .arc-person-copy { flex: 1; min-width: 0; display: grid; line-height: 1.35; }
+    .arc-person-copy b { overflow-wrap: anywhere; }
+    .arc-person-copy small { color: var(--muted); font-size: .8125rem; }
+    .arc-avatar-md { width: 3rem; height: 3rem; font-size: 1.25rem; border-radius: 0 .875rem 0 .875rem; }
+    .arc-person:nth-child(4n+2) .arc-avatar { background: var(--secondary); }
+    .arc-person:nth-child(4n+3) .arc-avatar { background: var(--primary); }
+    .arc-person:nth-child(4n+4) .arc-avatar { background: var(--accent); color: #0B3A31; }
+    .arc-cloud { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .arc-cloud .chip { min-height: 2rem; padding: 0 .75rem; font-size: .875rem; gap: .35rem; }
+    .arc-cloud .chip b { color: var(--muted); font-weight: 700; }
+    .arc-cloud a.chip:hover { background: var(--ink); color: var(--surface); }
+    .arc-cloud a.chip:hover b { color: inherit; }
+    .arc-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr)); gap: .375rem; }
+    .arc-months a { display: flex; justify-content: space-between; gap: .5rem; padding: .625rem .75rem; background: var(--surface-low); color: var(--ink); font-weight: 600; border-radius: var(--r-sm); }
+    .arc-months a span { color: var(--muted); }
+    .arc-months a:hover { background: var(--ink); color: var(--surface); }
+    .arc-months a:hover span { color: inherit; }
+    @media (max-width: 960px) { .arc-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 480px) { .arc-tiles { grid-template-columns: 1fr; } }
+</style>
+<header class="arc-intro">
+    <span class="arc-stripe" aria-hidden="true"></span>
+    <h1 class="arc-intro-title">所有文章，四種找法</h1>
+    <p>共 {{.Total}} 篇。按分類、標籤、月份或作者進去。</p>
+</header>
+
+<div class="arc-grid">
+    <section aria-labelledby="arc-cats">
+        <h2 id="arc-cats"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h7l2 2h9v12H3z"/></svg>分類</h2>
+        {{if .Categories}}
+        <div class="arc-tiles">
+            {{range .Categories}}
+            <div class="arc-tile">
+                <a class="arc-tile-title" href="/c/{{.Slug}}">{{.Name}}</a>
+                <span class="arc-tile-count">{{.PostCount}} 篇</span>
+                {{if .Children}}{{template "arc-subs" .Children}}{{end}}
+            </div>
+            {{end}}
+        </div>
+        {{else}}<p class="arc-none">還沒有分類。</p>{{end}}
+    </section>
+
+    <section aria-labelledby="arc-authors">
+        <h2 id="arc-authors"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>作者</h2>
+        {{if .Authors}}
+        <div class="arc-people">
+            {{range .Authors}}
+            <a class="arc-person" href="/author/{{.Username}}">
+                <span class="arc-avatar arc-avatar-md" aria-hidden="true">{{.Initial}}</span>
+                <span class="arc-person-copy"><b>{{.Username}}</b><small>{{.PostCount}} 篇</small></span>
+                <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg>
+            </a>
+            {{end}}
+        </div>
+        {{else}}<p class="arc-none">還沒有作者。</p>{{end}}
+    </section>
+
+    <section aria-labelledby="arc-tags">
+        <h2 id="arc-tags"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/></svg>標籤 <small>{{len .Tags}} 個</small></h2>
+        {{if .Tags}}
+        <div class="arc-cloud">
+            {{range .Tags}}<a class="chip" href="/t/{{.Slug}}">{{.Name}} <b>{{.PostCount}}</b></a>{{end}}
+        </div>
+        {{else}}<p class="arc-none">還沒有標籤。</p>{{end}}
+    </section>
+
+    <section aria-labelledby="arc-months">
+        <h2 id="arc-months"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"/></svg>月份</h2>
+        {{if .Months}}
+        <div class="arc-months">
+            {{range .Months}}<a href="/archive/{{.Year}}/{{.Month}}">{{.Year}} · {{printf "%02d" .Month}}<span>{{.Count}}</span></a>{{end}}
+        </div>
+        {{else}}<p class="arc-none">還沒有文章。</p>{{end}}
+    </section>
+</div>
+{{end}}
+
+{{define "arc-subs"}}
+<ul class="arc-subs">
+    {{range .}}
+    <li><a href="/c/{{.Slug}}">{{.Name}}</a><small>{{.PostCount}}</small>{{if .Children}}{{template "arc-subs" .Children}}{{end}}</li>
+    {{end}}
+</ul>
+{{end}}

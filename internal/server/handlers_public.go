@@ -98,11 +98,15 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 			return echo.ErrNotFound
 		}
 
+		comments, commentCount, commentsOpen := commentsForPost(post, commentViewerSignedIn(c))
 		data := map[string]interface{}{
-			"SiteTitle": getSiteTitle(),
-			"Post":      post,
-			"Title":     post.Title,
-			"IsPost":    true,
+			"SiteTitle":    getSiteTitle(),
+			"Post":         post,
+			"Title":        post.Title,
+			"IsPost":       true,
+			"Comments":     comments,
+			"CommentCount": commentCount,
+			"CommentsOpen": commentsOpen,
 		}
 
 		html, err := tm.RenderWithDB("post.html", data, datapkg.DB)

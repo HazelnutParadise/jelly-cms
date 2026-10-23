@@ -1,0 +1,207 @@
+{{define "comments"}}
+{{if or .CommentsOpen (gt .CommentCount 0)}}
+<style>
+    .comments { max-width: 46rem; margin-top: clamp(3rem, 6vw, 4.5rem); padding-top: 2rem; border-top: 3px solid var(--ink); }
+    .comments-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem 1rem; }
+    .comments-head h2 { font-family: var(--font-display); font-size: clamp(1.75rem, 4vw, 2rem); font-weight: 800; line-height: 1.1; letter-spacing: -.02em; }
+    .comments-count { color: var(--muted); }
+    .comments-closed { margin-top: 1rem; color: var(--muted); }
+
+    .comment-form { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr); gap: 1rem; margin-top: 1.25rem; padding: 1.25rem; background: var(--surface-low); border-radius: var(--r-md); }
+    .comment-form.is-reply { margin-top: 1rem; }
+    .comment-you { width: 2.75rem; height: 2.75rem; display: grid; place-items: center; background: var(--ink); color: var(--surface); font-weight: 800; border-radius: var(--r-sm); }
+    .comment-fields { display: flex; flex-direction: column; gap: .65rem; min-width: 0; }
+    .comment-fields textarea.field { min-height: 6rem; padding: .75rem 1rem; resize: vertical; line-height: 1.6; }
+    .comment-fields .field { background: var(--surface); }
+    .comment-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: .65rem; }
+    .comment-replying { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem .5rem; font-size: .9375rem; color: var(--muted); }
+    .comment-replying[hidden] { display: none; }
+    .comment-replying b { color: var(--ink); }
+    .comment-hp { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+    .comment-status { min-height: 1.5rem; font-size: .9375rem; }
+    .comment-status:empty { display: none; }
+    .comment-status.is-ok { color: color-mix(in srgb, var(--success) 80%, var(--ink)); }
+    .comment-status.is-error { color: color-mix(in srgb, var(--error) 85%, var(--ink)); }
+
+    .comment-list { list-style: none; margin-top: 1rem; }
+    .comment-list ol { list-style: none; }
+    .comment { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr); gap: 1rem; padding: 1.25rem 0; border-top: 1px solid var(--outline); }
+    .comment-list > .comment:first-child { border-top: 0; }
+    .comment .comment { padding-bottom: 0; }
+    .comment-replies { grid-column: 2; margin-top: .25rem; }
+    .comment-av { width: 2.75rem; height: 2.75rem; display: grid; place-items: center; color: #fff; font-weight: 800; background: var(--secondary); border-radius: var(--r-sm); }
+    .comment-list > li:nth-of-type(4n+2) > .comment-av, .comment-replies > li:nth-of-type(4n+2) > .comment-av { background: var(--accent); color: var(--ink); }
+    .comment-list > li:nth-of-type(4n+3) > .comment-av, .comment-replies > li:nth-of-type(4n+3) > .comment-av { background: var(--warning); color: var(--ink); }
+    .comment-list > li:nth-of-type(4n) > .comment-av, .comment-replies > li:nth-of-type(4n) > .comment-av { background: var(--primary); }
+    .comment-meta { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem .65rem; }
+    .comment-meta time { font-size: .8125rem; color: var(--muted); }
+    .comment-body { margin: .4rem 0; line-height: 1.7; overflow-wrap: anywhere; }
+    .comment-body > * + * { margin-top: .6em; }
+    .comment-body a { color: var(--link); text-decoration: underline; text-underline-offset: .18em; }
+    .comment-body a:hover { color: var(--link-hover); }
+    .comment-body blockquote { border-left: 3px solid var(--outline); padding-left: .9rem; color: var(--muted); }
+    .comment-body pre { background: var(--dark); color: var(--on-dark); border-radius: var(--r-sm); padding: .75rem 1rem; overflow-x: auto; font-size: .875rem; }
+    .comment-body code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9em; background: var(--surface-mid); padding: .05em .35em; border-radius: 0 .3rem 0 .3rem; }
+    .comment-body pre code { background: none; padding: 0; }
+    .comment-body ul, .comment-body ol { padding-left: 1.4em; list-style: revert; }
+    .comment-actions { display: flex; gap: .25rem; margin-left: -1rem; }
+
+    @media (max-width: 640px) {
+        .comment-form, .comment { grid-template-columns: 2.25rem minmax(0, 1fr); gap: .75rem; }
+        .comment-you, .comment-av { width: 2.25rem; height: 2.25rem; }
+        .comment-form { padding: 1rem; }
+        .comment-row { grid-template-columns: 1fr; }
+        .comment-row .button { width: 100%; }
+    }
+</style>
+<section class="comments" id="comments" aria-labelledby="comments-title">
+    <div class="comments-head">
+        <h2 id="comments-title">留言區</h2>
+        <span class="comments-count">{{.CommentCount}} 則</span>
+    </div>
+
+    {{if .CommentsOpen}}
+    <div id="comment-form-slot">
+        <form class="comment-form" id="comment-form" data-post-id="{{.Post.ID}}" novalidate>
+            <span class="comment-you" aria-hidden="true">你</span>
+            <div class="comment-fields">
+                <p class="comment-replying" id="comment-replying" hidden>回覆 <b></b><button class="button button-text button-small" type="button" id="comment-cancel-reply">取消回覆</button></p>
+                <input type="hidden" name="parent_id" value="">
+                <textarea class="field" name="body" rows="4" maxlength="5000" required aria-label="留言內容" placeholder="說點什麼。支援 Markdown，留言會先審核。"></textarea>
+                <div class="comment-row">
+                    <input class="field" type="text" name="name" maxlength="120" required autocomplete="name" aria-label="名字" placeholder="名字">
+                    <input class="field" type="email" name="email" maxlength="255" required autocomplete="email" aria-label="Email" placeholder="Email（不公開）">
+                    <button class="button button-primary" type="submit"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4z"/></svg>送出</button>
+                </div>
+                <div class="comment-hp" aria-hidden="true"><label>網站<input type="text" name="website" tabindex="-1" autocomplete="off" value=""></label></div>
+                <p class="comment-status" id="comment-status" role="status" aria-live="polite"></p>
+            </div>
+        </form>
+    </div>
+    {{else}}
+    <p class="comments-closed">這篇文章目前不開放新留言。</p>
+    {{end}}
+
+    {{if .Comments}}
+    <ol class="comment-list">
+        {{range .Comments}}
+        <li class="comment" id="comment-{{.ID}}">
+            <span class="comment-av" aria-hidden="true">{{initial .Name}}</span>
+            <div class="comment-main">
+                <div class="comment-meta">
+                    <b>{{.Name}}</b>
+                    {{with .Author}}{{if eq .ID $.Post.AuthorID}}<span class="chip chip-primary">作者</span>{{else if eq .Role "admin"}}<span class="chip chip-primary">站長</span>{{end}}{{end}}
+                    <time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2006年1月2日"}}</time>
+                </div>
+                <div class="comment-body">{{safeHTML .BodyHTML}}</div>
+                {{if $.CommentsOpen}}<div class="comment-actions"><button class="button button-text button-small" type="button" data-reply="{{.ID}}" data-name="{{.Name}}"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>回覆</button></div>{{end}}
+            </div>
+            {{if .Children}}
+            <ol class="comment-replies">
+                {{range .Children}}
+                <li class="comment" id="comment-{{.ID}}">
+                    <span class="comment-av" aria-hidden="true">{{initial .Name}}</span>
+                    <div class="comment-main">
+                        <div class="comment-meta">
+                            <b>{{.Name}}</b>
+                            {{with .Author}}{{if eq .ID $.Post.AuthorID}}<span class="chip chip-primary">作者</span>{{else if eq .Role "admin"}}<span class="chip chip-primary">站長</span>{{end}}{{end}}
+                            <time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2006年1月2日"}}</time>
+                        </div>
+                        <div class="comment-body">{{safeHTML .BodyHTML}}</div>
+                        {{if $.CommentsOpen}}<div class="comment-actions"><button class="button button-text button-small" type="button" data-reply="{{.ID}}" data-name="{{.Name}}"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>回覆</button></div>{{end}}
+                    </div>
+                </li>
+                {{end}}
+            </ol>
+            {{end}}
+        </li>
+        {{end}}
+    </ol>
+    {{end}}
+</section>
+{{if .CommentsOpen}}
+<script>
+    (function () {
+        var form = document.getElementById('comment-form');
+        if (!form) return;
+        var slot = document.getElementById('comment-form-slot');
+        var status = document.getElementById('comment-status');
+        var replying = document.getElementById('comment-replying');
+        var parentInput = form.elements.parent_id;
+
+        function say(text, kind) {
+            status.textContent = text || '';
+            status.className = 'comment-status' + (kind ? ' is-' + kind : '');
+        }
+        function resetReply() {
+            parentInput.value = '';
+            replying.hidden = true;
+            form.classList.remove('is-reply');
+            if (form.parentNode !== slot) slot.appendChild(form);
+        }
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest ? e.target.closest('[data-reply]') : null;
+            if (!btn) return;
+            var main = btn.closest('.comment-main');
+            parentInput.value = btn.getAttribute('data-reply');
+            replying.querySelector('b').textContent = btn.getAttribute('data-name');
+            replying.hidden = false;
+            form.classList.add('is-reply');
+            main.appendChild(form);
+            say('');
+            form.elements.body.focus();
+        });
+        document.getElementById('comment-cancel-reply').addEventListener('click', resetReply);
+
+        var messages = {
+            400: '請檢查名字、Email 與留言內容。',
+            401: '請先登入再留言。',
+            403: '這篇文章目前不開放留言。',
+            429: '留言太頻繁了，請稍後再試。'
+        };
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            var body = form.elements.body.value.trim();
+            var name = form.elements.name.value.trim();
+            var email = form.elements.email.value.trim();
+            if (!body) { say('先寫點內容吧。', 'error'); form.elements.body.focus(); return; }
+            if (!name) { say('請留下名字。', 'error'); form.elements.name.focus(); return; }
+            if (!email || email.indexOf('@') < 1) { say('請留下可用的 Email（不會公開）。', 'error'); form.elements.email.focus(); return; }
+            var parent = parseInt(parentInput.value, 10);
+            var btn = form.querySelector('button[type="submit"]');
+            btn.disabled = true;
+            say('送出中…');
+            fetch('/api/comments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    post_id: parseInt(form.getAttribute('data-post-id'), 10),
+                    parent_id: parent > 0 ? parent : null,
+                    name: name,
+                    email: email,
+                    body: body,
+                    website: form.elements.website.value
+                })
+            }).then(function (res) {
+                return res.json().catch(function () { return {}; }).then(function (data) { return { ok: res.ok, status: res.status, data: data }; });
+            }).then(function (r) {
+                btn.disabled = false;
+                if (!r.ok) { say(messages[r.status] || '送出失敗，請稍後再試。', 'error'); return; }
+                form.elements.body.value = '';
+                if (r.data.status === 'approved') {
+                    window.location.hash = 'comment-' + r.data.id;
+                    window.location.reload();
+                    return;
+                }
+                resetReply();
+                say('已收到，審核通過後就會顯示。', 'ok');
+            }).catch(function () {
+                btn.disabled = false;
+                say('連線失敗，請稍後再試。', 'error');
+            });
+        });
+    })();
+</script>
+{{end}}
+{{end}}
+{{end}}

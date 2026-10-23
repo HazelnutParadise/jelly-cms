@@ -1,0 +1,154 @@
+{{define "content"}}
+<style>
+    /* 彙整頁共用：頭板（依口味換色）＋ 列表 ＋ 側欄。對照 design/project/Archive.dc.html */
+    .arc-head { --bg: var(--secondary); --fg: #fff; position: relative; overflow: hidden; isolation: isolate; display: grid; gap: .75rem; align-content: end; padding: clamp(2rem, 5vw, 3.5rem) clamp(1.25rem, 4vw, 2.5rem) clamp(1.5rem, 3vw, 2.25rem); margin-bottom: 1.5rem; background: var(--bg); color: var(--fg); border-radius: var(--r-lg); }
+    .arc-head--primary { --bg: var(--primary); --fg: #fff; }
+    .arc-head--accent { --bg: var(--accent); --fg: #0B3A31; }
+    .arc-head--warning { --bg: var(--warning); --fg: #3A2E00; }
+    .arc-head--ink, .arc-head--dark { --bg: var(--dark); --fg: #fff; }
+    .arc-head > :not(.arc-art) { position: relative; z-index: 1; }
+    .arc-head a { color: inherit; }
+    .arc-head a:hover { color: inherit; text-decoration: underline; }
+    .arc-stripe { display: block; width: 3.5rem; height: 3px; transform: skewX(-32deg); transform-origin: left bottom; background: linear-gradient(90deg, var(--fg) 0 52%, transparent 52% 60%, var(--fg) 60% 82%, transparent 82% 88%, var(--fg) 88% 100%); }
+    .arc-label { font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: color-mix(in srgb, var(--fg) 72%, var(--bg)); }
+    .arc-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; font-size: .875rem; font-weight: 600; color: color-mix(in srgb, var(--fg) 80%, var(--bg)); }
+    .arc-title { font-size: clamp(2.5rem, 7vw, 4.5rem); letter-spacing: -.04em; overflow-wrap: anywhere; }
+    .arc-desc { font-size: 1.0625rem; max-width: 30em; line-height: 1.6; color: color-mix(in srgb, var(--fg) 86%, var(--bg)); }
+    .arc-chips { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .5rem; }
+    .arc-chips .arc-hint { font-size: .8125rem; color: color-mix(in srgb, var(--fg) 72%, var(--bg)); }
+    .arc-chip { display: inline-flex; align-items: center; min-height: 1.75rem; padding: 0 .7rem; font-size: .8125rem; font-weight: 700; border-radius: var(--r-sm); background: color-mix(in srgb, var(--fg) 18%, transparent); color: var(--fg); }
+    .arc-chip.is-on { background: var(--fg); color: var(--bg); }
+    .arc-head a.arc-chip:hover { background: color-mix(in srgb, var(--fg) 32%, transparent); text-decoration: none; }
+    .arc-art { position: absolute; right: clamp(.5rem, 4vw, 3rem); top: -1rem; width: 17rem; height: 20rem; opacity: .9; pointer-events: none; z-index: 0; }
+    .arc-art i { position: absolute; display: block; aspect-ratio: 1; border-radius: 0 26% 0 26%; }
+    .arc-art i:nth-child(1) { left: 12%; top: 9%; width: 37.5%; background: var(--secondary); opacity: .85; }
+    .arc-art i:nth-child(2) { left: 30%; top: 30%; width: 37.5%; background: var(--accent); opacity: .85; }
+    .arc-art i:nth-child(3) { left: 49%; top: 52%; width: 37.5%; background: var(--primary); opacity: .92; rotate: -7deg; }
+    .arc-art i:nth-child(4) { left: 14%; top: 77%; width: 16.5%; background: var(--warning); }
+    .arc-art i:nth-child(5) { left: 74%; top: 17%; width: 11.8%; background: var(--dark); opacity: .9; }
+
+    .arc-body { display: grid; grid-template-columns: minmax(0, 1fr) 18.75rem; gap: clamp(1.5rem, 4vw, 3rem); align-items: start; }
+    .arc-bar { display: flex; align-items: center; gap: .75rem; padding-bottom: 1rem; color: var(--muted); font-size: .875rem; }
+    .arc-list { list-style: none; }
+    .arc-entry { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: 1.5rem; padding: 1.75rem 0; border-top: 1px solid var(--outline); }
+    .arc-entry:last-child { border-bottom: 1px solid var(--outline); }
+    .arc-date { display: grid; align-content: start; line-height: 1; }
+    .arc-date b { font-family: var(--font-display); font-size: 2.75rem; font-weight: 800; letter-spacing: -.04em; }
+    .arc-date span { font-size: .75rem; font-weight: 700; letter-spacing: .06em; color: var(--muted); margin-top: .35rem; }
+    .arc-entry h3 { font-size: clamp(1.25rem, 2.6vw, 1.625rem); margin-bottom: .5rem; overflow-wrap: anywhere; }
+    .arc-entry h3 a { color: var(--ink); }
+    .arc-entry h3 a:hover { color: var(--link); }
+    .arc-entry p { color: var(--muted); line-height: 1.7; overflow-wrap: anywhere; }
+    .arc-foot { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .75rem; }
+    .arc-foot .by { color: var(--muted); font-size: .8125rem; }
+    .arc-foot a.chip:hover, .arc-side a.chip:hover { background: var(--ink); color: var(--surface); }
+
+    .arc-side { display: grid; gap: 1.75rem; position: sticky; top: 6rem; }
+    .arc-side .label { display: block; margin-bottom: .6rem; }
+    .arc-side p { font-size: .8125rem; color: var(--muted); line-height: 1.7; }
+    .arc-nav { display: grid; gap: .125rem; }
+    .arc-nav a { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .5rem .65rem; color: var(--ink); font-weight: 600; border-radius: var(--r-sm); }
+    .arc-nav a span { color: var(--muted); }
+    .arc-nav a:hover { background: var(--surface-mid); color: var(--ink); }
+    .arc-nav a.on { background: var(--ink); color: var(--surface); }
+    .arc-nav a.on span { color: inherit; }
+    .arc-side-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .arc-avatar { display: grid; place-items: center; flex: 0 0 auto; background: var(--ink); color: #fff; font-family: var(--font-display); font-weight: 800; overflow: hidden; }
+    .arc-nav .arc-avatar { width: 1.625rem; height: 1.625rem; font-size: .75rem; border-radius: 0 .5rem 0 .5rem; }
+    .arc-nav .arc-who { display: inline-flex; align-items: center; gap: .65rem; }
+
+    @media (max-width: 960px) {
+        .arc-body { grid-template-columns: 1fr; }
+        .arc-side { position: static; }
+        .arc-art { opacity: .35; }
+    }
+    @media (max-width: 720px) {
+        .arc-head { border-radius: var(--r-md); }
+        .arc-entry { grid-template-columns: 1fr; gap: .5rem; }
+        .arc-date { display: flex; gap: .75rem; align-items: baseline; }
+        .arc-date b { font-size: 1.5rem; }
+    }
+
+    .arc-head--author { --bg: var(--accent); --fg: #0B3A31; }
+    .arc-author { display: flex; align-items: flex-end; gap: clamp(1rem, 3vw, 1.75rem); }
+    .arc-author-copy { display: grid; gap: .6rem; min-width: 0; flex: 1; }
+    .arc-avatar-lg { width: clamp(5rem, 14vw, 7.5rem); height: clamp(5rem, 14vw, 7.5rem); font-size: clamp(2rem, 6vw, 3rem); border-radius: 0 2.25rem 0 2.25rem; object-fit: cover; }
+    .arc-head--author .arc-title { font-size: clamp(2.25rem, 6vw, 4rem); }
+    @media (max-width: 720px) { .arc-author { flex-direction: column; align-items: flex-start; } }
+</style>
+<section class="arc-head arc-head--accent arc-head--author" aria-labelledby="arc-title">
+    <div class="arc-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="arc-author">
+        {{if .Author.AvatarURL}}<img class="arc-avatar arc-avatar-lg" src="{{.Author.AvatarURL}}" alt="">{{else}}<span class="arc-avatar arc-avatar-lg" aria-hidden="true">{{.AuthorInitial}}</span>{{end}}
+        <div class="arc-author-copy">
+            <span class="arc-stripe" aria-hidden="true"></span>
+            <div class="arc-label">作者 · {{.Total}} 篇 · {{.Author.CreatedAt.Format "2006 年 1 月"}}加入</div>
+            <h1 class="arc-title" id="arc-title">{{.Author.Username}}</h1>
+        </div>
+    </div>
+</section>
+
+<div class="arc-body">
+    <section aria-label="文章">
+        <div class="arc-bar"><span>共 {{.Total}} 篇{{if gt .TotalPages 1}}，第 {{.Page}} 頁，共 {{.TotalPages}} 頁{{end}}</span></div>
+        {{if .Posts}}
+        <ol class="arc-list">
+            {{range $post := .Posts}}
+            {{- $d := $post.CreatedAt}}{{with $post.PublishedAt}}{{$d = .}}{{end}}
+            <li class="arc-entry">
+                <div class="arc-date" aria-hidden="true"><b>{{$d.Format "02"}}</b><span>{{$d.Format "2006 · 01"}}</span></div>
+                <div>
+                    <h3><a href="/post/{{$post.Slug}}">{{$post.Title}}</a></h3>
+                    <p>{{if $post.Excerpt}}{{$post.Excerpt}}{{else}}{{excerpt $post.Content 140}}{{end}}</p>
+                    <div class="arc-foot">
+                        {{if $post.Pinned}}<span class="chip chip-primary">置頂</span>{{end}}
+                        {{range $post.Categories}}{{if not .HideFromList}}<a class="chip" href="/c/{{.Slug}}">{{.Name}}</a>{{end}}{{end}}
+                        {{if $post.Author.Username}}<a class="by" href="/author/{{$post.Author.Username}}">{{$post.Author.Username}}</a>{{end}}
+                    </div>
+                </div>
+            </li>
+            {{end}}
+        </ol>
+        {{else}}
+        <div class="empty">
+            <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
+            <p>這裡還沒有文章。</p>
+        </div>
+        {{end}}
+
+        {{if gt .TotalPages 1}}
+        <nav class="pagination" aria-label="分頁">
+            {{if gt .Page 1}}
+            <a href="{{.CurrentPath}}?page={{sub .Page 1}}" class="button button-tonal" rel="prev"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>上一頁</a>
+            {{end}}
+            <span class="page-info">{{.Page}} / {{.TotalPages}}</span>
+            {{if lt .Page .TotalPages}}
+            <a href="{{.CurrentPath}}?page={{add .Page 1}}" class="button button-tonal" rel="next">下一頁<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+            {{end}}
+        </nav>
+        {{end}}
+    </section>
+    <aside class="arc-side" aria-label="作者資訊">
+        {{if .TopCategories}}
+        <div>
+            <span class="label">常寫</span>
+            <div class="arc-side-chips">
+                {{range .TopCategories}}<a class="chip" href="/c/{{.Slug}}">{{.Name}} {{.PostCount}}</a>{{end}}
+            </div>
+        </div>
+        {{end}}
+        {{if .OtherAuthors}}
+        <div>
+            <span class="label">其他作者</span>
+            <nav class="arc-nav">
+                {{range .OtherAuthors}}<a href="/author/{{.Username}}"><span class="arc-who"><i class="arc-avatar" aria-hidden="true">{{.Initial}}</i>{{.Username}}</span><span>{{.PostCount}}</span></a>{{end}}
+            </nav>
+        </div>
+        {{end}}
+        <div>
+            <span class="label">所有彙整</span>
+            <p><a href="/archive">分類、標籤、月份、作者</a>一頁看完。</p>
+        </div>
+    </aside>
+</div>
+{{end}}

@@ -155,6 +155,9 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 		return c.JSON(http.StatusOK, result)
 	})
 
+	// Content organisation: taxonomy, menus, comments, trash, revisions, archives
+	registerContentRoutes(e, tm, renderAdmin)
+
 	// Public Routes (Catch-all should be last)
 	registerAccountPages(e)
 	RegisterPublicRoutes(e, tm)
