@@ -673,10 +673,16 @@ func TestOAuthRecoveryIdentityFailureRollsBackConsumptionAndAllowsNewEntryRetry(
 func oauthRecoveryCreateLegacyUser(t *testing.T, h *accessHarness, provider, role string) core.User {
 	t.Helper()
 	u := core.User{Username: fmt.Sprintf("legacy-%s-%s", provider, role), Email: fmt.Sprintf("legacy-%s-%s@example.test", provider, role), Provider: provider, Role: role}
+	u.CreatedAt = time.Date(2024, 1, 2, 3, 4, 5, 123456789, time.UTC)
+	u.UpdatedAt = u.CreatedAt
 	if err := h.db.Create(&u).Error; err != nil {
 		t.Fatalf("create legacy OAuth user: %v", err)
 	}
-	return u
+	var persisted core.User
+	if err := h.db.First(&persisted, u.ID).Error; err != nil {
+		t.Fatalf("read back legacy OAuth user: %v", err)
+	}
+	return persisted
 }
 
 func oauthRecoveryGrant(t *testing.T, userID uint, provider string, expires time.Time, overrides map[string]any) string {
