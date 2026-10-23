@@ -132,7 +132,7 @@ func MigrateDB(db *gorm.DB) error {
 		return fmt.Errorf("database not initialized")
 	}
 
-	return db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&core.User{},
 		&core.Post{},
 		&core.Option{},
@@ -140,7 +140,12 @@ func MigrateDB(db *gorm.DB) error {
 		&core.Order{},
 		&core.OrderItem{},
 		&core.ThemeSettings{},
-	)
+		&core.RevokedLogin{},
+	); err != nil {
+		return err
+	}
+
+	return migrateOAuthIdentities(db)
 }
 
 // Migrate runs auto-migration for core models on the global database handle.

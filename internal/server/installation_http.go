@@ -120,7 +120,7 @@ func registerInstallRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugi
 		return tmpl.Execute(c.Response().Writer, data)
 	})
 
-	e.POST("/api/install/test-db", func(c echo.Context) error {
+	e.POST("/api/install/test-db", auth.ProtectBrowserWrites(func(c echo.Context) error {
 		if install.IsInstalled() {
 			return c.JSON(http.StatusConflict, map[string]string{"error": install.ErrAlreadyInstalled.Error()})
 		}
@@ -135,9 +135,9 @@ func registerInstallRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugi
 		}
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "Connection successful"})
-	})
+	}))
 
-	e.POST("/api/install", func(c echo.Context) error {
+	e.POST("/api/install", auth.ProtectBrowserWrites(func(c echo.Context) error {
 		if install.IsInstalled() {
 			return c.JSON(http.StatusConflict, map[string]string{"error": install.ErrAlreadyInstalled.Error()})
 		}
@@ -162,7 +162,7 @@ func registerInstallRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugi
 
 		initializeAfterInstallation(pluginRuntime)
 		return c.JSON(http.StatusOK, map[string]string{"message": "Installation successful"})
-	})
+	}))
 }
 
 // initializeAfterInstallation publishes the services that depend on the new

@@ -29,7 +29,7 @@ func RequireAuth(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.Redirect(http.StatusFound, "/login?redirect="+url.QueryEscape(returnURL))
 		}
 		c.Set("user", user)
-		return next(c)
+		return ProtectCookieWrites(next)(c)
 	}
 }
 
@@ -44,7 +44,7 @@ func RequireAdmin(next echo.HandlerFunc) echo.HandlerFunc {
 			return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden: Admin access required"})
 		}
 		c.Set("user", user)
-		return next(c)
+		return ProtectCookieWrites(next)(c)
 	}
 }
 
@@ -70,7 +70,7 @@ func RequireRole(roles ...string) echo.MiddlewareFunc {
 			}
 
 			c.Set("user", user)
-			return next(c)
+			return ProtectCookieWrites(next)(c)
 		}
 	}
 }

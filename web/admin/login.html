@@ -124,7 +124,7 @@
             <p id="installedNotice" class="notice" role="status" aria-live="polite" aria-atomic="true" hidden></p>
 
             <!-- Local Login Form -->
-            <form id="localLoginForm">
+            <form id="localLoginForm" data-redirect-url="{{.RedirectURL}}">
                 <div>
                     <label for="loginUsername">用戶名或 Email</label>
                     <input type="text" id="loginUsername" name="username" placeholder="admin" autocomplete="username" required>
@@ -144,6 +144,7 @@
                 <a href="#" class="btn btn-tonal" id="githubBtn" style="display: none;" onclick="event.preventDefault(); window.location.href='/auth/github?redirect=' + encodeURIComponent(new URLSearchParams(window.location.search).get('redirect') || '/admin');"><svg class="icon" aria-hidden="true"><use href="#i-key"/></svg>使用 GitHub 登入</a>
                 <p class="oauth-note">OAuth 首次登入將自動創建帳號</p>
             </div>
+            <p class="oauth-note"><a href="/account/recover?lang={{.Lang}}" lang="{{.Lang}}">{{.RecoverTitle}}</a></p>
         </div>
     </main>
     <script>

@@ -105,6 +105,8 @@ func startBlockedLogin(t *testing.T, h *installFlowHarness) (*io.PipeWriter, *ga
 	})
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
+	// This trusted in-process fixture supplies the request's source evidence.
+	req.Header.Set("X-Jelly-CSRF", "1")
 
 	call := startGatedRequest(h.server, req)
 

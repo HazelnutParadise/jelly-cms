@@ -411,7 +411,7 @@ Jelly.toast('已移到回收桶', { kind: 'warning', action: { label: '復原', 
   結果分組的標籤列可篩選。面板開啟時背景為 `inert`。焦點在 Markdown 編輯器內時 Ctrl+K 仍是插入連結。
   程式介面：`Jelly.palette.open()`、`Jelly.palette.close()`。
 - **通知鈴鐺**：連到 `/admin/notifications`，`.Viewer.Unread > 0` 顯示數字（99 以上顯示 99+）。
-- **使用者區塊**：頭像（`.Viewer.Avatar` 或 `.Viewer.Initial`）、名稱、角色，連到 `/admin/profile`；登出按鈕沿用 `fetch('/auth/logout')`。
+- **使用者區塊**：頭像（`.Viewer.Avatar` 或 `.Viewer.Initial`）、名稱、角色，連到 `/account`；登出按鈕沿用 `fetch('/auth/logout')`。
 - **手機（≤900px）**：側欄收成抽屜（選單鈕、遮罩、Esc 關閉、關閉時不可被 Tab 到），頂欄只留目前頁名稱，搜尋與查看網站縮成圖示鈕。
 - **預覽**：`go run ./cmd/jellypreview -out <dir>` 把每個後台頁面輸出成靜態 HTML，
   `PLAYWRIGHT_MODULE=… node design/tools/preview-admin.mjs <dir>` 截圖到 `design/shots/`。

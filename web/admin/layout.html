@@ -642,7 +642,7 @@
 
         <div class="sidebar-footer">
             <div class="user-info">
-                <a class="user-card" href="/admin/profile" title="{{.T.profile}}">
+                <a class="user-card" href="/account?lang={{.Lang}}" title="{{.T.accountTitle}}">
                     <span class="user-avatar" aria-hidden="true">{{if .Viewer.Avatar}}<img src="{{.Viewer.Avatar}}" alt="">{{else}}{{.Viewer.Initial}}{{end}}</span>
                     <span class="user-meta">
                         <span class="user-name">{{.Viewer.Name}}</span>

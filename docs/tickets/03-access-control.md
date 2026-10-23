@@ -3,7 +3,7 @@
 Epic：帳號與存取
 User Story：登入後只可操作自己被授權的資料與功能。
 Blocked by：01 的可用資料庫與登入流程。
-Status：in_progress（HTTP 角色與文章所有權已透過 PR #2 合併；登入金鑰保存通過本機全套競態測試與獨立複審，待交付）
+Status：in_progress（HTTP 權限、金鑰保存與單次登入撤銷已分別透過 PR #2、#3、#4 合併；跨站請求保護已透過 PR #8 合併；登入返回網址已透過 PR #9 合併，登入嘗試限制已透過 PR #10 合併，OAuth 提供者與 state 輸入已透過 PR #11 合併，一次性回呼已透過 PR #12 合併，請求日誌保護已透過 PR #14 合併，上游請求期限與取消已透過 PR #15 合併，身分連結與復原已完成本機驗收，待 CI 交付）
 
 ## 流程與驗收
 
@@ -14,8 +14,8 @@ Status：in_progress（HTTP 角色與文章所有權已透過 PR #2 合併；登
 - [ ] 新文章作者來自登入身分，不能固定為使用者 1。
 - [ ] 更新輸入不接受 ID、Author、Role、CreatedAt 等伺服器管理欄位注入。
 - [ ] Session 與 JWT 沒有可預測的內建秘密，重啟後有效性符合明確生命週期。
-- [ ] Cookie 寫入請求有跨站請求保護，未授權回 401/403 而非 HTML 成功回應。
-- [ ] 登出、失效登入、錯誤密碼、外部重新導向、暴力嘗試有可預期結果。
+- [x] Cookie 寫入請求有跨站請求保護，未授權回 401/403 而非 HTML 成功回應。
+- [x] 登出、失效登入、錯誤密碼、外部重新導向、暴力嘗試有可預期結果。
 - [ ] OAuth 關閉時不顯示且不可使用，只能在驗證身分後安全建立／連結帳號。
 - [ ] 使用者介面清楚顯示允許的操作，API 仍獨立檢查權限。
 
@@ -60,3 +60,381 @@ Status：in_progress（HTTP 角色與文章所有權已透過 PR #2 合併；登
 | 安裝完成 | 資料庫剛建立 | 重新載入 OAuth，不改變登入秘密 | 真實 HTTP 安裝及後續登入測試 |
 
 測試入口優先使用公開 Init、GenerateJWT、ValidateJWT、SetUserSession、GetUserIDFromSession，跨重啟情境使用子程序，不能只比對全域變數。資料庫保持隔離。儲存格式使用 `version: 1`、`session_secret` 與 `jwt_secret`，兩個秘密欄位使用 base64，解碼後各至少 32 位元組；讀取時驗證版本與欄位，不把環境秘密寫入檔案。備份須包含秘密檔，刪除秘密檔會使既有憑證失效。此段不新增資料庫欄位，也不變更正式環境。
+
+
+## 單次登入撤銷
+
+流程：本機或 OAuth 登入成功 → 產生本次登入專屬的安全隨機 ID → 同一次登入的 JWT 與 Session 共用該 ID → 每次 HTTP 認證查詢撤銷紀錄 → 登出將該 ID 的雜湊寫入資料庫 → 提交成功後清除 Cookie。登出只撤銷本次登入，不登出同一帳號的其他裝置；單獨呈現 JWT 或 Session 也必須撤銷同次登入的另一種憑證。
+
+沿用 `GenerateJWT`、`SetUserSession` 的公開簽名，單獨呼叫時各產生獨立 ID。兩個登入處理器共用內部簽發流程，確保成對憑證取得相同 ID。JWT 的 `jti` 與 Session 的 `login_id` 使用至少 32 位元組亂數的 base64url 字串。`ValidateJWT` 仍可作無資料庫的簽章／內容驗證，HTTP 認證另要求合法 ID、有效期限與未撤銷；`GetUserIDFromSession` 的低階解碼不取代 HTTP 授權。缺少 ID 的舊憑證需重新登入。Session 簽章端與 Cookie 的最長有效期統一為 7 天。
+
+撤銷資料使用新的 `core.RevokedLogin` 與 `revoked_logins` 表，由既有 `data.MigrateDB` 加入相容性新增，不修改或回填 users。欄位為 `id`（登入 ID 的 SHA-256 十六進位雜湊，主鍵）與 `expires_at`（索引）；不保存原始 Cookie、JWT 或登入 ID。登出交易刪除已到期紀錄並冪等新增目前 ID，保留至少完整 7 天。資料庫備份自然涵蓋撤銷紀錄。回退舊版會失去撤銷檢查，因此不能以回退程式宣稱憑證仍被撤銷。
+
+| 操作 | 失敗或邊界 | 預期結果與責任 | 驗證方式 |
+|---|---|---|---|
+| 簽發登入 | 同帳號同秒登入兩次 | 兩組不同登入 ID，單獨登出互不影響 | 真實登入 HTTP 及獨立 cookie jar |
+| 重新登入 | 帳密正確但舊 Session Cookie 損壞 | 建立新的有效登入，不被舊 Cookie 卡住 | 真實登入帶損壞 Cookie |
+| 登出 | JWT、Session 或兩者 | 成對憑證同時撤銷，重放回 401 | 留存兩種憑證，分開重放 |
+| 重複登出 | 同一組憑證重複或並行提交 | 200、結果一致，主鍵去重，不影響其他登入 | 真實 PostgreSQL 並行 POST |
+| 登出寫入 | 資料庫寫入失敗 | 503，不回報成功，不先清除 Cookie，允許重試 | 獨立資料庫撤銷表權限／SQL 失敗 |
+| 認證查詢 | 撤銷表不可用、DB 故障 | 拒絕存取，不退回另一種憑證 | 保護 API 的負面 HTTP 測試 |
+| 認證選擇 | Authorization 有誤或 JWT Cookie 已失效，另有有效 Session | 明確提供的憑證失敗即拒絕，不偷偷換身分 | header/cookie 組合測試 |
+| 重啟 | 撤銷後由新子程序開啟 DB 與 auth | 舊憑證仍拒絕，新登入有效 | 新程序透過 HTTP 處理器重放，另驗 DB 重連 |
+| 舊版憑證 | 簽章有效但無登入 ID | HTTP 認證拒絕，重新登入取得新憑證 | 已知測試秘密簽章的舊格式 |
+| 瀏覽器登出 | 離線或非成功回應 | 留在原頁顯示可重試錯誤，不導向登入頁假裝成功 | 實際瀏覽器失敗與成功操作 |
+
+驗收接縫使用真實 `/auth/login`、`/auth/logout`、`/api/auth/me` 與現有獨立 PostgreSQL fixture。新增測試先重現漏洞再實作。一般憑證解碼測試保持無資料庫；HTTP 認證與撤銷測試使用真實資料庫。未登入登出可以冪等回 200；沒有登入 Cookie 且沒有有效登入 ID 時不送出登入 Cookie 的 Set-Cookie，不能新增未驗證憑證的撤銷資料。已驗證登入的撤銷失敗不可回 200。
+
+Session 另保存 `login_expires_at`（int64 Unix 秒），簽發時固定為七天後；HTTP 認證拒絕缺少、型別錯誤、零或已到期的值。OAuth 入口等流程重新儲存 Cookie 時不得延長此時間，避免舊 Cookie 重簽後跨過撤銷紀錄的保留期限。空的 JWT Cookie 仍屬明確提供憑證，不能退回 Session。
+
+桌面側欄與手機頂部提供可見的登出按鈕，共用處理中狀態；請求未完成時停用兩個入口，失敗後恢復重試。非成功回應與網路錯誤顯示繁中／英文的可見提示，只有成功才前往登入頁。此次只補齊手機登出入口，整體手機導覽留待介面整合段落驗收。
+
+跨站請求保護、登入限流、重新導向與 OAuth 身分連結各有獨立驗收，不以本段測試取代。
+
+## Cookie 寫入請求保護
+
+流程：瀏覽器送出寫入 → 既有權限檢查 → 確認同源證據 → 執行寫入。登入與安裝尚未有登入身分，仍須在處理帳密、連線或安裝前檢查。GET、HEAD、OPTIONS 保持讀取行為；OAuth 的 GET 與付款通知沿用各自的 state／簽章驗證，分別在後續段落驗收。
+
+採用同源來源標頭與 AJAX 自訂標頭，不新增 token 儲存、資料表或依賴。依據為 [OWASP 的來源檢查與 AJAX 防護方法](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)。Go 的 [CrossOriginProtection](https://go.dev/src/net/http/csrf.go) 可作來源判斷對照；本專案另明確拒絕缺少來源證據與互相矛盾的標頭，並涵蓋無 Cookie 的頂層登出。
+
+共用實作置於 `internal/auth/request_protection.go`。`ProtectBrowserWrites(echo.HandlerFunc) echo.HandlerFunc` 保護登入與兩個安裝 POST。`ProtectCookieWrites(echo.HandlerFunc) echo.HandlerFunc` 在 RequireAuth、RequireAdmin、RequireRole 完成身分／角色檢查後包住後續處理器，僅在請求帶有 `jwt_token` 或 `jelly-cms-session` Cookie（包含空值）時要求來源證據。無 Cookie 的 Bearer API 仍由原有認證驗證，不能只憑字首宣稱身分有效。登入與安裝不得使用 Cookie 缺少的豁免。
+
+登出使用獨立的 `ProtectLogoutWrites(echo.HandlerFunc) echo.HandlerFunc`。請求帶有登入 Cookie，或任何 Origin、Referer、Sec-Fetch-Site 時，都執行完整來源檢查。只有 Cookie 與來源標頭皆無時才保留無來源 API 相容性；HandleLogout 在沒有登入 Cookie 且未驗證到任何登入 ID 時，冪等回 200，但不送出登入 Cookie 的 Set-Cookie。合法純 Bearer 登出仍撤銷其登入 ID。這樣可避免跨站頂層 POST 不帶 Lax Cookie，卻藉回應刪除 Cookie 的登出攻擊；[Cookie 規格](https://httpwg.org/http-extensions/draft-ietf-httpbis-rfc6265bis.html#section-5.6.7.2) 允許頂層導覽回應設定 Cookie，因此不能只檢查請求 Cookie。
+
+來源判斷採負面證據優先：拒絕重複、多值、格式錯誤的 Origin、Referer、Sec-Fetch-Site。`same-site`、`cross-site` 及未知 metadata 值拒絕；`none` 單獨不足以放行。已提供 Origin 時必須是 HTTP(S) 的完整同源網址，拒絕 null、帳密、路徑、查詢及片段；不得因 Origin 失敗改讀 Referer 或自訂標頭。Referer 存在時也須同源，網址的路徑與查詢不參與來源比較。矛盾的來源證據拒絕。
+
+有效證據為同源 Origin、同源 Referer 或 `Sec-Fetch-Site: same-origin`。三者皆無有效證據時，只接受單一 `X-Jelly-CSRF: 1`；這個非簡單請求標頭依賴瀏覽器的跨來源預檢與本服務不開放 CORS 的條件。固定值不當成秘密。明確的外站或不合法來源不得用此標頭覆蓋。既有瀏覽器請求會帶來源證據，不另修改每頁 fetch 或新增前端 token 狀態；來源標頭被移除的自訂客戶端須明確提供此標頭。
+
+目標來源優先採明確的 `APP_URL`，僅接受 HTTP(S) scheme、host 與可選的根路徑 `/`，不得有帳密、查詢或片段。未設定時使用實際 TLS 狀態與 Request.Host，不採用 X-Forwarded-*、Forwarded、X-URL-Scheme。正規化大小寫、預設連接埠與等價 IPv6 寫法，保留不同 scheme、主機或有效連接埠的區別。IPv4 與 IPv4-mapped IPv6 是不同網址主機，不得合併為同源。反向代理終止 HTTPS 時，須以 APP_URL 指定公開來源；錯誤設定回 JSON 503，不能退回放行。一般來源拒絕回 JSON 403，不洩漏帳密、Cookie 或來源設定。
+
+| 操作 | 失敗或邊界 | 預期結果 | 驗證 |
+|---|---|---|---|
+| Cookie 寫入 | 外站、兄弟網域、null、缺少證據、矛盾或重複來源 | 403，資料與 Cookie 不變 | 真實路由、資料庫前後回查 |
+| Cookie 寫入 | 同源 Origin／Referer／metadata，或來源皆缺但有正確自訂標頭 | 依原有權限完成寫入 | 同一 API 正負對照 |
+| 目標來源 | TLS、非預設連接埠、IPv6、APP_URL、偽造轉送標頭 | 正確比較來源，設定無效時 503 | 獨立 HTTP fixture |
+| Bearer API | 合法／不合法 token，沒有登入 Cookie | 保留原有成功／401，偽字首不能授權 | 不加來源證據的 HTTP 請求 |
+| 混合登入 | Bearer 加 Cookie | 仍須來源檢查，不能藉 Bearer 豁免 Cookie 操作 | 登出與受保護寫入 |
+| 無 Cookie 登出 | 外站來源，或完全無憑證／來源 | 外站回 403；完全無憑證冪等 200 且不送清除 Cookie | 原始 HTTP 與跨站頂層表單 |
+| 登入與安裝 | 無 Cookie 的外站表單 | 403，不簽發登入、不測試 DB、不寫入安裝 | 完整註冊路由與暫存資料夾 |
+| 付款通知 | 外部 POST callback | 不套 Cookie 保護，保留獨立驗簽；不能豁免 create | 失敗通知無訂單變更 |
+| 瀏覽器 | 登入、發文、登出、另一來源發送寫入 | 合法流程可用，外站寫入拒絕 | 實際 Chrome 與 360px／1280px |
+
+測試新增於 `internal/server/browser_write_protection_test.go`。沿用真實 RegisterRoutes、隔離 PostgreSQL 與暫存資料夾，不以測試專用 production 開關或假路由取代。新負向測試直接建立原始 HTTP 請求，不使用自動加來源的 fixture；既有合法流程 fixture 只補齊來源證據，保留原斷言。來源檢查不改內容格式，multipart、JSON 與表單皆須保持。
+
+## 安全登入重新導向
+
+流程：使用者開啟登入頁 → 伺服器確認站內返回網址 → 本機或 OAuth 登入 → 只前往已確認的站內網址。未提供或無效的目的地回到 `/admin`。保留合法站內網址的路徑、查詢與片段，不要求使用者重新挑選原本要開啟的頁面。
+
+共用 `auth.SafeRedirectURL(raw string) string` 處理目的地。只接受以單一 `/` 開頭的根相對網址，禁止絕對網址、`//`、反斜線、帳密、scheme、host、opaque URL、控制字元與錯誤的百分比編碼。解析後的路徑也必須以單一 `/` 開頭且不能含反斜線或控制字元；不得只檢查原字串。無效值回 `/admin`，不讓重新導向阻止帳密正確的使用者登入。
+
+`HandleLocalLogin` 的 HTML 302、`HandleAuth` 儲存的 `oauth_redirect`、`HandleCallback` 取出的舊 Session 目的地都使用同一個函式，不能因為值來自 Cookie 就略過檢查。本機登入的 JSON 回應保持原有形狀。OAuth 成功回呼的身分驗證與帳號連結另由後續段落負責，此段不改建帳號政策。
+
+`GET /login` 改以現有 html/template 呈現 `web/admin/login.html`，將經共用函式確認的值以 `RedirectURL` 提供模板。前端使用伺服器提供的值，移除自行信任 URLSearchParams 中 redirect 的導航分支。OAuth 按鈕仍可傳送返回網址，由伺服器在入口與回呼兩端確認。不得手動拼接可執行 JavaScript 字串，需保留模板的內容逸出。登入表單與安裝完成提示保持可用，不改樣式、語言選擇或 OAuth 啟用政策。
+
+| 操作 | 失敗或邊界 | 預期結果與責任 | 驗證 |
+|---|---|---|---|
+| 本機登入 | 空值、絕對網址、協定相對網址、反斜線、控制字元、編碼後的危險路徑 | 帳密正確仍登入，HTML 回 `/admin` | 真實註冊路由與 PostgreSQL |
+| 返回原頁 | `/admin/posts?search=hello#section`、一般站內頁面 | 保留合法目的地 | HTML 302 與真實瀏覽器 |
+| OAuth 入口 | 惡意目的地 | Session 只保存 `/admin` | 公開 HandleAuth 與真實 Session 編解碼 |
+| OAuth 回呼 | 舊版已簽章 Session 保存不合法網址 | 登入完成後回 `/admin` | Goth 公開 provider/session 測試替身，不連外 |
+| 登入畫面 | redirect 含引號或結束 script 的字串 | 不執行輸入內容，不導向站外 | html/template 與 Chrome 操作 |
+| 既有失敗 | 錯誤密碼、來源拒絕、離線 | 不導向成功頁或站外，不額外簽發登入 | HTTP 與畫面負向驗證 |
+
+Go 回歸測試新增在 `internal/server/auth_redirect_integration_test.go`，使用既有 `newAccessHarness` 與真實 RegisterRoutes，不以測試專用 production 開關取代。OAuth 僅可透過 Goth 本來提供的 provider/session 接縫提供固定回應；不得改 production 以繞過 state 或連外交換授權。測試先重現，再由不同代理實作。瀏覽器腳本置於暫存目錄，以本機另一連接埠模擬站外目的地，禁止真正傳送帳密到外部網站。測試草稿、帳號與程序的清理僅限本次建立的內容。
+
+
+## 登入嘗試限制
+
+流程：POST /auth/login → 既有瀏覽器來源檢查 → 同一連線來源的嘗試次數檢查 → 既有帳密驗證。每個來源在第一次嘗試開始的固定 60 秒內最多 30 次；成功、錯誤帳密與不合法輸入均計數。第 31 次起回 JSON 429，附正整數秒數的 Retry-After，錯誤訊息也顯示等待秒數，不查詢帳號、不比對密碼、不簽發或清除登入 Cookie。拒絕不延長原本的到期時間，到期後可重新嘗試。前端沿用既有登入錯誤提示，不能導向成功頁。
+
+共用入口 `ProtectLoginAttempts(next echo.HandlerFunc) echo.HandlerFunc` 置於新的認證檔案；RegisterRoutes 註冊一次，位於 ProtectBrowserWrites 內層。每次建立路由有獨立的限制狀態，不使用 Init 重設，也不在每次請求重建。來源取實際 Request.RemoteAddr 的 IP，忽略 X-Forwarded-For、X-Real-IP、Forwarded 與 Echo 的預設 RealIP；連接埠變動、IPv6 等價寫法與 IPv4-mapped IPv6 不得重建額度。無效或缺少連線位址使用單一共用來源，不能用任意字串增加記憶體紀錄。
+
+狀態只保留在此程序記憶體，最多 4096 個來源，鎖內檢查與增加次數以支援並行。過期紀錄隨請求清理，不建立背景程序。容量滿且仍有有效紀錄時拒絕新來源，不淘汰仍有效的紀錄以恢復額度；已存在的來源可依剩餘次數操作。依到期順序移除過期來源，避免每個拒絕請求掃描整張表。可重用標準函式庫，不新增依賴、資料表、環境選項或永久帳號鎖定。
+
+這是單程序的來源限制，重新啟動會重設。反向代理後會以代理連線位址共用額度，多程序與分散來源攻擊須由入口代理提供額外限制；此段不信任未設定信任範圍的轉送標頭。未新增全站帳號鎖定，以避免第三方連續嘗試就鎖住管理員帳號。此取捨依 [OWASP 登入限制及帳號鎖定的拒絕服務風險](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html#login-throttling)。
+
+| 操作 | 失敗或邊界 | 預期結果 | 驗證 |
+|---|---|---|---|
+| 同一來源登入 | 30 次以內與第 31 次、輪替帳號與變更連接埠 | 額度內保留原結果，超量 429、無登入 Cookie | 真實 RegisterRoutes 與隔離 PostgreSQL |
+| 偽造來源 | XFF、X-Real-IP、Forwarded、IPv6 等價或 mapped IPv4 | 仍使用同一實際連線來源的額度 | 原始 HTTP 請求 |
+| 到期與重試 | 期間內多次被拒絕、正好到期 | Retry-After 合法，不延長等待；到期恢復 | Go testing/synctest 的公開路由測試，不實際等待一分鐘 |
+| 並行與容量 | 同來源同時超量、4096 個有效來源、新來源 | 恰好 30 次進入下游；滿容量拒絕新來源且不重設舊來源 | 無 DB 的不合法 JSON 路由回應與競態測試 |
+| 隔離 | 不同連線來源、新路由實例、首頁與已登入 API | 不共用錯誤額度，不影響其他功能 | 真實 HTTP 正負對照 |
+| 瀏覽器 | 連續錯誤密碼後送出正確密碼 | 429 留在登入頁顯示錯誤，期限後可登入與登出 | Chrome 桌面與手機，僅專用驗收帳號 |
+
+測試先新增 `internal/auth/login_attempts_test.go` 與 `internal/server/login_attempts_integration_test.go`。前者從公開 RegisterRoutes 送不合法 JSON，使用標準 testing/synctest 驗證時間、容量、來源與並行，不使用測試專用 production 開關。後者使用 newAccessHarness、真實帳密與 DB 回查；每個獨立測試重建路由。既有測試若超過額度，須先回報其語意與必要調整，不可削弱斷言。瀏覽器腳本只寫暫存目錄，由主代理執行，測試代理不得操作服務或瀏覽器。
+
+
+## OAuth 提供者與 state 輸入
+
+本段已由主代理重現，代理修正後完成全套 PostgreSQL 競態測試、go vet、Windows amd64 與 Linux 386 編譯，對抗性審查沒有已確認缺陷，PR #11 四項 CI 通過後已合併。既有絕對登入期限測試改用有效提供者觸發重簽，原有期限與身分不變及過期回 401 的斷言完整保留，另驗未知提供者 400 且不重簽。真實 Google／GitHub 授權仍未驗證。
+
+流程：開啟 /auth/:provider → 以路徑選定提供者 → 產生本次 state → 保存既有 Goth Session → 提供者回呼 → 嚴格比對簽章 Session 中的原始 state → 取得相同提供者的使用者 → 原有登入流程。此段修正提供者與 state 的輸入處理，接續的一次性交易與帳號識別仍是本工作單的必要驗收。
+
+入口與回呼只接受 google、github，且必須已在 Goth 註冊。清除使用者輸入的 provider、:provider，傳給 Goth 的 provider 只能是路徑值。入口忽略所有外部 state，每次以 crypto/rand 產生至少 32 位元組的 base64url 亂數；亂數失敗回一般 503，不 panic 或送出授權導向。沿用 HandleAuth、HandleCallback 公開簽名，不新增資料模型、依賴或設定。
+
+回呼先以 url.ParseQuery 完整解析，拒絕不合法編碼或分隔、多個或空白 state。透過 Goth 公開 Store 與 Provider/Session 接縫取得簽章的原始授權網址；原網址也必須只有一個非空白 state。兩個 state 須完全相同，不能接受人工簽章但原始 state 空白的舊 Cookie。任何失敗在 FetchUser、Authorize 與帳號 DB 操作之前回一般 400，不簽發登入 Cookie。提供者取得使用者後，user.Provider 與路徑不同回 400，不進入帳號操作。有效 state 通過後的提供者錯誤回一般 502。錯誤訊息不得暴露原始 Cookie、state、provider token 或 provider 錯誤內容。
+
+入口儲存返回網址時必須檢查 Session 讀取與 Save 的錯誤，失敗回一般 503 並停止授權。不改既有登入 Cookie 的七天期限、返回網址檢查、成功 JSON 形狀、預設角色或本機登入。已有登入 Session 經 OAuth 入口重簽仍不得延長 login_expires_at。
+
+| 操作 | 失敗或邊界 | 預期結果 | 驗證 |
+|---|---|---|---|
+| 選擇提供者 | 查詢 provider、:provider 重複或衝突 | 始終採路徑提供者，未知或未註冊值 400 | 公開 HandleAuth、HandleCallback 與計數替身 |
+| state 產生 | 指定值、多值、兩次獨立入口、亂數失敗 | 不採輸入值，兩次不同，失敗 503 且不導向 | 真實 HTTP 與公開 crypto/rand.Reader 接縫 |
+| state 比對 | 缺少、空白、重複、不同、不合法編碼、損壞 Cookie、原始 state 空白 | 400，FetchUser/Authorize/DB 次數不增加，無登入 Cookie | 真實 RegisterRoutes、隔離 PostgreSQL 或無 DB 的公開處理器 |
+| 正常回呼 | 正確簽章 Session 與唯一相同 state | 原有登入與站內返回網址保持可用 | 既有返回網址回歸與獨立成功對照 |
+| 提供者資料 | user.Provider 與路徑不符、provider 錯誤 | 一般錯誤，不建立或登入帳號，不洩漏 provider 秘密 | 計數替身及 DB 前後回查 |
+| Session 保存 | 損壞既有 Session、超出 Cookie 可保存長度 | 503，不開始授權，不忽略 Save 失敗 | 公開 Session API 與真實 HandleAuth |
+
+新增測試置於 internal/auth/oauth_input_test.go 與 internal/server/oauth_input_integration_test.go。測試與實作由不同代理負責，主代理先重現再驗收。既有 redirect 測試保持原斷言，不用測試專用 production 開關。後續須完成 state 短效與伺服器端原子消耗、OAuth Cookie HttpOnly/期限/機密性、PKCE、提供者關閉即時檢查，以及穩定 provider+subject 與安全帳號連結；不能以此段通過宣稱 OAuth 完成。
+
+依據：[RFC 9700 的不同回呼網址與 state 防護](https://www.rfc-editor.org/rfc/rfc9700.html#section-2.1)、[GitHub 的 state 與 PKCE 契約](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)。
+
+
+## OAuth 短效一次性回呼
+
+主代理已重現原始缺口，並驗證修正後的跨程序一次性、DB 失敗／回滾、並行、Cookie 旗標、跨提供者續期與整秒期限。全套 PostgreSQL 競態測試、go vet 與原生／Windows amd64／Linux 386 編譯通過，對抗性複審沒有其他已確認缺陷；PR #12 四項 CI 通過後已合併，分支已清理。第三方授權使用公開 Goth 替身，真實 Google／GitHub 授權尚未驗證。
+
+流程：入口產生新的 state 並保存短效 Goth Cookie → 回呼驗證提供者、簽章與唯一相同 state → 驗證唯一非空白 code 或明確拒絕授權回應 → 資料庫原子標記 state 已使用 → 清除短效 Cookie → 交換 code、取得使用者 → 沿用既有帳號及登入簽發。有效 code 回呼與授權拒絕回呼都只可處理一次，失敗後從入口重新開始。
+
+沿用既有 revoked_logins 的雜湊與到期索引，不新增資料表、依賴、環境設定或背景程序。OAuth state 的雜湊輸入使用獨立的類型前綴與提供者，例如 oauth-state、提供者與 state 以零位元組分隔，不與既有 login_id 的雜湊混用。已使用狀態至少保留 601 秒，涵蓋 Cookie 簽章以整秒處理的最後一秒，透過主鍵唯一性與 INSERT ON CONFLICT DO NOTHING 的 RowsAffected 原子判斷第一個使用者。重複或並行回呼只有一個可進入提供者操作，後續一律一般 400，不發登入 Cookie、不查詢或修改 users。標記與過期清理在同一個短交易，沿用 expires_at 索引，不能以先查再寫或單程序記憶體旗標替代。已撤銷的登入紀錄及其七天期限保持不變。資料庫不可用或寫入／清理失敗回一般 503，不聯絡提供者，不簽發登入；交易失敗可重試，若結果無法確定則須重新開始授權。
+
+Goth 使用獨立 CookieStore，簽章金鑰沿用既有 Session 秘密，MaxAge 與簽章端有效期均為 600 秒。應用程式 Session 維持七天。兩者的初始及重簽 Cookie 都設定 HttpOnly、SameSite=Lax、Path=/，Secure 依既有 APP_ENV=production。過期或損壞的 Goth Cookie 在提供者與資料庫操作前回 400。簽章依整秒判斷，第 601 秒起的回呼必須拒絕；已使用狀態的保留時間不得早於 Cookie 實際停止驗證的時間。不延長或重新簽署原始 state 的有效期。每次新入口以空的 Goth 授權資料開始，只保留本次提供者的 Session，取代先前待授權流程；原有應用登入 Session 保留。必須涵蓋 Google→GitHub 與 GitHub→Google 在第 590 秒切換、第 601 秒回呼舊提供者皆 400 的公開路由測試。舊的已授權 Goth Cookie 不能略過 code 交換。
+
+回呼使用已驗證的 Goth Provider/Session 公開 Authorize 與 FetchUser，交換成功後不再把含 AccessToken、RefreshToken、IDToken 的 Session 保存至瀏覽器。state 成功標記已使用後，先清除短效 Goth Cookie，再處理提供者的成功、失敗或拒絕結果。清除失敗在聯絡提供者及簽發任何新登入前回 503。輸入、簽章或 state 驗證失敗不消耗狀態，也不清除有效的待授權 Cookie。仍須比對 user.Provider，保留 JSON 回應三欄、站內返回網址、角色及成對登入期限。沒有 code、空白或重複 code、同時有 code/error 等矛盾輸入在標記 state 前回 400。有效 state 的 access_denied 等提供者拒絕回應會消耗 state 並回一般 400，不呼叫提供者。
+
+OAuth 入口另使用與本機登入獨立的既有來源限流器，每個連線來源固定 60 秒最多 30 次，Google/GitHub 共用此入口額度，避免匿名製造無上限的已消耗狀態。來源解析、容量、Retry-After 與到期規則沿用已驗收的 ProtectLoginAttempts，不改本機登入額度。回呼先通過簽章/state，無效請求不得寫入消耗紀錄。
+
+| 情境 | 預期結果與驗證 |
+|---|---|
+| 正常授權 | 真實入口 Cookie → 回呼 → Authorize 一次、FetchUser 成功 → JSON token 的 me 200；外部提供者全用公開 Goth 替身 |
+| 原始回呼重送 | 保留首次入口 Cookie 與同一 code，第二次 400，提供者計數與 users 不增加 |
+| 已授權 Cookie 重放 | 測試替身真實序列化 token 且 code 自己只能使用一次，留存回呼中間的已授權 Cookie，不帶 code 重送也不可再次登入；修正後不能再產生含 token 的 Cookie |
+| 並行回呼 | 同一組 Cookie/state/code 同時多次送出，只有一次 Authorize，可登入一次，其餘 400且無登入 Cookie |
+| 到期與旗標 | 無 DB 的 synctest 推進 601 秒，回呼 400、不碰提供者；直接檢查 OAuth 600秒與應用 Session七天、HttpOnly/Lax/Secure 及絕對期限不延長 |
+| 整秒到期窗口 | 同秒簽發後 200ms 首次成功，在 600.3秒重送仍400且提供者／users不變；601秒未消耗Cookie也400 |
+| 提供者失敗或拒絕 | 一次性狀態保留，重試同一回呼400；錯誤不含code/state/token；正常拒絕不呼叫提供者 |
+| DB 故障 | 以獨立 PostgreSQL fixture 的查詢／寫入失敗驗證503、無提供者呼叫、無登入簽發；恢復後可依交易結果重試 |
+| 跨程序及型別隔離 | 保留同一 Cookie，在新子程序重放仍400；OAuth雜湊不得誤用已撤銷login_id或改寫其期限；過期紀錄清理不移除尚未到期登入撤銷 |
+| 既有流程 | provider/state輸入、返回網址、絕對期限與本機登入的既有斷言保留；有失效的測試前提先回報，不由實作者改測試 |
+
+測試先新增 internal/auth/oauth_transaction_test.go 與 internal/server/oauth_transaction_integration_test.go，透過公開 Init、RegisterRoutes、Goth Provider/Session 與既有獨立 PostgreSQL fixture 驗證。使用者／Cookie／code／token 都是假資料，不碰驗收站既有帳號或外部授權。實作與測試分開派工，主代理完整審查、先重現再驗收。PKCE、穩定身分與安全帳號連結、提供者啟用即時檢查仍需後續驗收。
+
+## OAuth 後續營運檢查
+
+- 請求日誌保護已透過 PR #14 交付，細節與驗收見下一節。
+- 上游請求期限與取消已透過 PR #15 交付，細節與驗收見最後一節。
+
+
+## 請求日誌的秘密保護
+
+流程：HTTP 進入主程式設定的 Echo logger → 原始請求交給既有處理器 → 回應完成後記錄方法、路徑與結果。所有路由的日誌都移除查詢字串，包括 OAuth 回呼 code/state、登入返回網址與一般搜尋；不能因未匹配路由或錯誤回應而恢復完整 RequestURI。處理器使用的 RequestURI、URL.RawQuery、標頭與本文保持原樣。
+
+骨架置於 cmd/server/request_logging.go，使用無參數的 requestLogger() echo.MiddlewareFunc，由 main.go 的既有 e.Use 呼叫。先把原本 middleware.Logger() 原樣擷取至該函式，建立可編譯且行為相同的基線，再由測試代理以真實 Echo HTTP 請求與日誌輸出重現外洩，最後由實作代理填入保護。此段是現有啟動設定的局部拆出，不新增服務、路由、依賴、環境選項、全域狀態或資料模型。
+
+採用既有 LoggerConfig 的值複本，只將 Format 的 URI 插值改成路徑插值，沿用 Echo 對 JSON 字串的逸出。保留既有 uri 欄位名稱、方法、狀態碼、時間與耗時等格式，uri 值只含路徑，不帶查詢。不得修改套件的 DefaultLoggerConfig 或先改請求內容再交給 logger。認證 Cookie、Authorization、Referer、本文與回應 token 不得新增到日誌。此段不變更提供者 state、返回網址、錯誤訊息或 HTTP 回應。
+
+| 操作與邊界 | 預期結果與驗證 |
+|---|---|
+| OAuth 回呼 | 帶假的 code/state，成功或拒絕回應後的 JSON 日誌只有路徑，查詢秘密不出現；處理器仍取得相同原值 |
+| 一般路由及 404 | 搜尋、重複查詢、錯誤百分比編碼的 RawQuery 都不寫入日誌；路徑與正確回應狀態仍可讀 |
+| HTTP 錯誤或導向 | 一次請求只有一筆完整 JSON 日誌，保留處理器的狀態、本文與 Location，不重複處理錯誤 |
+| 編碼與控制字元 | 路徑含引號、換行與非 ASCII 字元時仍是有效的一筆 JSON，不可偽造第二筆日誌 |
+| 其他秘密位置 | Cookie、Authorization、Referer、本文與回應中的獨立假秘密未寫入日誌；原處理器仍可讀必要輸入 |
+| 初始化與隔離 | 多個 Echo 實例使用同一函式不改 DefaultLoggerConfig，測試輸出不影響其他測試或實際服務 |
+
+測試新增於 cmd/server/request_logging_test.go，以 httptest、真實 Echo 路由及錯誤處理、捕捉 logger 的既有輸出接縫驗證，不啟動固定連接埠、驗收站、資料庫或外部 OAuth。測試與實作分開指派，主代理先驗證基線外洩，再驗證查詢已移除且正常輸入／回應未被改寫。其他日誌來源若實際記錄授權秘密須一併處理，不以這個 helper 通過取代入口註冊檢查。
+
+本段已由主代理重跑：12 個查詢外洩情境在修正前失敗，修正後全部通過；秘密標頭與本文、JSON 逸出、錯誤處理次數及多個 Echo 實例的正向控制通過。完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷。PR #14 四項 CI 通過後已合併，分支已清理。沒有啟動真實提供者授權或變更既有驗收站。
+
+
+## OAuth 提供者請求的期限與取消
+
+流程：有效回呼完成原有 state 驗證與一次性消耗 → 同一次提供者操作共用 30 秒期限 → 交換 code、讀取個人資料及必要信箱 → 成功才沿用既有帳號與登入流程。30 秒從第一次提供者操作開始計算，不因第二次 HTTP 請求重新計時。原回呼請求較早取消或到期時立即中止，包括尚未收到標頭及收到標頭後持續等待本文的情況。
+
+根因為 Goth 的 ContextForClient 使用背景 context，Google／GitHub 的預設 Client 沒有 Timeout。兩個 Session.Authorize 會斷言實際提供者型別，因此不能用一般 Provider 包裝器取代具體指標。實作沿用兩個具體提供者與現有 HTTPClient 接縫，每個回呼持有獨立的提供者及 Client 值複本，共用底層連線池而不修改註冊中的提供者、DefaultClient 或 Transport。取消訊號需持續到回應本文關閉，不能在 RoundTrip 傳回標頭時提前移除。
+
+填實作位置為 HandleCallback 既有 Authorize／FetchUser 區段，提供者操作集中於 internal/auth/oauth_http.go 的 fetchOAuthUser(ctx context.Context, provider goth.Provider, session goth.Session, params goth.Params) (goth.User, error)。函式只處理提供者操作及其期限，錯誤交回既有回呼處理器，以原本的通用 502 回應拒絕登入。不得以背景 goroutine 執行後提早放棄等待，也不新增依賴、資料模型、全域設定、外部端點或新的登入流程。
+
+| 操作與邊界 | 預期結果與驗證 |
+|---|---|
+| 真實 Goth 正常登入 | Google 與 GitHub 的真實 Provider/Session 經本機假上游完成交換及讀取，JSON 登入憑證能回查 /api/auth/me，站內導向保持原有結果 |
+| 等待標頭時取消 | 交換 code 或讀取個人資料停住，取消原回呼後上游觀察到連線取消，處理器結束，不新增帳號或登入憑證 |
+| 等待本文時取消 | 上游先送出 200 標頭再停止傳送本文，取消後讀取結束、本文關閉，不繼續建立登入 |
+| 固定總期限 | 交換及讀取合計最多 30 秒，第一段已耗時時第二段只剩剩餘時間，不重設期限 |
+| 較短的期限 | 原回呼 context 與既有 Client.Timeout 較短時保留先到的限制，不延長已有等待上限 |
+| 並行隔離 | 同一提供者兩個回呼，一個取消不影響另一個正常完成，不修改共用 provider/client/transport |
+| 失敗與重試 | 逾時或取消沿用通用 502，不回傳上游錯誤中的秘密，不送出應用登入 Cookie/JWT；已消耗 state 不可重放，新的授權可重新開始 |
+| 既有拒絕流程 | 不合法 state、未啟用提供者、DB 故障與授權拒絕仍在原有階段停止，不提早發出上游請求 |
+
+測試分為 internal/server/oauth_http_integration_test.go 的本機上游與取消流程，以及 internal/server/oauth_http_budget_integration_test.go 的總期限、較短期限與並行隔離。兩檔分別指派測試代理，沿用現有獨立 PostgreSQL fixture 與公開路由，代理各自只能修改自己的檔案。使用真實 Goth 提供者的 HTTPClient.Transport 接縫將流量限於本機假上游，不變更依賴的全域 URL。至少用本機 HTTP 伺服器驗證取消在標頭與本文兩個階段的實際行為，共用總期限可用 synctest 搭配可取消的假傳輸，避免每次等待真實 30 秒。測試先在舊實作重現，再交另一代理修正，實作者不得修改測試。外部 Google／GitHub 授權不在此次本機驗收中。
+
+本段已由主代理驗證：同一份測試套用原版呼叫路徑時，14 個負向案例失敗；修正版的正常登入、共用期限、較短期限及並行取消通過。完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷。PR #15 四項 CI 通過後已合併，分支已清理。本機上游會先讀完 token POST 本文，再驗證連線取消，符合 Go HTTP server 的偵測條件；所有原有斷言保留。沒有啟動真實外部授權或變更既有驗收站。
+
+
+## OAuth 固定身分與明確連結
+
+使用者可用同一個第三方帳號持續登入，即使提供者更改信箱或名稱，也不會換成其他 Jelly CMS 帳號。既有帳號只能經已驗證身分的明確連結流程加入新的第三方登入方式，不能因信箱相同自動合併。此段包含新建、重新登入、連結、解除及舊帳號相容處理，全部完成才可交付，不以單獨擋下信箱衝突代替完整使用流程。
+
+已確認根因：HandleCallback 在取得 Goth 使用者後只按 email 查 users，沒有使用 UserID，且把所有查詢錯誤當成不存在。User 只有 Provider 欄位，未保存第三方固定 ID。修正範圍為這段帳號解析、相容新增的身分關聯與既有 MigrateDB，以及後續明確連結入口和自助畫面。原有 state、一次性消耗、請求期限、JSON 三欄及站內返回流程保留。
+
+先透過不需要新模型或測試開關的公開 HTTP 流程確認登入條件，新增 internal/server/oauth_identity_integration_test.go。使用現有獨立 PostgreSQL fixture 及公開 Goth 替身，實作代理不得修改測試。
+
+| 情境 | 預期結果與驗證 |
+|---|---|
+| 新的第三方帳號 | 未使用的提供者及固定 ID 建立 author，JSON token 可回查同一使用者，HTML 返回站內目的地 |
+| 同一固定 ID 再登入 | 信箱或名稱改變、信箱暫時缺少，仍登入原使用者，不新增 users，不改寫原帳號資料 |
+| 信箱與既有帳號相同 | 新固定 ID 對應本機、另一提供者或舊 OAuth 帳號時回一般 409，不簽發登入、不變更原帳號及角色 |
+| 不同提供者使用同一 ID | Google 與 GitHub 的相同 ID 是不同身分；不同信箱可各自建帳，相同信箱須拒絕誤連 |
+| 空白或缺少固定 ID | 回一般 400，不以信箱代替，不新增 users 或憑證；固定 ID 大小寫保持區別 |
+| 新帳號沒有信箱 | 回一般 400，不共用空字串身分，不新增 users；已建立關聯的重新登入不依賴信箱 |
+| 名稱同名、過長或空白 | 保留既有帳號名稱，新帳號取得非空白、最多 50 個字元且唯一的使用者名稱，不因顯示名稱碰撞變成 500 |
+| 帳號解析查詢故障 | 回一般 503，不嘗試當成新帳號建立，不回傳底層錯誤中的秘密，回查證明資料及憑證未增加 |
+
+資料庫研究需另驗證相同固定 ID、相同信箱及不同固定 ID 的並行競爭，以及身分寫入失敗時 users 一併回滾。身分關聯、唯一鍵、明確連結與舊帳號復原依後述契約驗收，不從舊信箱猜測第三方 ID。
+
+依據：[Google 的固定識別值與信箱限制](https://developers.google.com/identity/openid-connect/openid-connect)、[GitHub 的固定使用者 ID](https://docs.github.com/en/rest/users/users?apiVersion=2022-11-28)。
+
+主代理已全文審查並親跑登入測試，原版重現相同信箱誤連既有管理員、同 ID 改信箱建立另一帳號、空白 ID／信箱、名稱碰撞及查詢故障仍建帳等失敗；正常新帳號及跨提供者同 ID 不同信箱的對照通過。主代理也親跑獨立 PostgreSQL 探針，三種 12 並行競爭各三次均維持一筆正確關聯、沒有多餘帳號；唯一違反須退出交易後回查，身分寫入失敗會一併回滾 users。修正版的正式遷移、固定身分、本人連結／解除及舊帳號復原已通過下述驗收，真實外部提供者授權另列未驗證。
+
+### 固定身分的資料格子
+
+入口 `data.MigrateDB(db *gorm.DB) error` 保持不變。新增私有 `migrateOAuthIdentities(db *gorm.DB) error`，在既有模型遷移成功後執行。資料與索引依 ENG.md 的關係模型。`core.OAuthIdentity` 放在 `internal/core/oauth_identity.go`，欄位為 ID、UserID、Provider、Subject、CreatedAt、UpdatedAt、DeletedAt，JSON 不暴露 Subject；SQL 是新表結構的依據，不另外對新表執行可能漂移的 AutoMigrate。
+
+`oauth_identity_audit_log` 使用 id、identity_id、user_id、provider、action、old_state、new_state、actor_id、actor_email、created_at。old_state／new_state 是只含 id、user_id、provider、deleted_at 的 JSONB 快照。identity_id／user_id 是當時的識別值，不作會改動歷史的外鍵。actor_id 可空，外鍵 ON DELETE SET NULL，並有索引；actor_email 是不可隨父帳號變動的快照。交易透過 `set_config('jelly.actor_id', ..., true)` 傳入已認證操作者，沒有此設定時記空操作者。稽核 trigger 由此讀取 email。兩個資料表均不存第三方 token。
+
+獨立測試檔為 `internal/data/oauth_identity_migration_test.go`，只使用公開 MigrateDB 及 SQL，不依賴尚未新增的 Go 型別而編譯失敗。測試自建專用 DB，既有資料庫不得清空或重設。
+
+| 情境 | 預期結果與驗證 |
+|---|---|
+| 原版與新增遷移 | 原版因新表不存在失敗；修正後兩張新表、標準欄位、索引、trigger 均可實際使用 |
+| 既有資料與重跑 | 遷移前建立既有 User 與文章，套用兩次後原值與所有權相同，不自動新增關聯 |
+| 固定 ID 唯一性 | 同 provider／subject 的第二筆有效關聯失敗；另一 provider 同 subject 可獨立建立；Subject-X 與 subject-x 分開 |
+| 本人與提供者唯一性 | 同一使用者同提供者不能同時連兩個 subject；不同使用者不同 subject 可建立 |
+| 軟刪再連結 | 設 deleted_at 後正常查詢排除舊列，可建立新有效關聯，舊列及歷史仍保留 |
+| 無效資料與外鍵 | 空／全空白 subject、不支援 provider、不存在的 user_id 都不能寫入；仍有關聯的 User 不能硬刪 |
+| 時間與稽核 | SQL INSERT 不提供時間也得到非空標準時間；直接 UPDATE 推進 updated_at；新增及軟刪都有前後狀態，沒有 subject／code／token；actor email 改名後歷史快照保持原值 |
+| 稽核保留與失敗原子性 | 寫入預設日期超過 90 天的稽核後，下次關聯變更只清過期列；交易回滾不留關聯或稽核列 |
+
+此格子只提供已審查的模型與可重現遷移，尚未完成連結、解除或復原，不可單獨推送為整項身分功能完成。
+
+遷移必須保留傳入 DB 的 context，等待資料表鎖時取消須能在解鎖前退出。稽核的 DELETE 保存刪除前四欄快照，new_state 為 NULL。主代理已先重現這兩個缺口，再親跑修正版的完整 data 套件競態測試通過。舊資料快照以明確 text、epoch 及 JSONB 表示比較，避免既有 AutoMigrate 調整欄位型別時受 pgx 結果快取影響，全部原值檢查保留。
+
+### 本人管理登入方式
+
+使用流程：本人登入 → `/account` 顯示本機、Google、GitHub 的可用／已連結狀態 → 按連結 → 同站 POST 取得 auth_url → 第三方授權 → 原回呼重新驗證本人與登入 → 交易寫入 → 返回 `/account`。解除使用同站 DELETE，成功後重新讀取狀態。此頁提供所有已登入角色，不限定管理員。
+
+| 入口／格子 | 輸入、輸出與責任 |
+|---|---|
+| `GET /api/auth`、`GET /api/auth/openapi.json` | 索引回 `{openapi_url:"/api/auth/openapi.json",operations:[{method,path,summary}]}`，method 使用大寫、參數路徑使用 `{provider}`；OpenAPI JSON 依標準以小寫 method 定義 paths 及輸入／回應／錯誤 schema。包含現有登入／登出／OAuth／me 與本次新增操作，只列介面文件，不揭露實際帳號、提供者設定或金鑰 |
+| `GET /api/auth/identities` | RequireAuth，200 `{local_login:bool,providers:[{provider,enabled,linked}]}`；固定 google、github 兩項，不回傳第三方 subject、其他帳號、token 或設定秘密 |
+| `POST /api/auth/identities/:provider/start` | RequireAuth 及既有 Cookie 寫入保護；只接受無 Authorization 標頭、有效 Cookie 登入的互動流程，200 `{auth_url:string}`；不新增關聯或登入憑證 |
+| `DELETE /api/auth/identities/:provider` | RequireAuth 及 Cookie 寫入保護，200 `{message:string}`；未連結亦成功，其他帳號資料不變；最後一種可用登入方式回 409 |
+| `GET /account` | RequireAuth，沿用既有模板／翻譯；未登入導回登入頁並保留站內返回位置 |
+| 私有 `resolveOAuthUser(ctx context.Context, profile goth.User) (*core.User,error)` | 一般回呼的固定身分解析，在 `internal/auth/oauth_identity.go`；無效資料對應 400、信箱／關聯衝突 409、DB 故障 503 |
+| `HandleIdentityList/HandleIdentityLinkStart/HandleIdentityUnlink(c echo.Context) error` | `internal/auth/oauth_accounts.go`；路由註冊在既有 auth/routes.go；回呼分流在既有 HandleCallback，原正常登入回應保持相容 |
+| 私有登入解析 | `internal/auth/principal.go` 共用同一次憑證選擇與驗證，產出 User、login ID、絕對到期時間及 Bearer／JWT Cookie／Session 來源；GetCurrentUser／GetUserFromJWT 保留原公開簽名及憑證優先序 |
+
+連結入口的簽章 Goth Cookie 保存 purpose=link、provider、state、本人 user ID、選中的 login ID 與憑證來源。僅從簽章資料決定連結意圖，不採用 query 的 purpose、link、user_id。正常入口會清除舊意圖。回呼進入第三方之前先驗證登入，取得身分後在 User 列鎖的交易內再次驗證同一來源、同一 login ID、同一使用者、未到期及未撤銷，再寫入關聯。交易內查詢使用同一交易 handle，不能再佔另一個全域連線。
+
+provider 的 enabled 表示該程序實際已載入、能走正常 OAuth 入口的提供者，與正常入口使用同一判斷。local_login 只有 Provider=local 且 Password 非空才成立，維持目前密碼登入規則。有效關聯若提供者已停用，不算可用的登入方式。身分已屬於別人、本人同提供者已有另一身分均回一般 409，不能搬移或覆寫。連結完成只新增關聯，原 User、角色、密碼、JWT／Session、到期時間保持不變。JSON 回應不含 token，HTML 固定回 `/account`。
+
+| 邊界與失敗 | 預期結果與驗收 |
+|---|---|
+| 未登入或過期／撤銷 | 清單、開始、解除拒絕；回呼在上游前拒絕已失效登入，上游等待期間失效則寫入前拒絕；無關聯或憑證增加 |
+| 兩組 Cookie／Bearer 混用 | 入口不接受 Authorization；有效 JWT Cookie 優先於 Session，回呼切成另一組登入或另一來源都拒絕，不能只比 user_id |
+| 偽造查詢與重放 | query 不能開啟連結或替換目標；state 一次性規則保留，第二次／並行回呼最多一次寫入 |
+| 第三方與 DB 故障 | 第三方錯誤沿用一般 502，關聯查詢／異動的 DB 錯誤回一般 503；原認證讀取故障沿用既有拒絕登入，沒有底層秘密或半套關聯 |
+| 空白固定 ID／未知提供者 | 400；受支援但未載入提供者不能開始授權，也不能作為解除後剩餘登入方式 |
+| 同一關聯重試 | 本人同 subject 可得到成功，不能新增重複有效列；已屬別人或不同 subject 為 409 |
+| 解除與並行解除 | 軟刪並保留歷史；鎖住 User 後檢查其餘可用方式，兩個請求不能把最後兩種方式都移除 |
+| 復原後重新登入 | 新關聯可用正常 OAuth 登入原 User；不改信箱、username、角色或文章所有權 |
+| 畫面與互動 | 繁中／英文、360px／1280px、鍵盤操作、載入、未啟用、已連結、錯誤、離線、雙擊與成功回查；失敗不假裝已完成 |
+
+HTTP 測試新增 `internal/server/oauth_link_integration_test.go`，使用既有公開路由與 Goth 替身，不直接呼叫私有格子。UI 以同一 HTTP 入口的本機假提供者實際操作，真實 Google／GitHub 授權另列未驗證。
+
+### 舊 OAuth 帳號復原
+
+有有效登入的舊使用者可在 `/account` 自行連結。完全沒有可用登入的舊 OAuth 帳號，由持有該站設定、資料庫與既有登入金鑰的網站擁有者核實本人後，在該站主機產生一次性復原碼，經原有可信聯絡管道交給本人。系統不寄信、不猜測舊 subject，也不讓公開請求指定要復原的 User。
+
+擁有者工具為 `cmd/recover-oauth`，提供 `list` 與 `issue --user-id <id> --provider google|github`，預設及 `--help` 列全部操作、必要參數、輸出、錯誤與完整使用範例。從明確指定的 `--site-dir` 讀取既有設定。金鑰來源與伺服器相同，優先使用非空的 JWT_SECRET，否則唯讀載入既有金鑰檔，並在 help 明列覆寫規則。不自動安裝、遷移、啟動伺服器或建立新金鑰，也不呼叫會初始化 Session／提供者的 auth.Init。list 只列 Provider 為 google/github、沒有有效關聯且沒有可用本機登入的舊帳號。issue 只允許這類帳號且 provider 與舊來源相符，輸出目標帳號及十分鐘的期限，復原碼只輸出一次。
+
+私有實作在 `internal/auth/oauth_recovery.go`，公開 `InitOAuthRecovery() error` 僅載入上述有效 JWT 金鑰，以及 `IssueOAuthRecoveryGrant(ctx context.Context, userID uint, provider string) (string,time.Time,error)` 供工具使用。復原碼以既有 JWT 金鑰派生的獨立用途金鑰簽章，包含 purpose、目標 ID 字串、provider、亂數 jti、必要十分鐘 exp，不包含應用登入的 user_id／角色 claims，也不能被 ValidateJWT 接受成登入 token。
+
+復原授權格式固定為 HS256 JWT，簽章金鑰為 `HMAC-SHA256(effectiveJWTSecret, "jelly-oauth-recovery-v1")`。必要欄位為 purpose=`oauth-recovery`、sub=正整數帳號 ID 的十進位字串、provider、既有亂數登入 ID 格式的 jti、iat、exp、iss=`jelly-cms`、aud=`jelly-oauth-recovery`。有效期最多十分鐘。HTTP 測試可用專用金鑰及這份授權格式建立測試資料，不依賴尚未實作的私有簽發函式。
+
+POST `/auth/recover` 接受本文的 grant。Accept 為 application/json 時回 200 `{auth_url:string}`，一般表單成功以 303 導向提供者，不能用保留 POST 本文的 307／308。復原頁與帳號頁禁止快取，輸入碼不寫入網址或 localStorage。無效／偽造／缺少授權回一般 400，已消耗回 409，DB 故障回一般 503，跨來源寫入回 403。正常登入 JWT 不能當復原碼使用。
+
+本人在公開 `/account/recover` 貼上復原碼，再以 POST `/auth/recover` 開始受限制的 OAuth 授權。入口沿用登入寫入保護與登入次數限制，token 只接受表單或 JSON 本文，不接受網址 query。正常回呼從簽章 Cookie 的 purpose=recover 讀取授權，驗證 provider、固定 ID、碼的期限與目標仍符合復原條件。取得上游身分及等到 User 列鎖後，在交易內再次驗證原復原碼 exp，不能用新 Cookie 期限延長。交易原子寫入關聯並用既有 revoked_logins 的用途雜湊記錄消耗，兩者同成同敗。雜湊輸入以 oauth-recovery 與原亂數 jti 隔離，消耗列至少保留到原 exp 加一秒，不能和登入 ID／OAuth state 混用。成功後才沿用一般登入簽發憑證，原角色與文章所有權不變。復原碼不能登入另一 User、選別的 provider、改寫已有關聯、被重放或被當作一般登入憑證。
+
+復原在完成第三方驗證前沒有已登入操作者，DB 稽核 actor 留空，不把目標 User 當成已認證操作者。HTTP 結果紀錄區分 recovery、目標 ID 與結果，不記復原碼。本人已登入的連結及解除才寫實際操作者快照。
+
+復原消耗鍵的固定格式為 `SHA256("oauth-recovery\x00" + jti)` 的 64 字元十六進位字串，和既有兩類用途隔離。
+
+新增 `internal/server/oauth_recovery_integration_test.go` 覆蓋完整復原、偽造／錯誤用途／過期／換提供者／重放／並行／DB rollback，以及全新一般 OAuth 不能憑信箱取代復原碼。工具另以專用站目錄與專用 DB 驗證 help、list、issue、錯誤參數、既有金鑰不變和沒有自動遷移。實際對外核實與交付復原碼由網站擁有者負責，本機驗收不發送任何訊息。
+
+減法審查：這次省去自動信箱合併、另外建立密碼重設／寄信平台與管理員代填 subject。復原沿用現有金鑰及一次性儲存，仍要求本人完成第三方授權。身分、連結、解除、復原與兩個頁面全部驗收後才交付。
+
+
+### 復原工具的執行格子
+
+`cmd/recover-oauth/main.go` 的入口為 `run(args []string, stdout, stderr io.Writer) int`，main 只傳入參數與標準輸出。先建立可執行的參數／help 骨架，合法操作在功能未填入時明確失敗，不查 DB、不產生碼；獨立測試確認功能缺口後才填實作。測試以真實子程序及專用站目錄驗證，不依賴私有測試開關。
+
+| 命令與輸出 | 邊界與驗收 |
+|---|---|
+| 無參數、`--help`、`list --help`、`issue --help` | 退出 0；說明 list／issue、必要 site-dir、參數、預設、金鑰覆寫規則、輸出及可執行範例；不需要設定／DB，也不建立檔案 |
+| `list --site-dir <dir> [--limit 50] [--after-id 0]` | 退出 0 且 stdout 為單一 JSON `{users:[{id,username,email,provider}],next_after_id:數字或null}`；按正整數 id 遞增，limit 為 1 至 500，最多多取一筆判斷下一頁，沒有大量無上限讀取 |
+| `issue --site-dir <dir> --user-id <id> --provider google\|github` | 退出 0 且 stdout 單一 JSON `{user_id,username,email,provider,expires_at,grant}`；expires_at 使用 RFC3339，grant 只出現一次；不改 User／關聯／既有金鑰，也不將碼寫到檔案或 stderr |
+| 參數不合法 | 退出 2，stderr 提示用法，stdout 不含碼；site-dir 不可空白，id 必須為可安全轉成目前平台 uint 的正整數，不接受負值、零、溢位、未知 provider／旗標或多餘位置參數 |
+| 設定、連線、既有金鑰或資料不符 | 退出 1；一般錯誤不印設定內容、DB 密碼或金鑰；缺資料表時失敗，不自動安裝、遷移或建立金鑰 |
+
+list 以單一有界查詢排除任何有效身分關聯。issue 在簽發前重新確認同一 eligibility，provider 必須等於舊 User.Provider；簽發只授予短效復原資格，HTTP callback 仍需再次驗證資格與本人第三方授權。並行簽出多個碼不放寬 callback 的單一有效關聯限制。工具在獨立程序切入明確 site-dir，使用現有 config.Load、data.Open，連線由工具負責關閉；不啟動網路服務。
+
+
+### 連結入口與操作紀錄的補充驗收
+
+本人連結入口沿用一般 OAuth 入口的限流，每個來源 60 秒最多 30 次，不能另開不受限制的授權路徑。瀏覽器帶著失效或損壞的舊 Goth Cookie 時，新連結入口建立全新的待授權 Cookie，不讓舊內容永久阻擋重試。連結在資料庫查詢等待中越過原登入期限時，寫入關聯前再次拒絕，不能只檢查進入交易時的時間。
+
+此功能的 HTTP 操作紀錄透過既有 Echo Logger 寫出，不建立另一個日誌資料表。紀錄包含 event=oauth_identity、action=link_start／link／unlink、result=success／failure、status、實際已認證的 actor_id（沒有則 null）、provider 及非空 request_id。開始與解除的紀錄須在 RequireAuth 外層涵蓋 401／403；回呼只對已驗證的 link 意圖紀錄，不能從 query 猜目的或操作者。只允許已認證的 context／principal 提供 actor，拒絕登入時不把未驗證 token 的 ID 當成已登入者。不得紀錄 subject、code、state、Cookie、JWT、login ID 或復原碼。日誌失敗不回滾已完成操作。
+
+### 帳號頁的語言保留
+
+帳號頁與復原頁的導覽沿用目前已確認的 en／zh-TW 語言。兩頁明確切換語言時，沿用既有 lang Cookie 保存選擇；帳號頁、復原頁與登入頁的新增復原入口讀取同一偏好，query 的合法語言可覆寫舊 Cookie。OAuth 回呼固定返回 /account 後仍保持使用者選擇，不把語言或復原碼放進登入憑證。其他公開內容沿用站台預設語言。
+
+驗收以實際 HTML href 跟隨及回應 Cookie 後續請求為準。兩個新頁面的 html lang、標題與本文一致；既有登入頁的整頁翻譯另由介面整合處理，本次驗證其新增復原入口文字。360px／1280px、深／淺色、離線與重試仍須實際瀏覽器驗收。
+
+### 後台提供者設定的獨立載入
+
+ReloadOAuthProviders 與公開 /api/oauth/status 查詢不得重用帶有非零主鍵的 Option 目的物件，避免 GORM 自動累加前一筆 key，導致第二筆設定永遠查不到。載入可用單一有界的已知 key 查詢建立本次值表；兩個提供者的 enabled、client ID、secret 互相獨立，無關選項不參與。
+
+原有政策保留：公開 status 只回兩個儲存的 enabled 布林值；實際授權與已登入身分清單以 Goth 真正載入的提供者為準。未啟用或缺少任一憑證不註冊該提供者，也不讓另一個完整提供者失效。驗收使用真實 ReloadOAuthProviders、BeginAuth 產生的網址、公開 HTTP 入口與專用資料庫，不以替身遮蔽設定讀取。
+
+
+### 身分資料的 SQL 日誌保護
+
+固定身分解析、本人連結與舊帳號復原不得透過 GORM SQL trace 或 PostgreSQL 錯誤本文印出第三方 subject。此要求包含正常查無資料、慢查詢及寫入失敗，不只限制 Echo 的結果紀錄。保護限於本功能的資料庫 handle／交易，保留既有全站 logger 設定與安全的 HTTP 結果紀錄。
+
+獨立公開路由測試恢復正式使用的 Warn、展開參數及記錄查無資料設定，驗證正常新登入、連結與復原，以及 PostgreSQL 錯誤內含 subject 時均不洩漏。修正不得只關閉測試 logger，也不能只隱藏 SQL 參數而保留含敏感值的錯誤本文。測試前後的 HTTP 狀態、成功回查與失敗交易回滾保持一致。
+
+
+### 管理員讀取 OAuth 設定不得改寫資料
+
+管理員的 GET /api/admin/oauth/providers 也是同一類 Option 主鍵累加問題的第三處，必須以 request context 及單次有界的六個已知 key 查詢修正。成功保持既有 google／github 的 enabled、config 物件形狀，兩組值互相獨立；config 提供該提供者已儲存的 client ID／secret，即使停用也保留供本人再次啟用。只限既有管理員權限，不改匿名、author／editor 的拒絕規則。查詢失敗回一般 JSON 503，不回傳假的空設定。
+
+設定頁的載入只讀取及顯示儲存值。不得因為某個欄位缺少或讀取失敗，就自動呼叫 POST 停用或清除憑證。移除 loadOAuthSettings 的兩個自動停用分支與因此不再使用的兩個 save helper，既有明確按下儲存的流程保持不變。
+
+獨立 HTTP 測試驗證完整／部分／停用設定、無關選項不影響、讀取前後所有 Option 值不變，以及 DB 查詢失敗的 503 與角色拒絕。瀏覽器先回查兩個 enabled=true，再開啟設定頁及 OAuth 分頁，確認沒有自動 POST、兩個提供者狀態與已儲存值一致；本人明確停用一個提供者後，帳號頁顯示停用且連結按鈕不可用。
+
+啟停表單須把 enabled 與 client ID／secret 一起保存為原始值。單純切換啟停也算變更，切回原狀則停用儲存。啟用時要求兩個憑證完整，停用時允許保留原值提交。只有 POST 成功才更新原始值，失敗保留輸入與未儲存狀態。Google 與 GitHub 各自驗證停用、重載、僅切換重新啟用及零自動寫入，不改其他設定表單。
+
+### 本批驗收結果
+
+主代理完整審查本批來源與測試，重跑全套 PostgreSQL 競態測試、go vet、原生／Windows amd64 編譯與 Linux 386 認證測試編譯通過。最後設定頁修正另重跑相關競態測試及瀏覽器驗收通過。SQL 日誌保護、設定獨立讀取及啟停儲存的缺陷皆先重現再修正，對抗性複審沒有其他已確認缺陷。
+
+本機替身已完成 Google／GitHub 復原、連結、解除、最後登入方式保護及三角色本人帳號入口。繁中／英文、360px／1280px、深／淺色、鍵盤焦點、載入／空白／錯誤、離線、逾時與重試已實際驗證。設定頁完整／部分憑證載入均沒有自動 POST，兩個提供者可獨立停用及以保留憑證重新啟用，失敗保留未儲存狀態。兩個新頁面 Lighthouse 效能與無障礙為 100，最佳實務 96，既有 favicon 404 另列；未量測實際使用者 INP，未進行真實外部授權或部署。
+
+### CI 的時間精度比對修正
+
+首次 push 與 PR 的兩組 CI 都在復原成功後的 User 全欄位比對失敗，差異僅為建立／更新時間的奈秒與資料庫微秒精度。既有測試 helper 把 Create 後尚未回查的記憶體物件當成資料庫原值。修正先以含非零次微秒的固定時間重現，再於建立後回查持久化 User 作為操作前快照，保留原本全欄位 DeepEqual、角色、文章所有權、憑證、一次性消耗及正常重新登入斷言。不得放寬比較或修改產品邏輯。
+
+主代理已在本機以相同固定時間先重現失敗，再重跑修正版同一案例通過。完整 `JELLY_TEST_POSTGRES=1 go test -race ./... -count=1 -timeout=180s` 及 go vet 通過。修正只改 fixture 的建立時間與操作前 DB 回查，產品來源與既有測試本文、全欄位斷言均保持一致；首輪 CI 失敗紀錄保留，待新版本 CI 驗證。

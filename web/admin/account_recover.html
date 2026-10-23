@@ -1,0 +1,99 @@
+{{define "page-content"}}
+<main>
+    <h1>{{.T.recoverTitle}}</h1>
+    <p class="intro">{{.T.recoverDescription}}</p>
+    <section class="panel">
+        <form id="recoveryForm" method="post" action="/auth/recover">
+            <div class="field">
+                <label for="recoveryGrant">{{.T.recoveryGrant}}</label>
+                <input id="recoveryGrant" name="grant" type="password" required autocomplete="off" aria-describedby="recoveryError">
+            </div>
+            <div class="form-actions">
+                <button id="continueRecovery" class="button" type="submit">{{.T.continue}}</button>
+            </div>
+            <p id="recoveryError" class="notice notice-error" role="alert" aria-live="assertive" hidden>{{.T.recoveryError}}</p>
+        </form>
+    </section>
+</main>
+<div id="recoveryCopy" hidden aria-hidden="true">
+    <span data-copy="continue">{{.T.continue}}</span>
+    <span data-copy="recovering">{{.T.recovering}}</span>
+    <span data-copy="recoveryError">{{.T.recoveryError}}</span>
+    <span data-copy="offline">{{.T.offline}}</span>
+    <span data-copy="requestTimeout">{{.T.requestTimeout}}</span>
+</div>
+<script>
+(function () {
+    const form = document.getElementById('recoveryForm');
+    const grantInput = document.getElementById('recoveryGrant');
+    const submitButton = document.getElementById('continueRecovery');
+    const errorNode = document.getElementById('recoveryError');
+    const copy = {};
+    document.querySelectorAll('#recoveryCopy [data-copy]').forEach(function (node) { copy[node.dataset.copy] = node.textContent; });
+    let busy = false;
+
+    function validAuthURL(value) {
+        if (typeof value !== 'string' || value.length === 0 || value.trim() !== value) return null;
+        try {
+            const url = new URL(value);
+            if ((url.protocol !== 'https:' && url.protocol !== 'http:') || !url.hostname || url.username || url.password) return null;
+            return url.href;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        if (busy) return;
+        const restoreSubmitFocus = document.activeElement === submitButton || document.activeElement === grantInput;
+        busy = true;
+        submitButton.disabled = true;
+        submitButton.textContent = copy.recovering;
+        submitButton.setAttribute('aria-busy', 'true');
+        errorNode.hidden = true;
+
+        const controller = new AbortController();
+        let timedOut = false;
+        let redirecting = false;
+        const timer = window.setTimeout(function () { timedOut = true; controller.abort(); }, 20000);
+        try {
+            const response = await fetch('/auth/recover', {
+                method: 'POST',
+                mode: 'same-origin',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                signal: controller.signal,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Jelly-CSRF': '1'
+                },
+                body: JSON.stringify({ grant: grantInput.value })
+            });
+            let payload = null;
+            try { payload = await response.json(); } catch (_) { payload = null; }
+            const authURL = response.ok && payload && validAuthURL(payload.auth_url);
+            if (authURL) {
+                window.location.assign(authURL);
+                redirecting = true;
+                return;
+            }
+            errorNode.textContent = copy.recoveryError;
+            errorNode.hidden = false;
+        } catch (_) {
+            errorNode.textContent = timedOut ? copy.requestTimeout :
+                (typeof navigator !== 'undefined' && navigator.onLine === false ? copy.offline : copy.recoveryError);
+            errorNode.hidden = false;
+        } finally {
+            window.clearTimeout(timer);
+            busy = false;
+            submitButton.disabled = false;
+            submitButton.removeAttribute('aria-busy');
+            submitButton.textContent = copy.continue;
+            if (!redirecting && restoreSubmitFocus && document.activeElement === document.body) submitButton.focus();
+        }
+    });
+})();
+</script>
+{{end}}

@@ -15,7 +15,7 @@
 
 ## 📋 需求
 
-- Go 1.24.1 或更高版本
+- Go 1.27.3 或更高版本
 - PostgreSQL 資料庫
 - 可選：Docker 和 Docker Compose（用於容器化部署）
 
@@ -69,6 +69,40 @@ go build -o server ./cmd/server
 明確設定的環境變數各自優先，請使用獨立且足夠長的隨機值並在重啟後保持一致。兩個值都設定時不需要本機金鑰檔；只設定一個時，另一個仍由檔案保存，環境值不會寫入檔案。從舊版固定預設金鑰升級後，使用者需要重新登入。
 
 Windows 目前未提供金鑰目錄的斷電持久化保證；需要這項保證的部署請以環境變數提供並保存兩組金鑰。
+
+### 登入期限與登出
+
+每次登入的 JWT 與 Session 最長有效七天；重新儲存 Cookie 不會延長登入期限。登出會撤銷本次登入的兩種憑證，同一帳號在其他裝置的登入仍保留。撤銷紀錄保存在資料庫，重新啟動後仍有效，請與網站資料一併備份。
+
+資料庫無法完成撤銷時，登出回傳失敗且保留 Cookie 供重試；無法查詢撤銷狀態時會拒絕受保護的請求。升級前沒有登入 ID 或固定到期時間的舊憑證需要重新登入。回退至不支援撤銷檢查的舊版會失去此保護。
+
+### 登入嘗試限制
+
+本機帳密登入按連線來源計數，在第一次嘗試開始的 60 秒內最多可嘗試 30 次，成功與失敗皆計數。超量回應 JSON `429`，`Retry-After` 標頭與錯誤訊息提供等待秒數；等待到期後可重新登入，已登入的後台操作與公開閱讀不受影響。
+
+限制保存在單一程序記憶體，重新啟動會重設。反向代理後的登入共用該代理的額度；多程序部署與分散來源的嘗試須在入口代理額外限制。應用程式使用實際連線 IP，不採用客戶端自行提供的轉送標頭。
+
+### 登入返回網址
+
+登入頁與本機／OAuth 登入只接受以單一 `/` 開頭的站內返回網址，例如 `/admin/posts?search=hello#section`。站外網址、反斜線、控制字元或錯誤編碼會改回 `/admin`，帳密正確時仍可登入。
+
+### OAuth 登入驗證
+
+Google 與 GitHub 授權由路徑選定提供者，伺服器每次產生新的 state 驗證值。回呼缺少、重複或不符合原始簽章 Session 的 state 時回應 `400`，請從登入頁重新開始授權。提供者驗證失敗時回應 `502`，不回傳其原始錯誤內容。無法產生驗證值或保存 Session 時回應 `503`。
+
+每次授權須在 10 分鐘內完成，同一個回呼只能處理一次，逾時或重送回應 `400`。同一瀏覽器只保留最近開始的一次待授權流程。已通過驗證的授權拒絕與提供者失敗也會結束本次授權，請重新從登入頁開始。已使用狀態保存在資料庫，重新啟動後仍會拒絕重送；資料庫不可用時回應 `503`，不聯絡提供者或簽發登入。第三方權杖不保存在瀏覽器 Cookie，應用程式登入維持七天期限。
+
+伺服器向提供者交換授權碼與讀取個人資料時，共用 30 秒期限。原請求較早取消或逾時時會中止操作，回應 `502`，不建立帳號或登入憑證。請從登入頁重新開始授權。
+
+Google 與 GitHub 入口共用另一份來源額度，每個連線來源在 60 秒內最多開始授權 30 次，超量回應 `429` 與 `Retry-After`。此額度與本機帳密登入分開，代理與多程序部署的限制同前節。
+
+### 瀏覽器寫入保護
+
+登入與安裝，以及帶有登入 Cookie 的寫入請求，必須提供同源的 Origin、Referer 或瀏覽器 Sec-Fetch-Site 證據。來源皆缺少的自訂客戶端須傳送 `X-Jelly-CSRF: 1`；明確的外站或矛盾來源仍會被拒絕。拒絕時回應 JSON `403`，不執行寫入。正常瀏覽器操作會自動附帶來源證據。
+
+網站放在終止 HTTPS 的反向代理後時，請設定 `APP_URL` 為公開來源，例如 `https://cms.example.com`。僅接受 HTTP(S) 網址與可選的根路徑 `/`；無效設定使受保護的寫入回應 `503`。未設定時使用實際 TLS 與 Host，不信任轉送標頭。
+
+無 Cookie 的 Bearer API 保留原有認證方式；付款通知仍使用各金流的獨立驗證。登出會檢查已提供的來源，即使請求沒有登入 Cookie。完全未登入且沒有來源標頭的登出可冪等成功，不設定或清除登入 Cookie。
 
 ### 完成安裝與重新啟動
 
@@ -711,20 +745,27 @@ Jelly CMS 提供了兩個專用的模板函數來處理主題設定：
 
 ## 🔐 OAuth 設定
 
-在環境變數中設定 OAuth 提供者的金鑰：
+管理員在後台「設定」的 OAuth 分頁填入 Google 或 GitHub 的 Client ID 與 Client Secret，啟用提供者後儲存。
+
+以 `APP_URL` 指定網站的公開網址，例如 `https://cms.example.com`，並在提供者的應用程式設定中登記對應回呼網址：Google 使用 `/auth/google/callback`，GitHub 使用 `/auth/github/callback`。未設定 `APP_URL` 時使用 `http://localhost:8080`。
+
+### 本人登入方式與舊帳號復原
+
+登入後可從後台的「本人帳號」進入 `/account`，連結或解除 Google／GitHub 登入。所有已登入角色都可使用。系統會保留至少一種目前可用的登入方式。連結成功不會延長原登入期限。
+
+OAuth 以提供者的固定身分識別帳號，信箱變更不會建立另一個帳號。新的第三方身分若使用既有信箱，系統回應 `409`，不會自動合併；請先用原方式登入，再從本人帳號連結。
+
+升級前建立的 OAuth 帳號若仍有有效登入，可自行連結。已無法登入時，網站擁有者須先透過可信管道核實本人，再於網站主機執行復原工具：
 
 ```bash
-# Google OAuth
-export GOOGLE_KEY=your-google-client-id
-export GOOGLE_SECRET=your-google-client-secret
-
-# GitHub OAuth
-export GITHUB_KEY=your-github-client-id
-export GITHUB_SECRET=your-github-client-secret
-
-# 應用程式 URL
-export APP_URL=http://localhost:8080
+go build -o recover-oauth ./cmd/recover-oauth
+./recover-oauth list --site-dir /srv/jelly
+./recover-oauth issue --site-dir /srv/jelly --user-id 42 --provider google
 ```
+
+將 `/srv/jelly` 換成存有既有 `data/config.json` 與登入金鑰的網站目錄，帳號 ID 與提供者依 `list` 結果填入。若伺服器使用 `JWT_SECRET`，工具也須使用相同的環境設定。工具不會建立金鑰或更新資料表，請先完成網站升級。
+
+將輸出的 `grant` 經可信管道交給本人，在 `/account/recover` 貼上，再完成原提供者的授權。復原碼有效十分鐘，成功復原後即失效。工具的分頁、參數與錯誤說明可用 `./recover-oauth --help` 查看。
 
 ## 💳 金流設定
 
@@ -788,6 +829,8 @@ Content-Type: application/json
 **注意**：設定完成後，系統會自動重新載入金流配置，無需重啟服務。
 
 ## 📚 API 文檔
+
+認證介面的操作索引位於 `GET /api/auth`，完整輸入、回應與登入方式見 `GET /api/auth/openapi.json`。
 
 ### 安裝 API
 
@@ -905,7 +948,8 @@ Jelly CMS 提供了一套完整的可複用 UI 組件，讓後台頁面開發更
 ```
 jelly-cms/
 ├── cmd/
-│   └── server/          # 主程式入口
+│   ├── server/          # 主程式入口
+│   └── recover-oauth/   # 網站擁有者的舊 OAuth 帳號復原工具
 ├── internal/
 │   ├── auth/            # 認證系統
 │   ├── config/          # 配置管理
