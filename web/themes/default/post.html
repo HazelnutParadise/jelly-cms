@@ -1,4 +1,11 @@
 {{define "content"}}
+<style>
+    .article-meta a.by:hover, .article-meta a.by:focus-visible { color: var(--ink); }
+    .article-meta a.by { text-decoration: underline; text-decoration-color: var(--outline); text-underline-offset: .2em; }
+    .article-cats { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .article-tags { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: clamp(2rem, 4vw, 3rem); max-width: var(--measure); }
+    .article-cats a.chip:hover, .article-tags a.chip:hover { background: var(--ink); color: var(--surface); }
+</style>
 <div class="progress" id="reading-progress" aria-hidden="true"></div>
 <article>
     <header class="article-head">
@@ -6,9 +13,10 @@
         <h1>{{.Post.Title}}</h1>
         <div class="article-meta">
             <time class="chip chip-primary" datetime="{{.Post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.Post.CreatedAt.Format "2006年1月2日"}}</time>
-            {{if .Post.Author.Username}}<span class="by">{{.Post.Author.Username}}</span>{{end}}
+            {{if .Post.Author.Username}}<a class="by" href="/author/{{.Post.Author.Username}}">{{.Post.Author.Username}}</a>{{end}}
             {{if .Post.PublishedAt}}<span class="by">發布於 {{.Post.PublishedAt.Format "2006.01.02"}}</span>{{end}}
         </div>
+        {{with .Post.Categories}}<div class="article-cats">{{range .}}{{if not .HideFromList}}<a class="chip" href="/c/{{.Slug}}">{{.Name}}</a>{{end}}{{end}}</div>{{end}}
     </header>
 
     <div class="prose">
@@ -26,6 +34,13 @@
             update();
         })();
     </script>
+
+    {{with .Post.Tags}}
+    <div class="article-tags">
+        <span class="label">標籤</span>
+        {{range .}}<a class="chip" href="/t/{{.Slug}}">#{{.Name}}</a>{{end}}
+    </div>
+    {{end}}
 
     <footer class="article-foot">
         <a href="/posts" class="button button-text"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>返回文章列表</a>
