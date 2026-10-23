@@ -109,6 +109,7 @@ func maintenanceBypass(path string, user *core.User) bool {
 		pathOrSubtree(path, "/auth") ||
 		pathOrSubtree(path, "/admin") ||
 		pathOrSubtree(path, "/api/admin") ||
+		pathOrSubtree(path, "/api/auth") ||
 		pathOrSubtree(path, "/install") ||
 		pathOrSubtree(path, "/uploads") ||
 		pathOrSubtree(path, "/admin/assets") ||
