@@ -186,7 +186,7 @@
     },
     "Settings.dc.html": {
       "x": 6080,
-      "y": 11540,
+      "y": 11640,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 設定",
@@ -266,7 +266,7 @@
     },
     "Users.dc.html": {
       "x": 0,
-      "y": 11540,
+      "y": 11640,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 使用者與角色（尚未實作）",
@@ -274,14 +274,14 @@
     },
     "Profile.dc.html": {
       "x": 1520,
-      "y": 11540,
+      "y": 11640,
       "w": 1440,
       "h": 1100,
       "title": "後台 · 個人帳號（尚未實作）",
       "expand": "fill"
     },
     "Trash.dc.html": {
-      "x": 13680,
+      "x": 15200,
       "y": 5800,
       "w": 1440,
       "h": 1000,
@@ -289,7 +289,7 @@
       "expand": "fill"
     },
     "Revisions.dc.html": {
-      "x": 12160,
+      "x": 13680,
       "y": 5800,
       "w": 1440,
       "h": 1000,
@@ -298,7 +298,7 @@
     },
     "Import.dc.html": {
       "x": 16720,
-      "y": 11540,
+      "y": 11640,
       "w": 1440,
       "h": 1000,
       "title": "後台 · WordPress 匯入（尚未實作）",
@@ -306,7 +306,7 @@
     },
     "Backup.dc.html": {
       "x": 18240,
-      "y": 11540,
+      "y": 11640,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 備份與匯出（尚未實作）",
@@ -314,7 +314,7 @@
     },
     "Redirects.dc.html": {
       "x": 13680,
-      "y": 11540,
+      "y": 11640,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 轉址與 SEO（尚未實作）",
@@ -322,7 +322,7 @@
     },
     "Logs.dc.html": {
       "x": 15200,
-      "y": 11540,
+      "y": 11640,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 系統日誌（尚未實作）",
@@ -330,7 +330,7 @@
     },
     "Palette.dc.html": {
       "x": 19760,
-      "y": 11540,
+      "y": 11640,
       "w": 1440,
       "h": 1000,
       "title": "後台 · ⌘K 指令面板（尚未實作）",
@@ -338,7 +338,7 @@
     },
     "States.dc.html": {
       "x": 21280,
-      "y": 11540,
+      "y": 11640,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 空白、載入、錯誤、無權限（尚未實作）",
@@ -358,7 +358,7 @@
       "title": "後台 · 更新 · 執行檔可直接更新（尚未實作）",
       "expand": "fill",
       "x": 9120,
-      "y": 11540
+      "y": 11640
     },
     "UpdateContainer.dc.html": {
       "w": 1440,
@@ -366,7 +366,7 @@
       "title": "後台 · 更新 · 容器只提示、換映像（尚未實作）",
       "expand": "fill",
       "x": 10640,
-      "y": 11540
+      "y": 11640
     },
     "Author.dc.html": {
       "w": 1440,
@@ -421,7 +421,7 @@
       "h": 1100,
       "title": "後台 · 設定 · 快取與佇列（尚未實作）",
       "expand": "fill",
-      "y": 11540,
+      "y": 11640,
       "x": 12160
     },
     "EditorLayout.dc.html": {
@@ -437,7 +437,7 @@
       "h": 1000,
       "title": "後台 · 匯出單篇（尚未實作）",
       "expand": "fill",
-      "x": 10640,
+      "x": 12160,
       "y": 5800
     },
     "Notifications.dc.html": {
@@ -446,7 +446,7 @@
       "title": "後台 · 通知中心與通知設定（尚未實作）",
       "expand": "fill",
       "x": 3040,
-      "y": 11540
+      "y": 11640
     },
     "Tokens.dc.html": {
       "w": 1440,
@@ -454,7 +454,7 @@
       "title": "後台 · 個人帳號 · API 權杖（尚未實作）",
       "expand": "fill",
       "x": 4560,
-      "y": 11540
+      "y": 11640
     },
     "MediaPolicies.dc.html": {
       "w": 1440,
@@ -486,7 +486,7 @@
       "title": "後台 · 設定 · 閱讀與網址、程式碼注入、維護模式（尚未實作）",
       "expand": "fill",
       "x": 7600,
-      "y": 11540
+      "y": 11640
     },
     "Maintenance.dc.html": {
       "w": 1440,
@@ -503,6 +503,22 @@
       "expand": "fill",
       "x": 6080,
       "y": 8860
+    },
+    "EditorMotion.dc.html": {
+      "w": 1440,
+      "h": 1380,
+      "title": "後台 · 編輯器版面模式 · 動效與互動元件（尚未實作）",
+      "expand": "fill",
+      "x": 10640,
+      "y": 5800
+    },
+    "Widgets.dc.html": {
+      "w": 1440,
+      "h": 1100,
+      "title": "後台 · 互動元件：內建與自訂（尚未實作）",
+      "expand": "fill",
+      "x": 6080,
+      "y": 10200
     }
   },
   "order": [
@@ -536,6 +552,7 @@
     "EditorFocus.dc.html",
     "EditorFocus2.dc.html",
     "EditorLayout.dc.html",
+    "EditorMotion.dc.html",
     "EditorExport.dc.html",
     "Revisions.dc.html",
     "Trash.dc.html",
@@ -553,6 +570,7 @@
     "Plugins.dc.html",
     "AppStore.dc.html",
     "PluginDetail.dc.html",
+    "Widgets.dc.html",
     "Users.dc.html",
     "Profile.dc.html",
     "Notifications.dc.html",
@@ -596,7 +614,7 @@
       "y": 5540,
       "text": "後台 · 寫作　— 標「尚未實作」的是程式還沒有的畫面",
       "kind": "title1",
-      "maxW": 15120
+      "maxW": 16640
     },
     "t4": {
       "x": 0,
@@ -617,11 +635,11 @@
       "y": 9940,
       "text": "後台 · 外觀與擴充",
       "kind": "title1",
-      "maxW": 6000
+      "maxW": 7520
     },
     "t7": {
       "x": 0,
-      "y": 11280,
+      "y": 11380,
       "text": "後台 · 帳號與系統",
       "kind": "title1",
       "maxW": 22720
