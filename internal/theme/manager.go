@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"unicode"
@@ -189,7 +190,7 @@ func (m *Manager) RenderWithDB(templateName string, data interface{}, db interfa
 			return nil, fmt.Errorf("template %s not found", templateName)
 		}
 
-		tmpl, err = template.New("layout").Funcs(funcMap).ParseFiles(layoutPath, tmplPath)
+		tmpl, err = parseRenderSet(funcMap, themeDir, layoutPath, tmplPath)
 		if err != nil {
 			return nil, err
 		}
@@ -205,6 +206,55 @@ func (m *Manager) RenderWithDB(templateName string, data interface{}, db interfa
 	}
 
 	return buf.Bytes(), nil
+}
+
+// parseRenderSet parses the layout, the page template and every partial in
+// themeDir. Partials are files whose base name starts with "_" and ends with
+// ".html"; they hold {{define}} blocks that any page may call. Each partial is
+// parsed on its own so a failure names the file. The result is cached with the
+// page, so partials are parsed once per cached page, like layout.html.
+func parseRenderSet(funcMap template.FuncMap, themeDir, layoutPath, tmplPath string) (*template.Template, error) {
+	partials, err := partialPaths(themeDir)
+	if err != nil {
+		return nil, err
+	}
+	tmpl, err := template.New("layout").Funcs(funcMap).ParseFiles(layoutPath, tmplPath)
+	if err != nil {
+		return nil, err
+	}
+	pageName := filepath.Base(tmplPath)
+	for _, path := range partials {
+		name := filepath.Base(path)
+		if name == pageName {
+			continue // already parsed as the page itself
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read partial %s: %w", name, err)
+		}
+		if _, err := tmpl.New(name).Parse(string(content)); err != nil {
+			return nil, fmt.Errorf("parse partial %s: %w", name, err)
+		}
+	}
+	return tmpl, nil
+}
+
+// partialPaths returns the partial files in themeDir, sorted by name.
+func partialPaths(themeDir string) ([]string, error) {
+	entries, err := os.ReadDir(themeDir)
+	if err != nil {
+		return nil, err
+	}
+	var paths []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || !strings.HasPrefix(name, "_") || !strings.HasSuffix(name, ".html") {
+			continue
+		}
+		paths = append(paths, filepath.Join(themeDir, name))
+	}
+	sort.Strings(paths)
+	return paths, nil
 }
 
 // GetSettings retrieves theme settings from database

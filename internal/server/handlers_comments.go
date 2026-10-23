@@ -82,6 +82,7 @@ func registerCommentRoutes(e *echo.Echo, manage *echo.Group, tm *theme.Manager) 
 	manage.POST("/comments/:id/restore", commentAction("restore"))
 	manage.POST("/comments/bulk", bulkCommentAction)
 	manage.POST("/comments/:id/reply", replyComment)
+	manage.PUT("/comments/:id", updateComment)
 	manage.DELETE("/comments/:id", deleteCommentPermanently)
 }
 
@@ -777,7 +778,20 @@ func replyComment(c echo.Context) error {
 		IP:        clipRunes(c.RealIP(), 64),
 		UserAgent: clipRunes(c.Request().UserAgent(), 255),
 	}
-	if err := data.DB.Create(&reply).Error; err != nil {
+	// A staff reply shows the thread, so a pending parent is approved in the
+	// same transaction as the reply insert.
+	err = data.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&reply).Error; err != nil {
+			return err
+		}
+		if parent.Status == "pending" {
+			return tx.Model(&core.Comment{}).
+				Where("id = ? AND status = ?", parent.ID, "pending").
+				Update("status", "approved").Error
+		}
+		return nil
+	})
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to save reply"})
 	}
 	saved, err := loadAdminComment(reply.ID)
@@ -785,6 +799,46 @@ func replyComment(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to load reply"})
 	}
 	return c.JSON(http.StatusCreated, saved)
+}
+
+// updateComment replaces the Markdown body of a comment and re-renders its
+// HTML. Status, name, email and parent are kept. Trashed rows are not found.
+func updateComment(c echo.Context) error {
+	id, ok := parseTermID(c.Param("id"))
+	if !ok {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Comment not found"})
+	}
+	var row core.Comment
+	if err := data.DB.Unscoped().Where("id = ?", id).First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Comment not found"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to load comment"})
+	}
+	if row.DeletedAt.Valid {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Comment not found"})
+	}
+	var in struct {
+		Body string `json:"body"`
+	}
+	if err := decodeTermBody(c, &in); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+	}
+	body := strings.TrimSpace(in.Body)
+	if !validCommentBody(body) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Comment must be 1 to 5000 characters"})
+	}
+	if err := data.DB.Model(&core.Comment{}).Where("id = ?", id).Updates(map[string]any{
+		"body":      body,
+		"body_html": renderCommentMarkdown(body),
+	}).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to update comment"})
+	}
+	saved, err := loadAdminComment(id)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to load comment"})
+	}
+	return c.JSON(http.StatusOK, saved)
 }
 
 // deleteCommentPermanently removes a comment that is already in trash.

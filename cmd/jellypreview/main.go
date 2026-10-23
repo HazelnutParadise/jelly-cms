@@ -130,6 +130,9 @@ func main() {
 		{out: "post_editor", file: "post_editor.html", active: "posts", crumbs: []crumb{{t["posts"], "/admin/posts"}, {"為什麼我們決定用 Go 重寫一個 CMS", ""}}},
 		{out: "page_editor", file: "page_editor.html", active: "pages", crumbs: []crumb{{t["pages"], "/admin/pages"}, {t["createPage"], ""}}},
 		{out: "product_editor", file: "product_editor.html", active: "products", crumbs: []crumb{{t["products"], "/admin/products"}, {t["createProduct"], ""}}},
+		{out: "comments", file: "comments.html", active: "comments"},
+		{out: "trash", file: "trash.html", active: "trash"},
+		{out: "revisions", file: "revisions.html", active: "posts", crumbs: []crumb{{t["posts"], "/admin/posts"}, {"為什麼我們決定用 Go 重寫一個 CMS", "/admin/posts/7"}, {t["rvTitle"], ""}}},
 		{out: "error-404", file: "error.html", data: map[string]interface{}{"Error": errorPage{Code: 404, Title: "Not Found", Message: "Not Found", Path: "/admin/posts/9999"}}},
 		{out: "error-500", file: "error.html", data: map[string]interface{}{"Error": errorPage{Code: 500, Title: "Internal Server Error", Message: "Internal Server Error", RequestID: "req_8f3a21", Path: "/admin/posts"}}},
 		{out: "error-403", file: "error.html", data: map[string]interface{}{"Error": errorPage{Code: 403, Title: "Forbidden", Message: "Forbidden", Path: "/admin/settings"}, "_role": "editor"}},
@@ -194,6 +197,7 @@ func fakeNav(t map[string]string, active string) []navSection {
 			e("taxonomy", "i-tag", "/admin/taxonomy", 0),
 			{Key: "comments", Label: "留言", Icon: "i-comment", Href: "/admin/comments", Active: active == "comments", Badge: 7},
 			e("media", "i-image", "/admin/media", 0),
+			e("trash", "i-trash", "/admin/trash", 0),
 		}},
 		{Key: "shop", Label: tr(t, "shop"), Items: []navEntry{
 			e("products", "i-box", "/admin/products", 0),
