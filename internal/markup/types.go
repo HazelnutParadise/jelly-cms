@@ -47,7 +47,7 @@ type Result struct {
 	// Diagnostics are problems found in the source. They never stop a render
 	// unless the source is over a size or depth limit.
 	Diagnostics []Diagnostic
-	// Blocks lists the top-level blocks with their source line ranges, used by
+	// Blocks lists every block in pre-order (parents before children) with source line ranges, used by
 	// the layout mode of the editor.
 	Blocks []Block
 }
