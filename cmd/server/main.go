@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/config"
@@ -86,7 +87,37 @@ func run(ctx context.Context) error {
 	// Routes
 	server.RegisterRoutes(e, tm, pluginRuntime)
 
+	go runTrashPurge(ctx)
+
 	return runHTTPServer(ctx, e, ":8080")
+}
+
+// runTrashPurge removes expired recycle-bin rows at start and then every 24 hours
+// until ctx is done. It does nothing while the site is not installed (data.DB nil).
+func runTrashPurge(ctx context.Context) {
+	purge := func() {
+		if data.DB == nil {
+			return
+		}
+		removed, err := server.PurgeExpiredTrash(data.DB, time.Now())
+		if err != nil {
+			log.Printf("Trash purge: %v", err)
+		}
+		if removed > 0 {
+			log.Printf("Trash purge: removed %d expired rows", removed)
+		}
+	}
+	purge()
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			purge()
+		}
+	}
 }
 
 // JSONSerializer implements Echo's JSONSerializer interface using goccy/go-json

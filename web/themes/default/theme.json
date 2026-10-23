@@ -1,29 +1,47 @@
 {
     "name": "Jelly",
-    "version": "1.0.0",
-    "description": "Default Jelly CMS Theme",
+    "version": "2.0.0",
+    "description": "Jelly CMS 預設主題。白底墨字的通用骨架，品牌感來自不同口味、半透明疊在一起的果凍丁，以及只圓一個角的形狀。",
     "author": "Jelly Team",
     "colors": {
-        "primary": "#FF6B6B",
-        "secondary": "#4ECDC4",
-        "background": "#F7F9FC",
-        "text": "#333",
-        "text_muted": "#666",
-        "accent": "#FF6B6B",
-        "link": "#4ECDC4",
-        "link_hover": "#FF6B6B",
-        "border": "#e0e0e0",
-        "dark": "#2C3E50",
-        "success": "#28a745",
-        "warning": "#ffc107",
-        "error": "#dc3545"
+        "primary": "#E8285B",
+        "secondary": "#2F6BFF",
+        "background": "#FFFFFF",
+        "text": "#15161A",
+        "text_muted": "#5F6470",
+        "accent": "#13C2A3",
+        "link": "#2F6BFF",
+        "link_hover": "#E8285B",
+        "border": "#DDE0E7",
+        "dark": "#15161A",
+        "success": "#15A06A",
+        "warning": "#F5B800",
+        "error": "#E03B2E"
     },
     "layout": {
         "header_style": "sticky",
         "sidebar": false,
-        "sidebar_position": "left",
+        "sidebar_position": "right",
         "footer": true,
         "container_width": "wide",
         "post_layout": "grid"
-    }
+    },
+    "custom_fields": [
+        {
+            "id": "tagline",
+            "label": "網站標語",
+            "type": "text",
+            "default": "寫下來，才算數。",
+            "description": "顯示在首頁刊頭與頁尾。",
+            "category": "content"
+        },
+        {
+            "id": "footer_note",
+            "label": "頁尾備註",
+            "type": "text",
+            "default": "",
+            "description": "例如版權聲明或聯絡方式，留空則不顯示。",
+            "category": "content"
+        }
+    ]
 }

@@ -1,0 +1,467 @@
+{{define "title"}}{{.T.trash}}{{end}}
+{{define "styles"}}
+<style>
+    .tr-note { display: flex; align-items: center; gap: .9rem; padding: .9rem 1.1rem; background: var(--surface-low); border-radius: var(--r-md); margin-bottom: 1rem; font-size: .84375rem; line-height: 1.55; }
+    .tr-note .icon { width: 1.25rem; height: 1.25rem; }
+    .tr-note a { margin-left: .4rem; color: var(--link, var(--secondary)); font-weight: 600; text-decoration: underline; text-underline-offset: .18em; }
+    .tr-note a:hover { color: var(--primary); }
+    .tr-danger { background: color-mix(in srgb, var(--error) 14%, var(--surface)); color: color-mix(in srgb, var(--error) 80%, var(--ink)); }
+    .tr-danger:hover { background: var(--error); color: #fff; }
+
+    .tr-bar { display: flex; align-items: center; gap: .6rem .75rem; flex-wrap: wrap; margin-bottom: .75rem; }
+    .tr-seg { display: inline-flex; flex-wrap: wrap; gap: .2rem; padding: .2rem; background: var(--surface-mid); border-radius: var(--r-sm); }
+    .tr-seg button { display: inline-flex; align-items: center; gap: .4rem; min-height: 1.9rem; padding: 0 .75rem; border: 0; background: transparent; font: inherit; font-size: .8125rem; font-weight: 700; color: var(--muted); border-radius: var(--r-sm); cursor: pointer; white-space: nowrap; transition: background-color .12s ease, color .12s ease; }
+    .tr-seg button:hover { color: var(--ink); }
+    .tr-seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+    .tr-seg button:focus-visible { outline: 3px solid var(--secondary); outline-offset: 1px; }
+    .tr-seg b { font-variant-numeric: tabular-nums; }
+    .tr-field { display: flex; align-items: center; gap: .5rem; min-height: 2.125rem; width: 14rem; margin-left: auto; padding: 0 .65rem; background: var(--surface-mid); border-radius: var(--r-sm); color: var(--muted); }
+    .tr-field:focus-within { box-shadow: inset 0 0 0 2px var(--secondary); }
+    .tr-field .icon { width: .95rem; height: .95rem; }
+    .tr-field input { min-height: 0; width: 100%; padding: 0; border: 0; background: transparent; box-shadow: none; font: inherit; font-size: .8125rem; color: var(--ink); }
+    .tr-field input:focus, .tr-field input:hover { border: 0; box-shadow: none; }
+
+    .tr-cb { appearance: none; -webkit-appearance: none; width: 1rem; height: 1rem; min-height: 0; padding: 0; margin: 0; flex: 0 0 auto; vertical-align: middle; background: var(--surface); border: 0; border-radius: 0 .3125rem 0 .3125rem; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 30%, var(--surface)); cursor: pointer; position: relative; }
+    .tr-cb:hover { box-shadow: inset 0 0 0 1.5px var(--ink); }
+    .tr-cb:checked { background: var(--ink); box-shadow: none; }
+    .tr-cb:checked::after { content: ""; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px; border: solid var(--surface); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+    .tr-cb:focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; }
+
+    .tr-table th.sel, .tr-table td.sel { width: 2.25rem; padding-right: 0; }
+    .tr-table th.num, .tr-table td.num { width: 7rem; }
+    .tr-table th.acts, .tr-table td.acts { width: 11rem; text-align: right; white-space: nowrap; }
+    .tr-table td.acts .btn { opacity: .6; }
+    .tr-table tbody tr:hover td.acts .btn, .tr-table tbody tr:focus-within td.acts .btn { opacity: 1; }
+    .tr-table tr.is-selected td { background: color-mix(in srgb, var(--secondary) 7%, var(--surface)); }
+    .tr-item { display: flex; align-items: center; gap: .65rem; min-width: 0; }
+    .tr-item b { overflow-wrap: anywhere; }
+    .tr-kind { display: inline-flex; align-items: center; gap: .3rem; min-height: 1.5rem; padding: 0 .55rem; font-size: .75rem; font-weight: 700; background: var(--surface-mid); border-radius: var(--r-sm); white-space: nowrap; flex: 0 0 auto; }
+    .tr-kind .icon { width: .75rem; height: .75rem; }
+    .tr-del { color: color-mix(in srgb, var(--error) 80%, var(--ink)); }
+    .tr-del:hover { color: #fff; background: var(--error); }
+
+    .tr-overlay { position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center; padding: 1rem; background: color-mix(in srgb, var(--ink) 45%, transparent); }
+    .tr-overlay[hidden] { display: none; }
+    .tr-dlg { width: min(27.5rem, 100%); background: var(--surface); border-radius: 0 1.5rem 0 1.5rem; box-shadow: 0 0 0 1px var(--outline), 0 24px 64px rgba(21, 22, 26, .28); padding: 1.5rem; display: flex; flex-direction: column; gap: .9rem; animation: tr-pop .16s ease; }
+    @keyframes tr-pop { from { transform: translateY(.5rem); opacity: 0; } to { transform: none; opacity: 1; } }
+    .tr-dlg .head { display: flex; align-items: center; gap: .7rem; }
+    .tr-dlg .head b { font-size: 1rem; line-height: 1.35; overflow-wrap: anywhere; }
+    .tr-dlg .warn { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; flex: 0 0 auto; background: color-mix(in srgb, var(--error) 14%, var(--surface)); color: color-mix(in srgb, var(--error) 80%, var(--ink)); border-radius: 0 .75rem 0 .75rem; }
+    .tr-dlg .warn .icon { width: 1.25rem; height: 1.25rem; }
+    .tr-dlg p { margin: 0; font-size: .84375rem; line-height: 1.6; color: var(--muted); }
+    .tr-dlg .label b { color: var(--ink); }
+    .tr-dlg .foot { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
+    .tr-dlg .foot .tr-danger[disabled] { opacity: .4; }
+
+    [hidden] { display: none !important; }
+    .tr-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    @media (max-width: 760px) {
+        .tr-field { width: 100%; margin-left: 0; }
+        .tr-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+        .tr-table, .tr-table tbody { display: block; }
+        .tr-table tr { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; gap: .3rem .5rem; padding: .85rem .25rem; border-bottom: 1px solid color-mix(in srgb, var(--outline) 60%, transparent); }
+        .tr-table td { display: block; width: auto !important; padding: 0; border: 0; }
+        .tr-table td.sel { grid-row: 1; grid-column: 1; padding-top: .15rem; }
+        .tr-table td.item { grid-row: 1; grid-column: 2 / -1; }
+        .tr-table td.by { grid-row: 2; grid-column: 2; font-size: .8125rem; }
+        .tr-table td.when { grid-row: 3; grid-column: 2; font-size: .8125rem; }
+        .tr-table td.num { grid-row: 2 / span 2; grid-column: 3; align-self: center; }
+        .tr-table td.acts { grid-row: 4; grid-column: 2 / -1; text-align: left; }
+        .tr-table td.acts .btn { opacity: 1; }
+        .tr-table tr.is-selected td { background: transparent; }
+        .tr-table tr.is-selected { background: color-mix(in srgb, var(--secondary) 7%, var(--surface)); }
+    }
+</style>
+{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.trash}}</h1>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-secondary" type="button" id="restoreAll" disabled><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span id="restoreAllLabel">{{.T.trRestoreAll}}</span></button>
+        <button class="btn tr-danger" type="button" id="emptyBin" disabled><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg><span id="emptyBinLabel">{{.T.trEmptyBin}}</span></button>
+    </div>
+</div>
+
+<div class="tr-note" id="note" hidden><svg class="icon" aria-hidden="true"><use href="#i-clock"/></svg><div><b id="noteLead"></b><span id="noteRest">{{.T.trRetentionRest}}</span><a href="/admin/settings">{{.T.trChangeRetention}}</a></div></div>
+
+<div class="tr-bar">
+    <div class="tr-seg" id="kindSeg" role="group" aria-label="{{.T.trKindLabel}}">
+        <button type="button" data-kind="all" aria-pressed="true">{{.T.trKindAll}} <b data-count="all">-</b></button>
+        <button type="button" data-kind="post" aria-pressed="false">{{.T.trKindPost}} <b data-count="post">-</b></button>
+        <button type="button" data-kind="page" aria-pressed="false">{{.T.trKindPage}} <b data-count="page">-</b></button>
+        <button type="button" data-kind="product" aria-pressed="false">{{.T.trKindProduct}} <b data-count="product">-</b></button>
+        <button type="button" data-kind="comment" aria-pressed="false">{{.T.trKindComment}} <b data-count="comment">-</b></button>
+    </div>
+    <label class="tr-field"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="q" placeholder="{{.T.trSearchPlaceholder}}" aria-label="{{.T.trSearchLabel}}" autocomplete="off"></label>
+</div>
+
+<div id="loadingBox">{{template "state-loading" dict "text" .T.loading "skeleton" true}}</div>
+<div id="errorBox" hidden>{{template "state-error" dict "title" .T.trLoadFailed "text" .T.errorInternalHint "retryText" .T.retry}}</div>
+<div id="emptyBox" hidden>{{template "state-empty" dict "title" .T.trEmptyTitle "text" .T.trEmptyText}}</div>
+
+<div class="table-wrapper" id="listWrap" hidden>
+    <table class="tr-table">
+        <thead>
+            <tr>
+                <th class="sel"><input class="tr-cb" type="checkbox" id="selectAll" aria-label="{{.T.trSelectAll}}"></th>
+                <th>{{.T.trColItem}}</th>
+                <th>{{.T.trColBy}}</th>
+                <th>{{.T.trColWhen}}</th>
+                <th class="num">{{.T.trColLeft}}</th>
+                <th class="acts"><span class="tr-sr">{{.T.actions}}</span></th>
+            </tr>
+        </thead>
+        <tbody id="list"></tbody>
+    </table>
+</div>
+
+<div class="tr-overlay" id="dlg" hidden>
+    <form class="tr-dlg" id="dlgForm" role="alertdialog" aria-modal="true" aria-labelledby="dlgTitle" aria-describedby="dlgText" autocomplete="off">
+        <div class="head"><span class="warn"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg></span><b id="dlgTitle"></b></div>
+        <p id="dlgText"></p>
+        <div>
+            <label for="dlgInput" class="label">{{.T.trTypeToConfirm}} <b id="dlgWord"></b> {{.T.trTypeToConfirmTail}}</label>
+            <input type="text" id="dlgInput" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <div class="foot">
+            <button class="btn btn-secondary" type="button" id="dlgCancel"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>{{.T.cancel}}</button>
+            <button class="btn tr-danger" type="submit" id="dlgOk" disabled><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>{{.T.trDeleteForever}}</button>
+        </div>
+    </form>
+</div>
+{{end}}
+{{define "scripts"}}
+<script>
+(function () {
+    'use strict';
+    var T = {
+        restoreAll: {{.T.trRestoreAll}}, restoreSelected: {{.T.trRestoreSelected}}, emptyBin: {{.T.trEmptyBin}},
+        retentionLead: {{.T.trRetentionLead}}, restore: {{.T.trRestore}}, deleteForever: {{.T.trDeleteForever}},
+        word: {{.T.trConfirmWord}},
+        kinds: { post: {{.T.trKindPost}}, page: {{.T.trKindPage}}, product: {{.T.trKindProduct}}, comment: {{.T.trKindComment}} },
+        today: {{.T.trToday}}, tomorrow: {{.T.trTomorrow}}, dueNow: {{.T.trDueNow}}, days: {{.T.trDays}}, justNow: {{.T.trJustNow}}, unknown: {{.T.trUnknownUser}},
+        dlgItemTitle: {{.T.trDlgItemTitle}}, dlgItemText: {{.T.trDlgItemText}}, dlgItemTextProduct: {{.T.trDlgItemTextProduct}},
+        dlgAllTitle: {{.T.trDlgAllTitle}}, dlgAllText: {{.T.trDlgAllText}},
+        doneRestore: {{.T.trDoneRestore}}, doneRestoreMany: {{.T.trDoneRestoreMany}}, doneRestoreSome: {{.T.trDoneRestoreSome}},
+        doneDelete: {{.T.trDoneDelete}}, doneEmpty: {{.T.trDoneEmpty}}, open: {{.T.trOpen}}, failed: {{.T.trActionFailed}},
+        empty: {{.T.trEmptyTitle}}, emptySearch: {{.T.trEmptySearch}}, emptyKind: {{.T.trEmptyKind}}
+    };
+    var LANG = {{.Lang}};
+    var KIND_ICON = { post: 'i-file-text', page: 'i-layout', product: 'i-box', comment: 'i-comment' };
+    var KINDS = ['all', 'post', 'page', 'product', 'comment'];
+    var HREF = { post: '/admin/posts/', page: '/admin/pages/', product: '/admin/products/' };
+
+    var $ = function (id) { return document.getElementById(id); };
+    var tbody = $('list'), listWrap = $('listWrap');
+    var boxes = { loading: $('loadingBox'), error: $('errorBox'), empty: $('emptyBox') };
+    var state = { kind: 'all', q: '', items: [], counts: {}, retention: 30, selected: {} };
+    var seq = 0, dlg = null;
+
+    function el(tag, cls, text) {
+        var n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text != null) n.textContent = text;
+        return n;
+    }
+    function icon(id) {
+        var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        s.setAttribute('class', 'icon');
+        s.setAttribute('aria-hidden', 'true');
+        var u = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        u.setAttribute('href', '#' + id);
+        s.appendChild(u);
+        return s;
+    }
+    function fmt(tpl, vars) { return String(tpl).replace(/\{(\w+)\}/g, function (m, k) { return vars[k] != null ? vars[k] : m; }); }
+    function toast(msg, opts) { if (window.Jelly && Jelly.toast) Jelly.toast(msg, opts || {}); }
+    function api(method, url) {
+        return fetch(url, { method: method, headers: { 'Content-Type': 'application/json' } }).then(function (res) {
+            return res.json().catch(function () { return {}; }).then(function (data) {
+                if (!res.ok) { var err = new Error((data && data.error) || T.failed); err.status = res.status; throw err; }
+                return data;
+            });
+        });
+    }
+    function fail(err) { toast(err.message || T.failed, { kind: 'error' }); }
+    function key(it) { return it.kind + ':' + it.id; }
+
+    function whenText(iso) {
+        var d = new Date(iso);
+        if (isNaN(d)) return '';
+        var diff = (d.getTime() - Date.now()) / 1000;
+        var now = new Date();
+        if (d.toDateString() === now.toDateString()) {
+            if (Math.abs(diff) < 60) return T.justNow;
+            return T.today + ' ' + d.toLocaleTimeString(LANG, { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+        try {
+            var rtf = new Intl.RelativeTimeFormat(LANG, { numeric: 'auto' });
+            var days = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+            if (Math.abs(days) < 60) return rtf.format(days, 'day');
+        } catch (e) { /* fall through */ }
+        return d.toLocaleDateString(LANG);
+    }
+    function leftBadge(iso) {
+        var days = Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
+        var cls = 'badge ', label;
+        if (days <= 0) { label = T.dueNow; cls += 'badge-danger'; }
+        else if (days === 1) { label = T.tomorrow; cls += 'badge-danger'; }
+        else { label = fmt(T.days, { n: days }); cls += days <= 2 ? 'badge-danger' : (days <= 14 ? 'badge-warning' : 'badge-success'); }
+        return el('span', cls, label);
+    }
+
+    function show(which) {
+        boxes.loading.hidden = which !== 'loading';
+        boxes.error.hidden = which !== 'error';
+        boxes.empty.hidden = which !== 'empty';
+        listWrap.hidden = which !== 'list';
+    }
+
+    function load(opts) {
+        opts = opts || {};
+        var mine = ++seq;
+        var p = new URLSearchParams({ kind: state.kind });
+        if (state.q) p.set('q', state.q);
+        if (!opts.quiet) show('loading');
+        return api('GET', '/api/admin/trash?' + p.toString()).then(function (res) {
+            if (mine !== seq) return;
+            state.items = res.items || [];
+            state.counts = res.counts || {};
+            state.retention = res.retention_days || 30;
+            state.selected = {};
+            render();
+        }).catch(function (err) {
+            if (mine !== seq) return;
+            var t = boxes.error.querySelector('.state-text');
+            if (t) t.textContent = err.message;
+            show('error');
+        });
+    }
+
+    function render() {
+        KINDS.forEach(function (k) {
+            var b = document.querySelector('[data-count="' + k + '"]');
+            if (b) b.textContent = state.counts[k] != null ? state.counts[k] : 0;
+        });
+        document.querySelectorAll('#kindSeg button').forEach(function (b) {
+            b.setAttribute('aria-pressed', String(b.dataset.kind === state.kind));
+        });
+        $('noteLead').textContent = fmt(T.retentionLead, { days: state.retention });
+        $('note').hidden = false;
+        var total = state.counts.all || 0;
+        $('emptyBin').disabled = total === 0;
+        $('emptyBinLabel').textContent = fmt(T.emptyBin, { n: total });
+        updateSelection();
+        if (!state.items.length) {
+            var h = boxes.empty.querySelector('h2');
+            if (h) h.textContent = state.q ? T.emptySearch : (state.kind === 'all' ? T.empty : T.emptyKind);
+            show('empty');
+            return;
+        }
+        tbody.textContent = '';
+        state.items.forEach(function (it) { tbody.appendChild(rowFor(it)); });
+        show('list');
+    }
+
+    function rowFor(it) {
+        var tr = el('tr');
+        tr.dataset.key = key(it);
+        if (state.selected[key(it)]) tr.classList.add('is-selected');
+
+        var td = el('td', 'sel');
+        var cb = el('input', 'tr-cb');
+        cb.type = 'checkbox';
+        cb.dataset.select = key(it);
+        cb.checked = !!state.selected[key(it)];
+        cb.setAttribute('aria-label', it.title);
+        td.appendChild(cb);
+        tr.appendChild(td);
+
+        td = el('td', 'item');
+        var wrap = el('div', 'tr-item');
+        var chip = el('span', 'tr-kind');
+        chip.appendChild(icon(KIND_ICON[it.kind] || 'i-file-text'));
+        chip.appendChild(document.createTextNode(T.kinds[it.kind] || it.kind));
+        wrap.appendChild(chip);
+        wrap.appendChild(el('b', null, it.title));
+        td.appendChild(wrap);
+        tr.appendChild(td);
+
+        tr.appendChild(el('td', 'by cell-muted', it.deleted_by || T.unknown));
+        var when = el('td', 'when cell-muted', whenText(it.deleted_at));
+        when.title = new Date(it.deleted_at).toLocaleString(LANG);
+        tr.appendChild(when);
+        td = el('td', 'num');
+        td.appendChild(leftBadge(it.expires_at));
+        tr.appendChild(td);
+
+        td = el('td', 'acts');
+        var r = el('button', 'btn btn-secondary btn-sm');
+        r.type = 'button';
+        r.dataset.act = 'restore';
+        r.appendChild(icon('i-undo'));
+        r.appendChild(document.createTextNode(T.restore));
+        td.appendChild(r);
+        var d = el('button', 'btn btn-text btn-sm btn-icon tr-del');
+        d.type = 'button';
+        d.dataset.act = 'delete';
+        d.setAttribute('aria-label', T.deleteForever);
+        d.title = T.deleteForever;
+        d.appendChild(icon('i-trash'));
+        td.appendChild(d);
+        tr.appendChild(td);
+        return tr;
+    }
+    function itemByKey(k) { return state.items.filter(function (x) { return key(x) === k; })[0]; }
+
+    /* ---------- 選取 ---------- */
+    function selectedItems() { return state.items.filter(function (x) { return state.selected[key(x)]; }); }
+    function updateSelection() {
+        var n = selectedItems().length;
+        var all = $('selectAll');
+        all.checked = n > 0 && n === state.items.length;
+        all.indeterminate = n > 0 && n < state.items.length;
+        var btn = $('restoreAll');
+        btn.disabled = state.items.length === 0;
+        $('restoreAllLabel').textContent = n > 0 ? fmt(T.restoreSelected, { n: n }) : fmt(T.restoreAll, { n: state.items.length });
+    }
+    function toggle(k, on) {
+        state.selected[k] = on;
+        var r = tbody.querySelector('tr[data-key="' + k + '"]');
+        if (r) { r.classList.toggle('is-selected', on); var cb = r.querySelector('[data-select]'); if (cb) cb.checked = on; }
+        updateSelection();
+    }
+
+    /* ---------- 還原 / 刪除 ---------- */
+    function viewHref(it) {
+        if (it.kind === 'comment') return '/admin/comments?status=all';
+        return HREF[it.kind] + it.id;
+    }
+    function restoreOne(it) {
+        return api('POST', '/api/admin/trash/' + it.kind + '/' + it.id + '/restore').then(function () {
+            toast(fmt(T.doneRestore, { title: it.title }), { kind: 'success', action: { label: T.open, href: viewHref(it) } });
+            return load({ quiet: true });
+        }).catch(fail);
+    }
+    function restoreMany() {
+        var list = selectedItems();
+        if (!list.length) list = state.items.slice();
+        if (!list.length) return;
+        var ok = 0, bad = 0, chain = Promise.resolve();
+        $('restoreAll').disabled = true;
+        list.forEach(function (it) {
+            chain = chain.then(function () {
+                return api('POST', '/api/admin/trash/' + it.kind + '/' + it.id + '/restore').then(function () { ok++; }, function () { bad++; });
+            });
+        });
+        chain.then(function () {
+            if (bad) toast(fmt(T.doneRestoreSome, { ok: ok, bad: bad }), { kind: 'warning' });
+            else toast(fmt(T.doneRestoreMany, { n: ok }), { kind: 'success' });
+            return load({ quiet: true });
+        });
+    }
+
+    function askConfirm(opts) {
+        dlg = { onOk: opts.onOk, opener: document.activeElement };
+        $('dlgTitle').textContent = opts.title;
+        $('dlgText').textContent = opts.text;
+        $('dlgWord').textContent = T.word;
+        $('dlgInput').value = '';
+        $('dlgInput').placeholder = T.word;
+        $('dlgOk').disabled = true;
+        $('dlg').hidden = false;
+        $('dlgInput').focus();
+    }
+    function closeConfirm() {
+        if (!dlg) return;
+        $('dlg').hidden = true;
+        var op = dlg.opener;
+        dlg = null;
+        if (op && op.focus && document.contains(op)) op.focus();
+    }
+    function deleteOne(it) {
+        askConfirm({
+            title: fmt(T.dlgItemTitle, { title: it.title }),
+            text: it.kind === 'product' ? T.dlgItemTextProduct : T.dlgItemText,
+            onOk: function () {
+                return api('DELETE', '/api/admin/trash/' + it.kind + '/' + it.id).then(function () {
+                    toast(fmt(T.doneDelete, { title: it.title }), { kind: 'success' });
+                    return load({ quiet: true });
+                });
+            }
+        });
+    }
+    function emptyAll() {
+        var n = state.counts.all || 0;
+        if (!n) return;
+        askConfirm({
+            title: fmt(T.dlgAllTitle, { n: n }),
+            text: T.dlgAllText,
+            onOk: function () {
+                return api('DELETE', '/api/admin/trash').then(function (res) {
+                    toast(fmt(T.doneEmpty, { n: res.deleted != null ? res.deleted : n }), { kind: 'success' });
+                    return load({ quiet: true });
+                });
+            }
+        });
+    }
+
+    /* ---------- 事件 ---------- */
+    document.querySelectorAll('#kindSeg button').forEach(function (b) {
+        b.addEventListener('click', function () { state.kind = b.dataset.kind; load(); });
+    });
+    var qTimer;
+    $('q').addEventListener('input', function (e) {
+        clearTimeout(qTimer);
+        qTimer = setTimeout(function () { state.q = e.target.value.trim(); load({ quiet: true }); }, 250);
+    });
+    $('selectAll').addEventListener('change', function (e) {
+        state.items.forEach(function (it) { toggle(key(it), e.target.checked); });
+    });
+    tbody.addEventListener('change', function (e) {
+        var cb = e.target.closest('[data-select]');
+        if (cb) toggle(cb.dataset.select, cb.checked);
+    });
+    tbody.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-act]');
+        if (!btn) return;
+        var tr = btn.closest('tr');
+        var it = itemByKey(tr.dataset.key);
+        if (!it) return;
+        if (btn.dataset.act === 'restore') restoreOne(it); else deleteOne(it);
+    });
+    $('restoreAll').addEventListener('click', restoreMany);
+    $('emptyBin').addEventListener('click', emptyAll);
+
+    $('dlgInput').addEventListener('input', function (e) { $('dlgOk').disabled = e.target.value.trim() !== T.word; });
+    $('dlgCancel').addEventListener('click', closeConfirm);
+    $('dlg').addEventListener('mousedown', function (e) { if (e.target === $('dlg')) closeConfirm(); });
+    $('dlgForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!dlg || $('dlgInput').value.trim() !== T.word) return;
+        var job = dlg.onOk;
+        var btn = $('dlgOk');
+        btn.disabled = true;
+        job().then(closeConfirm, function (err) { fail(err); closeConfirm(); });
+    });
+    $('dlg').addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeConfirm(); return; }
+        if (e.key === 'Tab') {
+            var f = Array.prototype.slice.call($('dlg').querySelectorAll('button, input')).filter(function (x) { return !x.disabled; });
+            if (!f.length) return;
+            var i = f.indexOf(document.activeElement);
+            var next = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
+            e.preventDefault();
+            f[next].focus();
+        }
+    });
+
+    $('restoreAllLabel').textContent = fmt(T.restoreAll, { n: 0 });
+    $('emptyBinLabel').textContent = fmt(T.emptyBin, { n: 0 });
+    load();
+})();
+</script>
+{{end}}

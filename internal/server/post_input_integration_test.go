@@ -125,3 +125,75 @@ func jsonEqual(left json.RawMessage, right string) bool {
 	}
 	return reflect.DeepEqual(leftValue, rightValue)
 }
+
+// TestPostsPublishSetsPublishedAt checks that publishing stamps published_at when the body omits it,
+// that drafts keep it null, that later edits do not bump it, and that an explicit value is kept.
+func TestPostsPublishSetsPublishedAt(t *testing.T) {
+	h := newAccessHarness(t)
+	author := h.user("author", "publish-at-author")
+	token := h.token(author)
+	const window = 5 * time.Second
+
+	decodePost := func(where string, r accessResult) core.Post {
+		t.Helper()
+		if r.panicked != nil {
+			t.Fatalf("%s panicked: %v", where, r.panicked)
+		}
+		if r.code != http.StatusOK {
+			t.Fatalf("%s returned %d body=%q", where, r.code, r.body)
+		}
+		var p core.Post
+		if err := json.Unmarshal([]byte(r.body), &p); err != nil {
+			t.Fatalf("%s: decode response: %v; body=%q", where, err, r.body)
+		}
+		return p
+	}
+	assertNow := func(where string, p core.Post, before, after time.Time) {
+		t.Helper()
+		if p.PublishedAt == nil {
+			t.Fatalf("%s: published_at is null, want a timestamp near now", where)
+		}
+		if p.PublishedAt.Before(before.Add(-window)) || p.PublishedAt.After(after.Add(window)) {
+			t.Errorf("%s: published_at = %s, want within %s of now (%s..%s)", where, p.PublishedAt, window, before, after)
+		}
+	}
+
+	before := time.Now()
+	published := decodePost("POST published without published_at", h.request(http.MethodPost, "/api/admin/posts",
+		`{"title":"Stamp on create","content":"body","status":"published"}`, token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON))
+	assertNow("POST published without published_at", published, before, time.Now())
+
+	draft := decodePost("POST draft", h.request(http.MethodPost, "/api/admin/posts",
+		`{"title":"Stamp draft","content":"body","status":"draft"}`, token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON))
+	if draft.PublishedAt != nil {
+		t.Errorf("POST draft published_at = %s, want null", draft.PublishedAt)
+	}
+
+	path := fmt.Sprintf("/api/admin/posts/%d", draft.ID)
+	before = time.Now()
+	promoted := decodePost("PUT draft to published", h.request(http.MethodPut, path,
+		`{"status":"published"}`, token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON))
+	assertNow("PUT draft to published", promoted, before, time.Now())
+	if promoted.PublishedAt == nil {
+		t.Fatalf("PUT draft to published left published_at null")
+	}
+	stamp := *promoted.PublishedAt
+
+	renamed := decodePost("PUT new title", h.request(http.MethodPut, path,
+		`{"title":"Stamp renamed"}`, token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON))
+	if renamed.PublishedAt == nil || !renamed.PublishedAt.Equal(stamp) {
+		t.Errorf("PUT new title changed published_at from %s to %v; want it unchanged", stamp, renamed.PublishedAt)
+	}
+
+	explicit := "2026-10-22T04:05:06Z"
+	want, err := time.Parse(time.RFC3339, explicit)
+	if err != nil {
+		t.Fatalf("parse fixture time: %v", err)
+	}
+	kept := decodePost("POST with explicit published_at", h.request(http.MethodPost, "/api/admin/posts",
+		`{"title":"Stamp explicit","content":"body","status":"published","published_at":"`+explicit+`"}`,
+		token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON))
+	if kept.PublishedAt == nil || !kept.PublishedAt.Equal(want) {
+		t.Errorf("POST with explicit published_at = %v, want %s", kept.PublishedAt, want)
+	}
+}

@@ -1,23 +1,27 @@
-{{define "title"}}Products{{end}}
+{{define "title"}}{{.T.products}}{{end}}
 {{define "content"}}
-<div class="header">
-    <h1>Products</h1>
-    <a href="/admin/products/new" class="btn">New Product</a>
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.products}}</h1>
+    </div>
+    <div class="page-actions">
+        <a href="/admin/products/new" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>New Product</a>
+    </div>
 </div>
-<div class="card">
+<div class="table-wrapper">
     <table>
         <thead>
             <tr>
-                <th>Title</th>
+                <th>{{.T.title}}</th>
                 <th>Price</th>
                 <th>Stock</th>
-                <th>Status</th>
-                <th>Actions</th>
+                <th>{{.T.status}}</th>
+                <th class="actions">{{.T.actions}}</th>
             </tr>
         </thead>
         <tbody id="productsList">
             <tr>
-                <td colspan="5">Loading...</td>
+                <td colspan="5" class="table-empty">{{.T.loading}}</td>
             </tr>
         </tbody>
     </table>
@@ -25,22 +29,37 @@
 {{end}}
 {{define "scripts"}}
 <script>
+    const T = { edit: "{{.T.edit}}", delete: "{{.T.delete}}" };
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+    }
+
+    const STATUS_BADGE = { active: 'success', draft: 'warning', archived: 'info' };
+
     async function loadProducts() {
         const res = await fetch('/api/admin/products');
         const products = await res.json();
         const tbody = document.getElementById('productsList');
         tbody.innerHTML = '';
 
+        if (!products.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="table-empty">—</td></tr>';
+            return;
+        }
+
         products.forEach(p => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                    <td>${p.title}</td>
-                    <td>NT$ ${p.price}</td>
-                    <td>${p.stock}</td>
-                    <td>${p.status}</td>
-                    <td>
-                        <a href="/admin/products/${p.id}" class="btn btn-sm">Edit</a>
-                        <button onclick="deleteProduct(${p.id})" class="btn btn-sm" style="background: #dc3545;">Delete</button>
+                    <td class="cell-title"><a href="/admin/products/${p.id}">${escapeHtml(p.title)}</a></td>
+                    <td class="cell-mono">NT$ ${p.price}</td>
+                    <td class="cell-mono">${p.stock}</td>
+                    <td><span class="badge badge-${STATUS_BADGE[p.status] || 'info'}">${escapeHtml(p.status)}</span></td>
+                    <td class="actions">
+                        <a href="/admin/products/${p.id}" class="btn btn-secondary btn-sm btn-icon" title="${T.edit}" aria-label="${T.edit}"><svg class="icon" aria-hidden="true"><use href="#i-pencil"/></svg></a>
+                        <button onclick="deleteProduct(${p.id})" class="btn btn-text btn-sm btn-icon" title="${T.delete}" aria-label="${T.delete}"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg></button>
                     </td>
                 `;
             tbody.appendChild(tr);

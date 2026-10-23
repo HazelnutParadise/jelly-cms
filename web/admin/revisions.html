@@ -1,0 +1,610 @@
+{{define "title"}}{{.T.rvTitle}}{{end}}
+{{define "styles"}}
+<style>
+    .rv-grid { display: grid; grid-template-columns: 17.5rem minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+    .rv-side { position: sticky; top: 4.5rem; display: flex; flex-direction: column; gap: .65rem; min-width: 0; }
+    .rv-list { display: flex; flex-direction: column; gap: .125rem; }
+    .rv-item { display: flex; flex-direction: column; align-items: flex-start; gap: .125rem; width: 100%; padding: .5rem .65rem; border: 0; background: transparent; font: inherit; text-align: left; color: var(--ink); border-radius: var(--r-sm); cursor: pointer; transition: background-color .12s ease, color .12s ease; }
+    .rv-item:hover { background: var(--surface-mid); }
+    .rv-item:focus-visible { outline: 3px solid var(--secondary); outline-offset: 1px; }
+    .rv-item[aria-current="true"] { background: var(--ink); color: var(--surface); }
+    .rv-item .top { display: flex; align-items: center; gap: .5rem; width: 100%; font-weight: 600; font-size: .84375rem; min-width: 0; }
+    .rv-item .top .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rv-item .top .ver { margin-left: auto; font-family: var(--font-display); font-size: .6875rem; font-weight: 800; color: var(--muted); }
+    .rv-item[aria-current="true"] .top .ver { color: inherit; opacity: .8; }
+    .rv-item .sub { font-size: .75rem; font-weight: 500; color: var(--muted); padding-left: 1.75rem; }
+    .rv-item[aria-current="true"] .sub { color: color-mix(in srgb, var(--surface) 75%, var(--ink)); }
+    .rv-item .sub .add { color: color-mix(in srgb, var(--success) 85%, var(--ink)); font-weight: 700; }
+    .rv-item .sub .del { color: color-mix(in srgb, var(--error) 85%, var(--ink)); font-weight: 700; }
+    .rv-item[aria-current="true"] .sub .add, .rv-item[aria-current="true"] .sub .del { color: inherit; }
+    .rv-av { width: 1.25rem; height: 1.25rem; display: grid; place-items: center; flex: 0 0 auto; font-size: .625rem; font-weight: 800; color: #fff; border-radius: 0 .375rem 0 .375rem; }
+    .rv-more { justify-content: flex-start; color: var(--muted); }
+    .rv-note { font-size: .75rem; line-height: 1.6; color: var(--muted); padding: .65rem .75rem; background: var(--surface-low); border-radius: var(--r-sm); }
+
+    .rv-toolbar { display: flex; align-items: center; gap: .6rem .9rem; flex-wrap: wrap; margin-bottom: .75rem; }
+    .rv-seg { display: inline-flex; flex-wrap: wrap; gap: .2rem; padding: .2rem; background: var(--surface-mid); border-radius: var(--r-sm); }
+    .rv-seg button { display: inline-flex; align-items: center; gap: .4rem; min-height: 1.9rem; padding: 0 .75rem; border: 0; background: transparent; font: inherit; font-size: .8125rem; font-weight: 700; color: var(--muted); border-radius: var(--r-sm); cursor: pointer; white-space: nowrap; transition: background-color .12s ease, color .12s ease; }
+    .rv-seg button .icon { width: .875rem; height: .875rem; }
+    .rv-seg button:hover { color: var(--ink); }
+    .rv-seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+    .rv-seg button:focus-visible { outline: 3px solid var(--secondary); outline-offset: 1px; }
+    .rv-cmp { display: inline-flex; align-items: center; gap: .4rem; font-size: .8125rem; color: var(--muted); flex-wrap: wrap; }
+    .rv-cmp b { font-family: var(--font-display); font-weight: 800; color: var(--ink); }
+    .rv-cmp select { width: auto; min-height: 1.9rem; padding: 0 1.4rem 0 .4rem; font-size: .8125rem; font-weight: 700; color: var(--ink); }
+    .rv-collapse { margin-left: auto; display: inline-flex; align-items: center; gap: .6rem; font-size: .8125rem; font-weight: 600; cursor: pointer; margin-bottom: 0; color: var(--ink); }
+    .rv-collapse input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .rv-collapse .slider { position: relative; width: 2.6rem; height: 1.5rem; background: var(--surface-high); border-radius: 0 .75rem 0 .75rem; transition: background-color .15s ease; flex: 0 0 auto; }
+    .rv-collapse .slider::before { content: ""; position: absolute; top: .1875rem; left: .1875rem; width: 1.125rem; height: 1.125rem; background: var(--surface); border-radius: 0 .5rem 0 .5rem; transition: transform .15s ease; }
+    .rv-collapse input:checked + .slider { background: var(--accent); }
+    .rv-collapse input:checked + .slider::before { transform: translateX(1.1rem); }
+    .rv-collapse input:focus-visible + .slider { outline: 3px solid var(--secondary); outline-offset: 2px; }
+
+    .rv-card { background: var(--surface); box-shadow: inset 0 0 0 1px var(--outline); border-radius: var(--r-md); overflow: hidden; }
+    .rv-sec { padding: .5rem .9rem; font-size: .75rem; font-weight: 700; color: var(--muted); border-bottom: 1px solid color-mix(in srgb, var(--outline) 60%, transparent); background: var(--surface-low); }
+    .rv-sec + .rv-body { border-bottom: 1px solid color-mix(in srgb, var(--outline) 60%, transparent); }
+    .rv-card > .rv-body:last-child { border-bottom: 0; }
+    .rv-body { padding: .75rem .9rem; font: .8125rem/1.7 var(--mono); overflow-x: auto; }
+    .rv-line { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.7em; }
+    .rv-a { background: color-mix(in srgb, var(--error) 16%, var(--surface)); color: color-mix(in srgb, var(--error) 85%, var(--ink)); text-decoration: line-through; padding: 0 .125rem; }
+    .rv-b { background: color-mix(in srgb, var(--success) 18%, var(--surface)); color: color-mix(in srgb, var(--success) 85%, var(--ink)); padding: 0 .125rem; }
+    .rv-gap { display: block; width: 100%; margin: .15rem 0; padding: .2rem .5rem; border: 0; border-radius: var(--r-sm); background: var(--surface-low); font: inherit; font-size: .75rem; color: var(--muted); text-align: left; cursor: pointer; }
+    .rv-gap:hover { background: var(--surface-mid); color: var(--ink); }
+    .rv-gap:focus-visible { outline: 3px solid var(--secondary); }
+    .rv-same { padding: 1.25rem .9rem; color: var(--muted); font-size: .875rem; }
+    .rv-only .rv-line { font-family: var(--font); font-size: .9375rem; }
+    .rv-only h3 { font-size: 1.125rem; margin-bottom: .5rem; }
+    .rv-only .excerpt { color: var(--muted); font-size: .875rem; margin-bottom: .75rem; }
+
+    .rv-split { min-width: 34rem; }
+    .rv-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0; }
+    .rv-cell { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); gap: .35rem; padding: 0 .35rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.7em; }
+    .rv-cell + .rv-cell { border-left: 1px solid color-mix(in srgb, var(--outline) 60%, transparent); padding-left: .5rem; }
+    .rv-cell .n { text-align: right; color: color-mix(in srgb, var(--muted) 70%, transparent); font-size: .6875rem; user-select: none; padding-top: .1rem; }
+    .rv-cell.del { background: color-mix(in srgb, var(--error) 9%, var(--surface)); }
+    .rv-cell.add { background: color-mix(in srgb, var(--success) 10%, var(--surface)); }
+    .rv-cell.del .rv-a { text-decoration: none; }
+
+    .rv-foot { display: flex; gap: .5rem; margin-top: .75rem; align-items: center; font-size: .8125rem; color: var(--muted); flex-wrap: wrap; }
+    .rv-foot .legend { font: .8125rem var(--font); }
+    .rv-foot .btn { margin-left: auto; }
+
+    .rv-overlay { position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center; padding: 1rem; background: color-mix(in srgb, var(--ink) 45%, transparent); }
+    .rv-overlay[hidden] { display: none; }
+    .rv-dlg { width: min(27.5rem, 100%); background: var(--surface); border-radius: 0 1.5rem 0 1.5rem; box-shadow: 0 0 0 1px var(--outline), 0 24px 64px rgba(21, 22, 26, .28); padding: 1.5rem; display: flex; flex-direction: column; gap: .9rem; animation: rv-pop .16s ease; }
+    @keyframes rv-pop { from { transform: translateY(.5rem); opacity: 0; } to { transform: none; opacity: 1; } }
+    .rv-dlg .head { display: flex; align-items: center; gap: .7rem; }
+    .rv-dlg .head b { font-size: 1rem; line-height: 1.35; }
+    .rv-dlg .ico { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; flex: 0 0 auto; background: var(--primary-container); color: var(--on-primary-container); border-radius: 0 .75rem 0 .75rem; }
+    .rv-dlg .ico .icon { width: 1.25rem; height: 1.25rem; }
+    .rv-dlg p { margin: 0; font-size: .84375rem; line-height: 1.6; color: var(--muted); }
+    .rv-dlg .foot { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
+
+    [hidden] { display: none !important; }
+    .rv-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    @media (max-width: 900px) {
+        .rv-grid { grid-template-columns: minmax(0, 1fr); }
+        .rv-side { position: static; }
+        .rv-collapse { margin-left: 0; }
+    }
+</style>
+{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.rvTitle}}</h1>
+        <p class="page-description" id="postTitle"></p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-secondary" id="backLink" href="/admin/posts"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>{{.T.rvBackToEditor}}</a>
+        <button class="btn btn-primary" type="button" id="restoreBtn" disabled><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg>{{.T.rvRestore}}</button>
+    </div>
+</div>
+
+<div id="loadingBox">{{template "state-loading" dict "text" .T.loading "skeleton" true}}</div>
+<div id="errorBox" hidden>{{template "state-error" dict "title" .T.rvLoadFailed "text" .T.errorInternalHint "retryText" .T.retry}}</div>
+<div id="emptyBox" hidden>{{template "state-empty" dict "title" .T.rvEmptyTitle "text" .T.rvEmptyText}}</div>
+
+<div class="rv-grid" id="grid" hidden>
+    <aside class="rv-side" aria-label="{{.T.rvTitle}}">
+        <div class="label" id="countLabel"></div>
+        <div class="rv-list" id="revList"></div>
+        <div class="rv-note">{{.T.rvNote}}</div>
+    </aside>
+    <section aria-live="polite">
+        <div class="rv-toolbar">
+            <div class="rv-seg" id="modeSeg" role="group" aria-label="{{.T.rvViewMode}}">
+                <button type="button" data-mode="inline" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>{{.T.rvModeInline}}</button>
+                <button type="button" data-mode="only" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg><span id="onlyLabel"></span></button>
+                <button type="button" data-mode="split" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>{{.T.rvModeSplit}}</button>
+            </div>
+            <span class="rv-cmp" id="cmp"><span>{{.T.rvCompare}}</span> <b id="cmpFrom"></b> <span aria-hidden="true">→</span> <label class="rv-sr" for="cmpTo">{{.T.rvCompareTo}}</label><select id="cmpTo"></select></span>
+            <label class="rv-collapse" id="collapseWrap"><span>{{.T.rvOnlyChanged}}</span><input type="checkbox" id="collapse" checked><span class="slider" aria-hidden="true"></span></label>
+        </div>
+        <div class="rv-card" id="card"></div>
+        <div class="rv-foot">
+            <span class="legend" id="legend"></span>
+            <button class="btn btn-secondary btn-sm" type="button" id="copyBtn"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span id="copyLabel"></span></button>
+        </div>
+    </section>
+</div>
+
+<div class="rv-overlay" id="dlg" hidden>
+    <form class="rv-dlg" id="dlgForm" role="alertdialog" aria-modal="true" aria-labelledby="dlgTitle" aria-describedby="dlgText">
+        <div class="head"><span class="ico"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg></span><b id="dlgTitle"></b></div>
+        <p id="dlgText">{{.T.rvConfirmText}}</p>
+        <div class="foot">
+            <button class="btn btn-secondary" type="button" id="dlgCancel"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>{{.T.cancel}}</button>
+            <button class="btn btn-primary" type="submit" id="dlgOk"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg>{{.T.rvConfirmOk}}</button>
+        </div>
+    </form>
+</div>
+{{end}}
+{{define "scripts"}}
+<script>
+(function () {
+    'use strict';
+    var T = {
+        current: {{.T.rvCurrent}}, published: {{.T.published}}, draft: {{.T.draft}}, pending: {{.T.pending}},
+        kinds: { manual: {{.T.rvKindManual}}, autosave: {{.T.rvKindAutosave}}, publish: {{.T.rvKindPublish}}, restore: {{.T.rvKindRestore}} },
+        count: {{.T.rvCount}}, earlier: {{.T.rvEarlier}}, only: {{.T.rvOnly}}, today: {{.T.rvToday}}, yesterday: {{.T.rvYesterday}},
+        currentTo: {{.T.rvCurrentTo}}, title: {{.T.rvSecTitle}}, body: {{.T.rvSecBody}}, excerpt: {{.T.rvSecExcerpt}},
+        same: {{.T.rvSame}}, sameRun: {{.T.rvSameRun}}, legend: {{.T.rvLegend}}, legendAdd: {{.T.rvLegendAdd}}, legendDel: {{.T.rvLegendDel}}, copy: {{.T.rvCopy}}, copied: {{.T.rvCopied}},
+        confirmTitle: {{.T.rvConfirmTitle}}, restored: {{.T.rvRestored}}, restoreDisabled: {{.T.rvRestoreDisabled}},
+        failed: {{.T.rvActionFailed}}, noId: {{.T.rvNoId}}, you: {{.T.rvUnknownUser}}
+    };
+    var LANG = {{.Lang}};
+    var COLORS = [['#F5B800', '#3A2E00'], ['#2F6BFF', '#fff'], ['#13C2A3', '#06332B'], ['#E8285B', '#fff'], ['#7E838F', '#fff']];
+    var SHOWN = 5;
+
+    var m = location.pathname.match(/\/admin\/(posts|pages)\/(\d+)\/revisions/);
+    var $ = function (id) { return document.getElementById(id); };
+    var boxes = { loading: $('loadingBox'), error: $('errorBox'), empty: $('emptyBox'), grid: $('grid') };
+    var state = { kind: m ? m[1] : 'posts', id: m ? m[2] : '', post: null, revs: [], currentIsNewest: false, selected: null, to: 'current', mode: 'inline', collapse: true, showAll: false, diff: null, detail: {}, expanded: {}, seq: 0 };
+    var base = '/api/admin/posts/' + state.id;
+    var dlgOpener = null;
+
+    function el(tag, cls, text) {
+        var n = document.createElement(tag);
+        if (cls) n.className = cls;
+        if (text != null) n.textContent = text;
+        return n;
+    }
+    function fmt(tpl, vars) { return String(tpl).replace(/\{(\w+)\}/g, function (x, k) { return vars[k] != null ? vars[k] : x; }); }
+    function toast(msg, opts) { if (window.Jelly && Jelly.toast) Jelly.toast(msg, opts || {}); }
+    function api(method, url) {
+        return fetch(url, { method: method, headers: { 'Content-Type': 'application/json' } }).then(function (res) {
+            return res.json().catch(function () { return {}; }).then(function (data) {
+                if (!res.ok) { var err = new Error((data && data.error) || T.failed); err.status = res.status; throw err; }
+                return data;
+            });
+        });
+    }
+    function show(which) { Object.keys(boxes).forEach(function (k) { boxes[k].hidden = k !== which; }); }
+    function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
+    function avatar(name) {
+        var c = COLORS[hash(name || '') % COLORS.length];
+        var m2 = String(name || '').trim().match(/[\p{L}\p{N}]/u);
+        var a = el('span', 'rv-av', m2 ? m2[0].toUpperCase() : '?');
+        a.style.background = c[0];
+        a.style.color = c[1];
+        return a;
+    }
+    function two(n) { return n < 10 ? '0' + n : String(n); }
+    function whenText(iso) {
+        var d = new Date(iso);
+        if (isNaN(d)) return '';
+        var hm = two(d.getHours()) + ':' + two(d.getMinutes());
+        var now = new Date();
+        var yday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        if (d.toDateString() === now.toDateString()) return T.today + ' ' + hm;
+        if (d.toDateString() === yday.toDateString()) return T.yesterday + ' ' + hm;
+        var md = two(d.getMonth() + 1) + '/' + two(d.getDate());
+        return (d.getFullYear() === now.getFullYear() ? md : d.getFullYear() + '/' + md) + ' ' + hm;
+    }
+    function statusText(s) { return s === 'published' ? T.published : (s === 'draft' ? T.draft : (s === 'pending' ? T.pending : (s || ''))); }
+
+    /* 版本編號：最舊是 v1 */
+    function vnum(rev) { return state.revs.length - state.revs.indexOf(rev); }
+    function revById(id) { return state.revs.filter(function (r) { return String(r.id) === String(id); })[0]; }
+    function isCurrent(rev) { return state.currentIsNewest && rev === state.revs[0]; }
+    function label(rev) { return 'v' + vnum(rev); }
+
+    /* ---------- 載入 ---------- */
+    function init() {
+        if (!state.id) { fail(new Error(T.noId)); return Promise.resolve(); }
+        $('backLink').href = '/admin/' + state.kind + '/' + state.id;
+        return Promise.all([api('GET', base), api('GET', base + '/revisions')]).then(function (res) {
+            state.post = res[0];
+            state.revs = Array.isArray(res[1]) ? res[1] : [];
+            $('postTitle').textContent = state.post.title || '';
+            if (!state.revs.length) { show('empty'); return; }
+            // 最新的一版若和目前內容一樣，就把它當成「目前」。
+            return api('GET', base + '/revisions/diff?from=' + state.revs[0].id + '&to=current').then(function (d) {
+                var changed = (d.title || []).concat(d.content || []).some(function (o) { return o.op !== '='; });
+                state.currentIsNewest = !changed;
+            }, function () { state.currentIsNewest = false; });
+        }).then(function () {
+            if (!state.revs.length) return;
+            var keep = state.selected && revById(state.selected.id);
+            state.selected = keep || (state.currentIsNewest && state.revs.length > 1 ? state.revs[1] : state.revs[0]);
+            state.to = 'current';
+            state.showAll = false;
+            state.detail = {};
+            state.expanded = {};
+            show('grid');
+            renderList();
+            return choose(state.selected);
+        }).catch(fail);
+    }
+    function fail(err) {
+        var t = boxes.error.querySelector('.state-text');
+        if (t) t.textContent = err.message;
+        show('error');
+    }
+
+    /* ---------- 左側清單 ---------- */
+    function itemFor(rev) {
+        var b = el('button', 'rv-item');
+        b.type = 'button';
+        b.dataset.id = rev.id;
+        b.setAttribute('aria-current', String(state.selected === rev));
+        var top = el('span', 'top');
+        top.appendChild(avatar(rev.user && rev.user.username));
+        var cur = isCurrent(rev);
+        var name = cur ? T.current.replace('{status}', statusText(state.post.status)) : (T.kinds[rev.kind] || rev.kind);
+        top.appendChild(el('span', 'name', name));
+        top.appendChild(el('span', 'ver', label(rev)));
+        b.appendChild(top);
+        var sub = el('span', 'sub');
+        sub.appendChild(document.createTextNode(whenText(rev.created_at) + ' · ' + ((rev.user && rev.user.username) || T.you)));
+        if (rev.added || rev.removed) {
+            sub.appendChild(document.createTextNode(' · '));
+            sub.appendChild(el('span', 'add', '+' + rev.added));
+            sub.appendChild(document.createTextNode(' '));
+            sub.appendChild(el('span', 'del', '−' + rev.removed));
+        }
+        b.appendChild(sub);
+        return b;
+    }
+    function renderList() {
+        $('countLabel').textContent = fmt(T.count, { n: state.revs.length });
+        var box = $('revList');
+        box.textContent = '';
+        var limit = state.showAll ? state.revs.length : Math.min(SHOWN, state.revs.length);
+        // 選到更早的版本時，清單要保持展開。
+        var idx = state.revs.indexOf(state.selected);
+        if (idx >= limit) limit = idx + 1;
+        if (!state.currentIsNewest) {
+            var cur = el('button', 'rv-item');
+            cur.type = 'button';
+            cur.dataset.id = 'current';
+            cur.setAttribute('aria-current', 'false');
+            cur.disabled = true;
+            var top = el('span', 'top');
+            top.appendChild(avatar(state.post.author && state.post.author.username));
+            top.appendChild(el('span', 'name', T.current.replace('{status}', statusText(state.post.status))));
+            cur.appendChild(top);
+            cur.appendChild(el('span', 'sub', whenText(state.post.updated_at)));
+            box.appendChild(cur);
+        }
+        state.revs.slice(0, limit).forEach(function (r) { box.appendChild(itemFor(r)); });
+        if (limit < state.revs.length) {
+            var more = el('button', 'rv-item rv-more');
+            more.type = 'button';
+            more.dataset.more = '1';
+            var t = el('span', 'top');
+            t.appendChild(el('span', 'name', fmt(T.earlier, { n: state.revs.length - limit })));
+            more.appendChild(t);
+            box.appendChild(more);
+        }
+    }
+
+    /* ---------- 選擇與比較 ---------- */
+    function renderToolbar() {
+        var rev = state.selected;
+        $('cmpFrom').textContent = label(rev);
+        $('onlyLabel').textContent = fmt(T.only, { v: label(rev) });
+        $('copyLabel').textContent = fmt(T.copy, { v: label(rev) });
+        var sel = $('cmpTo');
+        sel.textContent = '';
+        var cur = el('option');
+        cur.value = 'current';
+        sel.appendChild(cur);
+        state.revs.forEach(function (r) {
+            if (r === rev) return;
+            if (state.currentIsNewest && r === state.revs[0]) return;
+            var o = el('option', null, label(r));
+            o.value = r.id;
+            sel.appendChild(o);
+        });
+        cur.textContent = state.currentIsNewest ? label(state.revs[0]) + ' (' + T.currentTo + ')' : T.currentTo;
+        sel.value = state.to;
+        var lg = $('legend');
+        lg.textContent = '';
+        String(T.legend).split(/\{(add|del)\}/).forEach(function (p) {
+            if (p === 'add') lg.appendChild(el('span', 'rv-b', T.legendAdd));
+            else if (p === 'del') lg.appendChild(el('span', 'rv-a', T.legendDel));
+            else lg.appendChild(document.createTextNode(p.replace('{v}', label(rev))));
+        });
+        var restoreOk = !isCurrent(rev);
+        var btn = $('restoreBtn');
+        btn.disabled = !restoreOk;
+        btn.title = restoreOk ? '' : T.restoreDisabled;
+        $('collapseWrap').hidden = state.mode === 'only';
+        $('cmp').hidden = state.mode === 'only';
+        $('legend').hidden = state.mode === 'only';
+        document.querySelectorAll('#modeSeg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode)); });
+    }
+
+    function choose(rev) {
+        state.selected = rev;
+        if (state.to !== 'current' && String(state.to) === String(rev.id)) state.to = 'current';
+        renderList();
+        renderToolbar();
+        var mine = ++state.seq;
+        var card = $('card');
+        card.textContent = '';
+        card.appendChild(el('div', 'rv-same', '…'));
+        var to = state.to === 'current' ? 'current' : state.to;
+        var jobs = [api('GET', base + '/revisions/diff?from=' + rev.id + '&to=' + to)];
+        if (state.mode === 'only' && !state.detail[rev.id]) jobs.push(api('GET', base + '/revisions/' + rev.id).then(function (d) { state.detail[rev.id] = d; }));
+        return Promise.all(jobs).then(function (res) {
+            if (mine !== state.seq) return;
+            state.diff = res[0];
+            renderCard();
+        }).catch(function (err) {
+            if (mine !== state.seq) return;
+            card.textContent = '';
+            card.appendChild(el('div', 'rv-same', err.message));
+            toast(err.message, { kind: 'error' });
+        });
+    }
+
+    /* ---------- Diff 運算 ---------- */
+    function segments(ops) {
+        var out = [], oi = 1, ni = 1, cur = null;
+        function flush() { if (cur) { out.push(cur); cur = null; } }
+        (ops || []).forEach(function (o) {
+            if (o.op === '=') {
+                if (!cur || cur.type !== 'eq') { flush(); cur = { type: 'eq', lines: [], o: oi, n: ni }; }
+                cur.lines.push(o.text); oi++; ni++;
+            } else {
+                if (!cur || cur.type !== 'chg') { flush(); cur = { type: 'chg', del: [], add: [], o: oi, n: ni }; }
+                if (o.op === '-') { cur.del.push(o.text); oi++; } else { cur.add.push(o.text); ni++; }
+            }
+        });
+        flush();
+        return out;
+    }
+    function tokenize(s) { return s.match(/[㐀-鿿豈-﫿]|[A-Za-z0-9_]+|\s+|[^\sA-Za-z0-9_㐀-鿿豈-﫿]/g) || []; }
+    // 字詞層級的差異；太大就放棄，整行當作取代。
+    function tokenDiff(a, b) {
+        var x = tokenize(a), y = tokenize(b);
+        var pre = 0;
+        while (pre < x.length && pre < y.length && x[pre] === y[pre]) pre++;
+        var suf = 0;
+        while (suf < x.length - pre && suf < y.length - pre && x[x.length - 1 - suf] === y[y.length - 1 - suf]) suf++;
+        var xm = x.slice(pre, x.length - suf), ym = y.slice(pre, y.length - suf);
+        if (xm.length * ym.length > 160000) return null;
+        var w = ym.length + 1, dp = new Uint16Array((xm.length + 1) * w), i, j;
+        for (i = xm.length - 1; i >= 0; i--) for (j = ym.length - 1; j >= 0; j--) {
+            dp[i * w + j] = xm[i] === ym[j] ? dp[(i + 1) * w + j + 1] + 1 : Math.max(dp[(i + 1) * w + j], dp[i * w + j + 1]);
+        }
+        var ops = [];
+        function push(op, t) { var l = ops[ops.length - 1]; if (l && l.op === op) l.text += t; else ops.push({ op: op, text: t }); }
+        if (pre) push('=', x.slice(0, pre).join(''));
+        i = 0; j = 0;
+        while (i < xm.length && j < ym.length) {
+            if (xm[i] === ym[j]) { push('=', xm[i]); i++; j++; }
+            else if (dp[(i + 1) * w + j] >= dp[i * w + j + 1]) { push('-', xm[i]); i++; }
+            else { push('+', ym[j]); j++; }
+        }
+        while (i < xm.length) push('-', xm[i++]);
+        while (j < ym.length) push('+', ym[j++]);
+        if (suf) push('=', x.slice(x.length - suf).join(''));
+        var same = pre + suf + dp[0];
+        return { ops: ops, ratio: (x.length + y.length) ? 2 * same / (x.length + y.length) : 1 };
+    }
+    // 把一組刪除 / 新增行配成「同一行改過」或各自獨立的行。
+    function pairUp(chg) {
+        var pairs = [], k = 0;
+        while (k < chg.del.length && k < chg.add.length) {
+            var d = tokenDiff(chg.del[k], chg.add[k]);
+            if (!d || d.ratio < 0.3) break;
+            pairs.push({ del: chg.del[k], add: chg.add[k], d: d });
+            k++;
+        }
+        return { pairs: pairs, del: chg.del.slice(k), add: chg.add.slice(k), nd: k, na: k };
+    }
+    function spans(ops, side) {
+        var frag = document.createDocumentFragment();
+        ops.forEach(function (o) {
+            if (o.op === '=') frag.appendChild(document.createTextNode(o.text));
+            else if (o.op === '-' && side !== 'add') frag.appendChild(el('span', 'rv-a', o.text));
+            else if (o.op === '+' && side !== 'del') frag.appendChild(el('span', 'rv-b', o.text));
+        });
+        return frag;
+    }
+    function line(cls) { return el('div', 'rv-line' + (cls ? ' ' + cls : '')); }
+
+    /* ---------- 繪製 ---------- */
+    function gapButton(key, count, from) {
+        var b = el('button', 'rv-gap', fmt(T.sameRun, { a: from, b: from + count - 1 }));
+        b.type = 'button';
+        b.dataset.gap = key;
+        return b;
+    }
+    // 逐行：同一行改的字詞內嵌紅綠；其他整行紅或綠。
+    function inlineBody(ops, key, collapse) {
+        var body = el('div', 'rv-body');
+        segments(ops).forEach(function (s, si) {
+            if (s.type === 'eq') {
+                var k = key + si, ctx = 1;
+                if (collapse && !state.expanded[k] && s.lines.length > ctx * 2 + 1) {
+                    s.lines.slice(0, ctx).forEach(function (t) { var l = line(); l.textContent = t; body.appendChild(l); });
+                    body.appendChild(gapButton(k, s.lines.length - ctx * 2, s.o + ctx));
+                    s.lines.slice(-ctx).forEach(function (t) { var l = line(); l.textContent = t; body.appendChild(l); });
+                } else s.lines.forEach(function (t) { var l = line(); l.textContent = t; body.appendChild(l); });
+                return;
+            }
+            var p = pairUp(s);
+            p.pairs.forEach(function (pr) { var l = line(); l.appendChild(spans(pr.d.ops)); body.appendChild(l); });
+            p.del.forEach(function (t) { var l = line(); l.appendChild(el('span', 'rv-a', t)); body.appendChild(l); });
+            p.add.forEach(function (t) { var l = line(); l.appendChild(el('span', 'rv-b', t)); body.appendChild(l); });
+        });
+        return body;
+    }
+    function cell(side, num, kind) {
+        var c = el('div', 'rv-cell' + (kind ? ' ' + kind : ''));
+        c.appendChild(el('span', 'n', num != null ? String(num) : ''));
+        var t = el('span', 't');
+        c.appendChild(t);
+        return { box: c, text: t };
+    }
+    function splitBody(ops, key, collapse) {
+        var wrap = el('div', 'rv-body');
+        var body = el('div', 'rv-split');
+        wrap.appendChild(body);
+        function row(l, r) { var d = el('div', 'rv-row'); d.appendChild(l.box); d.appendChild(r.box); body.appendChild(d); }
+        segments(ops).forEach(function (s, si) {
+            if (s.type === 'eq') {
+                var k = key + si, ctx = 1;
+                var emit = function (from, to) {
+                    for (var i = from; i < to; i++) {
+                        var l = cell('l', s.o + i), r = cell('r', s.n + i);
+                        l.text.textContent = s.lines[i]; r.text.textContent = s.lines[i];
+                        row(l, r);
+                    }
+                };
+                if (collapse && !state.expanded[k] && s.lines.length > ctx * 2 + 1) {
+                    emit(0, ctx);
+                    body.appendChild(gapButton(k, s.lines.length - ctx * 2, s.o + ctx));
+                    emit(s.lines.length - ctx, s.lines.length);
+                } else emit(0, s.lines.length);
+                return;
+            }
+            var p = pairUp(s), n = p.pairs.length, o = s.o, nw = s.n, i;
+            p.pairs.forEach(function (pr, idx) {
+                var l = cell('l', o + idx, 'del'), r = cell('r', nw + idx, 'add');
+                l.text.appendChild(spans(pr.d.ops, 'del')); r.text.appendChild(spans(pr.d.ops, 'add'));
+                row(l, r);
+            });
+            var rest = Math.max(p.del.length, p.add.length);
+            for (i = 0; i < rest; i++) {
+                var l2 = i < p.del.length ? cell('l', o + n + i, 'del') : cell('l', null, ''), r2 = i < p.add.length ? cell('r', nw + n + i, 'add') : cell('r', null, '');
+                if (i < p.del.length) l2.text.appendChild(el('span', 'rv-a', p.del[i]));
+                if (i < p.add.length) r2.text.appendChild(el('span', 'rv-b', p.add[i]));
+                row(l2, r2);
+            }
+        });
+        return wrap;
+    }
+    function hasChange(ops) { return (ops || []).some(function (o) { return o.op !== '='; }); }
+
+    function renderCard() {
+        var card = $('card');
+        card.textContent = '';
+        renderToolbar();
+        var rev = state.selected;
+        if (state.mode === 'only') {
+            var d = state.detail[rev.id] || {};
+            var md = d.meta && typeof d.meta.markdown === 'string' ? d.meta.markdown : d.content;
+            card.appendChild(el('div', 'rv-sec', T.body));
+            var body = el('div', 'rv-body rv-only');
+            body.appendChild(el('h3', null, d.title || ''));
+            if (d.excerpt) body.appendChild(el('div', 'excerpt', d.excerpt));
+            var l = line(); l.textContent = md || '';
+            body.appendChild(l);
+            card.appendChild(body);
+            return;
+        }
+        var diff = state.diff || {};
+        if (!hasChange(diff.title) && !hasChange(diff.content)) {
+            card.appendChild(el('div', 'rv-same', T.same));
+            return;
+        }
+        var build = state.mode === 'split' ? splitBody : inlineBody;
+        if (hasChange(diff.title)) {
+            card.appendChild(el('div', 'rv-sec', T.title));
+            card.appendChild(build(diff.title, 't', false));
+        }
+        card.appendChild(el('div', 'rv-sec', T.body));
+        card.appendChild(build(diff.content || [], 'c', state.collapse));
+    }
+
+    /* ---------- 還原 ---------- */
+    function openConfirm() {
+        if (isCurrent(state.selected)) return;
+        dlgOpener = document.activeElement;
+        $('dlgTitle').textContent = fmt(T.confirmTitle, { v: label(state.selected) });
+        $('dlg').hidden = false;
+        $('dlgOk').focus();
+    }
+    function closeConfirm() {
+        $('dlg').hidden = true;
+        if (dlgOpener && dlgOpener.focus && document.contains(dlgOpener)) dlgOpener.focus();
+        dlgOpener = null;
+    }
+
+    /* ---------- 事件 ---------- */
+    $('revList').addEventListener('click', function (e) {
+        var more = e.target.closest('[data-more]');
+        if (more) { state.showAll = true; renderList(); return; }
+        var b = e.target.closest('.rv-item[data-id]');
+        if (!b || b.dataset.id === 'current') return;
+        var rev = revById(b.dataset.id);
+        if (rev) choose(rev);
+    });
+    document.querySelectorAll('#modeSeg button').forEach(function (b) {
+        b.addEventListener('click', function () { state.mode = b.dataset.mode; choose(state.selected); });
+    });
+    $('cmpTo').addEventListener('change', function (e) { state.to = e.target.value; choose(state.selected); });
+    $('collapse').addEventListener('change', function (e) { state.collapse = e.target.checked; renderCard(); });
+    $('card').addEventListener('click', function (e) {
+        var g = e.target.closest('[data-gap]');
+        if (g) { state.expanded[g.dataset.gap] = true; renderCard(); }
+    });
+    $('restoreBtn').addEventListener('click', openConfirm);
+    $('dlgCancel').addEventListener('click', closeConfirm);
+    $('dlg').addEventListener('mousedown', function (e) { if (e.target === $('dlg')) closeConfirm(); });
+    $('dlg').addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeConfirm(); return; }
+        if (e.key === 'Tab') {
+            var f = Array.prototype.slice.call($('dlg').querySelectorAll('button')).filter(function (x) { return !x.disabled; });
+            var i = f.indexOf(document.activeElement);
+            var next = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
+            e.preventDefault();
+            f[next].focus();
+        }
+    });
+    $('dlgForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var rev = state.selected, btn = $('dlgOk');
+        btn.disabled = true;
+        api('POST', base + '/revisions/' + rev.id + '/restore').then(function () {
+            btn.disabled = false;
+            closeConfirm();
+            toast(fmt(T.restored, { v: label(rev) }), { kind: 'success', action: { label: $('backLink').textContent.trim(), href: $('backLink').getAttribute('href') } });
+            state.selected = null;
+            return init();
+        }).catch(function (err) {
+            btn.disabled = false;
+            closeConfirm();
+            toast(err.message || T.failed, { kind: 'error' });
+        });
+    });
+    $('copyBtn').addEventListener('click', function () {
+        var rev = state.selected;
+        var get = state.detail[rev.id] ? Promise.resolve(state.detail[rev.id]) : api('GET', base + '/revisions/' + rev.id).then(function (d) { state.detail[rev.id] = d; return d; });
+        get.then(function (d) {
+            var text = d.meta && typeof d.meta.markdown === 'string' ? d.meta.markdown : (d.content || '');
+            if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text).then(function () { toast(T.copied, { kind: 'success' }); });
+            toast(text, { kind: 'info', duration: 8000 });
+        }).catch(function (err) { toast(err.message || T.failed, { kind: 'error' }); });
+    });
+
+    init();
+})();
+</script>
+{{end}}

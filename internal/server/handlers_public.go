@@ -95,14 +95,18 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		if err := datapkg.DB.Where("slug = ? AND type = ? AND status = ?", slug, "post", "published").
 			Preload("Author").
 			First(&post).Error; err != nil {
-			return c.String(http.StatusNotFound, "Post not found")
+			return echo.ErrNotFound
 		}
 
+		comments, commentCount, commentsOpen := commentsForPost(post, commentViewerSignedIn(c))
 		data := map[string]interface{}{
-			"SiteTitle": getSiteTitle(),
-			"Post":      post,
-			"Title":     post.Title,
-			"IsPost":    true,
+			"SiteTitle":    getSiteTitle(),
+			"Post":         post,
+			"Title":        post.Title,
+			"IsPost":       true,
+			"Comments":     comments,
+			"CommentCount": commentCount,
+			"CommentsOpen": commentsOpen,
 		}
 
 		html, err := tm.RenderWithDB("post.html", data, datapkg.DB)
@@ -233,12 +237,12 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 
 		// Skip known routes
 		if slug == "posts" || slug == "search" || slug == "about" || slug == "api" || slug == "admin" || slug == "auth" || slug == "login" || slug == "install" {
-			return c.String(http.StatusNotFound, "Page not found")
+			return echo.ErrNotFound
 		}
 
 		var post core.Post
 		if err := datapkg.DB.Where("slug = ? AND status = ?", slug, "published").First(&post).Error; err != nil {
-			return c.String(http.StatusNotFound, "Page not found")
+			return echo.ErrNotFound
 		}
 
 		data := map[string]interface{}{

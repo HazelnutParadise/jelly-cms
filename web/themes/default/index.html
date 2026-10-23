@@ -1,56 +1,68 @@
 {{define "content"}}
+<style>
+    .entry-cats { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .entry-cats .chip { position: relative; z-index: 1; }
+    .entry-cats a.chip:hover { background: var(--ink); color: var(--surface); }
+    .entry.is-featured .entry-cats a.chip:hover { background: var(--surface); color: var(--ink); }
+</style>
 {{if .IsHome}}
-<div class="hero">
-    <h1>歡迎來到 {{.SiteTitle}}</h1>
-    <p class="hero-subtitle">分享知識，記錄生活</p>
-    <div class="search-box">
-        <form action="/search" method="GET" style="display: flex; gap: 0.5rem; max-width: 500px; margin: 0 auto;">
-            <input type="text" name="q" placeholder="搜尋文章..." style="flex: 1; padding: 0.75rem; border: 2px solid var(--border); border-radius: 8px; font-size: 1rem;">
-            <button type="submit" style="padding: 0.75rem 1.5rem; background: var(--primary); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem;">搜尋</button>
+<section class="hero" aria-labelledby="hero-title">
+    <div class="hero-copy">
+        <div class="label">最新文章</div>
+        <h1 class="display" id="hero-title">{{.SiteTitle}}</h1>
+        <p class="lede">{{themeLayout .ThemeCustom "tagline" "寫下來，才算數。"}}</p>
+        <form class="search-form" role="search" action="/search" method="GET">
+            <input class="field" type="search" name="q" placeholder="搜尋文章" aria-label="搜尋文章">
+            <button class="button button-primary" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>搜尋</button>
         </form>
     </div>
-</div>
+    <div class="hero-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+</section>
 
-<div class="latest-posts">
-    <h2>最新文章</h2>
+<section aria-labelledby="latest-title">
+    <div class="section-head">
+        <h2 id="latest-title">最新文章</h2>
+        <span class="chip">{{len .Posts}} 篇</span>
+    </div>
     {{if .Posts}}
-        <div class="posts-grid">
-            {{range .Posts}}
-            <article class="post-card">
-                <h3><a href="/post/{{.Slug}}">{{.Title}}</a></h3>
-                <div class="post-meta">
-                    <time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">
-                        {{.CreatedAt.Format "2006年1月2日"}}
-                    </time>
-                    {{if .Author}}
-                    <span class="author">作者：{{.Author.Username}}</span>
-                    {{end}}
-                </div>
-                <div class="post-excerpt">
-                    {{if .Content}}
-                        {{$excerpt := .Content}}
-                        {{if gt (len $excerpt) 150}}
-                            {{substr $excerpt 0 150 | html}}...
-                        {{else}}
-                            {{$excerpt | html}}
-                        {{end}}
-                    {{end}}
-                </div>
-                <a href="/post/{{.Slug}}" class="read-more">閱讀更多 →</a>
-            </article>
-            {{end}}
-        </div>
-        <div class="view-all">
-            <a href="/posts" class="btn-primary">查看所有文章</a>
-        </div>
+    <ol class="entries layout-{{themeLayout .ThemeLayout "post_layout" "grid"}}">
+        {{range $i, $post := .Posts}}
+        <li class="entry{{if eq $i 0}} is-featured{{end}}">
+            {{with firstImage $post.Content}}<img class="entry-cover" src="{{.}}" alt="" loading="lazy">{{end}}
+            <span class="entry-art" aria-hidden="true"><i></i><i></i><i></i></span>
+            <div class="entry-date" aria-hidden="true"><b>{{$post.CreatedAt.Format "02"}}</b><span>{{$post.CreatedAt.Format "2006.01"}}</span></div>
+            <div class="entry-head">
+                <time class="chip" datetime="{{$post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.CreatedAt.Format "2006.01.02"}}</time>
+                <span class="entry-flavor" aria-hidden="true"></span>
+            </div>
+            <h3 class="entry-title"><a href="/post/{{$post.Slug}}">{{$post.Title}}</a></h3>
+            <p class="entry-excerpt">{{excerpt $post.Content 110}}</p>
+            {{with $post.Categories}}<div class="entry-cats">{{range .}}{{if not .HideFromList}}<a class="chip" href="/c/{{.Slug}}">{{.Name}}</a>{{end}}{{end}}</div>{{end}}
+            <div class="entry-meta">
+                {{if $post.Author.Username}}<span class="by">{{$post.Author.Username}}</span>{{end}}
+                <a class="entry-more" href="/post/{{$post.Slug}}">閱讀全文<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+            </div>
+        </li>
+        {{end}}
+    </ol>
+    <div class="view-all">
+        <a href="/posts" class="button button-tonal">所有文章<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+    </div>
     {{else}}
-        <p>目前還沒有文章，請到後台新增文章。</p>
+    <div class="empty">
+        <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
+        <p>還沒有文章。到後台寫下第一篇吧。</p>
+    </div>
     {{end}}
-</div>
+</section>
 {{else}}
-<h1>{{.Title}}</h1>
-<div class="content">
-    {{.Content | html}}
-</div>
+<article>
+    <header class="article-head">
+        <h1>{{.Title}}</h1>
+    </header>
+    <div class="prose">
+        {{.Content}}
+    </div>
+</article>
 {{end}}
 {{end}}

@@ -1,122 +1,18 @@
-{{define "title"}}Settings{{end}}
+{{define "title"}}{{.T.settings}}{{end}}
 {{define "styles"}}
 <style>
-    .tabs {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 2rem;
-        border-bottom: 2px solid #eee;
-    }
-    .tab {
-        padding: 0.8rem 1.5rem;
-        cursor: pointer;
-        border: none;
-        background: none;
-        font-weight: 600;
-        color: var(--text-muted);
-        border-bottom: 3px solid transparent;
-        transition: all 0.3s;
-    }
-    .tab:hover {
-        color: var(--dark);
-    }
-    .tab.active {
-        color: var(--primary);
-        border-bottom-color: var(--primary);
-    }
-    .tab-content {
-        display: none;
-    }
-    .tab-content.active {
-        display: block;
-    }
-    .payment-gateway {
-        margin-bottom: 0;
-        padding: 0;
-        background: transparent;
-        border-radius: 0;
-        border: none;
-    }
-    
-    .gateway-card {
-        background: white;
-        border: 2px solid #e0e0e0;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        transition: all 0.3s;
-    }
-    
-    .gateway-card:hover {
-        border-color: var(--primary);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    }
-    
-    .gateway-card.disabled {
-        opacity: 0.6;
-    }
-    .payment-gateway h3 {
-        margin-top: 0;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .toggle-switch {
-        position: relative;
-        display: inline-block;
-        width: 50px;
-        height: 24px;
-    }
-    .toggle-switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-    }
-    .slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: #ccc;
-        transition: .4s;
-        border-radius: 24px;
-    }
-    .slider:before {
-        position: absolute;
-        content: "";
-        height: 18px;
-        width: 18px;
-        left: 3px;
-        bottom: 3px;
-        background-color: white;
-        transition: .4s;
-        border-radius: 50%;
-    }
-    input:checked + .slider {
-        background-color: var(--primary);
-    }
-    input:checked + .slider:before {
-        transform: translateX(26px);
-    }
-    
-    .btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        pointer-events: none;
-    }
-    
-    .gateway-card.disabled {
-        opacity: 0.6;
-        background: #f5f5f5;
-    }
+    .gateway-card { transition: opacity .12s ease; }
+    .gateway-card.disabled .setting-row:not(.toggle-row) { opacity: .45; }
 </style>
 {{end}}
 {{define "content"}}
-<h1>Settings</h1>
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.settings}}</h1>
+    </div>
+</div>
 
-<div class="tabs">
+<div class="tabs" role="tablist">
     <button class="tab active" onclick="switchTab('general')">General</button>
     <button class="tab" onclick="switchTab('oauth')">OAuth</button>
     <button class="tab" onclick="switchTab('payment')">Payment Gateways</button>
@@ -124,148 +20,173 @@
 
 <!-- General Settings -->
 <div id="generalTab" class="tab-content active">
-    <div class="card">
-        <form id="settingsForm">
-            <div class="form-group">
-                <label>Site Title</label>
-                <input type="text" name="site_title">
+    <form id="settingsForm" class="settings-group">
+        <div class="settings-group-head">
+            <div>
+                <h2>Site</h2>
+                <p>Name, description and admin language.</p>
             </div>
-            <div class="form-group">
-                <label>Site Description</label>
-                <input type="text" name="site_description">
+            <button type="submit" class="btn btn-primary btn-sm" id="generalSaveBtn" disabled><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save Settings</button>
+        </div>
+        <div class="setting-row">
+            <div>
+                <label for="siteTitle">Site Title</label>
+                <small class="hint">Shown in the browser tab and the theme header.</small>
             </div>
-            <div class="form-group">
-                <label>Language</label>
-                <select name="site_language">
+            <div class="control"><input type="text" id="siteTitle" name="site_title"></div>
+        </div>
+        <div class="setting-row">
+            <div>
+                <label for="siteDescription">Site Description</label>
+                <small class="hint">A short line for search engines and the footer.</small>
+            </div>
+            <div class="control"><input type="text" id="siteDescription" name="site_description"></div>
+        </div>
+        <div class="setting-row">
+            <div>
+                <label for="siteLanguage">Language</label>
+                <small class="hint">Admin interface language.</small>
+            </div>
+            <div class="control">
+                <select id="siteLanguage" name="site_language">
                     <option value="en">English</option>
                     <option value="zh-TW">Traditional Chinese (繁體中文)</option>
                 </select>
             </div>
-            <button type="submit" class="btn" id="generalSaveBtn" disabled>Save Settings</button>
-        </form>
-    </div>
+        </div>
+    </form>
 </div>
 
 <!-- OAuth Settings -->
 <div id="oauthTab" class="tab-content">
-    <!-- Google OAuth Settings -->
-    <div class="gateway-card" id="googleCard">
-        <div class="payment-gateway">
-            <h3 style="display: flex; align-items: center; justify-content: space-between; margin-top: 0; margin-bottom: 1.5rem;">
-                <span style="font-size: 1.2rem; font-weight: 600;">Google OAuth</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="googleEnabled" onchange="toggleGoogle()">
-                    <span class="slider"></span>
-                </label>
-            </h3>
-            <form id="googleForm">
-                <div class="form-group">
-                    <label>Client ID</label>
-                    <input type="text" id="googleClientID" required>
-                </div>
-                <div class="form-group">
-                    <label>Client Secret</label>
-                    <input type="text" id="googleClientSecret" required>
-                </div>
-                <button type="submit" class="btn" id="googleSaveBtn">Save Google OAuth Settings</button>
-            </form>
+    <form id="googleForm" class="settings-group gateway-card" data-gateway="google">
+        <div class="settings-group-head">
+            <div>
+                <h2>Google OAuth</h2>
+                <p>Let administrators sign in with a Google account.</p>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="googleEnabled" onchange="toggleGoogle()">
+                <span class="slider"></span>
+            </label>
         </div>
-    </div>
+        <div id="googleCard">
+            <div class="setting-row">
+                <div><label for="googleClientID">Client ID</label></div>
+                <div class="control"><input type="text" id="googleClientID" required></div>
+            </div>
+            <div class="setting-row">
+                <div><label for="googleClientSecret">Client Secret</label></div>
+                <div class="control"><input type="text" id="googleClientSecret" required></div>
+            </div>
+            <div class="setting-row actions">
+                <button type="submit" class="btn btn-primary btn-sm" id="googleSaveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save Google OAuth Settings</button>
+            </div>
+        </div>
+    </form>
 
-    <!-- GitHub OAuth Settings -->
-    <div class="gateway-card" id="githubCard">
-        <div class="payment-gateway">
-            <h3 style="display: flex; align-items: center; justify-content: space-between; margin-top: 0; margin-bottom: 1.5rem;">
-                <span style="font-size: 1.2rem; font-weight: 600;">GitHub OAuth</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="githubEnabled" onchange="toggleGitHub()">
-                    <span class="slider"></span>
-                </label>
-            </h3>
-            <form id="githubForm">
-                <div class="form-group">
-                    <label>Client ID</label>
-                    <input type="text" id="githubClientID" required>
-                </div>
-                <div class="form-group">
-                    <label>Client Secret</label>
-                    <input type="text" id="githubClientSecret" required>
-                </div>
-                <button type="submit" class="btn" id="githubSaveBtn">Save GitHub OAuth Settings</button>
-            </form>
+    <form id="githubForm" class="settings-group gateway-card" data-gateway="github">
+        <div class="settings-group-head">
+            <div>
+                <h2>GitHub OAuth</h2>
+                <p>Let administrators sign in with a GitHub account.</p>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="githubEnabled" onchange="toggleGitHub()">
+                <span class="slider"></span>
+            </label>
         </div>
-    </div>
+        <div id="githubCard">
+            <div class="setting-row">
+                <div><label for="githubClientID">Client ID</label></div>
+                <div class="control"><input type="text" id="githubClientID" required></div>
+            </div>
+            <div class="setting-row">
+                <div><label for="githubClientSecret">Client Secret</label></div>
+                <div class="control"><input type="text" id="githubClientSecret" required></div>
+            </div>
+            <div class="setting-row actions">
+                <button type="submit" class="btn btn-primary btn-sm" id="githubSaveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save GitHub OAuth Settings</button>
+            </div>
+        </div>
+    </form>
 </div>
 
 <!-- Payment Gateway Settings -->
 <div id="paymentTab" class="tab-content">
-    <!-- ECPay Settings -->
-    <div class="gateway-card" id="ecpayCard">
-        <div class="payment-gateway">
-            <h3 style="display: flex; align-items: center; justify-content: space-between; margin-top: 0; margin-bottom: 1.5rem;">
-                <span style="font-size: 1.2rem; font-weight: 600;">綠界 ECPay</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="ecpayEnabled" onchange="toggleECPay()">
-                    <span class="slider"></span>
-                </label>
-            </h3>
-            <form id="ecpayForm">
-                <div class="form-group">
-                    <label>商店代號 (Merchant ID)</label>
-                    <input type="text" id="ecpayMerchantID" required>
-                </div>
-                <div class="form-group">
-                    <label>Hash Key</label>
-                    <input type="text" id="ecpayHashKey" required>
-                </div>
-                <div class="form-group">
-                    <label>Hash IV</label>
-                    <input type="text" id="ecpayHashIV" required>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="ecpayTestMode">
-                        測試模式 (Test Mode)
-                    </label>
-                </div>
-                <button type="submit" class="btn" id="ecpaySaveBtn">Save ECPay Settings</button>
-            </form>
+    <form id="ecpayForm" class="settings-group gateway-card" data-gateway="ecpay">
+        <div class="settings-group-head">
+            <div>
+                <h2>綠界 ECPay</h2>
+                <p>Credit card and ATM payments for Taiwan.</p>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="ecpayEnabled" onchange="toggleECPay()">
+                <span class="slider"></span>
+            </label>
         </div>
-    </div>
+        <div id="ecpayCard">
+            <div class="setting-row">
+                <div><label for="ecpayMerchantID">商店代號 (Merchant ID)</label></div>
+                <div class="control"><input type="text" id="ecpayMerchantID" required></div>
+            </div>
+            <div class="setting-row">
+                <div><label for="ecpayHashKey">Hash Key</label></div>
+                <div class="control"><input type="text" id="ecpayHashKey" required></div>
+            </div>
+            <div class="setting-row">
+                <div><label for="ecpayHashIV">Hash IV</label></div>
+                <div class="control"><input type="text" id="ecpayHashIV" required></div>
+            </div>
+            <div class="setting-row">
+                <div>
+                    <label for="ecpayTestMode">測試模式 (Test Mode)</label>
+                    <small class="hint">Use the sandbox endpoint; no real charges.</small>
+                </div>
+                <div class="control"><input type="checkbox" id="ecpayTestMode"></div>
+            </div>
+            <div class="setting-row actions">
+                <button type="submit" class="btn btn-primary btn-sm" id="ecpaySaveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save ECPay Settings</button>
+            </div>
+        </div>
+    </form>
 
-    <!-- NewebPay Settings -->
-    <div class="gateway-card" id="newebpayCard">
-        <div class="payment-gateway">
-            <h3 style="display: flex; align-items: center; justify-content: space-between; margin-top: 0; margin-bottom: 1.5rem;">
-                <span style="font-size: 1.2rem; font-weight: 600;">藍新 NewebPay</span>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="newebpayEnabled" onchange="toggleNewebPay()">
-                    <span class="slider"></span>
-                </label>
-            </h3>
-            <form id="newebpayForm">
-                <div class="form-group">
-                    <label>商店代號 (Merchant ID)</label>
-                    <input type="text" id="newebpayMerchantID" required>
-                </div>
-                <div class="form-group">
-                    <label>Hash Key</label>
-                    <input type="text" id="newebpayHashKey" required>
-                </div>
-                <div class="form-group">
-                    <label>Hash IV</label>
-                    <input type="text" id="newebpayHashIV" required>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="newebpayTestMode">
-                        測試模式 (Test Mode)
-                    </label>
-                </div>
-                <button type="submit" class="btn" id="newebpaySaveBtn">Save NewebPay Settings</button>
-            </form>
+    <form id="newebpayForm" class="settings-group gateway-card" data-gateway="newebpay">
+        <div class="settings-group-head">
+            <div>
+                <h2>藍新 NewebPay</h2>
+                <p>Credit card, ATM and convenience-store payments.</p>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="newebpayEnabled" onchange="toggleNewebPay()">
+                <span class="slider"></span>
+            </label>
         </div>
-    </div>
+        <div id="newebpayCard">
+            <div class="setting-row">
+                <div><label for="newebpayMerchantID">商店代號 (Merchant ID)</label></div>
+                <div class="control"><input type="text" id="newebpayMerchantID" required></div>
+            </div>
+            <div class="setting-row">
+                <div><label for="newebpayHashKey">Hash Key</label></div>
+                <div class="control"><input type="text" id="newebpayHashKey" required></div>
+            </div>
+            <div class="setting-row">
+                <div><label for="newebpayHashIV">Hash IV</label></div>
+                <div class="control"><input type="text" id="newebpayHashIV" required></div>
+            </div>
+            <div class="setting-row">
+                <div>
+                    <label for="newebpayTestMode">測試模式 (Test Mode)</label>
+                    <small class="hint">Use the sandbox endpoint; no real charges.</small>
+                </div>
+                <div class="control"><input type="checkbox" id="newebpayTestMode"></div>
+            </div>
+            <div class="setting-row actions">
+                <button type="submit" class="btn btn-primary btn-sm" id="newebpaySaveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save NewebPay Settings</button>
+            </div>
+        </div>
+    </form>
 </div>
 {{end}}
 {{define "scripts"}}

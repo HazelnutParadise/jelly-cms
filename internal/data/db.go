@@ -141,6 +141,12 @@ func MigrateDB(db *gorm.DB) error {
 		&core.OrderItem{},
 		&core.ThemeSettings{},
 		&core.RevokedLogin{},
+		&core.Category{},
+		&core.Tag{},
+		&core.Comment{},
+		&core.Menu{},
+		&core.MenuItem{},
+		&core.Revision{},
 	); err != nil {
 		return err
 	}

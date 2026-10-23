@@ -1,0 +1,784 @@
+{{define "title"}}{{.T.taxonomy}}{{end}}
+{{define "styles"}}
+<style>
+    [hidden] { display: none !important; }
+    /* 分類與標籤：左邊列表，右邊編輯卡（design/project/Taxonomy.dc.html） */
+    .tx-layout { display: grid; grid-template-columns: minmax(0, 1fr) 22.5rem; gap: 1.5rem; align-items: start; }
+    .tx-main { min-width: 0; }
+    .tx-toolbar { display: flex; align-items: center; gap: .625rem; flex-wrap: wrap; margin-bottom: .75rem; }
+    .tx-seg { display: inline-flex; gap: .2rem; padding: .2rem; background: var(--surface-mid); border-radius: var(--r-sm); }
+    .tx-seg button { display: inline-flex; align-items: center; gap: .4rem; min-height: 1.9rem; padding: 0 .75rem; background: transparent; border: 0; border-radius: var(--r-sm); font-size: .8125rem; font-weight: 700; color: var(--muted); cursor: pointer; white-space: nowrap; transition: background-color .12s ease, color .12s ease; }
+    .tx-seg button:hover { color: var(--ink); }
+    .tx-seg button[aria-selected="true"] { background: var(--ink); color: var(--surface); }
+    .tx-seg .icon { width: .875rem; height: .875rem; }
+    .tx-filter { display: flex; align-items: center; gap: .5rem; margin-left: auto; width: 13.75rem; min-height: 2rem; padding: 0 .65rem; background: var(--field); border-radius: var(--r-sm); color: var(--muted); }
+    .tx-filter .icon { width: .875rem; height: .875rem; }
+    .tx-filter input[type="search"] { flex: 1; min-width: 0; min-height: 0; padding: 0; border: 0; box-shadow: none; background: transparent; font-size: .8125rem; color: var(--ink); }
+    .tx-filter input[type="search"]:focus, .tx-filter input[type="search"]:hover { border: 0; box-shadow: none; }
+    .tx-filter:focus-within { box-shadow: inset 0 0 0 2px var(--secondary); }
+    .tx-sortbtn[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+
+    .tx-wrap { position: relative; }
+    .tx-table td { padding: .6rem .65rem; }
+    .tx-table td.tx-c-handle, .tx-table th.tx-c-handle { width: 2.25rem; padding-right: 0; }
+    .tx-name { display: inline-flex; align-items: center; gap: .5rem; max-width: 100%; padding: 0; background: transparent; border: 0; font-weight: 700; font-size: .84375rem; color: var(--ink); text-align: left; cursor: pointer; }
+    .tx-name:hover { color: var(--primary); }
+    .tx-name span.t { overflow: hidden; text-overflow: ellipsis; }
+    .tx-dot { width: .625rem; height: .625rem; flex: 0 0 auto; border-radius: 0 .1875rem 0 .1875rem; background: var(--tx-color, var(--outline)); }
+    .tx-branch { color: color-mix(in srgb, var(--muted) 55%, transparent); margin-right: .1rem; }
+    .tx-num { font-family: var(--font-display); font-weight: 800; font-size: .9375rem; letter-spacing: -.02em; }
+    tr.tx-row-sel td { background: var(--surface-low); }
+    tr.tx-src td { opacity: .4; }
+    .tx-handle { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; padding: 0; background: transparent; border: 0; border-radius: 0 .4rem 0 .4rem; color: var(--muted); cursor: grab; touch-action: none; }
+    .tx-handle:hover, .tx-handle:focus-visible { background: var(--surface-mid); color: var(--ink); }
+    .tx-line { position: absolute; height: 3px; background: var(--secondary); border-radius: 0 2px 0 2px; pointer-events: none; z-index: 5; }
+    .tx-line::before { content: ""; position: absolute; left: -.25rem; top: -.2rem; width: .6rem; height: .6rem; background: var(--secondary); border-radius: 0 .2rem 0 .2rem; }
+    body.tx-dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+    td.actions .btn { opacity: .55; }
+    .tx-sorting td.actions .btn { visibility: hidden; }
+
+    .tx-note { display: flex; align-items: flex-start; gap: .6rem; margin-top: .75rem; font-size: .75rem; color: var(--muted); }
+    .tx-note .icon { width: .875rem; height: .875rem; margin-top: .15rem; }
+    .tx-chips { margin-top: 1.75rem; }
+    .tx-chips .label { display: block; margin-bottom: .6rem; }
+    .tx-chiplist { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .tx-chip { display: inline-flex; align-items: center; gap: .35rem; min-height: 1.75rem; padding: 0 .6rem; background: var(--surface-mid); border: 0; border-radius: var(--r-sm); font-size: .8125rem; font-weight: 700; color: var(--ink); cursor: pointer; white-space: nowrap; }
+    .tx-chip b { color: var(--muted); font-weight: 700; }
+    .tx-chip:hover { background: var(--surface-high); }
+    .tx-chip.unused { background: color-mix(in srgb, var(--warning) 22%, var(--surface)); color: color-mix(in srgb, var(--warning) 55%, var(--ink)); cursor: default; }
+
+    /* 右側編輯卡；窄螢幕變成側頁 */
+    .tx-panel.card { background: var(--surface); box-shadow: inset 0 0 0 1px var(--outline); }
+    .tx-panel { position: sticky; top: 4.25rem; display: flex; flex-direction: column; gap: .9rem; margin: 0; }
+    .tx-panel-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .tx-panel-head .stripes { width: 2.5rem; margin: 0; }
+    .tx-panel-head b { font-size: .9375rem; min-width: 0; overflow-wrap: anywhere; }
+    .tx-panel-head .badge { margin-left: auto; }
+    .tx-close { display: none; margin-left: auto; }
+    .tx-slug { display: flex; align-items: center; gap: .35rem; color: var(--muted); font-size: .8125rem; }
+    .tx-slug span { white-space: nowrap; }
+    .tx-field .label { display: block; margin-bottom: .1rem; }
+    .tx-field textarea { min-height: 4.5rem; resize: vertical; }
+    .tx-swatches { display: flex; gap: .4rem; margin-top: .4rem; flex-wrap: wrap; }
+    .tx-swatch { width: 1.75rem; height: 1.75rem; padding: 0; border: 0; border-radius: 0 .5625rem 0 .5625rem; background: var(--sw); cursor: pointer; }
+    .tx-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
+    .tx-toggle { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+    .tx-toggle > span:first-child { font-size: .84375rem; font-weight: 600; }
+    .tx-toggle small { display: block; font-weight: 400; font-size: .75rem; color: var(--muted); }
+    .tx-actions { display: flex; align-items: center; gap: .5rem; margin-top: .25rem; flex-wrap: wrap; }
+    .tx-actions .tx-del { margin-left: auto; color: color-mix(in srgb, var(--error) 80%, var(--ink)); }
+    .tx-backdrop { display: none; }
+    .tx-confirm p { color: var(--muted); }
+
+    @media (max-width: 1100px) {
+        .tx-layout { grid-template-columns: minmax(0, 1fr); }
+        .tx-panel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 1000; width: min(26rem, 100%); margin: 0; padding: 1.5rem 1.5rem 2rem; overflow-y: auto; background: var(--surface); border-radius: 0 0 0 1.5rem; box-shadow: -1px 0 0 var(--outline), -1.5rem 0 3rem rgba(21, 22, 26, .12); transform: translateX(100%); visibility: hidden; transition: transform .2s ease, visibility 0s linear .2s; }
+        .tx-panel.open { transform: none; visibility: visible; transition-delay: 0s; }
+        .tx-close { display: inline-flex; }
+        .tx-panel-head .badge { margin-left: 0; }
+        .tx-backdrop.open { display: block; position: fixed; inset: 0; z-index: 999; background: color-mix(in srgb, var(--ink) 45%, transparent); }
+    }
+    @media (max-width: 900px) {
+        .tx-filter { width: 100%; margin-left: 0; order: 3; }
+        .tx-panel { border-radius: 0; }
+    }
+    @media (max-width: 700px) {
+        .tx-c-slug { display: none; }
+        .tx-table td { padding: .6rem .4rem; }
+    }
+</style>
+{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.taxonomy}}</h1>
+    </div>
+    <div class="page-actions">
+        <button type="button" class="btn btn-primary" id="newBtn"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span id="newBtnText">{{.T.createCategory}}</span></button>
+    </div>
+</div>
+
+<div class="tx-layout">
+    <section class="tx-main" aria-label="{{.T.taxonomy}}">
+        <div class="tx-toolbar">
+            <div class="tx-seg" role="tablist" aria-label="{{.T.taxonomy}}">
+                <button type="button" role="tab" id="tabCategories" aria-selected="true" aria-controls="txList" data-tab="categories"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg>{{.T.txCategories}} <b id="countCategories">-</b></button>
+                <button type="button" role="tab" id="tabTags" aria-selected="false" aria-controls="txList" data-tab="tags" tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>{{.T.txTags}} <b id="countTags">-</b></button>
+            </div>
+            <label class="tx-filter"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="filter" placeholder="{{.T.txFilter}}" aria-label="{{.T.txFilter}}" autocomplete="off"></label>
+            <button type="button" class="btn btn-secondary btn-sm tx-sortbtn" id="sortBtn" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-drag"/></svg><span id="sortBtnText">{{.T.txReorder}}</span></button>
+        </div>
+
+        <div id="txList" role="tabpanel" aria-live="polite" aria-busy="true">{{template "state-loading" dict "text" .T.loading "skeleton" true}}</div>
+        <p class="tx-note" id="txNote" hidden><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><span id="txNoteText"></span></p>
+        <div class="tx-chips" id="txChips" hidden>
+            <span class="label">{{.T.txTopTags}}</span>
+            <div class="tx-chiplist" id="txChipList"></div>
+        </div>
+    </section>
+
+    <aside class="card tx-panel" id="panel" aria-labelledby="panelTitle">
+        <div class="tx-panel-head">
+            <span class="stripes" aria-hidden="true"></span>
+            <b id="panelTitle"></b>
+            <span class="badge badge-info" id="panelBadge" hidden></span>
+            <button type="button" class="btn btn-text btn-sm btn-icon tx-close" id="panelClose" aria-label="{{.T.close}}"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
+        </div>
+        <form id="form" class="tx-form" autocomplete="off" novalidate style="display:contents">
+            <div class="tx-field">
+                <label class="label" for="fName">{{.T.txName}}</label>
+                <input type="text" id="fName" name="name" maxlength="120" required>
+            </div>
+            <div class="tx-field">
+                <label class="label" for="fSlug">{{.T.txSlug}}</label>
+                <div class="tx-slug"><span id="slugPrefix">/c/</span><input type="text" id="fSlug" name="slug" maxlength="160" aria-describedby="slugHint"></div>
+                <small class="hint" id="slugHint">{{.T.txSlugAuto}}</small>
+            </div>
+            <div class="tx-field" data-for="category">
+                <label class="label" for="fParent">{{.T.txParent}}</label>
+                <select id="fParent" name="parent_id"></select>
+            </div>
+            <div class="tx-field">
+                <span class="label" id="colorLabel">{{.T.txColor}}</span>
+                <div class="tx-swatches" id="swatches" role="group" aria-labelledby="colorLabel"></div>
+            </div>
+            <div class="tx-field">
+                <label class="label" for="fDesc">{{.T.txDescription}}</label>
+                <textarea id="fDesc" name="description" rows="3"></textarea>
+            </div>
+            <div class="tx-field" data-for="category">
+                <label class="label" for="fCover">{{.T.txCover}}</label>
+                <input type="text" id="fCover" name="cover" inputmode="url" placeholder="/uploads/cover.jpg">
+            </div>
+            <label class="tx-toggle toggle-switch" data-for="category">
+                <span>{{.T.txHideFromList}}<small>{{.T.txHideFromListHint}}</small></span>
+                <input type="checkbox" id="fHide" name="hide_from_list"><span class="slider" aria-hidden="true"></span>
+            </label>
+            <label class="tx-toggle toggle-switch" data-for="category">
+                <span>{{.T.txNoCascade}}<small>{{.T.txNoCascadeHint}}</small></span>
+                <input type="checkbox" id="fNoCascade" name="no_cascade"><span class="slider" aria-hidden="true"></span>
+            </label>
+            <div class="tx-actions">
+                <button type="submit" class="btn btn-primary" id="saveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg><span>{{.T.txSave}}</span></button>
+                <a class="btn btn-secondary" id="viewBtn" href="/" target="_blank" rel="noopener" hidden><svg class="icon" aria-hidden="true"><use href="#i-external"/></svg>{{.T.txViewSite}}</a>
+                <button type="button" class="btn btn-text btn-icon tx-del" id="delBtn" aria-label="{{.T.delete}}" title="{{.T.delete}}" hidden><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg></button>
+            </div>
+        </form>
+    </aside>
+</div>
+<div class="tx-backdrop" id="backdrop"></div>
+
+<template id="tplLoading">{{template "state-loading" dict "text" .T.loading "skeleton" true}}</template>
+<template id="tplError">{{template "state-error" dict "title" .T.txLoadFailedTitle "text" .T.txLoadFailedText "actions" (safeHTML (printf "<button class='btn btn-secondary' type='button' data-retry>%s</button>" .T.retry))}}</template>
+<template id="tplEmptyCategories">{{template "state-empty" dict "title" .T.txEmptyCategoriesTitle "text" .T.txEmptyCategoriesText "actions" (safeHTML (printf "<button class='btn btn-primary' type='button' data-new>%s</button>" .T.createCategory))}}</template>
+<template id="tplEmptyTags">{{template "state-empty" dict "title" .T.txEmptyTagsTitle "text" .T.txEmptyTagsText "actions" (safeHTML (printf "<button class='btn btn-primary' type='button' data-new>%s</button>" .T.txNewTag))}}</template>
+{{end}}
+{{define "scripts"}}
+<script>
+(function () {
+    'use strict';
+    const T = {{json (dict
+        "categories" .T.txCategories "tags" .T.txTags "createCategory" .T.createCategory "newTag" .T.txNewTag
+        "reorder" .T.txReorder "reorderDone" .T.txReorderDone "reorderHint" .T.txReorderHint "deleteNote" .T.txDeleteNote
+        "edit" .T.edit "view" .T.view "delete" .T.delete "cancel" .T.cancel "retry" .T.retry
+        "dragHandle" .T.txDragHandle "editCategory" .T.txEditCategory "editTag" .T.txEditTag "childOf" .T.txChildOf
+        "parentNone" .T.txParentNone "namePlaceholder" .T.txNameRequired "noMatch" .T.txNoMatch "tagsCap" .T.txTagsCap
+        "unused" .T.txUnused "nameCol" .T.txName "slugCol" .T.txSlug
+        "deleteCategoryTitle" .T.txDeleteCategoryTitle "deleteCategoryBody" .T.txDeleteCategoryBody
+        "deleteTagTitle" .T.txDeleteTagTitle "deleteTagBody" .T.txDeleteTagBody
+        "categorySaved" .T.txCategorySaved "categoryCreated" .T.txCategoryCreated "categoryDeleted" .T.txCategoryDeleted
+        "tagSaved" .T.txTagSaved "tagCreated" .T.txTagCreated "tagDeleted" .T.txTagDeleted
+        "reordered" .T.txReordered "reorderFailed" .T.txReorderFailed "saveFailed" .T.saveFailed "requestFailed" .T.requestFailed
+        "offline" .T.offline "close" .T.close "posts" .T.posts
+        "colors" (dict "primary" .T.txColorPrimary "secondary" .T.txColorSecondary "accent" .T.txColorAccent "warning" .T.txColorWarning "ink" .T.txColorInk)
+    )}};
+
+    const $ = (id) => document.getElementById(id);
+    const COLORS = ['secondary', 'primary', 'accent', 'warning', 'ink'];
+    const INDENT = 28;      // px per level while dragging
+    const MAX_DEPTH = 3;    // levels shown below the root
+    const TAG_CAP = 300;
+    const fmt = (s, ...a) => { let i = 0; return String(s).replace(/%[sd]/g, () => a[i++]); };
+    const colorVar = (c) => COLORS.includes(c) ? 'var(--' + c + ')' : '';
+    const svg = (id) => '<svg class="icon" aria-hidden="true"><use href="#' + id + '"/></svg>';
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+    function toast(msg, kind, detail) { if (window.Jelly && Jelly.toast) Jelly.toast(msg, { kind: kind || 'success', detail: detail || '' }); }
+    function slugify(s) {
+        return String(s || '').trim().toLowerCase().replace(/[\s_\/-]+/g, '-').replace(/[^\p{L}\p{N}-]/gu, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    }
+
+    async function api(method, url, body) {
+        let res;
+        try {
+            res = await fetch(url, { method, headers: body === undefined ? {} : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+        } catch (e) {
+            const err = new Error(navigator.onLine === false ? T.offline : T.requestFailed); err.network = true; throw err;
+        }
+        let data = null;
+        try { data = await res.json(); } catch (e) { /* empty body */ }
+        if (!res.ok) { const err = new Error((data && data.error) || T.requestFailed); err.status = res.status; throw err; }
+        return data;
+    }
+
+    /* ---------- state ---------- */
+    let cats = [];            // flat, as the API returns it
+    let tags = [];
+    let tab = 'categories';
+    let sortMode = false;
+    let loadError = false;
+    let sel = { kind: 'category', id: null };   // id null = creating
+    let snap = new Map();     // id -> "parent:position" as the server knows it
+    let slugTouched = false;
+    let opener = null;
+
+    /* ---------- category tree ---------- */
+    function catRows() {
+        const byParent = new Map();
+        const ids = new Set(cats.map(c => c.id));
+        cats.forEach(c => {
+            const p = c.parent_id && ids.has(c.parent_id) ? c.parent_id : 0;
+            if (!byParent.has(p)) byParent.set(p, []);
+            byParent.get(p).push(c);
+        });
+        byParent.forEach(list => list.sort((a, b) => (a.position - b.position) || (a.id - b.id)));
+        const rows = [];
+        const seen = new Set();
+        (function walk(p, depth) {
+            (byParent.get(p) || []).forEach(c => {
+                if (seen.has(c.id)) return;
+                seen.add(c.id);
+                rows.push({ id: c.id, depth: Math.min(depth, MAX_DEPTH + 4), cat: c });
+                walk(c.id, depth + 1);
+            });
+        })(0, 0);
+        return rows;
+    }
+    function descendantsOf(id) {
+        const out = new Set([id]);
+        let grew = true;
+        while (grew) {
+            grew = false;
+            cats.forEach(c => { if (c.parent_id && out.has(c.parent_id) && !out.has(c.id)) { out.add(c.id); grew = true; } });
+        }
+        return out;
+    }
+
+    /* ---------- rendering ---------- */
+    function setBusy(b) { $('txList').setAttribute('aria-busy', b ? 'true' : 'false'); }
+    function showTemplate(id) {
+        const box = $('txList');
+        box.innerHTML = '';
+        box.appendChild($(id).content.cloneNode(true));
+        box.querySelectorAll('[data-new]').forEach(b => b.addEventListener('click', () => openPanel(null, b)));
+        const r = box.querySelector('[data-retry]');
+        if (r) r.addEventListener('click', () => { showLoading(); load(); });
+    }
+    function showLoading() { showTemplate('tplLoading'); setBusy(true); }
+
+    function render() {
+        // 重畫會換掉整張表，先記住焦點在哪個把手，畫完再還給它
+        const active = document.activeElement;
+        const keepId = active && active.matches && active.matches('[data-handle]') && active.closest('tr') ? active.closest('tr').dataset.id : null;
+        draw();
+        if (keepId) { const h = document.querySelector('#txBody tr[data-id="' + keepId + '"] [data-handle]'); if (h) h.focus(); }
+    }
+
+    function draw() {
+        $('countCategories').textContent = loadError ? '-' : cats.length;
+        $('countTags').textContent = loadError ? '-' : tags.length;
+        document.querySelectorAll('.tx-seg button').forEach(b => {
+            const on = b.dataset.tab === tab;
+            b.setAttribute('aria-selected', on ? 'true' : 'false');
+            b.tabIndex = on ? 0 : -1;
+        });
+        $('newBtnText').textContent = tab === 'categories' ? T.createCategory : T.newTag;
+        const filtering = $('filter').value.trim() !== '';
+        const sortBtn = $('sortBtn');
+        sortBtn.hidden = tab !== 'categories';
+        sortBtn.disabled = filtering;
+        sortBtn.setAttribute('aria-pressed', sortMode ? 'true' : 'false');
+        $('sortBtnText').textContent = sortMode ? T.reorderDone : T.reorder;
+        setBusy(false);
+        if (loadError) { showTemplate('tplError'); $('txNote').hidden = true; $('txChips').hidden = true; return; }
+        if (tab === 'categories') renderCategories(filtering); else renderTags();
+        renderChips();
+        renderPanelHeader();
+    }
+
+    function actionButtons(kind, id, slug) {
+        const href = (kind === 'category' ? '/c/' : '/t/') + encodeURIComponent(slug);
+        return '<button type="button" class="btn btn-text btn-sm btn-icon" data-act="edit" data-id="' + id + '" title="' + esc(T.edit) + '" aria-label="' + esc(T.edit) + '">' + svg('i-pencil') + '</button>' +
+            '<a class="btn btn-text btn-sm btn-icon" href="' + href + '" target="_blank" rel="noopener" title="' + esc(T.view) + '" aria-label="' + esc(T.view) + '">' + svg('i-external') + '</a>' +
+            '<button type="button" class="btn btn-text btn-sm btn-icon" data-act="delete" data-id="' + id + '" title="' + esc(T.delete) + '" aria-label="' + esc(T.delete) + '">' + svg('i-trash') + '</button>';
+    }
+
+    function renderCategories(filtering) {
+        const note = $('txNote');
+        $('txNoteText').textContent = sortMode ? T.reorderHint : T.deleteNote;
+        note.hidden = false;
+        if (!cats.length) { showTemplate('tplEmptyCategories'); note.hidden = true; return; }
+        let rows = catRows();
+        if (filtering) {
+            const q = $('filter').value.trim().toLowerCase();
+            rows = rows.filter(r => r.cat.name.toLowerCase().includes(q) || r.cat.slug.toLowerCase().includes(q)).map(r => ({ ...r, depth: 0 }));
+            if (!rows.length) { $('txList').innerHTML = '<p class="table-empty">' + esc(T.noMatch) + '</p>'; return; }
+        }
+        let html = '<div class="table-wrapper tx-wrap" id="txWrap"><table class="tx-table' + (sortMode ? ' tx-sorting' : '') + '">' + headRow(sortMode) + '<tbody id="txBody">';
+        rows.forEach((r, i) => {
+            const c = r.cat;
+            const col = colorVar(c.color);
+            html += '<tr data-row data-index="' + i + '" data-id="' + c.id + '"' + (sel.kind === 'category' && sel.id === c.id ? ' class="tx-row-sel"' : '') + '>';
+            if (sortMode) html += '<td class="tx-c-handle"><button type="button" class="tx-handle" data-handle aria-label="' + esc(T.dragHandle + '：' + c.name) + '" title="' + esc(T.dragHandle) + '">' + svg('i-drag') + '</button></td>';
+            html += '<td><button type="button" class="tx-name" data-act="edit" data-id="' + c.id + '" style="padding-left:' + (r.depth * INDENT) + 'px">' +
+                (r.depth > 0 ? '<span class="tx-branch" aria-hidden="true">└</span>' : (col ? '<span class="tx-dot" style="--tx-color:' + col + '" aria-hidden="true"></span>' : '')) +
+                '<span class="t">' + esc(c.name) + '</span></button></td>' +
+                '<td class="cell-muted tx-c-slug">/c/' + esc(c.slug) + '</td>' +
+                '<td class="tx-num">' + (c.post_count || 0) + '</td>' +
+                '<td class="actions">' + actionButtons('category', c.id, c.slug) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        const box = $('txList');
+        box.innerHTML = html;
+        bindRows(box);
+        bindHandles(rows);
+    }
+
+    function headRow(withHandle) {
+        const th = (s, cls) => '<th' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(s) + '</th>';
+        return '<thead><tr>' + (withHandle ? '<th class="tx-c-handle" aria-hidden="true"></th>' : '') + th(T.nameCol) + th(T.slugCol, 'tx-c-slug') + th(T.posts) + '<th class="actions"></th></tr></thead>';
+    }
+
+    function renderTags() {
+        const note = $('txNote');
+        note.hidden = true;
+        if (!tags.length) { showTemplate('tplEmptyTags'); return; }
+        const q = $('filter').value.trim().toLowerCase();
+        let list = q ? tags.filter(t => t.name.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q)) : tags;
+        if (!list.length) { $('txList').innerHTML = '<p class="table-empty">' + esc(T.noMatch) + '</p>'; return; }
+        const capped = list.length > TAG_CAP;
+        if (capped) list = list.slice(0, TAG_CAP);
+        let html = '<div class="table-wrapper"><table class="tx-table">' + headRow(false) + '<tbody>';
+        list.forEach(t => {
+            const col = colorVar(t.color);
+            html += '<tr data-row data-id="' + t.id + '"' + (sel.kind === 'tag' && sel.id === t.id ? ' class="tx-row-sel"' : '') + '>' +
+                '<td><button type="button" class="tx-name" data-act="edit" data-id="' + t.id + '">' + (col ? '<span class="tx-dot" style="--tx-color:' + col + '" aria-hidden="true"></span>' : '') + '<span class="t">' + esc(t.name) + '</span></button></td>' +
+                '<td class="cell-muted tx-c-slug">/t/' + esc(t.slug) + '</td>' +
+                '<td class="tx-num">' + (t.post_count || 0) + '</td>' +
+                '<td class="actions">' + actionButtons('tag', t.id, t.slug) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+        const box = $('txList');
+        box.innerHTML = html;
+        bindRows(box);
+        if (capped) { $('txNoteText').textContent = fmt(T.tagsCap, TAG_CAP); note.hidden = false; }
+    }
+
+    function renderChips() {
+        const box = $('txChips');
+        if (tab !== 'categories' || !tags.length) { box.hidden = true; return; }
+        box.hidden = false;
+        const top = tags.filter(t => t.post_count > 0).slice(0, 12);
+        const unused = tags.filter(t => !t.post_count).length;
+        let html = top.map(t => '<button type="button" class="tx-chip" data-tag="' + t.id + '">' + esc(t.name) + ' <b>' + t.post_count + '</b></button>').join('');
+        if (unused) html += '<span class="tx-chip unused">' + esc(fmt(T.unused, unused)) + '</span>';
+        $('txChipList').innerHTML = html;
+        $('txChipList').querySelectorAll('[data-tag]').forEach(b => b.addEventListener('click', () => {
+            setTab('tags');
+            openPanel({ kind: 'tag', id: +b.dataset.tag }, b);
+        }));
+    }
+
+    function bindRows(box) {
+        box.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+            const id = +b.dataset.id;
+            if (b.dataset.act === 'edit') openPanel({ kind: tab === 'tags' ? 'tag' : 'category', id }, b);
+            else askDelete(tab === 'tags' ? 'tag' : 'category', id, b);
+        }));
+    }
+
+    /* ---------- edit panel ---------- */
+    const isNarrow = () => window.matchMedia('(max-width: 1100px)').matches;
+
+    function renderSwatches(current) {
+        $('swatches').innerHTML = COLORS.map(c => '<button type="button" class="tx-swatch" style="--sw:var(--' + c + ')" data-color="' + c + '" aria-pressed="' + (c === current) + '" aria-label="' + esc(T.colors[c]) + '" title="' + esc(T.colors[c]) + '"></button>').join('');
+        $('swatches').querySelectorAll('.tx-swatch').forEach(b => b.addEventListener('click', () => {
+            const on = b.getAttribute('aria-pressed') === 'true';
+            $('swatches').querySelectorAll('.tx-swatch').forEach(x => x.setAttribute('aria-pressed', 'false'));
+            if (!on) b.setAttribute('aria-pressed', 'true');
+        }));
+    }
+    const currentColor = () => { const b = $('swatches').querySelector('[aria-pressed="true"]'); return b ? b.dataset.color : ''; };
+
+    function fillParents(selfId, parentId) {
+        const banned = selfId ? descendantsOf(selfId) : new Set();
+        let html = '<option value="">' + esc(T.parentNone) + '</option>';
+        catRows().forEach(r => {
+            if (banned.has(r.id)) return;
+            html += '<option value="' + r.id + '"' + (parentId === r.id ? ' selected' : '') + '>' + esc('  '.repeat(r.depth) + (r.depth ? '└ ' : '') + r.cat.name) + '</option>';
+        });
+        $('fParent').innerHTML = html;
+    }
+
+    function renderPanelHeader() {
+        const editing = sel.id != null;
+        const isCat = sel.kind === 'category';
+        const item = editing ? (isCat ? cats : tags).find(x => x.id === sel.id) : null;
+        $('panelTitle').textContent = !editing ? (isCat ? T.createCategory : T.newTag) : fmt(isCat ? T.editCategory : T.editTag, item ? item.name : '');
+        const badge = $('panelBadge');
+        const parent = isCat && item && item.parent_id ? cats.find(c => c.id === item.parent_id) : null;
+        badge.hidden = !parent;
+        if (parent) badge.textContent = fmt(T.childOf, parent.name);
+    }
+
+    function fillPanel(target) {
+        sel = target ? { kind: target.kind, id: target.id } : { kind: tab === 'tags' ? 'tag' : 'category', id: null };
+        const isCat = sel.kind === 'category';
+        const item = sel.id != null ? (isCat ? cats : tags).find(x => x.id === sel.id) : null;
+        if (sel.id != null && !item) sel.id = null;
+        const f = $('form');
+        slugTouched = !!item;
+        f.name.value = item ? item.name : '';
+        f.name.removeAttribute('aria-invalid');
+        f.slug.value = item ? item.slug : '';
+        f.description.value = item ? (item.description || '') : '';
+        f.cover.value = item && isCat ? (item.cover || '') : '';
+        f.hide_from_list.checked = !!(item && item.hide_from_list);
+        f.no_cascade.checked = !!(item && item.no_cascade);
+        f.querySelectorAll('[data-for="category"]').forEach(n => { n.hidden = !isCat; });
+        $('slugPrefix').textContent = isCat ? '/c/' : '/t/';
+        renderSwatches(item ? item.color : '');
+        if (isCat) fillParents(item ? item.id : 0, item ? item.parent_id : null);
+        const view = $('viewBtn');
+        view.hidden = !item;
+        if (item) view.href = (isCat ? '/c/' : '/t/') + encodeURIComponent(item.slug);
+        $('delBtn').hidden = !item;
+        renderPanelHeader();
+        document.querySelectorAll('tr.tx-row-sel').forEach(r => r.classList.remove('tx-row-sel'));
+        if (item) { const tr = document.querySelector('tr[data-id="' + item.id + '"]'); if (tr) tr.classList.add('tx-row-sel'); }
+    }
+
+    function openPanel(target, from) {
+        fillPanel(target);
+        const panel = $('panel');
+        if (isNarrow()) {
+            opener = from || document.activeElement;
+            panel.classList.add('open'); $('backdrop').classList.add('open');
+            panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true');
+            setTimeout(() => $('form').name.focus(), 30);
+        } else if (from !== undefined) {
+            $('form').name.focus();
+        }
+    }
+
+    function closePanel() {
+        const panel = $('panel');
+        const wasOpen = panel.classList.contains('open');
+        panel.classList.remove('open'); $('backdrop').classList.remove('open');
+        panel.removeAttribute('role'); panel.removeAttribute('aria-modal');
+        if (wasOpen && opener && document.contains(opener)) opener.focus();
+        opener = null;
+        fillPanel(null);
+    }
+
+    function setTab(next) {
+        if (tab === next) return;
+        tab = next;
+        sortMode = false;
+        $('filter').value = '';
+        if (sel.id == null || sel.kind !== (next === 'tags' ? 'tag' : 'category')) fillPanel(null);
+        render();
+    }
+
+    $('form').name.addEventListener('input', () => {
+        if (!slugTouched && sel.id == null) $('form').slug.value = slugify($('form').name.value);
+    });
+    $('form').slug.addEventListener('input', () => { slugTouched = true; });
+    $('form').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.tagName === 'TEXTAREA' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $('form').requestSubmit(); }
+    });
+
+    $('form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const f = $('form');
+        const name = f.name.value.trim();
+        if (!name) { f.name.focus(); f.name.setAttribute('aria-invalid', 'true'); toast(T.namePlaceholder, 'error'); return; }
+        f.name.removeAttribute('aria-invalid');
+        const isCat = sel.kind === 'category';
+        const body = { name, slug: f.slug.value.trim() || slugify(name), color: currentColor(), description: f.description.value.trim() };
+        if (isCat) {
+            body.parent_id = f.parent_id.value ? +f.parent_id.value : null;
+            body.cover = f.cover.value.trim();
+            body.hide_from_list = f.hide_from_list.checked;
+            body.no_cascade = f.no_cascade.checked;
+        }
+        const base = isCat ? '/api/admin/categories' : '/api/admin/tags';
+        const creating = sel.id == null;
+        const btn = $('saveBtn');
+        btn.disabled = true;
+        try {
+            const saved = await api(creating ? 'POST' : 'PUT', creating ? base : base + '/' + sel.id, body);
+            await load(true);
+            toast(isCat ? (creating ? T.categoryCreated : T.categorySaved) : (creating ? T.tagCreated : T.tagSaved));
+            if (isNarrow()) closePanel();
+            else fillPanel({ kind: sel.kind, id: saved && saved.id ? saved.id : sel.id });
+        } catch (err) {
+            toast(T.saveFailed, 'error', err.message);
+        } finally {
+            btn.disabled = false;
+        }
+    });
+    $('delBtn').addEventListener('click', () => { if (sel.id != null) askDelete(sel.kind, sel.id, $('delBtn')); });
+    $('newBtn').addEventListener('click', () => { openPanel(null, $('newBtn')); });
+    $('panelClose').addEventListener('click', closePanel);
+    $('backdrop').addEventListener('click', closePanel);
+    document.querySelectorAll('.tx-seg button').forEach(b => {
+        b.addEventListener('click', () => setTab(b.dataset.tab));
+        b.addEventListener('keydown', (e) => {
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+            const next = b.dataset.tab === 'categories' ? 'tags' : 'categories';
+            setTab(next); $(next === 'tags' ? 'tabTags' : 'tabCategories').focus();
+        });
+    });
+    $('filter').addEventListener('input', () => { if ($('filter').value.trim() && sortMode) sortMode = false; render(); });
+    $('sortBtn').addEventListener('click', () => { sortMode = !sortMode; render(); });
+
+    /* ---------- delete with confirm ---------- */
+    function confirmSheet(title, body, okText) {
+        return new Promise((resolve) => {
+            const prev = document.activeElement;
+            const ov = document.createElement('div');
+            ov.className = 'modal-overlay open';
+            ov.innerHTML = '<div class="modal-content tx-confirm" role="alertdialog" aria-modal="true" aria-labelledby="cfT" aria-describedby="cfB"><div class="modal-header"><h2 id="cfT"></h2></div><p id="cfB"></p><div class="modal-footer"><button type="button" class="btn btn-danger" data-ok></button><button type="button" class="btn btn-secondary" data-cancel></button></div></div>';
+            ov.querySelector('#cfT').textContent = title;
+            ov.querySelector('#cfB').textContent = body;
+            ov.querySelector('[data-ok]').textContent = okText;
+            ov.querySelector('[data-cancel]').textContent = T.cancel;
+            const done = (v) => { document.removeEventListener('keydown', onKey, true); ov.remove(); if (prev && document.contains(prev)) prev.focus(); resolve(v); };
+            const onKey = (e) => {
+                if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); }
+                if (e.key === 'Tab') {
+                    const els = ov.querySelectorAll('button'); const first = els[0], last = els[els.length - 1];
+                    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+                }
+            };
+            document.addEventListener('keydown', onKey, true);
+            ov.addEventListener('click', (e) => { if (e.target === ov) done(false); });
+            ov.querySelector('[data-ok]').addEventListener('click', () => done(true));
+            ov.querySelector('[data-cancel]').addEventListener('click', () => done(false));
+            document.body.appendChild(ov);
+            ov.querySelector('[data-cancel]').focus();
+        });
+    }
+
+    async function askDelete(kind, id, from) {
+        const isCat = kind === 'category';
+        const item = (isCat ? cats : tags).find(x => x.id === id);
+        if (!item) return;
+        const ok = await confirmSheet(
+            fmt(isCat ? T.deleteCategoryTitle : T.deleteTagTitle, item.name),
+            isCat ? T.deleteCategoryBody : fmt(T.deleteTagBody, item.post_count || 0),
+            T.delete);
+        if (!ok) return;
+        try {
+            await api('DELETE', (isCat ? '/api/admin/categories/' : '/api/admin/tags/') + id);
+            toast(isCat ? T.categoryDeleted : T.tagDeleted);
+            if (sel.kind === kind && sel.id === id) sel = { kind, id: null };
+            await load(true);
+            if (isNarrow()) closePanel(); else fillPanel(sel.id == null ? null : sel);
+        } catch (err) {
+            toast(T.requestFailed, 'error', err.message);
+        }
+    }
+
+    /* ---------- drag to reorder / reparent ---------- */
+    const blockEnd = (rows, i) => { let j = i + 1; while (j < rows.length && rows[j].depth > rows[i].depth) j++; return j; };
+    function boundsAt(rem, k, h) {
+        const prev = k > 0 ? rem[k - 1] : null, next = k < rem.length ? rem[k] : null;
+        const max = Math.min(prev ? prev.depth + 1 : 0, MAX_DEPTH - h);
+        const min = next ? next.depth : 0;
+        return min <= max ? [min, max] : null;
+    }
+    function validK(rem, k, h) {
+        for (let d = 0; d <= rem.length; d++) {
+            for (const kk of [k - d, k + d]) if (kk >= 0 && kk <= rem.length && boundsAt(rem, kk, h)) return kk;
+        }
+        return 0;
+    }
+    function place(rows, i, k, d) {
+        const j = blockEnd(rows, i), base = rows[i].depth;
+        const block = rows.slice(i, j).map(r => ({ ...r, depth: r.depth - base + d }));
+        const rem = rows.slice(0, i).concat(rows.slice(j));
+        return rem.slice(0, k).concat(block, rem.slice(k));
+    }
+    // 把排好的列寫回 cats 的 parent_id / position
+    function applyRows(rows) {
+        const stack = [], counter = new Map(), byId = new Map(cats.map(c => [c.id, c]));
+        rows.forEach(r => {
+            stack.length = r.depth;
+            const parent = r.depth > 0 ? stack[r.depth - 1] : 0;
+            const pos = counter.get(parent) || 0;
+            counter.set(parent, pos + 1);
+            const c = byId.get(r.id);
+            c.parent_id = parent || null;
+            c.position = pos;
+            stack[r.depth] = r.id;
+        });
+    }
+    function markSnapshot() { snap = new Map(cats.map(c => [c.id, (c.parent_id || 0) + ':' + c.position])); }
+
+    let sending = false, again = false, timer = null;
+    function scheduleReorder(delay) { clearTimeout(timer); timer = setTimeout(sendReorder, delay); }
+    async function sendReorder() {
+        if (sending) { again = true; return; }
+        const changed = cats.filter(c => snap.get(c.id) !== (c.parent_id || 0) + ':' + c.position)
+            .map(c => ({ id: c.id, parent_id: c.parent_id || null, position: c.position }));
+        if (!changed.length) return;
+        sending = true;
+        try {
+            const fresh = await api('POST', '/api/admin/categories/reorder', changed);
+            if (Array.isArray(fresh)) cats = fresh;
+            markSnapshot();
+            toast(T.reordered);
+            if (!again) render();
+        } catch (err) {
+            toast(T.reorderFailed, 'error', err.message);
+            await load(true);
+        } finally {
+            sending = false;
+            if (again) { again = false; sendReorder(); }
+        }
+    }
+
+    function bindHandles(rows) {
+        document.querySelectorAll('#txBody [data-handle]').forEach(h => {
+            const idx = +h.closest('tr').dataset.index;
+            h.addEventListener('pointerdown', (e) => { if (e.button === 0 || e.pointerType !== 'mouse') startDrag(e, rows, idx); });
+            h.addEventListener('keydown', (e) => keyMove(e, rows, idx));
+        });
+    }
+
+    function startDrag(ev, rows, i) {
+        ev.preventDefault();
+        const body = $('txBody'), wrap = $('txWrap');
+        const els = Array.from(body.querySelectorAll('tr[data-row]'));
+        const j = blockEnd(rows, i);
+        const h = Math.max(...rows.slice(i, j).map(r => r.depth)) - rows[i].depth;
+        const rem = rows.slice(0, i).concat(rows.slice(j));
+        const remEls = els.slice(0, i).concat(els.slice(j));
+        els.slice(i, j).forEach(tr => tr.classList.add('tx-src'));
+        document.body.classList.add('tx-dragging');
+        const line = document.createElement('div');
+        line.className = 'tx-line'; wrap.appendChild(line);
+        const startX = ev.clientX, startDepth = rows[i].depth;
+        let k = i, d = startDepth;
+        function update(e) {
+            let kk = 0;
+            remEls.forEach(tr => { const r = tr.getBoundingClientRect(); if (r.top + r.height / 2 < e.clientY) kk++; });
+            kk = validK(rem, kk, h);
+            const [min, max] = boundsAt(rem, kk, h);
+            d = Math.max(min, Math.min(max, startDepth + Math.round((e.clientX - startX) / INDENT)));
+            k = kk;
+            const w = wrap.getBoundingClientRect();
+            let y;
+            if (!rem.length) y = 0;
+            else if (k === 0) y = remEls[0].getBoundingClientRect().top - w.top;
+            else y = remEls[k - 1].getBoundingClientRect().bottom - w.top;
+            line.style.top = (y - 1) + 'px';
+            line.style.left = (d * INDENT + 12 + 36) + 'px';
+            line.style.right = '0';
+        }
+        function finish(commit) {
+            document.removeEventListener('pointermove', update);
+            document.removeEventListener('pointerup', up);
+            document.removeEventListener('pointercancel', cancel);
+            document.removeEventListener('keydown', onKey, true);
+            document.body.classList.remove('tx-dragging');
+            line.remove();
+            els.forEach(tr => tr.classList.remove('tx-src'));
+            if (!commit) return;
+            const next = place(rows, i, k, d);
+            if (next.map(r => r.id + ':' + r.depth).join() === rows.map(r => r.id + ':' + r.depth).join()) return;
+            applyRows(next);
+            render();
+            sendReorder();
+        }
+        const up = (e) => { update(e); finish(true); };
+        const cancel = () => finish(false);
+        const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); finish(false); } };
+        document.addEventListener('pointermove', update);
+        document.addEventListener('pointerup', up);
+        document.addEventListener('pointercancel', cancel);
+        document.addEventListener('keydown', onKey, true);
+        update(ev);
+    }
+
+    // 鍵盤：把手上 ↑↓ 在同層移動，→ 縮排成上一個的子分類，← 移到上層
+    function keyMove(e, rows, i) {
+        const keys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+        if (!keys.includes(e.key)) return;
+        e.preventDefault();
+        const j = blockEnd(rows, i), me = rows[i];
+        const h = Math.max(...rows.slice(i, j).map(r => r.depth)) - me.depth;
+        const rem = rows.slice(0, i).concat(rows.slice(j));
+        let k = i, d = me.depth;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            if (e.key === 'ArrowUp') {
+                let p = i - 1;
+                while (p >= 0 && rows[p].depth > me.depth) p--;
+                if (p < 0 || rows[p].depth < me.depth) return;
+                k = p;
+            } else {
+                if (j >= rows.length || rows[j].depth < me.depth) return;
+                k = blockEnd(rows, j) - (j - i);
+            }
+        } else if (e.key === 'ArrowRight') {
+            if (i === 0 || rows[i - 1].depth < me.depth || me.depth + 1 + h > MAX_DEPTH) return;
+            d = me.depth + 1;
+        } else {
+            if (me.depth === 0) return;
+            let p = i - 1;
+            while (p >= 0 && rows[p].depth >= me.depth) p--;
+            k = blockEnd(rows, p) - (j - i);
+            d = me.depth - 1;
+        }
+        const b = boundsAt(rem, k, h);
+        if (!b || d < b[0] || d > b[1]) return;
+        const next = place(rows, i, k, d);
+        applyRows(next);
+        const id = me.id;
+        render();
+        const again = document.querySelector('#txBody tr[data-id="' + id + '"] [data-handle]');
+        if (again) again.focus();
+        scheduleReorder(600);
+    }
+
+    /* ---------- load ---------- */
+    async function load(quiet) {
+        try {
+            const [c, t] = await Promise.all([api('GET', '/api/admin/categories'), api('GET', '/api/admin/tags')]);
+            cats = Array.isArray(c) ? c : [];
+            tags = Array.isArray(t) ? t : [];
+            markSnapshot();
+            loadError = false;
+        } catch (err) {
+            if (quiet) { toast(T.requestFailed, 'error', err.message); return; }
+            loadError = true;
+        }
+        render();
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !e.defaultPrevented && !document.body.classList.contains('tx-dragging')) {
+            if ($('panel').classList.contains('open')) { e.preventDefault(); closePanel(); }
+            else if (!isNarrow() && $('panel').contains(document.activeElement)) { e.preventDefault(); closePanel(); }
+        }
+    });
+
+    fillPanel(null);
+    showLoading();
+    load();
+    if (location.hash === '#new') { openPanel(null, $('newBtn')); }
+})();
+</script>
+{{end}}
