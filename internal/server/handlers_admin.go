@@ -20,6 +20,10 @@ import (
 )
 
 func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
+	registerAdminRoutes(e, tm, nil)
+}
+
+func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runtime) {
 	// Content and media are available to known content roles. All other admin
 	// endpoints are registered on the admin-only group below.
 	content := e.Group("/api/admin", auth.RequireRole("admin", "editor", "author"))
@@ -406,11 +410,21 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 
 	// Reload plugin
 	api.POST("/plugins/:id/reload", func(c echo.Context) error {
-		_ = c.Param("id")
-		// Get plugin runtime from context or global
-		// For now, we'll need to pass it through context or make it global
-		// This is a simplified version
-		return c.JSON(http.StatusOK, map[string]string{"message": "Plugin reload not fully implemented"})
+		if pluginRuntime == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Plugin runtime is unavailable"})
+		}
+
+		meta, err := pluginRuntime.GetPlugin(c.Param("id"))
+		if err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Plugin not found"})
+		}
+
+		dir := filepath.Join("data", "plugins", meta.ID)
+		if err := pluginRuntime.ReloadForID(c.Request().Context(), meta.ID, dir); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Plugin reload failed"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "Plugin reloaded"})
 	})
 
 	// Settings
