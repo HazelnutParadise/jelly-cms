@@ -64,6 +64,8 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         html { scroll-padding-top: 5rem; overflow-x: clip; }
+        /* 全幅裝飾（hero 拼盤、頁尾大字）刻意延伸到視窗邊緣，裁掉超出的部分，避免橫向捲動 */
+        body { overflow-x: clip; }
 
         body {
             font-family: var(--font);
@@ -205,6 +207,17 @@
         .menu a { color: var(--ink); font-weight: 600; font-size: .9375rem; padding: .5rem .9rem; min-height: 2.75rem; display: inline-flex; align-items: center; border-radius: var(--r-sm); }
         .menu a:hover { background: var(--surface-mid); color: var(--ink); }
         .menu a[aria-current="page"] { background: var(--ink); color: var(--surface); }
+        /* 後台建立的選單：兩層，子選單用 hover / focus-within 展開，鍵盤可達 */
+        .menu-list, .sub-menu { list-style: none; }
+        .menu-list { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem; }
+        .menu-item { position: relative; }
+        .menu-item.has-sub > a::after { content: ""; width: .4rem; height: .4rem; margin-left: .5rem; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-.1rem); opacity: .6; }
+        .sub-menu { position: absolute; top: 100%; left: 0; z-index: 120; min-width: 12rem; padding: .35rem; display: grid; gap: .15rem; background: var(--surface); box-shadow: inset 0 0 0 1px var(--outline), 0 12px 32px color-mix(in srgb, var(--ink) 14%, transparent); border-radius: var(--r-md); visibility: hidden; opacity: 0; transform: translateY(-.25rem); transition: opacity .15s ease, transform .2s ease, visibility 0s linear .15s; }
+        .menu-item.has-sub:hover > .sub-menu, .menu-item.has-sub:focus-within > .sub-menu { visibility: visible; opacity: 1; transform: none; transition-delay: 0s; }
+        .sub-menu a { width: 100%; white-space: nowrap; min-height: 2.5rem; }
+        .rail-nav .rail-sub { display: grid; gap: .25rem; list-style: none; }
+        .rail-nav .rail-sub a { padding-left: 1.25rem; font-weight: 500; font-size: .9375rem; }
+        .colophon .rail-nav .rail-sub a { padding-left: 1rem; }
 
         /* ---------- 版面 ---------- */
         .shell {
@@ -400,6 +413,10 @@
             .masthead .search-form { flex-basis: 100%; }
             .masthead .search-form .field { width: auto; }
             .menu a { padding-inline: .65rem; }
+            .menu-list { gap: .15rem; }
+            .menu-item.has-sub { display: flex; flex-wrap: wrap; align-items: center; }
+            .sub-menu { position: static; visibility: visible; opacity: 1; transform: none; box-shadow: none; padding: 0; min-width: 0; display: flex; flex-wrap: wrap; gap: .1rem; border-radius: 0; background: transparent; }
+            .sub-menu a { font-weight: 500; }
             .hero-copy .search-form { flex-wrap: wrap; }
             .hero-copy .search-form .field { flex-basis: 100%; }
             .hero-copy .search-form .button { width: 100%; }
@@ -435,9 +452,11 @@
                 <span>{{.SiteTitle}}</span>
             </a>
             <nav class="menu" aria-label="主選單">
-                <a href="/" {{if .IsHome}}aria-current="page"{{end}}>首頁</a>
+                {{- $headerMenu := menu "header" -}}
+                {{if $headerMenu}}<ul class="menu-list">{{template "menu_items" $headerMenu}}</ul>
+                {{else}}<a href="/" {{if .IsHome}}aria-current="page"{{end}}>首頁</a>
                 <a href="/posts" {{if .IsPosts}}aria-current="page"{{end}}>文章</a>
-                <a href="/about">關於</a>
+                <a href="/about">關於</a>{{end}}
             </nav>
             <form class="search-form" role="search" action="/search" method="GET">
                 <label class="visually-hidden" for="masthead-q">搜尋</label>
@@ -468,10 +487,12 @@
             <div>
                 <div class="label">導覽</div>
                 <nav class="rail-nav" aria-label="頁尾選單">
-                    <a href="/">首頁</a>
+                    {{- $footerMenu := menu "footer" -}}
+                    {{if $footerMenu}}{{template "menu_rail_items" $footerMenu}}
+                    {{else}}<a href="/">首頁</a>
                     <a href="/posts">文章</a>
                     <a href="/about">關於</a>
-                    <a href="/search">搜尋</a>
+                    <a href="/search">搜尋</a>{{end}}
                 </nav>
             </div>
             <div>
@@ -526,6 +547,17 @@
 
 </html>
 {{end}}
+
+{{define "menu_link"}}<a href="{{.URL}}"{{if .NewTab}} target="_blank" rel="noopener"{{end}}{{if .Active}} aria-current="page"{{end}}{{if .CSSClass}} class="{{.CSSClass}}"{{end}}>{{.Label}}</a>{{end}}
+
+{{define "menu_items"}}{{range .}}
+<li class="menu-item{{if .Children}} has-sub{{end}}">{{template "menu_link" .}}
+{{- if .Children}}<ul class="sub-menu">{{range .Children}}<li>{{template "menu_link" .}}</li>{{end}}</ul>{{end}}</li>
+{{end}}{{end}}
+
+{{define "menu_rail_items"}}{{range .}}{{template "menu_link" .}}
+{{- if .Children}}<div class="rail-sub">{{range .Children}}{{template "menu_link" .}}{{end}}</div>{{end}}
+{{end}}{{end}}
 
 {{define "rail"}}
 <aside class="rail" aria-label="側欄">

@@ -133,6 +133,9 @@ func (m *Manager) RenderWithDB(templateName string, data interface{}, db interfa
 		tmplPath := filepath.Join(themeDir, templateName)
 
 		funcMap := template.FuncMap{
+			// menu is overridden by the server through RegisterFunc; the stub keeps
+			// themes that call it renderable before registration (previews, tests).
+			"menu": func(string) interface{} { return nil },
 			"substr": func(s string, start, end int) string {
 				if start < 0 {
 					start = 0

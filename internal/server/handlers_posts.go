@@ -67,6 +67,10 @@ func createPost(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
+	if _, explicit := input["published_at"]; !explicit && post.Status == "published" && post.PublishedAt == nil {
+		now := time.Now()
+		post.PublishedAt = &now
+	}
 	err = data.DB.Transaction(func(tx *gorm.DB) error {
 		if err := core.NewPostService(tx).Create(&post); err != nil {
 			return err
@@ -140,6 +144,11 @@ func updatePost(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
 	}
 	updates["updated_at"] = time.Now()
+	if _, explicit := input["published_at"]; !explicit && existing.PublishedAt == nil {
+		if status, ok := updates["status"].(string); ok && status == "published" {
+			updates["published_at"] = updates["updated_at"]
+		}
+	}
 	err = data.DB.Transaction(func(tx *gorm.DB) error {
 		write := tx.Model(&core.Post{}).Where("id = ?", id)
 		if user.Role == "author" {
@@ -158,6 +167,9 @@ func updatePost(c echo.Context) error {
 		next := existing
 		if _, err := applyPostInput(&next, input); err != nil {
 			return err
+		}
+		if stamped, ok := updates["published_at"].(time.Time); ok && next.PublishedAt == nil {
+			next.PublishedAt = &stamped
 		}
 		if kind, ok := revisionKindFor(existing, next, input); ok {
 			if _, err := RecordRevision(tx, next, user.ID, kind); err != nil {
