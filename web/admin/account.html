@@ -1,0 +1,415 @@
+{{define "page-content"}}
+<main id="accountPanel" aria-busy="true">
+    <h1>{{.T.accountTitle}}</h1>
+    <p class="intro">{{.T.accountDescription}}</p>
+
+    <section class="panel" aria-labelledby="loginMethodsHeading">
+        <div class="panel-heading">
+            <h2 id="loginMethodsHeading">{{.T.loginMethods}}</h2>
+        </div>
+        <div id="loadingRows" class="method-list" aria-hidden="true">
+            <div class="skeleton-row"><span class="skeleton-icon"></span><span class="skeleton-lines"><span class="skeleton-line"></span><span class="skeleton-line short"></span></span></div>
+            <div class="skeleton-row"><span class="skeleton-icon"></span><span class="skeleton-lines"><span class="skeleton-line"></span><span class="skeleton-line short"></span></span></div>
+            <div class="skeleton-row"><span class="skeleton-icon"></span><span class="skeleton-lines"><span class="skeleton-line"></span><span class="skeleton-line short"></span></span></div>
+        </div>
+        <div id="methodList" class="method-list" hidden></div>
+        <p id="emptyState" class="empty-state" hidden></p>
+        <p id="accountError" class="notice notice-error" role="alert" hidden></p>
+        <p id="accountStatus" class="notice" role="status" aria-live="polite" aria-atomic="true"></p>
+        <button id="retryLoad" class="button button-secondary" type="button" hidden></button>
+    </section>
+    <nav class="footer-nav" aria-label="{{if eq .Lang "en"}}Account links{{else}}帳號連結{{end}}">
+        <a href="/account/recover?lang={{.Lang}}">{{.T.recoverTitle}}</a>
+    </nav>
+</main>
+
+<template id="googleLogoTemplate"><span class="provider-logo" aria-hidden="true"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M4 0.5H36C37.933 0.5 39.5 2.067 39.5 4V36C39.5 37.933 37.933 39.5 36 39.5H4C2.067 39.5 0.5 37.933 0.5 36V4C0.500001 2.067 2.067 0.5 4 0.5Z" fill="white"/>
+<path d="M4 0.5H36C37.933 0.5 39.5 2.067 39.5 4V36C39.5 37.933 37.933 39.5 36 39.5H4C2.067 39.5 0.5 37.933 0.5 36V4C0.500001 2.067 2.067 0.5 4 0.5Z" stroke="#747775"/>
+<mask id="mask0_1298_12516" style="mask-type:alpha" maskUnits="userSpaceOnUse" x="10" y="10" width="20" height="20">
+<path d="M29.3987 18.1814H19.9849V22.0445H25.3598C25.1286 23.294 24.4294 24.3596 23.3676 25.0712C22.4746 25.6716 21.3266 26.0211 19.9849 26.0211C17.3864 26.0211 15.1823 24.2666 14.3947 21.9004C14.1952 21.2989 14.0853 20.6599 14.0853 19.9983C14.0853 19.3367 14.1952 18.6966 14.3947 18.0962C15.1823 15.7311 17.3864 13.9755 19.9849 13.9755C21.4524 13.9755 22.767 14.4816 23.8039 15.4713L26.6653 12.6057C24.936 10.9908 22.6786 10 19.9849 10C16.0832 10 12.705 12.2414 11.0618 15.5076C10.383 16.8592 10 18.3834 10 19.9994C10 21.6155 10.383 23.1396 11.0618 24.4913C12.705 27.7597 16.0832 30 19.9849 30C22.6797 30 24.9485 29.1137 26.6018 27.5861C28.4887 25.8452 29.5732 23.2702 29.5732 20.2275C29.5732 19.5182 29.5131 18.835 29.3987 18.1825V18.1814Z" fill="#E94FFF"/>
+</mask>
+<g mask="url(#mask0_1298_12516)">
+<g filter="url(#filter0_f_1298_12516)">
+<g clip-path="url(#paint0_angular_1298_12516_clip_path)" data-figma-skip-parse="true"><g transform="matrix(0.00804129 -0.00805186 0.00804128 0.00805186 19.6819 19.7927)"><foreignObject x="-2105.64" y="-2105.64" width="4211.29" height="4211.29"><div xmlns="http://www.w3.org/1999/xhtml" style="background:conic-gradient(from 90deg,rgba(255, 70, 65, 1) 0deg,rgba(255, 70, 65, 1) 4.14555deg,rgba(49, 134, 255, 1) 39.154deg,rgba(49, 134, 255, 1) 72.0044deg,rgba(0, 165, 183, 1) 96.7463deg,rgba(14, 188, 95, 1) 120.897deg,rgba(14, 188, 95, 1) 154.722deg,rgba(108, 196, 0, 1) 179.136deg,rgba(255, 204, 0, 1) 203.588deg,rgba(255, 211, 20, 1) 226.915deg,rgba(255, 204, 0, 1) 251.688deg,rgba(255, 106, 43, 1) 273.129deg,rgba(253, 70, 65, 1) 289.305deg,rgba(255, 70, 65, 1) 359.593deg,rgba(255, 70, 65, 1) 360deg);height:100%;width:100%;opacity:1"></div></foreignObject></g></g><path d="M7.25922 19.7927C7.25922 12.6759 13.0209 6.90668 20.1283 6.90668C27.2357 6.90668 32.9973 12.6759 32.9973 19.7927C32.9973 26.9094 27.2357 32.6786 20.1283 32.6786C13.0209 32.6786 7.25921 26.9094 7.25922 19.7927Z" data-figma-gradient-fill="{&#34;type&#34;:&#34;GRADIENT_ANGULAR&#34;,&#34;stops&#34;:[{&#34;color&#34;:{&#34;r&#34;:1.0,&#34;g&#34;:0.27450981736183167,&#34;b&#34;:0.25490197539329529,&#34;a&#34;:1.0},&#34;position&#34;:0.011515417136251926},{&#34;color&#34;:{&#34;r&#34;:0.19215686619281769,&#34;g&#34;:0.52549022436141968,&#34;b&#34;:1.0,&#34;a&#34;:1.0},&#34;position&#34;:0.10876122117042542},{&#34;color&#34;:{&#34;r&#34;:0.19215686619281769,&#34;g&#34;:0.52549022436141968,&#34;b&#34;:1.0,&#34;a&#34;:1.0},&#34;position&#34;:0.20001229643821716},{&#34;color&#34;:{&#34;r&#34;:0.0,&#34;g&#34;:0.64705884456634521,&#34;b&#34;:0.71764707565307617,&#34;a&#34;:1.0},&#34;position&#34;:0.26873961091041565},{&#34;color&#34;:{&#34;r&#34;:0.054901961237192154,&#34;g&#34;:0.73725491762161255,&#34;b&#34;:0.37254902720451355,&#34;a&#34;:1.0},&#34;position&#34;:0.33582508563995361},{&#34;color&#34;:{&#34;r&#34;:0.054901961237192154,&#34;g&#34;:0.73725491762161255,&#34;b&#34;:0.37254902720451355,&#34;a&#34;:1.0},&#34;position&#34;:0.42978334426879883},{&#34;color&#34;:{&#34;r&#34;:0.42528781294822693,&#34;g&#34;:0.77231442928314209,&#34;b&#34;:0.0,&#34;a&#34;:1.0},&#34;position&#34;:0.49760133028030396},{&#34;color&#34;:{&#34;r&#34;:1.0,&#34;g&#34;:0.80000001192092896,&#34;b&#34;:0.0,&#34;a&#34;:1.0},&#34;position&#34;:0.56552332639694214},{&#34;color&#34;:{&#34;r&#34;:1.0,&#34;g&#34;:0.82745099067687988,&#34;b&#34;:0.078431375324726105,&#34;a&#34;:1.0},&#34;position&#34;:0.63031959533691406},{&#34;color&#34;:{&#34;r&#34;:1.0,&#34;g&#34;:0.80000001192092896,&#34;b&#34;:0.0,&#34;a&#34;:1.0},&#34;position&#34;:0.69913208484649658},{&#34;color&#34;:{&#34;r&#34;:1.0,&#34;g&#34;:0.41842123866081238,&#34;b&#34;:0.16917318105697632,&#34;a&#34;:1.0},&#34;position&#34;:0.75869029760360718},{&#34;color&#34;:{&#34;r&#34;:0.99215686321258545,&#34;g&#34;:0.27450981736183167,&#34;b&#34;:0.25490197539329529,&#34;a&#34;:1.0},&#34;position&#34;:0.80362409353256226},{&#34;color&#34;:{&#34;r&#34;:1.0,&#34;g&#34;:0.27450981736183167,&#34;b&#34;:0.25490197539329529,&#34;a&#34;:1.0},&#34;position&#34;:0.99887031316757202}],&#34;stopsVar&#34;:[{&#34;color&#34;:{&#34;r&#34;:1.0,&#34;g&#34;:0.27450981736183167,&#34;b&#34;:0.25490197539329529,&#34;a&#34;:1.0},&#34;position&#34;:0.011515417136251926},{&#34;color&#34;:{&#34;r&#34;:0.19215686619281769,&#34;g&#34;:0.52549022436141968,&#34;b&#34;:1.0,&#34;a&#34;:1.0},&#34;position&#34;:0.10876122117042542},{&#34;color&#34;:{&#34;r&#34;:0.19215686619281769,&#34;g&#34;:0.52549022436141968,&#34;b&#34;:1.0,&#34;a&#34;:1.0},&#34;position&#34;:0.20001229643821716},{&#34;color&#34;:{&#34;r&#34;:0.0,&#34;g&#34;:0.64705884456634521,&#34;b&#34;:0.71764707565307617,&#34;a&#34;:1.0},&#34;position&#34;:0.26873961091041565},{&#34;color&#34;:{&#34;r&#34;:0.054901961237192154,&#34;g&#34;:0.73725491762161255,&#34;b&#34;:0.37254902720451355,&#34;a&#34;:1.0},&#34;position&#34;:0.33582508563995361},{&#34;color&#34;:{&#34;r&#34;:0.054901961237192154,&#34;g&#34;:0.73725491762161255,&#34;b&#34;:0.37254902720451355,&#34;a&#34;:1.0},&#34;position&#34;:0.42978334426879883},{&#34;color&#34;:{&#34;r&#34;:0.42528781294822693,&#34;g&#34;:0.77231442928314209,&#34;b&#34;:0.0,&#34;a&#34;:1.0},&#34;position&#34;:0.49760133028030396},{&#34;color&#34;:{&#34;r&#34;:1.0,&#34;g&#34;:0.80000001192092896,&#34;b&#34;:0.0,&#34;a&#34;:1.0},&#34;position&#34;:0.56552332639694214},{&#34;color&#34;:{&#34;r&#34;:1.0,&#34;g&#34;:0.82745099067687988,&#34;b&#34;:0.078431375324726105,&#34;a&#34;:1.0},&#34;position&#34;:0.63031959533691406},{&#34;color&#34;:{&#34;r&#34;:1.0,&#34;g&#34;:0.80000001192092896,&#34;b&#34;:0.0,&#34;a&#34;:1.0},&#34;position&#34;:0.69913208484649658},{&#34;color&#34;:{&#34;r&#34;:1.0,&#34;g&#34;:0.41842123866081238,&#34;b&#34;:0.16917318105697632,&#34;a&#34;:1.0},&#34;position&#34;:0.75869029760360718},{&#34;color&#34;:{&#34;r&#34;:0.99215686321258545,&#34;g&#34;:0.27450981736183167,&#34;b&#34;:0.25490197539329529,&#34;a&#34;:1.0},&#34;position&#34;:0.80362409353256226},{&#34;color&#34;:{&#34;r&#34;:1.0,&#34;g&#34;:0.27450981736183167,&#34;b&#34;:0.25490197539329529,&#34;a&#34;:1.0},&#34;position&#34;:0.99887031316757202}],&#34;transform&#34;:{&#34;m00&#34;:16.082571029663086,&#34;m01&#34;:16.082569122314453,&#34;m02&#34;:3.5993347167968750,&#34;m10&#34;:-16.103721618652344,&#34;m11&#34;:16.103721618652344,&#34;m12&#34;:19.792665481567383},&#34;opacity&#34;:1.0,&#34;blendMode&#34;:&#34;NORMAL&#34;,&#34;visible&#34;:true}"/>
+</g>
+<g filter="url(#filter1_f_1298_12516)">
+<ellipse cx="20.0496" cy="20.2413" rx="5.39634" ry="2.83537" transform="rotate(24.4473 20.0496 20.2413)" fill="#3186FF"/>
+</g>
+<g filter="url(#filter2_f_1298_12516)">
+<ellipse cx="33.3538" cy="18.2155" rx="7.43918" ry="3.09357" fill="#3186FF"/>
+</g>
+<g filter="url(#filter3_f_1298_12516)">
+<ellipse cx="25.2744" cy="16.2195" rx="7.40854" ry="2.37805" fill="#FF4641"/>
+</g>
+<g filter="url(#filter4_f_1298_12516)">
+<ellipse cx="29.5427" cy="12.9268" rx="7.40854" ry="2.37805" fill="#FF5B8B"/>
+</g>
+<g filter="url(#filter5_f_1298_12516)">
+<ellipse cx="24.4817" cy="19.878" rx="8.5061" ry="3.10976" fill="#3186FF"/>
+</g>
+<g filter="url(#filter6_f_1298_12516)">
+<ellipse cx="25.1842" cy="14.0197" rx="4.53882" ry="2.37805" transform="rotate(-28.6599 25.1842 14.0197)" fill="#FF4641"/>
+</g>
+</g>
+<defs>
+<filter id="filter0_f_1298_12516" x="5.25922" y="4.90668" width="29.7381" height="29.772" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_1298_12516"/>
+</filter>
+<clipPath id="paint0_angular_1298_12516_clip_path"><path d="M7.25922 19.7927C7.25922 12.6759 13.0209 6.90668 20.1283 6.90668C27.2357 6.90668 32.9973 12.6759 32.9973 19.7927C32.9973 26.9094 27.2357 32.6786 20.1283 32.6786C13.0209 32.6786 7.25921 26.9094 7.25922 19.7927Z"/></clipPath><filter id="filter1_f_1298_12516" x="12.9977" y="14.828" width="14.1038" height="10.8265" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_1298_12516"/>
+</filter>
+<filter id="filter2_f_1298_12516" x="23.9146" y="13.1219" width="18.8784" height="10.1871" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_1298_12516"/>
+</filter>
+<filter id="filter3_f_1298_12516" x="15.8659" y="11.8415" width="18.8171" height="8.7561" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_1298_12516"/>
+</filter>
+<filter id="filter4_f_1298_12516" x="20.1341" y="8.54878" width="18.8171" height="8.7561" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_1298_12516"/>
+</filter>
+<filter id="filter5_f_1298_12516" x="13.9756" y="14.7683" width="21.0122" height="10.2195" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_1298_12516"/>
+</filter>
+<filter id="filter6_f_1298_12516" x="19.0404" y="9.00419" width="12.2878" height="10.0309" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="1" result="effect1_foregroundBlur_1298_12516"/>
+</filter>
+</defs>
+</svg>
+</span></template>
+<template id="githubLogoTemplate"><span class="provider-logo" aria-hidden="true"><svg class="github-mark" width="98" height="96" viewBox="0 0 98 96" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_730_27126)"><path d="M41.4395 69.3848C28.8066 67.8535 19.9062 58.7617 19.9062 46.9902C19.9062 42.2051 21.6289 37.0371 24.5 33.5918C23.2559 30.4336 23.4473 23.7344 24.8828 20.959C28.7109 20.4805 33.8789 22.4902 36.9414 25.2656C40.5781 24.1172 44.4062 23.543 49.0957 23.543C53.7852 23.543 57.6133 24.1172 61.0586 25.1699C64.0254 22.4902 69.2891 20.4805 73.1172 20.959C74.457 23.543 74.6484 30.2422 73.4043 33.4961C76.4668 37.1328 78.0937 42.0137 78.0937 46.9902C78.0937 58.7617 69.1934 67.6621 56.3691 69.2891C59.623 71.3945 61.8242 75.9883 61.8242 81.252L61.8242 91.2051C61.8242 94.0762 64.2168 95.7031 67.0879 94.5547C84.4102 87.9512 98 70.6289 98 49.1914C98 22.1074 75.9883 6.69539e-07 48.9043 4.309e-07C21.8203 1.92261e-07 -1.9479e-07 22.1074 -4.3343e-07 49.1914C-6.20631e-07 70.4375 13.4941 88.0469 31.6777 94.6504C34.2617 95.6074 36.75 93.8848 36.75 91.3008L36.75 83.6445C35.4102 84.2188 33.6875 84.6016 32.1562 84.6016C25.8398 84.6016 22.1074 81.1563 19.4277 74.7441C18.375 72.1602 17.2266 70.6289 15.0254 70.3418C13.877 70.2461 13.4941 69.7676 13.4941 69.1934C13.4941 68.0449 15.4082 67.1836 17.3223 67.1836C20.0977 67.1836 22.4902 68.9063 24.9785 72.4473C26.8926 75.2227 28.9023 76.4668 31.2949 76.4668C33.6875 76.4668 35.2187 75.6055 37.4199 73.4043C39.0469 71.7773 40.291 70.3418 41.4395 69.3848Z" fill="black"/></g><defs><clipPath id="clip0_730_27126"><rect width="98" height="96" fill="white"/></clipPath></defs></svg></span></template>
+
+<div id="accountCopy" hidden aria-hidden="true">
+    <span data-copy="localLogin">{{.T.localLogin}}</span><span data-copy="available">{{.T.available}}</span><span data-copy="unavailable">{{.T.unavailable}}</span>
+    <span data-copy="enabled">{{.T.enabled}}</span><span data-copy="disabled">{{.T.disabled}}</span><span data-copy="linked">{{.T.linked}}</span><span data-copy="notLinked">{{.T.notLinked}}</span>
+    <span data-copy="linkProvider">{{.T.linkProvider}}</span><span data-copy="unlinkProvider">{{.T.unlinkProvider}}</span><span data-copy="unlinkPrompt">{{.T.unlinkPrompt}}</span>
+    <span data-copy="confirmUnlink">{{.T.confirmUnlink}}</span><span data-copy="cancel">{{.T.cancel}}</span><span data-copy="loadError">{{.T.loadError}}</span>
+    <span data-copy="retry">{{.T.retry}}</span><span data-copy="noProvidersLinked">{{.T.noProvidersLinked}}</span><span data-copy="lastLoginMethod">{{.T.lastLoginMethod}}</span>
+    <span data-copy="reauthenticate">{{.T.reauthenticate}}</span><span data-copy="offline">{{.T.offline}}</span><span data-copy="requestTimeout">{{.T.requestTimeout}}</span>
+    <span data-copy="requestFailed">{{.T.requestFailed}}</span><span data-copy="linking">{{.T.linking}}</span><span data-copy="removing">{{.T.removing}}</span>
+</div>
+
+<script>
+(function () {
+    const panel = document.getElementById('accountPanel');
+    const loadingRows = document.getElementById('loadingRows');
+    const methodList = document.getElementById('methodList');
+    const emptyState = document.getElementById('emptyState');
+    const errorNode = document.getElementById('accountError');
+    const statusNode = document.getElementById('accountStatus');
+    const retryButton = document.getElementById('retryLoad');
+    const copy = {};
+    document.querySelectorAll('#accountCopy [data-copy]').forEach(function (node) { copy[node.dataset.copy] = node.textContent; });
+    let busy = false;
+    let confirmingProvider = '';
+    let currentState = null;
+
+    function refreshBusyControls() {
+        panel.setAttribute('aria-busy', busy ? 'true' : 'false');
+        panel.querySelectorAll('button').forEach(function (button) {
+            button.disabled = busy || button.dataset.locked === 'true';
+            if (busy) button.setAttribute('aria-busy', 'true');
+            else button.removeAttribute('aria-busy');
+        });
+    }
+
+    function validAuthURL(value) {
+        if (typeof value !== 'string' || value.length === 0 || value.trim() !== value) return null;
+        try {
+            const url = new URL(value);
+            if ((url.protocol !== 'https:' && url.protocol !== 'http:') || !url.hostname || url.username || url.password) return null;
+            return url.href;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    async function requestJSON(path, options) {
+        const controller = new AbortController();
+        let timedOut = false;
+        const timer = window.setTimeout(function () { timedOut = true; controller.abort(); }, 20000);
+        try {
+            const response = await fetch(path, Object.assign({
+                mode: 'same-origin', credentials: 'same-origin', cache: 'no-store', signal: controller.signal
+            }, options || {}));
+            let payload = null;
+            try { payload = await response.json(); } catch (_) { payload = null; }
+            return { response: response, payload: payload };
+        } catch (error) {
+            if (timedOut) error.requestTimedOut = true;
+            throw error;
+        } finally {
+            window.clearTimeout(timer);
+        }
+    }
+
+    function requestError(response, error, operation) {
+        if (error && error.requestTimedOut) return copy.requestTimeout;
+        if (response && response.status === 401) return copy.reauthenticate;
+        if (response && response.status === 409 && operation === 'unlink') return copy.lastLoginMethod;
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return copy.offline;
+        return copy.requestFailed;
+    }
+
+    function setInlineError(message) {
+        errorNode.textContent = message;
+        errorNode.hidden = !message;
+    }
+
+    function makeElement(tag, className, content) {
+        const element = document.createElement(tag);
+        if (className) element.className = className;
+        if (content !== undefined) element.textContent = content;
+        return element;
+    }
+
+    function makePill(text) {
+        return makeElement('span', 'status-pill', text);
+    }
+
+    function createRow(name, statusParts, logoProvider) {
+        const row = makeElement('article', 'method-row');
+        const main = makeElement('div', 'method-main');
+        if (logoProvider) {
+            const logoTemplate = document.getElementById(logoProvider + 'LogoTemplate');
+            if (logoTemplate) main.appendChild(logoTemplate.content.cloneNode(true));
+        }
+        const details = makeElement('div');
+        details.appendChild(makeElement('h3', 'method-name', name));
+        const statuses = makeElement('div', 'method-status');
+        statusParts.forEach(function (part) { statuses.appendChild(makePill(part)); });
+        details.appendChild(statuses);
+        main.appendChild(details);
+        row.appendChild(main);
+        return { row: row, main: main };
+    }
+
+    function addAction(row, label, actionName, provider, locked, className) {
+        const actions = makeElement('div', 'method-actions');
+        const button = makeElement('button', 'button' + (className ? ' ' + className : ''), label);
+        button.type = 'button';
+        button.dataset.action = actionName;
+        button.dataset.provider = provider || '';
+        button.dataset.locked = locked ? 'true' : 'false';
+        actions.appendChild(button);
+        row.appendChild(actions);
+        return button;
+    }
+
+    function focusProviderAction(provider, actionName) {
+        const actions = methodList.querySelectorAll('button[data-action]');
+        for (let i = 0; i < actions.length; i++) {
+            if (actions[i].dataset.provider === provider && actions[i].dataset.action === actionName) {
+                actions[i].focus();
+                return;
+            }
+        }
+    }
+
+    function renderState(state) {
+        currentState = state;
+        methodList.replaceChildren();
+        const localRow = createRow(copy.localLogin, [state.local_login ? copy.available : copy.unavailable], '');
+        methodList.appendChild(localRow.row);
+        const linkedCount = state.providers.filter(function (item) { return item.linked; }).length;
+        state.providers.forEach(function (item) {
+            const provider = item.provider;
+            const displayName = provider === 'google' ? 'Google' : 'GitHub';
+            const rowParts = [item.enabled ? copy.enabled : copy.disabled, item.linked ? copy.linked : copy.notLinked];
+            const row = createRow(displayName, rowParts, provider).row;
+            if (item.linked) {
+                addAction(row, copy.unlinkProvider, 'confirm', provider, false, 'button-secondary');
+                if (confirmingProvider === provider) {
+                    const confirmation = makeElement('div', 'inline-confirm');
+                    confirmation.appendChild(makeElement('p', '', copy.unlinkPrompt));
+                    const controls = makeElement('div', 'confirm-actions');
+                    const remove = makeElement('button', 'button button-danger', copy.confirmUnlink);
+                    remove.type = 'button'; remove.dataset.action = 'unlink'; remove.dataset.provider = provider;
+                    const cancel = makeElement('button', 'button button-secondary', copy.cancel);
+                    cancel.type = 'button'; cancel.dataset.action = 'cancel'; cancel.dataset.provider = provider;
+                    controls.append(remove, cancel);
+                    confirmation.appendChild(controls);
+                    row.appendChild(confirmation);
+                }
+            } else if (item.enabled) {
+                addAction(row, copy.linkProvider, 'link', provider, false, '');
+            } else {
+                addAction(row, copy.linkProvider, 'link', provider, true, '');
+            }
+            methodList.appendChild(row);
+        });
+        loadingRows.hidden = true;
+        methodList.hidden = false;
+        emptyState.textContent = copy.noProvidersLinked;
+        emptyState.hidden = linkedCount > 0;
+        retryButton.hidden = true;
+        refreshBusyControls();
+    }
+
+    function setLoadFailure(message) {
+        loadingRows.hidden = true;
+        methodList.hidden = true;
+        emptyState.hidden = true;
+        setInlineError(message);
+        retryButton.textContent = copy.retry;
+        retryButton.hidden = false;
+        refreshBusyControls();
+    }
+
+    async function readIdentities() {
+        setInlineError('');
+        try {
+            const result = await requestJSON('/api/auth/identities', { method: 'GET' });
+            if (!result.response.ok) {
+                setLoadFailure(requestError(result.response));
+                return false;
+            }
+            const body = result.payload;
+            if (!body || typeof body.local_login !== 'boolean' || !Array.isArray(body.providers)) throw new Error('invalid response');
+            const providers = ['google', 'github'].map(function (name) {
+                const found = body.providers.find(function (item) { return item && item.provider === name; });
+                if (!found || typeof found.enabled !== 'boolean' || typeof found.linked !== 'boolean') throw new Error('invalid response');
+                return { provider: name, enabled: found.enabled, linked: found.linked };
+            });
+            renderState({ local_login: body.local_login, providers: providers });
+            statusNode.textContent = '';
+            return true;
+        } catch (error) {
+            setLoadFailure(requestError(null, error));
+            return false;
+        }
+    }
+
+    async function loadIdentities() {
+        if (busy) return;
+        const shouldRestoreFocus = document.activeElement === retryButton;
+        busy = true;
+        refreshBusyControls();
+        const loaded = await readIdentities();
+        busy = false;
+        refreshBusyControls();
+        if (shouldRestoreFocus && document.activeElement === document.body) {
+            if (loaded) {
+                const action = Array.from(methodList.querySelectorAll('button[data-action]')).find(function (item) { return !item.disabled; });
+                if (action) action.focus();
+            } else if (!retryButton.hidden) {
+                retryButton.focus();
+            }
+        }
+    }
+
+    async function startLink(provider, button) {
+        if (busy || !currentState) return;
+        const providerState = currentState.providers.find(function (item) { return item.provider === provider; });
+        if (!providerState || !providerState.enabled || providerState.linked) return;
+        const shouldRestoreFocus = document.activeElement === button;
+        busy = true;
+        const oldLabel = button.textContent;
+        button.textContent = copy.linking;
+        refreshBusyControls();
+        setInlineError('');
+        let redirecting = false;
+        try {
+            const result = await requestJSON('/api/auth/identities/' + encodeURIComponent(provider) + '/start', {
+                method: 'POST', headers: { 'X-Jelly-CSRF': '1' }
+            });
+            if (!result.response.ok || !result.payload || typeof result.payload.auth_url !== 'string') {
+                setInlineError(requestError(result.response, null, 'start'));
+                return;
+            }
+            const authURL = validAuthURL(result.payload.auth_url);
+            if (!authURL) {
+                setInlineError(copy.requestFailed);
+                return;
+            }
+            redirecting = true;
+            window.location.assign(authURL);
+        } catch (error) {
+            setInlineError(requestError(null, error));
+        } finally {
+            busy = false;
+            if (button.isConnected) button.textContent = oldLabel;
+            refreshBusyControls();
+            if (shouldRestoreFocus && !redirecting && document.activeElement === document.body && button.isConnected) button.focus();
+        }
+    }
+
+    async function unlinkProvider(provider, button) {
+        if (busy || !currentState) return;
+        const providerState = currentState.providers.find(function (item) { return item.provider === provider; });
+        if (!providerState || !providerState.linked) return;
+        const shouldRestoreFocus = document.activeElement === button;
+        let focusAction = 'unlink';
+        let focusRetry = false;
+        busy = true;
+        const oldLabel = button.textContent;
+        button.textContent = copy.removing;
+        refreshBusyControls();
+        setInlineError('');
+        try {
+            const result = await requestJSON('/api/auth/identities/' + encodeURIComponent(provider), {
+                method: 'DELETE', headers: { 'X-Jelly-CSRF': '1' }
+            });
+            if (!result.response.ok || !result.payload || typeof result.payload !== 'object') {
+                setInlineError(requestError(result.response, null, 'unlink'));
+                return;
+            }
+            confirmingProvider = '';
+            const loaded = await readIdentities();
+            if (!loaded) {
+                focusRetry = true;
+                return;
+            }
+            focusAction = 'link';
+            statusNode.textContent = '';
+        } catch (error) {
+            setInlineError(requestError(null, error));
+        } finally {
+            busy = false;
+            if (button.isConnected) button.textContent = oldLabel;
+            refreshBusyControls();
+            if (shouldRestoreFocus && document.activeElement === document.body) {
+                if (focusRetry && !retryButton.hidden) retryButton.focus();
+                else focusProviderAction(provider, focusAction);
+            }
+        }
+    }
+
+    methodList.addEventListener('click', function (event) {
+        const button = event.target.closest('button[data-action]');
+        if (!button || busy) return;
+        const provider = button.dataset.provider;
+        if (button.dataset.action === 'link') startLink(provider, button);
+        else if (button.dataset.action === 'confirm') {
+            const shouldRestoreFocus = document.activeElement === button;
+            confirmingProvider = provider;
+            renderState(currentState);
+            if (shouldRestoreFocus && document.activeElement === document.body) focusProviderAction(provider, 'unlink');
+        }
+        else if (button.dataset.action === 'cancel') {
+            const shouldRestoreFocus = document.activeElement === button;
+            confirmingProvider = '';
+            renderState(currentState);
+            if (shouldRestoreFocus && document.activeElement === document.body) focusProviderAction(provider, 'confirm');
+        }
+        else if (button.dataset.action === 'unlink') unlinkProvider(provider, button);
+    });
+    retryButton.addEventListener('click', loadIdentities);
+    loadIdentities();
+})();
+</script>
+{{end}}

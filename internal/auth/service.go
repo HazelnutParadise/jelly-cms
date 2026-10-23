@@ -80,35 +80,35 @@ func ReloadOAuthProviders() {
 	}
 
 	// Load from database if available
-	if data.DB != nil {
-		var opt core.Option
+	if data.DB == nil {
+		return
+	}
 
-		// Google OAuth
-		if err := data.DB.Where("key = ?", "oauth_google_enabled").First(&opt).Error; err == nil && opt.Value == "true" {
-			var clientID, clientSecret string
-			if err := data.DB.Where("key = ?", "oauth_google_client_id").First(&opt).Error; err == nil {
-				clientID = opt.Value
-			}
-			if err := data.DB.Where("key = ?", "oauth_google_client_secret").First(&opt).Error; err == nil {
-				clientSecret = opt.Value
-			}
-			if clientID != "" && clientSecret != "" {
-				goth.UseProviders(google.New(clientID, clientSecret, appURL+"/auth/google/callback"))
-			}
+	keys := []string{
+		"oauth_google_enabled", "oauth_google_client_id", "oauth_google_client_secret",
+		"oauth_github_enabled", "oauth_github_client_id", "oauth_github_client_secret",
+	}
+	var options []core.Option
+	if err := data.DB.Where("key IN ?", keys).Find(&options).Error; err != nil {
+		return
+	}
+	values := make(map[string]string, len(options))
+	for _, option := range options {
+		values[option.Key] = option.Value
+	}
+
+	if values["oauth_google_enabled"] == "true" {
+		clientID := values["oauth_google_client_id"]
+		clientSecret := values["oauth_google_client_secret"]
+		if clientID != "" && clientSecret != "" {
+			goth.UseProviders(google.New(clientID, clientSecret, appURL+"/auth/google/callback"))
 		}
-
-		// GitHub OAuth
-		if err := data.DB.Where("key = ?", "oauth_github_enabled").First(&opt).Error; err == nil && opt.Value == "true" {
-			var clientID, clientSecret string
-			if err := data.DB.Where("key = ?", "oauth_github_client_id").First(&opt).Error; err == nil {
-				clientID = opt.Value
-			}
-			if err := data.DB.Where("key = ?", "oauth_github_client_secret").First(&opt).Error; err == nil {
-				clientSecret = opt.Value
-			}
-			if clientID != "" && clientSecret != "" {
-				goth.UseProviders(github.New(clientID, clientSecret, appURL+"/auth/github/callback"))
-			}
+	}
+	if values["oauth_github_enabled"] == "true" {
+		clientID := values["oauth_github_client_id"]
+		clientSecret := values["oauth_github_client_secret"]
+		if clientID != "" && clientSecret != "" {
+			goth.UseProviders(github.New(clientID, clientSecret, appURL+"/auth/github/callback"))
 		}
 	}
 }
@@ -261,67 +261,11 @@ func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
 
 // GetUserFromJWT extracts user information from JWT token in Authorization header or cookie
 func GetUserFromJWT(c echo.Context) (*core.User, error) {
-	var tokenString string
-	provided := false
-
-	// Try Authorization header first
-	authHeader := c.Request().Header.Get("Authorization")
-	if authHeader != "" {
-		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
-			return nil, fmt.Errorf("invalid authorization header")
-		}
-		tokenString = authHeader[7:]
-		provided = true
-	} else {
-		// Try cookie
-		cookie, err := c.Cookie("jwt_token")
-		if err == nil && cookie != nil && cookie.Value != "" {
-			tokenString = cookie.Value
-			provided = true
-		}
-	}
-
-	if !provided || tokenString == "" {
-		return nil, fmt.Errorf("authorization header or cookie missing")
-	}
-
-	claims, err := ValidateJWT(tokenString)
+	principal, err := resolvePrincipal(c, data.DB, false)
 	if err != nil {
 		return nil, err
 	}
-
-	loginID, ok := claims["jti"].(string)
-	if !ok || !validLoginID(loginID) {
-		return nil, fmt.Errorf("invalid login ID")
-	}
-
-	userIDValue, ok := claims["user_id"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("invalid token claims")
-	}
-	userID := uint(userIDValue)
-	if userID == 0 {
-		return nil, fmt.Errorf("invalid user ID")
-	}
-
-	if data.DB == nil {
-		return nil, fmt.Errorf("database not initialized")
-	}
-
-	revoked, err := isLoginRevoked(loginID)
-	if err != nil {
-		return nil, err
-	}
-	if revoked {
-		return nil, fmt.Errorf("login revoked")
-	}
-
-	var user core.User
-	if err := data.DB.First(&user, userID).Error; err != nil {
-		return nil, err
-	}
-
-	return &user, nil
+	return principal.User, nil
 }
 
 // issueLogin creates one login ID and issues the paired JWT and session.
@@ -504,6 +448,43 @@ func HandleCallback(c echo.Context) error {
 	if !ok || callbackState != originalState {
 		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
 	}
+	intentPurpose, hasIntent, err := readOAuthIntentPurpose(gothSession)
+	if err != nil || (hasIntent && intentPurpose != oauthIntentLink && intentPurpose != oauthIntentRecover) {
+		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+	}
+	var recoveryIntentRaw string
+	if raw, ok := gothSession.Values[oauthIntentKey].(string); ok {
+		recoveryIntentRaw = raw
+	}
+	var linkIntent oauthLinkIntent
+	hasLinkIntent := intentPurpose == oauthIntentLink
+	if hasLinkIntent {
+		linkIntent, _, err = readOAuthLinkIntent(gothSession)
+		if err != nil || linkIntent.Provider != provider.Name() || linkIntent.State != callbackState {
+			return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+		}
+	}
+	hasRecoveryIntent := intentPurpose == oauthIntentRecover
+	var linkActorID any
+	if hasLinkIntent {
+		defer func() {
+			status := c.Response().Status
+			if status == 0 {
+				status = http.StatusInternalServerError
+			}
+			recordOAuthIdentityAction(c, "link", linkIntent.Provider, status, linkActorID)
+		}()
+	}
+	var recoveryTargetID any
+	if hasRecoveryIntent {
+		defer func() {
+			status := c.Response().Status
+			if status == 0 {
+				status = http.StatusInternalServerError
+			}
+			recordOAuthRecoveryAction(c, "callback", provider.Name(), recoveryTargetID, status)
+		}()
+	}
 
 	consumed, err := consumeOAuthState(req.Context(), provider.Name(), callbackState)
 	if err != nil {
@@ -520,6 +501,59 @@ func HandleCallback(c echo.Context) error {
 	if validDenial {
 		return c.String(http.StatusBadRequest, "OAuth authorization denied")
 	}
+	if hasRecoveryIntent {
+		intent, err := parseOAuthRecoveryIntent(recoveryIntentRaw)
+		if err != nil || intent.Provider != provider.Name() || intent.State != callbackState {
+			return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+		}
+		grant, err := parseOAuthRecoveryGrant(intent.Grant)
+		if err != nil || grant.Provider != provider.Name() {
+			return c.String(http.StatusBadRequest, "Invalid OAuth callback")
+		}
+		recoveryTargetID = grant.UserID
+		if err := checkOAuthRecoveryEligibility(req.Context(), grant); err != nil {
+			return c.String(oauthRecoveryErrorStatus(err), oauthRecoveryErrorMessage(err))
+		}
+		user, err := fetchOAuthUser(req.Context(), provider, providerSession, query)
+		if err != nil {
+			return c.String(http.StatusBadGateway, "OAuth provider authentication failed")
+		}
+		if user.Provider != provider.Name() || !validOAuthRecoverySubject(user.UserID) {
+			return c.String(http.StatusBadRequest, "Invalid OAuth account")
+		}
+		dbUser, err := completeOAuthRecovery(req.Context(), grant, user)
+		if err != nil {
+			return c.String(oauthRecoveryErrorStatus(err), oauthRecoveryErrorMessage(err))
+		}
+		token, err := issueLogin(c, dbUser)
+		if err != nil {
+			return c.String(http.StatusInternalServerError, "Failed to generate token")
+		}
+		if c.Request().Header.Get("Accept") == "application/json" {
+			return c.JSON(http.StatusOK, map[string]interface{}{
+				"message": "Login successful",
+				"user":    dbUser,
+				"token":   token,
+			})
+		}
+		c.SetCookie(&http.Cookie{
+			Name:     "jwt_token",
+			Value:    token,
+			Path:     "/",
+			MaxAge:   86400 * 7,
+			HttpOnly: true,
+			Secure:   os.Getenv("APP_ENV") == "production",
+			SameSite: http.SameSiteLaxMode,
+		})
+		return c.Redirect(http.StatusFound, "/account")
+	}
+	if hasLinkIntent {
+		actual, err := revalidatePrincipal(data.DB, c, linkIntent)
+		if err != nil {
+			return c.String(http.StatusUnauthorized, "Unauthorized")
+		}
+		linkActorID = actual.User.ID
+	}
 
 	user, err := fetchOAuthUser(req.Context(), provider, providerSession, query)
 	if err != nil {
@@ -528,31 +562,49 @@ func HandleCallback(c echo.Context) error {
 	if user.Provider != provider.Name() {
 		return c.String(http.StatusBadRequest, "Invalid OAuth callback")
 	}
+	if hasLinkIntent {
+		status, actorID := linkOAuthIdentity(c, linkIntent, user)
+		if actorID != 0 {
+			linkActorID = actorID
+		}
+		if status == http.StatusUnauthorized {
+			linkActorID = nil
+		}
+		if status == http.StatusConflict {
+			return c.String(status, "OAuth account conflicts with an existing account")
+		}
+		if status == http.StatusBadRequest {
+			return c.String(status, "Invalid OAuth account")
+		}
+		if status == http.StatusUnauthorized {
+			return c.String(status, "Unauthorized")
+		}
+		if status != http.StatusOK {
+			return c.String(http.StatusServiceUnavailable, "OAuth service unavailable")
+		}
+		if c.Request().Header.Get("Accept") == "application/json" {
+			return c.JSON(http.StatusOK, map[string]string{"message": "Account linked"})
+		}
+		return c.Redirect(http.StatusFound, "/account")
+	}
 
-	// Auto-register or Login
-	var dbUser core.User
-	result := data.DB.Where("email = ?", user.Email).First(&dbUser)
-
-	if result.Error != nil {
-		// User not found, create new
-		dbUser = core.User{
-			Username:  user.NickName,
-			Email:     user.Email,
-			AvatarURL: user.AvatarURL,
-			Provider:  provider.Name(),
-			Role:      "author", // Default role
+	// Resolve the account by the provider's stable subject, never by email.
+	dbUser, err := resolveOAuthUser(req.Context(), user)
+	if err != nil {
+		status := oauthIdentityHTTPStatus(err)
+		message := "OAuth service unavailable"
+		switch status {
+		case http.StatusBadRequest:
+			message = "Invalid OAuth account"
+		case http.StatusConflict:
+			message = "OAuth account conflicts with an existing account"
 		}
-		if dbUser.Username == "" {
-			dbUser.Username = user.Name
-		}
-		if err := data.DB.Create(&dbUser).Error; err != nil {
-			return c.String(http.StatusInternalServerError, "Failed to create user")
-		}
+		return c.String(status, message)
 	}
 
 	// Issue the paired login credentials. Prepare the JWT before saving the
 	// session so both carry the same login ID.
-	token, err := issueLogin(c, dbUser)
+	token, err := issueLogin(c, *dbUser)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to generate token")
 	}
@@ -678,50 +730,9 @@ func HandleLogout(c echo.Context) error {
 
 // GetCurrentUser retrieves the current authenticated user from session or JWT
 func GetCurrentUser(c echo.Context) (*core.User, error) {
-	authHeader := c.Request().Header.Get("Authorization")
-	jwtCookie, cookieErr := c.Cookie("jwt_token")
-	jwtProvided := authHeader != "" || (cookieErr == nil && jwtCookie != nil)
-
-	if jwtProvided {
-		return GetUserFromJWT(c)
-	}
-
-	session, err := GetSession(c)
+	principal, err := resolvePrincipal(c, data.DB, true)
 	if err != nil {
 		return nil, err
 	}
-
-	userID, ok := session.Values["user_id"].(uint)
-	if !ok || userID == 0 {
-		return nil, fmt.Errorf("user not authenticated")
-	}
-
-	expiresAt, ok := session.Values["login_expires_at"].(int64)
-	if !ok || expiresAt <= time.Now().Unix() {
-		return nil, fmt.Errorf("session expired")
-	}
-
-	loginID, _ := session.Values["login_id"].(string)
-	if !validLoginID(loginID) {
-		return nil, fmt.Errorf("invalid login ID")
-	}
-
-	if data.DB == nil {
-		return nil, fmt.Errorf("database not initialized")
-	}
-
-	revoked, err := isLoginRevoked(loginID)
-	if err != nil {
-		return nil, err
-	}
-	if revoked {
-		return nil, fmt.Errorf("login revoked")
-	}
-
-	var user core.User
-	if err := data.DB.First(&user, userID).Error; err != nil {
-		return nil, err
-	}
-
-	return &user, nil
+	return principal.User, nil
 }

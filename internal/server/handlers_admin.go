@@ -505,50 +505,46 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 
 	// OAuth Provider Settings
 	api.GET("/oauth/providers", func(c echo.Context) error {
-		result := make(map[string]interface{})
+		if data.DB == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+		}
 
-		// Google OAuth config
-		var opt core.Option
-		googleEnabled := false
-		if err := data.DB.Where("key = ?", "oauth_google_enabled").First(&opt).Error; err == nil {
-			googleEnabled = opt.Value == "true"
+		keys := []string{
+			"oauth_google_enabled", "oauth_google_client_id", "oauth_google_client_secret",
+			"oauth_github_enabled", "oauth_github_client_id", "oauth_github_client_secret",
+		}
+		var options []core.Option
+		if err := data.DB.WithContext(c.Request().Context()).Where("key IN ?", keys).Find(&options).Error; err != nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+		}
+		values := make(map[string]string, len(options))
+		for _, option := range options {
+			values[option.Key] = option.Value
 		}
 
 		googleConfig := make(map[string]string)
-		if googleEnabled {
-			keys := []string{"oauth_google_client_id", "oauth_google_client_secret"}
-			for _, key := range keys {
-				if err := data.DB.Where("key = ?", key).First(&opt).Error; err == nil {
-					googleConfig[key] = opt.Value
-				}
+		for _, key := range []string{"oauth_google_client_id", "oauth_google_client_secret"} {
+			if value, ok := values[key]; ok {
+				googleConfig[key] = value
 			}
 		}
-		result["google"] = map[string]interface{}{
-			"enabled": googleEnabled,
-			"config":  googleConfig,
-		}
-
-		// GitHub OAuth config
-		githubEnabled := false
-		if err := data.DB.Where("key = ?", "oauth_github_enabled").First(&opt).Error; err == nil {
-			githubEnabled = opt.Value == "true"
-		}
-
 		githubConfig := make(map[string]string)
-		if githubEnabled {
-			keys := []string{"oauth_github_client_id", "oauth_github_client_secret"}
-			for _, key := range keys {
-				if err := data.DB.Where("key = ?", key).First(&opt).Error; err == nil {
-					githubConfig[key] = opt.Value
-				}
+		for _, key := range []string{"oauth_github_client_id", "oauth_github_client_secret"} {
+			if value, ok := values[key]; ok {
+				githubConfig[key] = value
 			}
 		}
-		result["github"] = map[string]interface{}{
-			"enabled": githubEnabled,
-			"config":  githubConfig,
-		}
 
-		return c.JSON(http.StatusOK, result)
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"google": map[string]interface{}{
+				"enabled": values["oauth_google_enabled"] == "true",
+				"config":  googleConfig,
+			},
+			"github": map[string]interface{}{
+				"enabled": values["oauth_github_enabled"] == "true",
+				"config":  githubConfig,
+			},
+		})
 	})
 
 	api.POST("/oauth/providers/google", func(c echo.Context) error {

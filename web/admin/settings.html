@@ -315,18 +315,11 @@
             const clientSecret = configs.google.config?.oauth_google_client_secret || '';
             const enabled = configs.google.enabled;
             
-            originalValues.google = { clientID, clientSecret };
+            originalValues.google = { enabled, clientID, clientSecret };
             document.getElementById('googleClientID').value = clientID;
             document.getElementById('googleClientSecret').value = clientSecret;
             
-            // Auto-disable if enabled but missing required fields
-            if (enabled && (!clientID || !clientSecret)) {
-                document.getElementById('googleEnabled').checked = false;
-                // Save the disabled state
-                await saveGoogleOAuth(false, clientID, clientSecret);
-            } else {
-                document.getElementById('googleEnabled').checked = enabled;
-            }
+            document.getElementById('googleEnabled').checked = enabled;
             toggleGoogle();
             checkGoogleForm();
         }
@@ -337,18 +330,11 @@
             const clientSecret = configs.github.config?.oauth_github_client_secret || '';
             const enabled = configs.github.enabled;
             
-            originalValues.github = { clientID, clientSecret };
+            originalValues.github = { enabled, clientID, clientSecret };
             document.getElementById('githubClientID').value = clientID;
             document.getElementById('githubClientSecret').value = clientSecret;
             
-            // Auto-disable if enabled but missing required fields
-            if (enabled && (!clientID || !clientSecret)) {
-                document.getElementById('githubEnabled').checked = false;
-                // Save the disabled state
-                await saveGitHubOAuth(false, clientID, clientSecret);
-            } else {
-                document.getElementById('githubEnabled').checked = enabled;
-            }
+            document.getElementById('githubEnabled').checked = enabled;
             toggleGitHub();
             checkGitHubForm();
         }
@@ -430,8 +416,8 @@
     // Store original values for comparison
     // Track original values for each form
     let originalValues = {
-        google: { clientID: '', clientSecret: '' },
-        github: { clientID: '', clientSecret: '' },
+        google: { enabled: false, clientID: '', clientSecret: '' },
+        github: { enabled: false, clientID: '', clientSecret: '' },
         ecpay: { merchantID: '', hashKey: '', hashIV: '', testMode: false },
         newebpay: { merchantID: '', hashKey: '', hashIV: '', testMode: false }
     };
@@ -524,11 +510,12 @@
         const btn = document.getElementById('googleSaveBtn');
         const enabled = document.getElementById('googleEnabled').checked;
         
-        const hasChanges = clientID !== originalValues.google.clientID || 
+        const hasChanges = enabled !== originalValues.google.enabled ||
+                          clientID !== originalValues.google.clientID ||
                           clientSecret !== originalValues.google.clientSecret;
         const hasValues = clientID && clientSecret;
         
-        btn.disabled = !hasValues || !hasChanges || !enabled;
+        btn.disabled = !hasChanges || (enabled && !hasValues);
     }
 
     function checkGitHubForm() {
@@ -537,11 +524,12 @@
         const btn = document.getElementById('githubSaveBtn');
         const enabled = document.getElementById('githubEnabled').checked;
         
-        const hasChanges = clientID !== originalValues.github.clientID || 
+        const hasChanges = enabled !== originalValues.github.enabled ||
+                          clientID !== originalValues.github.clientID ||
                           clientSecret !== originalValues.github.clientSecret;
         const hasValues = clientID && clientSecret;
         
-        btn.disabled = !hasValues || !hasChanges || !enabled;
+        btn.disabled = !hasChanges || (enabled && !hasValues);
     }
 
     function checkECPayForm() {
@@ -578,23 +566,6 @@
         btn.disabled = !hasValues || !hasChanges || !enabled;
     }
 
-    async function saveGoogleOAuth(enabled, clientID, clientSecret) {
-        const data = { enabled, client_id: clientID, client_secret: clientSecret };
-        await fetch('/api/admin/oauth/providers/google', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-    }
-
-    async function saveGitHubOAuth(enabled, clientID, clientSecret) {
-        const data = { enabled, client_id: clientID, client_secret: clientSecret };
-        await fetch('/api/admin/oauth/providers/github', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-    }
 
     async function saveECPay(enabled, merchantID, hashKey, hashIV, testMode) {
         const data = { enabled, merchant_id: merchantID, hash_key: hashKey, hash_iv: hashIV, test_mode: testMode };
@@ -732,22 +703,28 @@
             client_secret: document.getElementById('googleClientSecret').value.trim()
         };
 
-        const res = await fetch('/api/admin/oauth/providers/google', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
+        try {
+            const res = await fetch('/api/admin/oauth/providers/google', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
 
-        if (res.ok) {
-            originalValues.google = {
-                clientID: data.client_id,
-                clientSecret: data.client_secret
-            };
-            alert('Google OAuth settings saved!');
-            checkGoogleForm();
-        } else {
-            const err = await res.json();
-            alert('Failed to save: ' + (err.error || 'Unknown error'));
+            if (res.ok) {
+                originalValues.google = {
+                    enabled: data.enabled,
+                    clientID: data.client_id,
+                    clientSecret: data.client_secret
+                };
+                alert('Google OAuth settings saved!');
+                checkGoogleForm();
+            } else {
+                const err = await res.json();
+                alert('Failed to save: ' + (err.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('Failed to save Google OAuth settings:', err);
+            alert('Failed to save Google OAuth settings. Please try again.');
         }
     });
 
@@ -759,22 +736,28 @@
             client_secret: document.getElementById('githubClientSecret').value.trim()
         };
 
-        const res = await fetch('/api/admin/oauth/providers/github', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
+        try {
+            const res = await fetch('/api/admin/oauth/providers/github', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
 
-        if (res.ok) {
-            originalValues.github = {
-                clientID: data.client_id,
-                clientSecret: data.client_secret
-            };
-            alert('GitHub OAuth settings saved!');
-            checkGitHubForm();
-        } else {
-            const err = await res.json();
-            alert('Failed to save: ' + (err.error || 'Unknown error'));
+            if (res.ok) {
+                originalValues.github = {
+                    enabled: data.enabled,
+                    clientID: data.client_id,
+                    clientSecret: data.client_secret
+                };
+                alert('GitHub OAuth settings saved!');
+                checkGitHubForm();
+            } else {
+                const err = await res.json();
+                alert('Failed to save: ' + (err.error || 'Unknown error'));
+            }
+        } catch (err) {
+            console.error('Failed to save GitHub OAuth settings:', err);
+            alert('Failed to save GitHub OAuth settings. Please try again.');
         }
     });
 
