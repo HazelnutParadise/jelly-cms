@@ -3,10 +3,12 @@ package server
 import (
 	"html/template"
 	"net/http"
+	"strings"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	appI18n "github.com/HazelnutParadise/jelly-cms/internal/i18n"
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
@@ -58,7 +60,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 			"customize", "activate", "customizeTheme", "colors", "layout", "customFields",
 			"saveSettings", "resetToDefaults", "resetConfirm",
 			"themeSettingsSaved", "themeSettingsReset", "failedToSave", "failedToReset",
-			"themeActivated", "failedToActivate", "noThemesInstalled", "activeThemeBadge", "view",
+			"themeActivated", "failedToActivate", "noThemesInstalled", "activeThemeBadge", "view", "accountTitle",
 		}
 
 		for _, key := range translationKeys {
@@ -174,35 +176,46 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 			return err
 		}
 		c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
+		lang := "en"
+		if requested, ok := c.Get("lang").(string); ok && strings.HasPrefix(strings.ToLower(requested), "zh") {
+			lang = "zh-TW"
+		}
+		recoverTitle, err := appI18n.GetLocalizer(lang).Localize(&i18n.LocalizeConfig{MessageID: "recoverTitle"})
+		if err != nil {
+			recoverTitle = "Recover OAuth account"
+			if lang == "zh-TW" {
+				recoverTitle = "復原第三方帳號"
+			}
+		}
 		return tmpl.Execute(c.Response().Writer, map[string]string{
-			"RedirectURL": auth.SafeRedirectURL(c.QueryParam("redirect")),
+			"RedirectURL":  auth.SafeRedirectURL(c.QueryParam("redirect")),
+			"Lang":         lang,
+			"RecoverTitle": recoverTitle,
 		})
 	})
 
 	// Public OAuth status endpoint (for login page)
 	e.GET("/api/oauth/status", func(c echo.Context) error {
-		result := make(map[string]bool)
-
+		result := map[string]bool{"google": false, "github": false}
 		if data.DB != nil {
-			var opt core.Option
-			if err := data.DB.Where("key = ?", "oauth_google_enabled").First(&opt).Error; err == nil {
-				result["google"] = opt.Value == "true"
-			} else {
-				result["google"] = false
+			keys := []string{"oauth_google_enabled", "oauth_github_enabled"}
+			var options []core.Option
+			if err := data.DB.WithContext(c.Request().Context()).Where("key IN ?", keys).Find(&options).Error; err == nil {
+				for _, option := range options {
+					switch option.Key {
+					case "oauth_google_enabled":
+						result["google"] = option.Value == "true"
+					case "oauth_github_enabled":
+						result["github"] = option.Value == "true"
+					}
+				}
 			}
-			if err := data.DB.Where("key = ?", "oauth_github_enabled").First(&opt).Error; err == nil {
-				result["github"] = opt.Value == "true"
-			} else {
-				result["github"] = false
-			}
-		} else {
-			result["google"] = false
-			result["github"] = false
 		}
 
 		return c.JSON(http.StatusOK, result)
 	})
 
 	// Public Routes (Catch-all should be last)
+	registerAccountPages(e)
 	RegisterPublicRoutes(e, tm)
 }

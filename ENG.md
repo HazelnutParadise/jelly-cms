@@ -38,3 +38,31 @@ Go 測試驗證公開函式與 HTTP 行為；資料庫測試使用任務專用 P
 ## OAuth 暫存狀態與登入撤銷
 
 OAuth 一次性狀態沿用現有資料庫撤銷儲存，以帶類型前綴的雜湊隔離 OAuth state 與登入 ID。原子新增判斷消耗結果，跨程序與重啟後仍拒絕重放。資料庫結構保持不變。OAuth Cookie 的 600 秒期限與應用登入的七天期限分開設定。每次入口建立全新的待授權資料，只保留本次提供者，避免重簽另一提供者時延長舊 state。提供者 token 只存在處理中的伺服器記憶體，不保存於瀏覽器 Cookie。已使用狀態至少保留 601 秒，以涵蓋 Cookie 簽章的整秒精度。此段與既有登入撤銷共用 expires_at 清理，須證明兩類紀錄不互相誤刪或延長。
+
+## OAuth 固定身分與帳號關聯
+
+先以關係模型確定資料歸屬，再新增資料表：
+
+```text
+users [既有帳號]
+  id PK, username UNIQUE, email UNIQUE, password, provider, role
+  1 ───────── 0..N oauth_identities [含解除後的歷史]
+                  id PK, user_id FK RESTRICT, provider, subject
+                  created_at, updated_at, deleted_at
+                  active candidate keys: (provider, subject), (user_id, provider)
+                  1 ─────── 1..N oauth_identity_audit_log [變更快照]
+```
+
+`oauth_identities.id` 決定該列所有屬性。未解除的 `(provider, subject)` 及 `(user_id, provider)` 各為候選鍵。第三方信箱與名稱屬於外部帳號的可變資料，不複製進關聯表。既有 User 的 Provider 保留為建立來源，不再推算目前的登入方式。既有 User JSON、角色、密碼與文章所有權保持相容。舊帳號不自動補入第三方 ID。
+
+新表採資料庫產生的 bigint ID、timestamptz 建立／更新時間與可空軟刪時間。provider、subject 使用 C collation 精確比對，subject 最多 255 個字元。部分唯一索引只限制未解除的關聯。user_id 另有涵蓋歷史列的索引，外鍵明訂 ON DELETE RESTRICT、ON UPDATE RESTRICT。資料庫檢查拒絕不支援的提供者、空白 subject 及不存在的使用者。每帳號每提供者最多一個有效關聯。兩張新表啟用 RLS 並不向 PUBLIC 授權，沿用執行遷移的後端資料庫擁有者存取，不提供瀏覽器直連資料庫的權限。
+
+沿用 `data.MigrateDB` 入口，既有 GORM 遷移完成後執行版控中的新增 SQL。SQL 與函式放在 `internal/data/migrations/0001_oauth_identities.sql`、`internal/data/oauth_identity_migration.go`，Go 使用 embed。新表、索引及 trigger 在同一交易內建立，並以交易 advisory lock 協調重複啟動。重跑不變更既有資料，不從信箱回填，也不修改既有資料表欄位。此檔交付後保持不可變，後續結構調整使用新檔案。只對任務專用開發資料庫套用及測試。
+
+新表的資料庫 trigger 維護 updated_at，另一 trigger 保存關聯新增、解除及重新連結的前後狀態。稽核只保存關聯 ID、目標帳號、提供者、軟刪時間、操作者 ID 與當時的 email 快照，不保存第三方 subject、code、state、token 或密碼。稽核列不掛遞迴 trigger、不軟刪，created_at 有索引。每次新增稽核時自動清理超過 90 天的此類關聯紀錄。HTTP 層沿用現有去除查詢字串的請求日誌，身分操作補充實際操作者與請求識別值，失敗認證也須留下結果。
+
+登入以精確提供者及固定 ID 解析。既有關聯直接取原使用者，不改寫個人資料。新的 User 與關聯在同一交易建立。唯一違反先完整回滾，再於交易外回查精確關聯。只有同一關聯的競爭勝方可被登入。username 唯一違反可有限次換名重試，不能誤判成信箱衝突。其他查詢／寫入錯誤回一般服務錯誤。
+
+連結與解除共用目標 User 的資料列鎖。連結的簽章意圖包含本人與實際已驗證的登入 ID，不能獨立讀取另一份 Session 代替。回呼取得第三方身分後、寫入前再次驗證該登入尚未到期或撤銷。互動連結要求瀏覽器可攜帶的登入 Cookie。正常登入入口不接受查詢參數切換成連結。連結成功不重發登入或延長期限。可用提供者狀態與真正已載入的設定一致，解除不得移除最後一種可用登入方式。
+
+測試使用公開 HTTP 路由、現有 Goth 替身與專用 PostgreSQL。遷移另透過公開 MigrateDB 加 SQL 驗證資料完整性、軟刪唯一鍵、外鍵、時間 trigger、稽核及重跑相容性。完整連結、解除、舊帳號復原與畫面驗收仍屬同一功能，不能只完成新帳號解析就宣稱交付。

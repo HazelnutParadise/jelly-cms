@@ -732,6 +732,24 @@ Jelly CMS 提供了兩個專用的模板函數來處理主題設定：
 
 以 `APP_URL` 指定網站的公開網址，例如 `https://cms.example.com`，並在提供者的應用程式設定中登記對應回呼網址：Google 使用 `/auth/google/callback`，GitHub 使用 `/auth/github/callback`。未設定 `APP_URL` 時使用 `http://localhost:8080`。
 
+### 本人登入方式與舊帳號復原
+
+登入後可從後台的「本人帳號」進入 `/account`，連結或解除 Google／GitHub 登入。所有已登入角色都可使用。系統會保留至少一種目前可用的登入方式。連結成功不會延長原登入期限。
+
+OAuth 以提供者的固定身分識別帳號，信箱變更不會建立另一個帳號。新的第三方身分若使用既有信箱，系統回應 `409`，不會自動合併；請先用原方式登入，再從本人帳號連結。
+
+升級前建立的 OAuth 帳號若仍有有效登入，可自行連結。已無法登入時，網站擁有者須先透過可信管道核實本人，再於網站主機執行復原工具：
+
+```bash
+go build -o recover-oauth ./cmd/recover-oauth
+./recover-oauth list --site-dir /srv/jelly
+./recover-oauth issue --site-dir /srv/jelly --user-id 42 --provider google
+```
+
+將 `/srv/jelly` 換成存有既有 `data/config.json` 與登入金鑰的網站目錄，帳號 ID 與提供者依 `list` 結果填入。若伺服器使用 `JWT_SECRET`，工具也須使用相同的環境設定。工具不會建立金鑰或更新資料表，請先完成網站升級。
+
+將輸出的 `grant` 經可信管道交給本人，在 `/account/recover` 貼上，再完成原提供者的授權。復原碼有效十分鐘，成功復原後即失效。工具的分頁、參數與錯誤說明可用 `./recover-oauth --help` 查看。
+
 ## 💳 金流設定
 
 金流服務的設定可以在管理後台的「設定」頁面中進行配置，無需使用環境變數。
@@ -794,6 +812,8 @@ Content-Type: application/json
 **注意**：設定完成後，系統會自動重新載入金流配置，無需重啟服務。
 
 ## 📚 API 文檔
+
+認證介面的操作索引位於 `GET /api/auth`，完整輸入、回應與登入方式見 `GET /api/auth/openapi.json`。
 
 ### 安裝 API
 
@@ -911,7 +931,8 @@ Jelly CMS 提供了一套完整的可複用 UI 組件，讓後台頁面開發更
 ```
 jelly-cms/
 ├── cmd/
-│   └── server/          # 主程式入口
+│   ├── server/          # 主程式入口
+│   └── recover-oauth/   # 網站擁有者的舊 OAuth 帳號復原工具
 ├── internal/
 │   ├── auth/            # 認證系統
 │   ├── config/          # 配置管理
