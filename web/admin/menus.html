@@ -1,0 +1,858 @@
+{{define "title"}}{{.T.menus}}{{end}}
+{{define "styles"}}
+<style>
+    [hidden] { display: none !important; }
+    /* 導覽選單：選單清單與加入項目 | 拖曳樹 | 項目屬性（design/project/Menus.dc.html） */
+    .mn-layout { display: grid; grid-template-columns: 18.75rem minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+    .mn-side { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+    .mn-side .card, .mn-panel.card { margin: 0; background: var(--surface); box-shadow: inset 0 0 0 1px var(--outline); }
+    .mn-card { display: flex; flex-direction: column; gap: .5rem; }
+    .mn-main { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: 1.5rem; align-items: start; min-width: 0; }
+    .mn-tree-col { min-width: 0; }
+
+    .mn-list { display: flex; flex-direction: column; gap: .125rem; }
+    .mn-list button { display: flex; align-items: center; gap: .5rem; width: 100%; min-height: 2.125rem; padding: 0 .65rem; background: transparent; border: 0; border-radius: var(--r-sm); font-weight: 600; font-size: .84375rem; color: var(--ink); text-align: left; cursor: pointer; }
+    .mn-list button:hover { background: var(--surface-mid); }
+    .mn-list button[aria-current="true"] { background: var(--ink); color: var(--surface); }
+    .mn-list .icon { width: .875rem; height: .875rem; }
+    .mn-list .n { margin-left: auto; font-size: .6875rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
+    .mn-list button[aria-current="true"] .n { color: inherit; opacity: .85; }
+    .mn-list .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .mn-tabs { display: flex; flex-wrap: wrap; gap: .2rem; padding: .2rem; background: var(--surface-mid); border-radius: var(--r-sm); align-self: flex-start; }
+    .mn-tabs button { min-height: 1.75rem; padding: 0 .4rem; background: transparent; border: 0; border-radius: var(--r-sm); font-size: .75rem; font-weight: 700; color: var(--muted); cursor: pointer; }
+    .mn-tabs button:hover { color: var(--ink); }
+    .mn-tabs button[aria-selected="true"] { background: var(--ink); color: var(--surface); }
+    .mn-find { display: flex; align-items: center; gap: .5rem; min-height: 2rem; padding: 0 .65rem; background: var(--field); border-radius: var(--r-sm); color: var(--muted); }
+    .mn-find .icon { width: .875rem; height: .875rem; }
+    .mn-find input[type="search"] { flex: 1; min-width: 0; min-height: 0; padding: 0; border: 0; background: transparent; box-shadow: none; font-size: .8125rem; color: var(--ink); }
+    .mn-find input[type="search"]:hover, .mn-find input[type="search"]:focus { border: 0; box-shadow: none; }
+    .mn-find:focus-within { box-shadow: inset 0 0 0 2px var(--secondary); }
+    .mn-targets { display: flex; flex-direction: column; gap: .125rem; max-height: 14rem; overflow-y: auto; margin: 0 -.25rem; padding: 0 .25rem; font-size: .84375rem; }
+    .mn-targets label { display: flex; align-items: center; gap: .55rem; margin: 0; min-height: 1.875rem; padding: 0 .25rem; font-size: .84375rem; font-weight: 500; color: var(--ink); cursor: pointer; border-radius: var(--r-sm); }
+    .mn-targets label:hover { background: var(--surface-mid); }
+    .mn-targets .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mn-targets .u { margin-left: auto; font-size: .6875rem; color: var(--muted); white-space: nowrap; }
+    .mn-msg { padding: .75rem .25rem; font-size: .8125rem; color: var(--muted); }
+    .mn-msg button { background: none; border: 0; padding: 0; font-weight: 700; color: var(--secondary); cursor: pointer; text-decoration: underline; }
+    .mn-custom { display: flex; flex-direction: column; gap: .5rem; }
+
+    .mn-head { display: flex; align-items: center; gap: .625rem; flex-wrap: wrap; margin-bottom: .75rem; }
+    .mn-head h2 { font-size: 1.25rem; min-width: 0; overflow-wrap: anywhere; }
+    .mn-head .hint { margin: 0 0 0 auto; text-align: right; font-size: .75rem; }
+    .mn-tree { position: relative; display: flex; flex-direction: column; gap: .375rem; }
+    .mi { display: flex; align-items: center; gap: .625rem; min-height: 2.5rem; padding: 0 .4rem 0 .35rem; background: var(--surface); box-shadow: inset 0 0 0 1px var(--outline); border-radius: var(--r-sm); font-weight: 600; font-size: .84375rem; cursor: pointer; transition: box-shadow .12s ease, background-color .12s ease; }
+    .mi:hover { background: var(--surface-low); }
+    .mi.sel { box-shadow: inset 0 0 0 2px var(--ink); }
+    .mi.drop { box-shadow: inset 0 0 0 2px var(--secondary); background: color-mix(in srgb, var(--secondary) 9%, var(--surface)); }
+    .mi.invalid { box-shadow: inset 0 0 0 2px var(--error); }
+    .mi.src { opacity: .4; }
+    .mi .lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mi .badge { margin-left: .25rem; }
+    .mi .badge::before { display: none; }
+    .mi .k { margin-left: auto; font-size: .6875rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
+    .mi .btn { flex: 0 0 auto; }
+    .mi-handle { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; flex: 0 0 auto; padding: 0; background: transparent; border: 0; border-radius: 0 .4rem 0 .4rem; color: color-mix(in srgb, var(--muted) 70%, transparent); cursor: grab; touch-action: none; }
+    .mi-handle:hover, .mi-handle:focus-visible { background: var(--surface-mid); color: var(--ink); }
+    .mn-line { position: absolute; right: 0; height: 3px; background: var(--secondary); border-radius: 0 2px 0 2px; pointer-events: none; z-index: 5; }
+    .mn-line::before { content: ""; position: absolute; left: -.25rem; top: -.2rem; width: .6rem; height: .6rem; background: var(--secondary); border-radius: 0 .2rem 0 .2rem; }
+    body.mn-dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+    .mn-end { margin-top: .75rem; padding: .75rem; border: 1.5px dashed var(--outline); border-radius: var(--r-sm); color: var(--muted); font-size: .8125rem; text-align: center; }
+
+    .mn-dirty { align-self: center; white-space: nowrap; font-size: .75rem; font-weight: 700; color: color-mix(in srgb, var(--warning) 55%, var(--ink)); background: color-mix(in srgb, var(--warning) 22%, var(--surface)); padding: .25rem .625rem; border-radius: var(--r-sm); }
+    .mn-dirty[hidden] { display: none; }
+
+    /* 項目屬性卡 */
+    .mn-panel { position: sticky; top: 4.25rem; display: flex; flex-direction: column; gap: .75rem; }
+    .mn-panel-head { display: flex; align-items: center; gap: .5rem; }
+    .mn-panel-head .stripes { width: 2.5rem; margin: 0; }
+    .mn-panel-head b { font-size: .9375rem; min-width: 0; overflow-wrap: anywhere; }
+    .mn-close { display: none; margin-left: auto; }
+    .mn-empty-panel { color: var(--muted); font-size: .84375rem; }
+    .mn-field .label { display: block; margin-bottom: .1rem; }
+    .mn-link { display: flex; align-items: center; gap: .5rem; margin-top: .375rem; font-size: .8125rem; }
+    .mn-link .icon { width: .875rem; height: .875rem; }
+    .mn-link a { margin-left: auto; font-size: .75rem; color: var(--secondary); }
+    .mn-link a:hover { color: var(--primary); }
+    .mn-link.missing { color: color-mix(in srgb, var(--warning) 55%, var(--ink)); }
+    .mn-icons { display: flex; gap: .375rem; margin-top: .375rem; flex-wrap: wrap; }
+    .mn-icons button { width: 2rem; height: 2rem; padding: 0; display: inline-grid; place-items: center; background: var(--surface-mid); border: 0; border-radius: 0 .5rem 0 .5rem; color: var(--ink); cursor: pointer; }
+    .mn-icons button:hover { background: var(--surface-high); }
+    .mn-icons button[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--ink); }
+    .mn-icons .icon { width: .875rem; height: .875rem; }
+    .mn-toggle { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+    .mn-toggle > span:first-child { font-size: .84375rem; font-weight: 600; }
+    .mn-toggle small { display: block; font-weight: 400; font-size: .75rem; color: var(--muted); }
+    .mn-panel-actions { display: flex; align-items: center; gap: .5rem; margin-top: .25rem; }
+    .mn-panel-actions .rm { margin-left: auto; color: color-mix(in srgb, var(--error) 80%, var(--ink)); }
+    .mn-backdrop { display: none; }
+    .mn-sheet-form { display: flex; flex-direction: column; gap: .9rem; }
+    .mn-sheet-form .modal-footer { margin-top: .5rem; }
+    .mn-confirm p { color: var(--muted); }
+
+    @media (min-width: 1500px) {
+        .mn-main { grid-template-columns: minmax(0, 1fr) 20rem; }
+    }
+    @media (max-width: 1500px) {
+        .mn-main { grid-template-columns: minmax(0, 1fr); }
+        .mn-panel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 1000; width: min(26rem, 100%); padding: 1.5rem 1.5rem 2rem; overflow-y: auto; background: var(--surface); border-radius: 0 0 0 1.5rem; box-shadow: -1px 0 0 var(--outline), -1.5rem 0 3rem rgba(21, 22, 26, .12); transform: translateX(100%); visibility: hidden; transition: transform .2s ease, visibility 0s linear .2s; }
+        .mn-panel.open { transform: none; visibility: visible; transition-delay: 0s; }
+        .mn-close { display: inline-flex; }
+        .mn-backdrop.open { display: block; position: fixed; inset: 0; z-index: 999; background: color-mix(in srgb, var(--ink) 45%, transparent); }
+    }
+    @media (max-width: 900px) {
+        .mn-layout { display: flex; flex-direction: column; gap: 1rem; }
+        .mn-side { display: contents; }
+        .mn-side > .card:first-child { order: 1; }
+        .mn-main { order: 2; }
+        .mn-side > #addCard { order: 3; }
+        .mn-panel { border-radius: 0; }
+        .mn-head .hint { margin-left: 0; text-align: left; flex-basis: 100%; }
+    }
+</style>
+{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{.T.menus}}</h1>
+    </div>
+    <div class="page-actions">
+        <span class="mn-dirty" id="dirty" role="status" hidden></span>
+        <a class="btn btn-secondary" id="previewBtn" href="/" target="_blank" rel="noopener"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg>{{.T.mnPreview}}</a>
+        <button type="button" class="btn btn-primary" id="saveBtn" disabled><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>{{.T.mnSave}}</button>
+    </div>
+</div>
+
+<div class="mn-layout">
+    <aside class="mn-side">
+        <div class="card mn-card">
+            <div class="label">{{.T.mnMenus}}</div>
+            <div class="mn-list" id="menuList" role="list"></div>
+            <button type="button" class="btn btn-secondary btn-sm" id="newMenuBtn" style="align-self:flex-start;margin-top:.375rem"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>{{.T.mnNew}}</button>
+        </div>
+        <div class="card mn-card" id="addCard">
+            <div class="label">{{.T.mnAddItems}}</div>
+            <div class="mn-tabs" role="tablist" id="addTabs" aria-label="{{.T.mnAddItems}}">
+                <button type="button" role="tab" data-type="page" aria-selected="true">{{.T.mnTabPage}}</button>
+                <button type="button" role="tab" data-type="category" aria-selected="false" tabindex="-1">{{.T.mnTabCategory}}</button>
+                <button type="button" role="tab" data-type="post" aria-selected="false" tabindex="-1">{{.T.mnTabPost}}</button>
+                <button type="button" role="tab" data-type="tag" aria-selected="false" tabindex="-1">{{.T.mnTabTag}}</button>
+                <button type="button" role="tab" data-type="shop" aria-selected="false" tabindex="-1">{{.T.mnTabShop}}</button>
+                <button type="button" role="tab" data-type="custom" aria-selected="false" tabindex="-1">{{.T.mnTabCustom}}</button>
+            </div>
+            <div id="pickPane" class="mn-card">
+                <label class="mn-find"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="findInput" aria-label="{{.T.search}}" autocomplete="off"></label>
+                <div class="mn-targets" id="targets" role="group" aria-live="polite" aria-busy="false"></div>
+                <button type="button" class="btn btn-sm" id="addBtn" style="align-self:flex-start" disabled><svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg><span id="addBtnText"></span></button>
+            </div>
+            <form id="customPane" class="mn-custom" hidden novalidate>
+                <div class="mn-field"><label class="label" for="cLabel">{{.T.mnLabel}}</label><input type="text" id="cLabel" maxlength="120" autocomplete="off"></div>
+                <div class="mn-field"><label class="label" for="cUrl">{{.T.mnUrl}}</label><input type="text" id="cUrl" inputmode="url" placeholder="https://" autocomplete="off"></div>
+                <button type="submit" class="btn btn-sm" style="align-self:flex-start"><svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg>{{.T.mnAddCustom}}</button>
+            </form>
+        </div>
+    </aside>
+
+    <section class="mn-main" aria-label="{{.T.menus}}">
+        <div class="mn-tree-col">
+            <div id="treeMount" aria-busy="true">{{template "state-loading" dict "text" .T.loading "skeleton" true}}</div>
+        </div>
+        <aside class="card mn-panel" id="panel" aria-labelledby="panelTitle">
+            <div class="mn-panel-head">
+                <span class="stripes" aria-hidden="true"></span>
+                <b id="panelTitle"></b>
+                <button type="button" class="btn btn-text btn-sm btn-icon mn-close" id="panelClose" aria-label="{{.T.close}}"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
+            </div>
+            <p class="mn-empty-panel" id="panelEmpty">{{.T.mnPickItem}}</p>
+            <form id="itemForm" class="mn-sheet-form" novalidate hidden>
+                <div class="mn-field"><label class="label" for="iLabel">{{.T.mnLabel}}</label><input type="text" id="iLabel" maxlength="120" required autocomplete="off"></div>
+                <div class="mn-field" id="targetField">
+                    <span class="label">{{.T.mnLinksTo}}</span>
+                    <div class="mn-link" id="targetInfo"></div>
+                    <input type="text" id="iUrl" inputmode="url" placeholder="https://" autocomplete="off" aria-label="{{.T.mnUrl}}" hidden>
+                </div>
+                <div class="mn-field"><span class="label" id="iconLabel">{{.T.mnIcon}}</span><div class="mn-icons" id="iconRow" role="group" aria-labelledby="iconLabel"></div></div>
+                <label class="mn-toggle toggle-switch"><span>{{.T.mnNewTab}}</span><input type="checkbox" id="iNewTab"><span class="slider" aria-hidden="true"></span></label>
+                <label class="mn-toggle toggle-switch"><span>{{.T.mnLoginOnly}}<small>{{.T.mnLoginOnlyHint}}</small></span><input type="checkbox" id="iLoginOnly"><span class="slider" aria-hidden="true"></span></label>
+                <div class="mn-field"><label class="label" for="iClass">{{.T.mnCssClass}}</label><input type="text" id="iClass" maxlength="120" placeholder="{{.T.mnCssClassHint}}" autocomplete="off"></div>
+                <div class="mn-panel-actions">
+                    <button type="submit" class="btn btn-secondary btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>{{.T.mnApply}}</button>
+                    <button type="button" class="btn btn-text btn-sm rm" id="removeBtn"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>{{.T.mnRemove}}</button>
+                </div>
+            </form>
+        </aside>
+    </section>
+</div>
+<div class="mn-backdrop" id="backdrop"></div>
+
+<template id="tplLoading">{{template "state-loading" dict "text" .T.loading "skeleton" true}}</template>
+<template id="tplError">{{template "state-error" dict "title" .T.mnLoadFailedTitle "text" .T.txLoadFailedText "actions" (safeHTML (printf "<button class='btn btn-secondary' type='button' data-retry>%s</button>" .T.retry))}}</template>
+<template id="tplNoMenus">{{template "state-empty" dict "title" .T.mnEmptyMenusTitle "text" .T.mnEmptyMenusText "actions" (safeHTML (printf "<button class='btn btn-primary' type='button' data-new>%s</button>" .T.mnNew))}}</template>
+<template id="tplNoItems">{{template "state-empty" dict "title" .T.mnEmptyItemsTitle "text" .T.mnEmptyItemsText}}</template>
+{{end}}
+{{define "scripts"}}
+<script>
+(function () {
+    'use strict';
+    const T = {{json (dict
+        "menus" .T.menus "new" .T.mnNew "unassigned" .T.mnUnassigned "shownAt" .T.mnShownAt "itemsHint" .T.mnItemsHint
+        "locHeader" .T.mnLocHeader "locFooter" .T.mnLocFooter "locMobile" .T.mnLocMobile
+        "addSelected" .T.mnAddSelected "targetsEmpty" .T.mnTargetsEmpty "targetsFailed" .T.mnTargetsFailed "retry" .T.retry
+        "find" (dict "page" .T.mnFindPage "category" .T.mnFindCategory "post" .T.mnFindPost "tag" .T.mnFindTag)
+        "types" (dict "home" .T.mnTypeHome "page" .T.mnTypePage "post" .T.mnTypePost "category" .T.mnTypeCategory "tag" .T.mnTypeTag "shop" .T.mnTypeShop "custom" .T.mnTypeCustom)
+        "newTabK" .T.mnNewTabK "fresh" .T.mnFresh "unsaved" .T.mnUnsaved "itemTitle" .T.mnItemTitle "editItem" .T.mnEditItem
+        "targetOf" .T.mnTargetOf "targetMissing" .T.mnTargetMissing "openTarget" .T.mnOpenTarget "shopLabel" .T.mnShopLabel "homeLabel" .T.mnTypeHome
+        "dragHandle" .T.txDragHandle "iconNone" .T.mnIconNone "icons" (dict "user" .T.mnIconUser "grid" .T.mnIconGrid "star" .T.mnIconStar "mail" .T.mnIconMail)
+        "saved" .T.mnSaved "saveFailed" .T.saveFailed "requestFailed" .T.requestFailed "offline" .T.offline
+        "labelRequired" .T.mnLabelRequired "urlInvalid" .T.mnUrlInvalid "urlRequired" .T.mnUrlRequired
+        "menuCreated" .T.mnMenuCreated "menuUpdated" .T.mnMenuUpdated "menuDeleted" .T.mnMenuDeleted
+        "sheetNew" .T.mnSheetNew "sheetEdit" .T.mnSheetEdit "settings" .T.mnSettings "nameRequired" .T.mnNameRequired "locTaken" .T.mnLocTaken
+        "deleteTitle" .T.mnDeleteTitle "deleteBody" .T.mnDeleteBody "discardTitle" .T.mnDiscardTitle "discardBody" .T.mnDiscardBody "discard" .T.mnDiscard
+        "name" .T.mnName "location" .T.mnLocation "save" .T.txSave "cancel" .T.cancel "delete" .T.delete "close" .T.close "loading" .T.loading
+        "dropEnd" .T.mnDropEnd
+    )}};
+
+    const $ = (id) => document.getElementById(id);
+    const INDENT = 28, MAX_DEPTH = 1;
+    const LOCATIONS = ['header', 'footer', 'mobile'];
+    const ICONS = ['user', 'grid', 'star', 'mail'];
+    const fmt = (s, ...a) => { let i = 0; return String(s).replace(/%[sd]/g, () => a[i++]); };
+    const svg = (id) => '<svg class="icon" aria-hidden="true"><use href="#' + id + '"/></svg>';
+    function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+    function toast(msg, kind, detail) { if (window.Jelly && Jelly.toast) Jelly.toast(msg, { kind: kind || 'success', detail: detail || '' }); }
+    const locName = (l) => l === 'header' ? T.locHeader : l === 'footer' ? T.locFooter : l === 'mobile' ? T.locMobile : T.unassigned;
+
+    async function api(method, url, body) {
+        let res;
+        try {
+            res = await fetch(url, { method, headers: body === undefined ? {} : { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+        } catch (e) {
+            const err = new Error(navigator.onLine === false ? T.offline : T.requestFailed); err.network = true; throw err;
+        }
+        let data = null;
+        try { data = await res.json(); } catch (e) { /* empty body */ }
+        if (!res.ok) { const err = new Error((data && data.error) || T.requestFailed); err.status = res.status; throw err; }
+        return data;
+    }
+
+    /* ---------- state ---------- */
+    let menus = [];
+    let curId = null;
+    let rows = [];            // pre-order flat copy of the current menu: depth 0 or 1
+    let baseline = new Map();
+    let selUid = null;
+    let uidSeq = 0;
+    let loadError = false;
+    let addType = 'page';
+    let picked = new Map();   // key -> {type, ref_id, label}
+    const targetCache = new Map();   // type -> Map(id -> {id,label,url})
+    let findTimer = null, findSeq = 0;
+
+    const cur = () => menus.find(m => m.id === curId) || null;
+
+    function rowsFromTree(items) {
+        const out = [];
+        (items || []).forEach(it => {
+            out.push(rowFrom(it, 0));
+            (it.children || []).forEach(ch => out.push(rowFrom(ch, 1)));
+        });
+        return out;
+    }
+    function rowFrom(it, depth) {
+        return { uid: 'i' + it.id, depth, label: it.label || '', type: it.type || 'custom', ref_id: it.ref_id || 0, url: it.url || '', icon: it.icon || '', new_tab: !!it.new_tab, login_only: !!it.login_only, css_class: it.css_class || '', fresh: false };
+    }
+    function treeFromRows() {
+        const roots = [];
+        rows.forEach(r => {
+            const node = { label: r.label.trim(), type: r.type, ref_id: r.ref_id || 0, url: r.url, icon: r.icon, new_tab: r.new_tab, login_only: r.login_only, css_class: r.css_class, children: [] };
+            if (r.depth === 0 || !roots.length) roots.push(node); else roots[roots.length - 1].children.push(node);
+        });
+        return roots;
+    }
+    function snapshotKey(r, idx) {
+        // include the position so a pure move counts as a change
+        return JSON.stringify([idx, r.depth, r.label, r.type, r.ref_id, r.url, r.icon, r.new_tab, r.login_only, r.css_class]);
+    }
+    function markBaseline() { baseline = new Map(); rows.forEach((r, i) => baseline.set(r.uid, snapshotKey(r, i))); }
+    function dirtyCount() {
+        let n = 0;
+        const seen = new Set();
+        rows.forEach((r, i) => { seen.add(r.uid); if (baseline.get(r.uid) !== snapshotKey(r, i)) n++; });
+        baseline.forEach((_, uid) => { if (!seen.has(uid)) n++; });
+        return n;
+    }
+
+    /* ---------- rendering ---------- */
+    function showTemplate(mount, id) {
+        mount.innerHTML = '';
+        mount.appendChild($(id).content.cloneNode(true));
+        mount.querySelectorAll('[data-new]').forEach(b => b.addEventListener('click', () => openMenuSheet(null, b)));
+        const r = mount.querySelector('[data-retry]');
+        if (r) r.addEventListener('click', () => { showTemplate($('treeMount'), 'tplLoading'); load(); });
+    }
+
+    function renderMenuList() {
+        const box = $('menuList');
+        box.innerHTML = menus.map(m => '<button type="button" role="listitem" data-id="' + m.id + '"' + (m.id === curId ? ' aria-current="true"' : '') + '>' + svg('i-menu') + '<span class="t">' + esc(m.name) + '</span><span class="n">' + esc(locName(m.location)) + '</span></button>').join('');
+        box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => selectMenu(+b.dataset.id)));
+    }
+
+    function renderTree() {
+        const mount = $('treeMount');
+        mount.setAttribute('aria-busy', 'false');
+        if (loadError) { showTemplate(mount, 'tplError'); return; }
+        const m = cur();
+        if (!m) { showTemplate(mount, 'tplNoMenus'); return; }
+        const shown = m.location
+            ? '<span class="badge badge-success">' + esc(fmt(T.shownAt, locName(m.location))) + '</span>'
+            : '<span class="badge">' + esc(T.unassigned) + '</span>';
+        let html = '<div class="mn-head"><h2>' + esc(m.name) + '</h2>' + shown +
+            '<button type="button" class="btn btn-text btn-sm btn-icon" id="menuSettings" title="' + esc(T.settings) + '" aria-label="' + esc(T.settings) + '">' + svg('i-sliders') + '</button>' +
+            '<p class="hint">' + esc(T.itemsHint) + '</p></div>';
+        if (!rows.length) {
+            mount.innerHTML = html + '<div id="emptyItems"></div>';
+            showTemplate($('emptyItems'), 'tplNoItems');
+        } else {
+            html += '<div class="mn-tree" id="tree" role="list">';
+            rows.forEach((r, i) => {
+                const k = r.fresh ? T.fresh : (r.new_tab ? T.newTabK : '');
+                html += '<div class="mi' + (r.uid === selUid ? ' sel' : '') + (r.fresh ? ' drop' : '') + '" role="listitem" data-row data-index="' + i + '" data-uid="' + r.uid + '" style="margin-left:' + (r.depth * INDENT) + 'px">' +
+                    '<button type="button" class="mi-handle" data-handle aria-label="' + esc(T.dragHandle + '：' + (r.label || T.types[r.type])) + '" title="' + esc(T.dragHandle) + '">' + svg('i-drag') + '</button>' +
+                    '<span class="lbl">' + esc(r.label || '—') + '</span><span class="badge">' + esc(T.types[r.type] || r.type) + '</span><span class="k">' + esc(k) + '</span>' +
+                    '<button type="button" class="btn btn-text btn-sm btn-icon" data-edit title="' + esc(T.editItem) + '" aria-label="' + esc(T.editItem + '：' + (r.label || '')) + '">' + svg('i-chevron-d') + '</button></div>';
+            });
+            html += '</div><div class="mn-end">' + esc(T.dropEnd) + '</div>';
+            mount.innerHTML = html;
+            const tree = $('tree');
+            tree.querySelectorAll('[data-row]').forEach(el => {
+                const uid = el.dataset.uid, idx = +el.dataset.index;
+                el.addEventListener('click', (e) => { if (e.target.closest('[data-handle]')) return; selectItem(uid, el.querySelector('[data-edit]')); });
+                const h = el.querySelector('[data-handle]');
+                h.addEventListener('pointerdown', (e) => { if (e.button === 0 || e.pointerType !== 'mouse') startDrag(e, idx); });
+                h.addEventListener('keydown', (e) => keyMove(e, idx));
+            });
+        }
+        const ms = $('menuSettings');
+        if (ms) ms.addEventListener('click', () => openMenuSheet(cur(), ms));
+        renderDirty();
+    }
+
+    function renderDirty() {
+        const n = dirtyCount();
+        const chip = $('dirty');
+        chip.hidden = n === 0;
+        chip.textContent = n ? fmt(T.unsaved, n) : '';
+        $('saveBtn').disabled = n === 0 || !cur();
+    }
+
+    function renderAll() {
+        renderMenuList();
+        renderTree();
+        renderPanel();
+        $('addCard').hidden = !cur();
+        $('previewBtn').hidden = !cur();
+        $('saveBtn').hidden = !cur();
+    }
+
+    /* ---------- menus ---------- */
+    async function selectMenu(id) {
+        if (id === curId) return;
+        if (dirtyCount() > 0 && !(await confirmSheet(T.discardTitle, T.discardBody, T.discard))) return;
+        curId = id;
+        loadRows();
+        closePanel();
+        renderAll();
+    }
+    function loadRows() {
+        const m = cur();
+        rows = m ? rowsFromTree(m.items) : [];
+        selUid = null;
+        markBaseline();
+    }
+
+    async function load(keep) {
+        try {
+            const data = await api('GET', '/api/admin/menus');
+            menus = Array.isArray(data) ? data : [];
+            loadError = false;
+            if (!menus.some(m => m.id === curId)) curId = menus.length ? menus[0].id : null;
+            if (!keep) loadRows();
+        } catch (err) {
+            if (keep) { toast(T.requestFailed, 'error', err.message); return; }
+            loadError = true;
+        }
+        renderAll();
+    }
+
+    $('saveBtn').addEventListener('click', save);
+    async function save() {
+        const m = cur();
+        if (!m || dirtyCount() === 0) return;
+        const bad = rows.findIndex(r => !r.label.trim());
+        if (bad >= 0) { selectItem(rows[bad].uid); toast(T.labelRequired, 'error'); $('iLabel').focus(); return; }
+        const badUrl = rows.findIndex(r => r.type === 'custom' && !validUrl(r.url));
+        if (badUrl >= 0) { selectItem(rows[badUrl].uid); toast(rows[badUrl].url.trim() ? T.urlInvalid : T.urlRequired, 'error'); $('iUrl').focus(); return; }
+        const btn = $('saveBtn');
+        btn.disabled = true;
+        try {
+            const items = await api('PUT', '/api/admin/menus/' + m.id + '/items', treeFromRows());
+            m.items = items || [];
+            const keepSel = selUid;
+            rows = rowsFromTree(m.items);
+            selUid = null;
+            markBaseline();
+            toast(T.saved);
+            renderAll();
+            if (keepSel) closePanel();
+        } catch (err) {
+            toast(T.saveFailed, 'error', err.message);
+            renderDirty();
+        }
+    }
+    function validUrl(u) {
+        u = (u || '').trim();
+        return /^(\/(?!\/)|#|https?:\/\/|mailto:|tel:)/i.test(u) && !/\s/.test(u);
+    }
+    window.addEventListener('beforeunload', (e) => { if (dirtyCount() > 0) { e.preventDefault(); e.returnValue = ''; } });
+
+    /* ---------- add items ---------- */
+    function typeKey(t, id) { return t + ':' + id; }
+    function refreshAddBtn() {
+        const n = picked.size;
+        $('addBtn').disabled = n === 0;
+        $('addBtnText').textContent = fmt(T.addSelected, n);
+    }
+    async function fetchTargets(type, q) {
+        const data = await api('GET', '/api/admin/menus/targets?type=' + encodeURIComponent(type) + '&q=' + encodeURIComponent(q || ''));
+        const list = Array.isArray(data) ? data : [];
+        let cache = targetCache.get(type);
+        if (!cache) { cache = new Map(); targetCache.set(type, cache); }
+        list.forEach(t => cache.set(t.id, t));
+        return list;
+    }
+    function renderTargets(list, type) {
+        const box = $('targets');
+        box.setAttribute('aria-busy', 'false');
+        let entries = list.map(t => ({ type, ref_id: t.id, label: t.label, url: t.url }));
+        const q = $('findInput').value.trim().toLowerCase();
+        if (type === 'page' && (!q || T.homeLabel.toLowerCase().includes(q))) entries.unshift({ type: 'home', ref_id: 0, label: T.homeLabel, url: '/' });
+        if (type === 'shop') entries = [{ type: 'shop', ref_id: 0, label: T.shopLabel, url: '/shop' }];
+        if (!entries.length) { box.innerHTML = '<div class="mn-msg">' + esc(T.targetsEmpty) + '</div>'; return; }
+        box.innerHTML = entries.map((e, i) => '<label><input type="checkbox" data-i="' + i + '"' + (picked.has(typeKey(e.type, e.ref_id)) ? ' checked' : '') + '><span class="t">' + esc(e.label) + '</span><span class="u">' + esc(e.url) + '</span></label>').join('');
+        box.querySelectorAll('input').forEach(cb => cb.addEventListener('change', () => {
+            const e = entries[+cb.dataset.i], key = typeKey(e.type, e.ref_id);
+            if (cb.checked) picked.set(key, e); else picked.delete(key);
+            refreshAddBtn();
+        }));
+    }
+    async function loadTargets() {
+        if (addType === 'custom') return;
+        const box = $('targets');
+        if (addType === 'shop') { renderTargets([], 'shop'); return; }
+        const seq = ++findSeq;
+        box.setAttribute('aria-busy', 'true');
+        try {
+            const list = await fetchTargets(addType, $('findInput').value.trim());
+            if (seq === findSeq) renderTargets(list, addType);
+        } catch (err) {
+            if (seq !== findSeq) return;
+            box.setAttribute('aria-busy', 'false');
+            box.innerHTML = '<div class="mn-msg">' + esc(T.targetsFailed) + ' <button type="button" data-retry>' + esc(T.retry) + '</button></div>';
+            box.querySelector('[data-retry]').addEventListener('click', loadTargets);
+        }
+    }
+    function setAddType(t) {
+        addType = t;
+        document.querySelectorAll('#addTabs button').forEach(b => { const on = b.dataset.type === t; b.setAttribute('aria-selected', on ? 'true' : 'false'); b.tabIndex = on ? 0 : -1; });
+        $('pickPane').hidden = t === 'custom';
+        $('customPane').hidden = t !== 'custom';
+        $('findInput').parentElement.hidden = t === 'shop';
+        $('findInput').value = '';
+        $('findInput').placeholder = T.find[t] || '';
+        $('findInput').setAttribute('aria-label', T.find[t] || '');
+        loadTargets();
+    }
+    document.querySelectorAll('#addTabs button').forEach(b => {
+        b.addEventListener('click', () => setAddType(b.dataset.type));
+        b.addEventListener('keydown', (e) => {
+            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+            const tabs = Array.from(document.querySelectorAll('#addTabs button'));
+            const next = tabs[(tabs.indexOf(b) + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+            setAddType(next.dataset.type); next.focus();
+        });
+    });
+    $('findInput').addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(loadTargets, 200); });
+
+    function appendRow(r) {
+        r.uid = 'n' + (++uidSeq); r.depth = 0; r.fresh = true;
+        r.icon = r.icon || ''; r.css_class = ''; r.new_tab = !!r.new_tab; r.login_only = false;
+        rows.push(r);
+        return r;
+    }
+    $('addBtn').addEventListener('click', () => {
+        if (!cur()) return;
+        let last = null;
+        picked.forEach(e => { last = appendRow({ label: e.label, type: e.type, ref_id: e.ref_id, url: e.type === 'custom' ? e.url : '' }); });
+        picked.clear();
+        refreshAddBtn();
+        loadTargets();
+        renderTree();
+        if (last) { const el = document.querySelector('[data-uid="' + last.uid + '"]'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+    });
+    $('customPane').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const label = $('cLabel').value.trim(), url = $('cUrl').value.trim();
+        if (!label) { $('cLabel').focus(); toast(T.labelRequired, 'error'); return; }
+        if (!validUrl(url)) { $('cUrl').focus(); toast(url ? T.urlInvalid : T.urlRequired, 'error'); return; }
+        appendRow({ label, type: 'custom', ref_id: 0, url, new_tab: /^https?:\/\//i.test(url) });
+        $('cLabel').value = ''; $('cUrl').value = '';
+        renderTree();
+    });
+
+    /* ---------- item panel ---------- */
+    const isNarrow = () => window.matchMedia('(max-width: 1500px)').matches;
+    let opener = null;
+    const selRow = () => rows.find(r => r.uid === selUid) || null;
+
+    function renderIcons(current) {
+        const none = '<button type="button" data-icon="" aria-pressed="' + (!current) + '" aria-label="' + esc(T.iconNone) + '" title="' + esc(T.iconNone) + '">' + svg('i-x') + '</button>';
+        $('iconRow').innerHTML = none + ICONS.map(n => '<button type="button" data-icon="' + n + '" aria-pressed="' + (current === n) + '" aria-label="' + esc(T.icons[n]) + '" title="' + esc(T.icons[n]) + '">' + svg('i-' + n) + '</button>').join('');
+        $('iconRow').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+            const r = selRow(); if (!r) return;
+            r.icon = b.dataset.icon;
+            $('iconRow').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+            touch();
+        }));
+    }
+
+    function renderPanel() {
+        const r = selRow();
+        $('itemForm').hidden = !r;
+        $('panelEmpty').hidden = !!r;
+        $('panelTitle').textContent = r ? fmt(T.itemTitle, r.label || '') : T.editItem;
+        if (!r) return;
+        const f = $('itemForm');
+        if (document.activeElement !== f.iLabel) f.iLabel.value = r.label;
+        $('iNewTab').checked = r.new_tab;
+        $('iLoginOnly').checked = r.login_only;
+        f.iClass.value = r.css_class;
+        renderIcons(r.icon);
+        const info = $('targetInfo'), urlIn = $('iUrl');
+        if (r.type === 'custom') {
+            info.hidden = true; urlIn.hidden = false; urlIn.value = r.url;
+        } else {
+            urlIn.hidden = true; info.hidden = false;
+            renderTargetInfo(r);
+        }
+    }
+    async function renderTargetInfo(r) {
+        const info = $('targetInfo');
+        const typeName = T.types[r.type] || r.type;
+        if (r.type === 'home' || r.type === 'shop') {
+            const url = r.type === 'home' ? '/' : '/shop';
+            info.className = 'mn-link';
+            info.innerHTML = svg('i-link') + '<span>' + esc(typeName) + '</span><a href="' + url + '" target="_blank" rel="noopener">' + esc(T.openTarget) + '</a>';
+            return;
+        }
+        info.className = 'mn-link';
+        info.innerHTML = svg('i-link') + '<span>' + esc(typeName) + '…</span>';
+        const uid = r.uid;
+        let cache = targetCache.get(r.type);
+        if (!cache || !cache.has(r.ref_id)) {
+            try { await fetchTargets(r.type, ''); cache = targetCache.get(r.type); } catch (e) { /* show as missing below */ }
+        }
+        if (selUid !== uid) return;
+        const t = cache && cache.get(r.ref_id);
+        if (t) {
+            info.innerHTML = svg('i-link') + '<span>' + esc(fmt(T.targetOf, typeName, t.label)) + '</span><a href="' + esc(t.url) + '" target="_blank" rel="noopener">' + esc(T.openTarget) + '</a>';
+        } else {
+            info.className = 'mn-link missing';
+            info.innerHTML = svg('i-alert') + '<span>' + esc(T.targetMissing) + '</span>';
+        }
+    }
+
+    function selectItem(uid, from) {
+        selUid = uid;
+        document.querySelectorAll('.mi.sel').forEach(n => n.classList.remove('sel'));
+        const el = document.querySelector('[data-uid="' + uid + '"]');
+        if (el) el.classList.add('sel');
+        renderPanel();
+        const panel = $('panel');
+        if (isNarrow()) {
+            opener = from || document.activeElement;
+            panel.classList.add('open'); $('backdrop').classList.add('open');
+            panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true');
+            setTimeout(() => $('iLabel').focus(), 30);
+        }
+    }
+    function closePanel() {
+        const panel = $('panel');
+        const wasOpen = panel.classList.contains('open');
+        panel.classList.remove('open'); $('backdrop').classList.remove('open');
+        panel.removeAttribute('role'); panel.removeAttribute('aria-modal');
+        if (wasOpen && opener && document.contains(opener)) opener.focus();
+        opener = null;
+        selUid = null;
+        document.querySelectorAll('.mi.sel').forEach(n => n.classList.remove('sel'));
+        renderPanel();
+    }
+    function touch() {
+        // 即時套用：更新該列文字，不重建整棵樹（避免輸入時失去焦點）
+        const r = selRow(); if (!r) return;
+        const el = document.querySelector('[data-uid="' + r.uid + '"]');
+        if (el) {
+            el.querySelector('.lbl').textContent = r.label || '—';
+            const k = el.querySelector('.k'); k.textContent = r.fresh ? T.fresh : (r.new_tab ? T.newTabK : '');
+        }
+        $('panelTitle').textContent = fmt(T.itemTitle, r.label || '');
+        renderDirty();
+    }
+    $('iLabel').addEventListener('input', () => { const r = selRow(); if (r) { r.label = $('iLabel').value; touch(); } });
+    $('iUrl').addEventListener('input', () => { const r = selRow(); if (r) { r.url = $('iUrl').value; touch(); } });
+    $('iNewTab').addEventListener('change', () => { const r = selRow(); if (r) { r.new_tab = $('iNewTab').checked; touch(); } });
+    $('iLoginOnly').addEventListener('change', () => { const r = selRow(); if (r) { r.login_only = $('iLoginOnly').checked; touch(); } });
+    $('iClass').addEventListener('input', () => { const r = selRow(); if (r) { r.css_class = $('iClass').value; touch(); } });
+    $('itemForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const r = selRow(); if (!r) return;
+        if (!r.label.trim()) { $('iLabel').focus(); toast(T.labelRequired, 'error'); return; }
+        if (r.type === 'custom' && !validUrl(r.url)) { $('iUrl').focus(); toast(r.url.trim() ? T.urlInvalid : T.urlRequired, 'error'); return; }
+        if (isNarrow()) closePanel(); else $('removeBtn').blur();
+        renderTree();
+    });
+    $('removeBtn').addEventListener('click', () => {
+        const i = rows.findIndex(r => r.uid === selUid);
+        if (i < 0) return;
+        const j = blockEnd(rows, i);
+        rows.splice(i, j - i);
+        closePanel();
+        renderTree();
+    });
+    $('panelClose').addEventListener('click', closePanel);
+    $('backdrop').addEventListener('click', closePanel);
+
+    /* ---------- drag to reorder / nest ---------- */
+    const blockEnd = (list, i) => { let j = i + 1; while (j < list.length && list[j].depth > list[i].depth) j++; return j; };
+    function boundsAt(rem, k, h) {
+        const prev = k > 0 ? rem[k - 1] : null, next = k < rem.length ? rem[k] : null;
+        const max = Math.min(prev ? prev.depth + 1 : 0, MAX_DEPTH - h);
+        const min = next ? next.depth : 0;
+        return min <= max ? [min, max] : null;
+    }
+    function validK(rem, k, h) {
+        for (let d = 0; d <= rem.length; d++) {
+            for (const kk of [k - d, k + d]) if (kk >= 0 && kk <= rem.length && boundsAt(rem, kk, h)) return kk;
+        }
+        return 0;
+    }
+    function place(list, i, k, d) {
+        const j = blockEnd(list, i), base = list[i].depth;
+        const block = list.slice(i, j).map(r => Object.assign({}, r, { depth: r.depth - base + d }));
+        const rem = list.slice(0, i).concat(list.slice(j));
+        return rem.slice(0, k).concat(block, rem.slice(k));
+    }
+    function commitRows(next, focusUid) {
+        rows = next;
+        renderTree();
+        if (focusUid) { const h = document.querySelector('[data-uid="' + focusUid + '"] [data-handle]'); if (h) h.focus(); }
+    }
+
+    function startDrag(ev, i) {
+        ev.preventDefault();
+        const tree = $('tree');
+        const els = Array.from(tree.querySelectorAll('[data-row]'));
+        const j = blockEnd(rows, i);
+        const h = Math.max.apply(null, rows.slice(i, j).map(r => r.depth)) - rows[i].depth;
+        const rem = rows.slice(0, i).concat(rows.slice(j));
+        const remEls = els.slice(0, i).concat(els.slice(j));
+        els.slice(i, j).forEach(n => n.classList.add('src'));
+        document.body.classList.add('mn-dragging');
+        const line = document.createElement('div');
+        line.className = 'mn-line'; tree.appendChild(line);
+        const startX = ev.clientX, startDepth = rows[i].depth;
+        let k = i, d = startDepth;
+        function update(e) {
+            let kk = 0;
+            remEls.forEach(n => { const r = n.getBoundingClientRect(); if (r.top + r.height / 2 < e.clientY) kk++; });
+            kk = validK(rem, kk, h);
+            const b = boundsAt(rem, kk, h);
+            d = Math.max(b[0], Math.min(b[1], startDepth + Math.round((e.clientX - startX) / INDENT)));
+            k = kk;
+            const w = tree.getBoundingClientRect();
+            let y = 0;
+            if (rem.length) y = k === 0 ? remEls[0].getBoundingClientRect().top - w.top - 3 : remEls[k - 1].getBoundingClientRect().bottom - w.top + 1;
+            line.style.top = y + 'px';
+            line.style.left = (d * INDENT) + 'px';
+        }
+        function finish(commit) {
+            document.removeEventListener('pointermove', update);
+            document.removeEventListener('pointerup', up);
+            document.removeEventListener('pointercancel', cancel);
+            document.removeEventListener('keydown', onKey, true);
+            document.body.classList.remove('mn-dragging');
+            line.remove();
+            els.forEach(n => n.classList.remove('src'));
+            if (!commit) return;
+            const next = place(rows, i, k, d);
+            if (next.map(r => r.uid + ':' + r.depth).join() === rows.map(r => r.uid + ':' + r.depth).join()) return;
+            commitRows(next);
+        }
+        const up = (e) => { update(e); finish(true); };
+        const cancel = () => finish(false);
+        const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); finish(false); } };
+        document.addEventListener('pointermove', update);
+        document.addEventListener('pointerup', up);
+        document.addEventListener('pointercancel', cancel);
+        document.addEventListener('keydown', onKey, true);
+        update(ev);
+    }
+
+    function keyMove(e, i) {
+        if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+        e.preventDefault();
+        const me = rows[i], j = blockEnd(rows, i);
+        const h = Math.max.apply(null, rows.slice(i, j).map(r => r.depth)) - me.depth;
+        const rem = rows.slice(0, i).concat(rows.slice(j));
+        let k = i, d = me.depth;
+        if (e.key === 'ArrowUp') {
+            let p = i - 1;
+            while (p >= 0 && rows[p].depth > me.depth) p--;
+            if (p < 0 || rows[p].depth < me.depth) return;
+            k = p;
+        } else if (e.key === 'ArrowDown') {
+            if (j >= rows.length || rows[j].depth < me.depth) return;
+            k = blockEnd(rows, j) - (j - i);
+        } else if (e.key === 'ArrowRight') {
+            if (i === 0 || rows[i - 1].depth < me.depth || me.depth + 1 + h > MAX_DEPTH) return;
+            d = me.depth + 1;
+        } else {
+            if (me.depth === 0) return;
+            let p = i - 1;
+            while (p >= 0 && rows[p].depth >= me.depth) p--;
+            k = blockEnd(rows, p) - (j - i);
+            d = me.depth - 1;
+        }
+        const b = boundsAt(rem, k, h);
+        if (!b || d < b[0] || d > b[1]) return;
+        commitRows(place(rows, i, k, d), me.uid);
+    }
+
+    /* ---------- confirm + menu sheet ---------- */
+    function sheet(build) {
+        return new Promise((resolve) => {
+            const prev = document.activeElement;
+            const ov = document.createElement('div');
+            ov.className = 'modal-overlay open';
+            const box = document.createElement('div');
+            box.className = 'modal-content';
+            ov.appendChild(box);
+            const done = (v) => { document.removeEventListener('keydown', onKey, true); ov.remove(); if (prev && document.contains(prev)) prev.focus(); resolve(v); };
+            const onKey = (e) => {
+                if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); }
+                if (e.key === 'Tab') {
+                    const els = Array.from(ov.querySelectorAll('button:not([disabled]), input, select, a[href]')).filter(x => !x.hidden);
+                    if (!els.length) return;
+                    const first = els[0], last = els[els.length - 1];
+                    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+                }
+            };
+            document.addEventListener('keydown', onKey, true);
+            ov.addEventListener('mousedown', (e) => { if (e.target === ov) done(null); });
+            document.body.appendChild(ov);
+            build(box, done);
+        });
+    }
+    function confirmSheet(title, body, okText) {
+        return sheet((box, done) => {
+            box.classList.add('mn-confirm');
+            box.setAttribute('role', 'alertdialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'cfT'); box.setAttribute('aria-describedby', 'cfB');
+            box.innerHTML = '<div class="modal-header"><h2 id="cfT"></h2></div><p id="cfB"></p><div class="modal-footer"><button type="button" class="btn btn-danger" data-ok></button><button type="button" class="btn btn-secondary" data-cancel></button></div>';
+            box.querySelector('#cfT').textContent = title;
+            box.querySelector('#cfB').textContent = body;
+            box.querySelector('[data-ok]').textContent = okText;
+            box.querySelector('[data-cancel]').textContent = T.cancel;
+            box.querySelector('[data-ok]').addEventListener('click', () => done(true));
+            box.querySelector('[data-cancel]').addEventListener('click', () => done(null));
+            box.querySelector('[data-cancel]').focus();
+        }).then(v => v === true);
+    }
+
+    function openMenuSheet(menu, from) {
+        return sheet((box, done) => {
+            box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'msT');
+            box.innerHTML = '<div class="modal-header"><h2 id="msT"></h2></div>' +
+                '<form class="mn-sheet-form" novalidate>' +
+                '<div class="mn-field"><label class="label" for="msName"></label><input type="text" id="msName" maxlength="120" required autocomplete="off"></div>' +
+                '<div class="mn-field"><label class="label" for="msLoc"></label><select id="msLoc"></select><small class="hint" id="msHint" hidden></small></div>' +
+                '<div class="modal-footer"><button type="submit" class="btn btn-primary"></button><button type="button" class="btn btn-secondary" data-cancel></button><button type="button" class="btn btn-text" data-del style="margin-left:auto;color:var(--error)"></button></div></form>';
+            const f = box.querySelector('form');
+            box.querySelector('#msT').textContent = menu ? T.sheetEdit : T.sheetNew;
+            box.querySelector('label[for="msName"]').textContent = T.name;
+            box.querySelector('label[for="msLoc"]').textContent = T.location;
+            const sel = box.querySelector('#msLoc');
+            sel.innerHTML = [''].concat(LOCATIONS).map(l => '<option value="' + l + '">' + esc(locName(l)) + '</option>').join('');
+            const name = box.querySelector('#msName');
+            name.value = menu ? menu.name : '';
+            sel.value = menu ? (menu.location || '') : '';
+            const hint = box.querySelector('#msHint');
+            const refreshHint = () => {
+                const holder = menus.find(m => m.location === sel.value && sel.value && (!menu || m.id !== menu.id));
+                hint.hidden = !holder;
+                if (holder) hint.textContent = fmt(T.locTaken, holder.name);
+            };
+            sel.addEventListener('change', refreshHint); refreshHint();
+            f.querySelector('button[type="submit"]').textContent = T.save;
+            f.querySelector('[data-cancel]').textContent = T.cancel;
+            const del = f.querySelector('[data-del]');
+            del.textContent = T.delete; del.hidden = !menu;
+            f.querySelector('[data-cancel]').addEventListener('click', () => done(null));
+            del.addEventListener('click', async () => {
+                if (!(await confirmSheet(fmt(T.deleteTitle, menu.name), T.deleteBody, T.delete))) return;
+                try {
+                    await api('DELETE', '/api/admin/menus/' + menu.id);
+                    done(true);
+                    toast(T.menuDeleted);
+                    curId = null;
+                    await load();
+                } catch (err) { toast(T.requestFailed, 'error', err.message); }
+            });
+            f.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const n = name.value.trim();
+                if (!n) { name.focus(); toast(T.nameRequired, 'error'); return; }
+                const submit = f.querySelector('button[type="submit"]');
+                submit.disabled = true;
+                try {
+                    if (menu) {
+                        await api('PUT', '/api/admin/menus/' + menu.id, { name: n, location: sel.value });
+                        done(true); toast(T.menuUpdated);
+                        await load(true);
+                    } else {
+                        const made = await api('POST', '/api/admin/menus', { name: n, location: sel.value });
+                        done(true); toast(T.menuCreated);
+                        if (dirtyCount() > 0) { await load(true); } else { curId = made && made.id; await load(); }
+                    }
+                } catch (err) {
+                    submit.disabled = false;
+                    toast(T.saveFailed, 'error', err.message);
+                }
+            });
+            name.focus();
+        });
+    }
+    $('newMenuBtn').addEventListener('click', () => openMenuSheet(null, $('newMenuBtn')));
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape' || e.defaultPrevented || document.body.classList.contains('mn-dragging')) return;
+        const panel = $('panel');
+        if (panel.classList.contains('open') || panel.contains(document.activeElement)) { e.preventDefault(); closePanel(); }
+    });
+
+    /* ---------- boot ---------- */
+    refreshAddBtn();
+    setAddType('page');
+    load();
+})();
+</script>
+{{end}}

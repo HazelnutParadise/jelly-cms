@@ -53,10 +53,35 @@ const palette = {
 // /api/** 的假資料。預設給幾筆範例，讓列表、徽章、編輯器看得到版面；
 // EMPTY=1 時一律回空陣列／空物件（看空白狀態）。
 const empty = process.env.EMPTY === '1';
+const fail = process.env.FAIL === '1';   // FAIL=1：/api/** 一律回 500（看錯誤狀態）
 const now = Date.now();
+const cat = (id, name, slug, parent_id, position, post_count, color) => ({ id, name, slug, parent_id, position, post_count, color, description: '做過才敢寫。每篇食譜都有份量、時間，和哪一步最容易失敗。', cover: '', hide_from_list: false, no_cascade: false });
+const tagNames = [['榛果', 14], ['新手', 11], ['吉利丁', 9], ['焦糖', 7], ['冰', 6], ['失敗紀錄', 5], ['台中', 5], ['禮盒', 3], ['布丁', 2], ['烤箱', 2], ['奶油', 2], ['器具', 2]];
+for (let i = 1; i <= 24; i++) tagNames.push(['雜記 ' + i, 1]);
+for (let i = 1; i <= 6; i++) tagNames.push(['草稿標籤 ' + i, 0]);
+const mi = (id, label, type, ref_id, extra = {}) => ({ id, label, type, ref_id, url: '', icon: '', new_tab: false, login_only: false, css_class: '', ...extra });
 const sample = {
+  categories: [
+    cat(1, '食譜', 'recipes', null, 0, 18, 'secondary'), cat(2, '甜點', 'desserts', 1, 0, 11, ''), cat(3, '抹醬', 'spreads', 1, 1, 5, ''), cat(4, '飲料', 'drinks', 1, 2, 2, ''),
+    cat(5, '開店日記', 'diary', null, 1, 9, 'primary'), cat(6, '產地', 'origin', null, 2, 6, 'accent'), cat(7, '公告', 'news', null, 3, 3, 'warning'),
+  ],
+  tags: tagNames.map(([name, post_count], i) => ({ id: i + 1, name, slug: 'tag-' + (i + 1), color: '', description: '', post_count })),
+  menus: [
+    { id: 1, name: '主選單', slug: 'main', location: 'header', items: [
+      mi(1, '首頁', 'home', 0), mi(2, '文章', 'category', 1, { children: [mi(3, '食譜', 'category', 1), mi(4, '開店日記', 'category', 5)] }),
+      mi(5, '商店', 'shop', 0), mi(6, '關於我們', 'page', 11, { children: [mi(7, '常見問題', 'page', 13)] }),
+      mi(8, 'IG', 'custom', 0, { url: 'https://instagram.com/jelly', new_tab: true, icon: 'user' }) ] },
+    { id: 2, name: '頁尾', slug: 'footer', location: 'footer', items: [mi(9, '隱私權政策', 'page', 14), mi(10, '退換貨說明', 'page', 15)] },
+    { id: 3, name: '手機側欄', slug: 'mobile', location: '', items: [] },
+  ],
+  targets: {
+    page: [{ id: 11, label: '關於我們', url: '/about' }, { id: 12, label: '門市資訊', url: '/stores' }, { id: 13, label: '常見問題', url: '/faq' }, { id: 14, label: '隱私權政策', url: '/privacy' }, { id: 15, label: '退換貨說明', url: '/returns' }],
+    category: [{ id: 1, label: '食譜', url: '/c/recipes' }, { id: 5, label: '開店日記', url: '/c/diary' }, { id: 6, label: '產地', url: '/c/origin' }],
+    post: [{ id: 1, label: '為什麼我們決定用 Go 重寫一個 CMS', url: '/post/go-cms' }],
+    tag: [{ id: 1, label: '榛果', url: '/t/tag-1' }, { id: 2, label: '新手', url: '/t/tag-2' }],
+  },
   posts: [
-    { id: 1, title: '為什麼我們決定用 Go 重寫一個 CMS', slug: 'go-cms', status: 'published', content: '<p>內文</p>', meta: { markdown: '# 標題\n\n用 **Markdown** 寫。\n\n- 清單一\n- 清單二' }, created_at: new Date(now - 7200e3).toISOString() },
+    { id: 1, title: '為什麼我們決定用 Go 重寫一個 CMS', slug: 'go-cms', status: 'published', content: '<p>內文</p>', meta: { markdown: '# 標題\n\n用 **Markdown** 寫。\n\n- 清單一\n- 清單二' }, excerpt: '現有的選擇不是太重，就是太難客製。', cover: '', visibility: 'public', pinned: false, allow_comments: true, categories: [{ id: 2, name: '甜點' }], tags: [{ id: 1, name: '榛果' }, { id: 2, name: '新手' }], created_at: new Date(now - 7200e3).toISOString() },
     { id: 2, title: '果凍丁與裝飾線：預設主題的設計筆記', slug: 'jelly-theme', status: 'published', created_at: new Date(now - 86400e3).toISOString() },
     { id: 3, title: '外掛失敗了，主程式不該跟著死', slug: 'plugin-isolation', status: 'draft', created_at: new Date(now - 3 * 86400e3).toISOString() },
     { id: 4, title: '從 WordPress 搬家：內容匯入實錄', slug: 'wp-migrate', status: 'pending', created_at: new Date(now - 7 * 86400e3).toISOString() },
@@ -76,9 +101,11 @@ const sample = {
   themeConfig: { name: 'Jelly', description: '預設主題', version: '1.0.0', author: 'Hazel', colors: { primary: '#E8285B', secondary: '#2F6BFF', accent: '#13C2A3', background: '#FFFFFF', text: '#15161A' }, layout: { sidebar: true, sidebar_position: 'right' } },
 };
 
-function mockBody(p) {
+function mockBody(p, url) {
   if (p === '/api/admin/palette') return palette;
   if (empty) return /\/(config|settings)$/.test(p) ? {} : [];
+  if (p === '/api/admin/menus/targets') return sample.targets[url.searchParams.get('type')] || [];
+  if (p === '/api/admin/tags') { const q = (url.searchParams.get('q') || '').toLowerCase(); return sample.tags.filter(t => t.name.toLowerCase().startsWith(q)); }
   if (/^\/api\/admin\/themes\/[^/]+\/(config|settings)$/.test(p)) return sample.themeConfig;
   if (/^\/api\/admin\/posts\/[^/]+$/.test(p)) return sample.posts[0];
   if (/^\/api\/admin\/products\/[^/]+$/.test(p)) return sample.products[0];
@@ -89,7 +116,8 @@ function mockBody(p) {
 async function mock(page) {
   await page.route('**/api/**', route => {
     const url = new URL(route.request().url());
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockBody(url.pathname)) });
+    if (fail && url.pathname !== '/api/admin/palette') { route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"boom"}' }); return; }
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(mockBody(url.pathname, url)) });
   });
   await page.route('**/auth/**', route => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
   // 外部字型不可用時不要卡住截圖。
@@ -131,7 +159,14 @@ for (const scheme of schemes) {
       console.log('shot', path.relative(process.cwd(), file));
       await pg.close();
     }
-    if (!empty) {
+    if (!empty && !fail) {
+      await shotAfter('taxonomy', 'edit', async pg => { await pg.locator('tr[data-id="2"] [data-act="edit"]').first().click(); });
+      await shotAfter('taxonomy', 'sort', async pg => { await pg.locator('#sortBtn').click(); });
+      await shotAfter('taxonomy', 'tags', async pg => { await pg.locator('#tabTags').click(); });
+      await shotAfter('menus', 'item', async pg => { await pg.locator('[data-uid="i6"]').click(); });
+      await shotAfter('menus', 'sheet', async pg => { await pg.locator('#newMenuBtn').click(); await pg.waitForSelector('#msName'); });
+      await shotAfter('menus', 'custom', async pg => { await pg.locator('#addTabs [data-type="custom"]').click(); });
+      await shotAfter('post_editor', 'tags', async pg => { await pg.locator('#tagInput').fill('榛'); await pg.waitForSelector('#tagList:not([hidden])'); });
       await shotAfter('settings', 'tab-oauth', pg => pg.getByRole('button', { name: 'OAuth' }).first().click());
       await shotAfter('themes', 'drawer', async pg => { await pg.locator('.theme-actions .btn-secondary').first().click(); await pg.waitForSelector('#customizeModal'); });
       await shotAfter('post_editor', 'md', async pg => {

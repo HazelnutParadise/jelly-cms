@@ -42,12 +42,13 @@ import (
 //	     q matches name, email or body (ILIKE). trash lists soft-deleted rows.
 //	POST /api/admin/comments/:id/approve | unapprove | spam | trash | restore   → 200 comment
 //	POST /api/admin/comments/bulk          {ids:[...], action:"approve|unapprove|spam|trash|restore|delete"} → 200 {"updated": n}
-//	POST /api/admin/comments/:id/reply     {body} → 201 comment (author = current user, status approved, parent = :id, post = parent's post)
+//	POST /api/admin/comments/:id/reply     {body} → 201 comment (author = current user, status approved, parent = :id, post = parent's post); a pending parent becomes approved
+//	PUT  /api/admin/comments/:id           {body} → 200 comment with body and body_html replaced; trashed → 404; body 1..5000 chars else 400
 //	DELETE /api/admin/comments/:id         permanent; only allowed when the row is in trash → 200, otherwise 409
 //
 // Theme: post pages receive "Comments" ([]core.Comment tree as in GET), "CommentCount" (int) and "CommentsOpen" (bool);
 // commentsForPost(postID) builds that data and is used by handlers_public.go.
-// Template partial web/themes/default/comments.html ({{define "comments"}}) renders list + form per
+// Template partial web/themes/default/_comments.html ({{define "comments"}}; files named _*.html are parsed with every page) renders list + form per
 // design/project/Archive.dc.html (留言區): form with name/email/body, pending notice for the author's own
 // unapproved comment is not required in this slot.
 //

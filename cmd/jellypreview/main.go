@@ -119,6 +119,8 @@ func main() {
 		{out: "index", file: "index.html", active: "dashboard"},
 		{out: "posts", file: "posts.html", active: "posts"},
 		{out: "pages", file: "pages.html", active: "pages"},
+		{out: "taxonomy", file: "taxonomy.html", active: "taxonomy"},
+		{out: "menus", file: "menus.html", active: "menus"},
 		{out: "products", file: "products.html", active: "products"},
 		{out: "orders", file: "orders.html", active: "orders"},
 		{out: "media", file: "media.html", active: "media"},
@@ -189,6 +191,7 @@ func fakeNav(t map[string]string, active string) []navSection {
 			e("dashboard", "i-grid", "/admin", 0),
 			e("posts", "i-file-text", "/admin/posts", 0),
 			e("pages", "i-layout", "/admin/pages", 0),
+			e("taxonomy", "i-tag", "/admin/taxonomy", 0),
 			{Key: "comments", Label: "留言", Icon: "i-comment", Href: "/admin/comments", Active: active == "comments", Badge: 7},
 			e("media", "i-image", "/admin/media", 0),
 		}},
@@ -198,6 +201,7 @@ func fakeNav(t map[string]string, active string) []navSection {
 		}},
 		{Key: "appearance", Label: tr(t, "appearance"), Items: []navEntry{
 			e("themes", "i-layers", "/admin/themes", 0),
+			e("menus", "i-menu", "/admin/menus", 0),
 			e("plugins", "i-plug", "/admin/plugins", 0),
 		}},
 		{Key: "system", Label: tr(t, "system"), Items: []navEntry{
