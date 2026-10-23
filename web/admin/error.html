@@ -1,0 +1,13 @@
+{{define "title"}}{{.Error.Code}}{{end}}
+{{define "content"}}
+<section class="state state-error" data-code="{{.Error.Code}}">
+    <div class="stripes" aria-hidden="true"></div>
+    <div class="label">{{.Error.Code}}{{if .Error.RequestID}} · {{.Error.RequestID}}{{end}}</div>
+    <h1>{{if eq .Error.Code 404}}{{.T.errorNotFound}}{{else if eq .Error.Code 403}}{{.T.errorForbidden}}{{else if eq .Error.Code 401}}{{.T.errorUnauthorized}}{{else}}{{.T.errorInternal}}{{end}}</h1>
+    <p class="muted">{{if ge .Error.Code 500}}{{.T.errorInternalHint}}{{else}}{{.Error.Path}}{{end}}</p>
+    <div class="state-actions">
+        <a class="btn btn-secondary" href="/admin"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>{{.T.dashboard}}</a>
+        <button class="btn btn-secondary" type="button" onclick="location.reload()"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>{{.T.retry}}</button>
+    </div>
+</section>
+{{end}}
