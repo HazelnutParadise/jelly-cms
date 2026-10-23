@@ -65,9 +65,9 @@ fi
 
 {
   printf 'Bricolage Grotesque (SIL Open Font License 1.1)\n\n'
-  cat "$temp_dir/bricolage-OFL.txt"
+  sed 's/[[:blank:]]*$//' "$temp_dir/bricolage-OFL.txt"
   printf '\n\nNoto Sans TC (SIL Open Font License 1.1)\n\n'
-  cat "$temp_dir/noto-OFL.txt"
+  sed 's/[[:blank:]]*$//' "$temp_dir/noto-OFL.txt"
 } > "$temp_dir/LICENSE"
 
 cat > "$temp_dir/VERSION" <<EOF

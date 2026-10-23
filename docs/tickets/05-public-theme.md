@@ -3,7 +3,7 @@
 Epic：前台主題
 User Story：訪客在桌機與手機上看到的首頁、文章總覽、單篇文章、靜態頁面、搜尋結果、404 與維護頁，和設計稿一致；私密、排程、回收桶內容不會外洩；頁面不從任何外部網址載入資源。
 Blocked by：04 的分類標籤、選單、留言（已合併）。
-Status：實作與本機驗收完成，等待 CI；線上畫布依使用者指示交由 Claude 同步，尚未回報。
+Status：程式實作與本機驗收完成，CI 與合併結果見 PR #23；線上畫布依使用者指示交由 Claude 同步，尚未回報。
 設計稿：`design/project/Main、PostList、Post、Page、Search、NotFound、Maintenance、MobileHome.dc.html`（Maintenance 的開關在 `SettingsRoutes.dc.html`）
 
 ## 流程與驗收

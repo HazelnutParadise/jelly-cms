@@ -2,8 +2,8 @@
 
 ## 目前驗收狀態
 
-- 階段：依使用者授權完成 [PR #23](https://github.com/HazelnutParadise/jelly-cms/pull/23) 的前台主題實作；完整 PostgreSQL 競態測試與 251 項瀏覽器檢查通過，等待推送後的 CI。完整 CMS 尚未完成。
-- 階段目標：完成工作單 05 的畫面與完整測試，推送後確認必要 CI 全綠，再合併與清理分支。
+- 階段：依使用者授權完成 [PR #23](https://github.com/HazelnutParadise/jelly-cms/pull/23) 的前台主題實作；完整 PostgreSQL 競態測試與 251 項瀏覽器檢查通過，CI 與合併結果見該 PR。完整 CMS 尚未完成。
+- 階段目標：交付工作單 05 的程式與本機設計板；線上畫布由 Claude 依 PR 留言另行回報。
 - 前台資料驗證：主代理重跑公開頁面、搜尋、維護模式、離線資源與邊界測試通過；私密／草稿／未來發布／回收桶內容排除、頁面類型限制、Unicode 摘要、段落閱讀詞數、目錄 ID 衝突與無 DB 錯誤頁均有回歸案例。獨立複審沒有其他已確認缺陷。
 - 前台完整驗證：主代理執行 `JELLY_TEST_POSTGRES=1 go test -race ./... -count=1 -timeout=240s` 全數通過，server 套件耗時 211.917 秒；完整測試找到的身分 API 與 Options 表故障整合回歸已修正，原測試與維護模式競態案例通過。真實站的 251 項瀏覽器檢查通過，涵蓋 1280px／390px、亮／暗、七種頁面、搜尋日期與摘要不重疊、字型載入、禁止外部資源、搜尋分頁、目錄定位與維護模式；另以瀏覽器送出訪客留言，資料庫回查只有一筆 pending。
 - 字型驗證：主代理以 `scripts/vendor/fonts.sh` 重新下載及建置兩套字型，兩處 woff2、LICENSE、VERSION 與重建前 SHA-256 完全相同；字集內 5,403 個 CJK 字元沒有缺字。原生、Windows 與 macOS 編譯及 `go vet ./...` 通過。
