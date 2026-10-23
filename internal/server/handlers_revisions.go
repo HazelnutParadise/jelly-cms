@@ -18,7 +18,8 @@ import (
 //   - updatePost: when title, content, excerpt or meta changed: kind "autosave" if input has "autosave": true,
 //     "publish" if status moved to published, else "manual". Unchanged saves record nothing.
 //   - keep only the newest core.RevisionAutosaveKeep autosaves per post; manual/publish/restore are kept forever.
-//   - Added/Removed count changed lines of Content versus the previous revision (0/0 for the first).
+//   - Added/Removed count changed lines of Content versus the previous revision; the first revision
+//     counts every content line as added and 0 removed.
 //
 // Admin page: web/admin/revisions.html per design/project/Revisions.dc.html (left list with avatars and +n −n,
 // right side 逐行比較 / 只看 vN / 左右並排 segments, red/green inline diff, 還原到這個版本).
