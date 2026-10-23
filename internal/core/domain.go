@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/goccy/go-json"
+	"gorm.io/gorm"
 )
 
 // User represents a registered user.
@@ -34,7 +35,21 @@ type Post struct {
 	PublishedAt *time.Time      `json:"published_at"`
 	CreatedAt   time.Time       `json:"created_at"`
 	UpdatedAt   time.Time       `json:"updated_at"`
+
+	// Content organisation (ticket 04).
+	Excerpt       string         `json:"excerpt" gorm:"type:text"`
+	Cover         string         `json:"cover"`
+	AllowComments *bool          `json:"allow_comments" gorm:"default:true"`
+	Pinned        bool           `json:"pinned" gorm:"index"`
+	Visibility    string         `json:"visibility" gorm:"size:16;default:public"` // public, private
+	Categories    []Category     `json:"categories" gorm:"many2many:post_categories;"`
+	Tags          []Tag          `json:"tags" gorm:"many2many:post_tags;"`
+	DeletedByID   *uint          `json:"deleted_by_id,omitempty"`
+	DeletedAt     gorm.DeletedAt `json:"deleted_at,omitempty" gorm:"index"`
 }
+
+// CommentsAllowed treats a nil AllowComments as true.
+func (p Post) CommentsAllowed() bool { return p.AllowComments == nil || *p.AllowComments }
 
 // Option represents global settings.
 type Option struct {
@@ -55,6 +70,8 @@ type Product struct {
 	Status      string          `json:"status" gorm:"index;default:draft"` // active, draft, archived
 	CreatedAt   time.Time       `json:"created_at"`
 	UpdatedAt   time.Time       `json:"updated_at"`
+	DeletedByID *uint           `json:"deleted_by_id,omitempty"`
+	DeletedAt   gorm.DeletedAt  `json:"deleted_at,omitempty" gorm:"index"`
 }
 
 // Order represents a customer order.

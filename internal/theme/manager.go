@@ -22,6 +22,7 @@ type Manager struct {
 	activeTheme string
 	mu          sync.RWMutex
 	cache       map[string]*template.Template
+	extraFuncs  template.FuncMap
 }
 
 func NewManager(themesDir string) *Manager {
@@ -61,6 +62,19 @@ func (m *Manager) GetActive() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.activeTheme
+}
+
+// RegisterFunc adds a template function available to every theme template,
+// for example "menu" or "comments" provided by the server package. It clears
+// the template cache so the next render picks it up.
+func (m *Manager) RegisterFunc(name string, fn interface{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.extraFuncs == nil {
+		m.extraFuncs = template.FuncMap{}
+	}
+	m.extraFuncs[name] = fn
+	m.cache = map[string]*template.Template{}
 }
 
 func (m *Manager) Render(templateName string, data interface{}) ([]byte, error) {
@@ -161,6 +175,12 @@ func (m *Manager) RenderWithDB(templateName string, data interface{}, db interfa
 				return defaultValue
 			},
 		}
+
+		m.mu.RLock()
+		for name, fn := range m.extraFuncs {
+			funcMap[name] = fn
+		}
+		m.mu.RUnlock()
 
 		var err error
 		// Check if template file exists, if not, try to use layout only
