@@ -58,3 +58,29 @@ qjs v0.0.6 的 Eval 參數是檔名，內嵌程式需 Code 選項。SetFunc 綁�
 新增程序層回歸測試，使用現有 TestMain 的公開 RunWorkerIfRequested 與真實長度前綴協定；直接啟動 worker 以避免父程序環境白名單把 GOMAXPROCS=1 移除。不得新增 production 測試開關，也不得只檢查設定欄位而略過退出行為。垃圾回收反例以獨立 qjs 探針再驗證，並以原始碼核對兩處初始化均啟用檢查。
 
 本段修正後已由主代理重跑：三條真實 worker 的單 Go 執行槽測試通過；Linux 單 CPU 容器內原始 busy-orphan 與三條新增測試連跑三次通過。主代理也重跑獨立 qjs 對照探針，原設定的單執行槽及垃圾回收情境停住，啟用檢查後皆以退出碼 0 結束。完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷；PR #13 四項 CI 通過後已合併，分支已清理。Windows 只完成編譯，不宣稱該平台已完成程序行為驗收。
+
+
+## 後台可以真正重新載入現有外掛
+
+原本 `POST /api/admin/plugins/:id/reload` 只回成功訊息，沒有呼叫網站持有的 runtime。本段保留 main 的 UI 與既有 API，只完成這個既有操作；上傳、啟停與真實業務事件仍各自待驗收。
+
+流程：管理員送出重載 → 驗證登入及管理員角色 → 在此網站的 runtime 確認該 ID 已載入 → 讀取 `data/plugins/<id>` 的候選版本 → 確認 manifest 的 ID 與請求目標相同 → 候選腳本與 OnBoot 完成 → 交換同一 runtime 的版本並關閉舊版本 → 回應成功。新版本失敗時保留舊版本，不能先卸載或改成成功訊息。
+
+| 操作與例外 | 對外結果及驗收 |
+|---|---|
+| 正常重載 | 200；透過同一 runtime 的真實 JavaScript 回呼觀察版本已改變，舊回呼不再執行，另一個外掛保持原狀 |
+| 匿名或非管理員 | 401／403；不能執行候選腳本、改換任何外掛或洩漏檔案內容 |
+| 找不到已載入的 ID，含路徑跳脫輸入 | 404；不能把路由 ID 當成任意目錄載入，也不能載入另一個 runtime 的外掛 |
+| 此網站沒有可用的 runtime | 503；不能回報重載成功 |
+| manifest、入口、JavaScript 或 OnBoot 失敗 | 一般 500；舊版回呼與其他外掛仍可執行，不回傳內部路徑或原始程式錯誤 |
+| manifest 的 ID 變成其他外掛 | 一般 500；在候選程式執行及 runtime 交換前拒絕，兩個既有外掛都保持原狀 |
+| 請求取消或載入逾時 | 不回成功；沿用 runtime 的取消與程序回收，舊版保持可用 |
+| 重啟與公開相容性 | 既有 RegisterRoutes、RegisterAdminRoutes、Runtime.Load／Reload 簽名保持相容；不新增全域 runtime 或另一份執行中的外掛清單 |
+
+測試格子只新增 `internal/server/plugin_reload_integration_test.go`，走 RegisterRoutes 與管理 API，沿用專用 PostgreSQL harness；透過真實 runtime、worker 與 JavaScript 輸出驗證版本，不以 HTTP 200 或 metadata 變化代替。server 測試的 TestMain 可在這個測試檔呼叫既有 RunWorkerIfRequested，再執行測試，不能新增產品測試開關。
+
+實作格子限定 `internal/server/handlers_admin.go`、`internal/server/routes.go` 與 `internal/plugin/manager.go`。將此網站的 runtime 以函式參數／閉包傳到重載 handler，保留既有公開註冊函式。runtime 可新增接受預期 ID 的重載入口，既有 Load／Reload 保持行為；預期 ID 與同一次讀取的 manifest 比對後才可啟動候選，不能在 handler 先讀一次、runtime 再讀一次而留下目標切換窗口。實作者不得修改測試。
+
+減法審查：沿用現有 runtime 的候選交換與 worker 限制，不新增外掛管理器、背景佇列或 UI。完整驗收為成功換版、失敗留舊版、另一外掛及另一網站隔離三個流程，另以 main 原畫面的重載按鈕實際操作。
+
+本段已由主代理先重現假成功，再驗證八個新增 HTTP 案例及完整 PostgreSQL 競態測試：332 個頂層案例通過、7 個子程序 helper 跳過，零失敗與競態警告。gofmt、go vet、原生／Windows amd64／macOS amd64 編譯通過，獨立對抗性審查沒有已確認缺陷。隔離瀏覽器以 main 原頁完成成功換版、損壞候選、ID 不符與取消操作，真實 JavaScript 輸出證明版本與外掛隔離；UI 與設計沒有改動。待 CI 交付，本段結束後依使用者指示暫停。
