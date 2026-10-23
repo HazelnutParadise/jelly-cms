@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>後台 Markdown 編輯器 · 斜線選單與診斷</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.ic{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
+.chip.nd:before{display:none}
+.ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DCE6FF;color:#1A3F9E}.bad{background:#FBE1DE;color:#9C2318}.mint{background:#D4F5EE;color:#0B5E4E}
+.mark{display:inline-block;width:22px;height:26px}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px;white-space:nowrap}
+.seg span.on{background:#15161A;color:#fff}
+.tg{position:relative;width:40px;height:22px;border-radius:0 11px 0 11px;background:#13C2A3;display:inline-block;flex:0 0 auto}.tg:after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;background:#fff;border-radius:0 7px 0 7px}
+.tg.off{background:#D9DBE0}.tg.off:after{right:auto;left:3px}
+.ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
+.mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
+.cube{position:absolute;border-radius:0 26% 0 26%}
+.kbd{display:inline-block;font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:#EDEEF1;color:#5F6470}
+
+body{font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font-weight:700;font-size:13px;border:0;border-radius:0 9px 0 9px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}.btn.s{min-height:30px;font-size:12px;padding:0 10px}.btn.s.i{width:30px}.btn.danger{background:#FBE1DE;color:#9C2318}
+.rail{background:#15161A;color:#fff;display:flex;flex-direction:column;padding:14px 10px;gap:2px}
+.ns{font-size:11px;letter-spacing:.08em;color:#7E838F;padding:14px 12px 4px;text-transform:uppercase;font-weight:700}
+.nl{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 12px;border-radius:0 10px 0 10px;color:#C9CBD3;font-weight:600;font-size:13.5px}
+.nl:hover{background:#2A2B31;color:#fff}.nl.on{background:#E8285B;color:#fff}
+.nl .n{margin-left:auto;font-size:11px;background:#2A2B31;padding:1px 7px;border-radius:0 6px 0 6px;color:#C9CBD3}.nl.on .n{background:#fff;color:#E8285B}
+.nl.new:after{content:"新";margin-left:auto;font-size:10px;padding:1px 6px;border-radius:0 5px 0 5px;background:#13C2A3;color:#0B3A31}
+.nl.new .n{display:none}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#5F6470;padding:8px 10px;border-bottom:1px solid #E2E3E8;font-weight:700;white-space:nowrap}
+td{padding:10px;border-bottom:1px solid #EEEFF2;vertical-align:middle}
+tr:hover td{background:#F8F8FA}
+td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.act .btn{opacity:1}
+.cb{width:16px;height:16px;border-radius:0 5px 0 5px;box-shadow:inset 0 0 0 1.5px #B9BCC6;display:inline-block;vertical-align:middle;background:#fff}
+.cb.on{background:#15161A;box-shadow:none;position:relative}.cb.on:after{content:"";position:absolute;left:5px;top:2px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.card{background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 14px 0 14px;padding:16px}
+.srow{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.9fr);gap:8px 32px;align-items:center;padding:12px 0;border-top:1px solid #EEEFF2}
+.srow label{font-weight:700;font-size:14px;color:#15161A;display:block}.srow .h{font-size:12px;color:#5F6470;margin-top:2px}
+.srow .c{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:440px;background:#fff;box-shadow:-1px 0 0 #E2E3E8,-24px 0 48px rgba(21,22,26,.08);border-radius:0 0 0 24px;display:flex;flex-direction:column}
+.tree a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#15161A;font-weight:600;font-size:13.5px}
+.tree a.on{background:#15161A;color:#fff}.tree a .n{margin-left:auto;font-size:11px;color:#7E838F;font-weight:700}.tree a.on .n{color:#fff}
+.tree .lv1{padding-left:28px}.tree .lv2{padding-left:46px}
+.mi{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px 0 6px;background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 10px 0 10px;font-weight:600;font-size:13.5px}
+.mi .k{font-size:11px;color:#5F6470;font-weight:700;margin-left:auto}
+.mi.drop{box-shadow:inset 0 0 0 2px #2F6BFF;background:#F0F4FF}
+.diff{font:13px/1.7 ui-monospace,"SF Mono",Menlo,monospace;white-space:pre-wrap}
+.diff .a{background:#FBE1DE;color:#9C2318;text-decoration:line-through;padding:0 2px}.diff .b{background:#DCF3E9;color:#0F6A45;padding:0 2px}
+.log{font:12.5px/1.7 ui-monospace,"SF Mono",Menlo,monospace}
+.log .r{display:grid;grid-template-columns:150px 64px 110px minmax(0,1fr);gap:12px;padding:6px 10px;border-bottom:1px solid #EEEFF2;align-items:baseline}
+.log .r:hover{background:#F8F8FA}
+.lv{font-weight:800;font-size:11px;letter-spacing:.06em;padding:1px 6px;border-radius:0 5px 0 5px;text-align:center}
+.lv.i{background:#DCE6FF;color:#1A3F9E}.lv.w{background:#FCF0C8;color:#7A5200}.lv.e{background:#FBE1DE;color:#9C2318}.lv.d{background:#EDEEF1;color:#5F6470}
+.pal{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border-radius:0 10px 0 10px;font-weight:600;font-size:14px;color:#15161A}
+.pal.on{background:#15161A;color:#fff}.pal .k{margin-left:auto;font-size:11px;color:#9A9FAB;font-weight:700}.pal.on .k{color:#C9CBD3}
+.ph{display:flex;flex-direction:column;gap:8px}.ph i{display:block;height:12px;border-radius:0 5px 0 5px;background:linear-gradient(90deg,#EDEEF1 0 40%,#F6F6F8 50%,#EDEEF1 60%);background-size:200% 100%;animation:sh 1.4s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.step{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px}
+.step i{width:24px;height:24px;display:grid;place-items:center;border-radius:0 8px 0 8px;background:#EDEEF1;color:#5F6470;font-style:normal;font-family:"Bricolage Grotesque",sans-serif;font-size:12px}
+.step.on i{background:#15161A;color:#fff}.step.done i{background:#13C2A3;color:#fff}
+.av{width:28px;height:28px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;border-radius:0 9px 0 9px;flex:0 0 auto}
+
+.tool{width:30px;height:30px;display:inline-grid;place-items:center;border:0;background:transparent;border-radius:4px;color:#3A3D45;cursor:pointer}
+.tool:hover{background:#EDEEF1}.tool.on{background:#E6E7EB;color:#15161A}.tool .ic{width:16px;height:16px;stroke-width:1.6}
+.mono2{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Noto Sans Mono CJK TC",monospace}
+.src{font-size:14px;line-height:1.8;color:#15161A;white-space:pre-wrap;margin:0}
+.gut{text-align:right;color:#B0B4BF;user-select:none;white-space:pre;font-size:12px;line-height:1.8;padding-top:2px}
+.gut b{color:#15161A;font-weight:500}
+.prev{font-size:16px;line-height:1.85;color:#15161A}
+.prev h2{font-size:24px;font-weight:700;margin:28px 0 12px;line-height:1.35}.prev h3{font-size:18px;font-weight:700;margin:22px 0 8px}
+.prev p{margin:0 0 16px}.prev ul{margin:0 0 16px;padding-left:22px}
+.prev blockquote{margin:0 0 16px;padding:0 0 0 14px;border-left:3px solid #D9DBE0;color:#3A3D45}
+.prev pre{margin:0 0 16px;padding:12px 14px;background:#F6F7F9;border:1px solid #E6E7EB;border-radius:4px;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:13px}
+.ol a{display:flex;align-items:center;gap:8px;min-height:28px;padding:0 8px;border-radius:4px;color:#5F6470;font-size:13px}
+.ol a.h3{padding-left:22px;font-size:12.5px}.ol a.on{background:#EDEEF1;color:#15161A;font-weight:600}
+.ol a .n{margin-left:auto;font-size:11px;color:#B0B4BF}
+.float{position:absolute;display:inline-flex;align-items:center;gap:1px;padding:3px;background:#15161A;border-radius:6px;box-shadow:0 8px 24px rgba(21,22,26,.22)}
+.float .tool{color:#fff;width:28px;height:28px}.float .tool:hover{background:#2A2B31}.float .sep{width:1px;height:16px;background:#3A3D45;margin:0 3px}
+.slash{position:absolute;width:280px;background:#fff;border:1px solid #D9DBE0;border-radius:6px;box-shadow:0 12px 32px rgba(21,22,26,.14);overflow:hidden;font-size:13px}
+.slash .q{padding:8px 12px;border-bottom:1px solid #EEEFF2;color:#5F6470;display:flex;gap:6px;align-items:center}
+.slash a{display:flex;align-items:center;gap:10px;padding:7px 12px;color:#15161A}
+.slash a.on{background:#F3F3F5}.slash a .k{margin-left:auto;font-size:11px;color:#9A9FAB}
+.slash a .d2{font-size:11px;color:#5F6470;font-weight:400}
+.status{display:flex;align-items:center;gap:16px;padding:5px 16px;border-top:1px solid #E6E7EB;font-size:12px;color:#5F6470;background:#FAFAFB}
+.status b{font-weight:600;color:#3A3D45}
+.dim{color:#B9BCC6}
+.pop{position:absolute;background:#fff;border:1px solid #D9DBE0;border-radius:6px;box-shadow:0 12px 32px rgba(21,22,26,.14)}
+
+.slash{border-radius:0 12px 0 12px}
+.slash.c a{padding:5px 12px}
+.slash .hl{background:#F5B800;color:#15161A;border-radius:0 3px 0 3px;padding:0 1px}
+
+.lane{position:relative;display:flex;flex-direction:column;min-width:0;border-right:1px solid #E6E7EB}.lane:last-child{border-right:0}
+.lh{display:flex;align-items:center;gap:8px;min-height:44px;box-sizing:border-box;padding:0 14px;border-bottom:1px solid #EEEFF2;background:#FAFAFB;font-size:12.5px;color:#5F6470}
+.lh b{color:#15161A;font-size:14px}
+.ed{position:relative;height:716px;padding:10px 0;overflow:hidden;font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Noto Sans Mono CJK TC",monospace;font-size:12.5px;color:#15161A}
+.ln{display:flex;height:22px;line-height:22px;white-space:pre}
+.ln.cur{background:#F6F7F9}
+.ln .gn{position:relative;flex:0 0 38px;box-sizing:border-box;text-align:right;padding-right:10px;color:#B0B4BF;font-size:11.5px}
+.ln.cur .gn{color:#15161A;font-weight:700}
+.ln .tx{flex:1;min-width:0;padding-left:12px;overflow:hidden}
+.gn.dk:before,.gn.dy:before{content:"";position:absolute;left:4px;top:8px;width:6px;height:6px;border-radius:0 2px 0 2px}
+.gn.dk:before{background:#15161A}.gn.dy:before{background:#F5B800}
+.sq-i{text-decoration:underline wavy #15161A;text-underline-offset:2px}
+.sq-w{text-decoration:underline wavy #D99A00;text-underline-offset:2px}
+.trig{background:#DCE6FF;color:#1A3F9E;font-weight:700;border-radius:0 4px 0 4px;padding:0 3px}
+.caret{display:inline-block;width:2px;height:15px;background:#E8285B;vertical-align:-3px;margin-left:1px}
+.ty{color:#15161A;font-weight:700}
+.dg{display:flex;align-items:center;gap:10px;min-height:42px;padding:0 14px;font-size:13px;font-weight:600}
+.dg.w{background:#FCF0C8;color:#7A5200}.dg.k{background:#15161A;color:#fff}
+.dg .where{font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:rgba(21,22,26,.1)}
+.dg.k .where{background:#2A2B31;color:#C9CBD3}
+.dg .btn{margin-left:auto}
+</style>
+</helmet>
+<div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#fff;position:relative">
+    <div class="topline"></div>
+    
+    <header style="display:flex;align-items:center;gap:10px;padding:6px 14px;border-bottom:1px solid #E6E7EB;background:#fff">
+      <a class="btn x" href="Editor.dc.html" style="padding:0 8px;color:#5F6470"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>離開滿版<span class="kbd">ESC</span></a>
+      <span style="width:1px;height:18px;background:#E2E3E8"></span>
+      <b style="font-size:14px">為什麼我們決定用 Go 重寫一個 CMS</b>
+      <span class="chip warn">草稿</span>
+      <span style="font-size:12px;color:#5F6470;display:inline-flex;align-items:center;gap:5px"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>已儲存 · 剛剛</span>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+        <div class="seg"><span class="on"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM3 10h18M9 10v10"/></svg>原稿</span><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>分割</span><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>預覽</span></div><button class="tool on" type="button" aria-label="大綱"><svg class="ic" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg></button><button class="tool" type="button" aria-label="專心模式"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l2.8 6 6.2.7-4.6 4.3 1.3 6.3L12 17l-5.7 3.3 1.3-6.3L3 9.7 9.2 9z"/></svg></button><button class="tool" type="button" aria-label="搜尋取代"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg></button>
+        <button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 3"/></svg>版本</button>
+        <button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>預覽<span class="kbd">⌘⇧P</span></button>
+        <button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>發布 <span style="opacity:.7">▾</span></button>
+      </div>
+    </header>
+    <div style="flex:1;display:grid;grid-template-columns:200px minmax(0,1fr);min-height:0">
+      <aside style="border-right:1px solid #E6E7EB;padding:14px 10px;display:flex;flex-direction:column;gap:14px;background:#FAFAFB">
+        <div><div class="lbl" style="padding:0 8px 6px">大綱</div><nav class="ol" style="display:flex;flex-direction:column;gap:1px">
+          <a href="EditorSlash.dc.html">為什麼要再做一個 CMS<span class="n">H2</span></a>
+          <a href="EditorSlash.dc.html" class="h3">我們不要的</a>
+          <a href="EditorSlash.dc.html" class="h3 on">我們想要的</a>
+          <a href="EditorSlash.dc.html" class="dim">（接著寫…）</a>
+        </nav></div>
+        <div><div class="lbl" style="padding:0 8px 6px">診斷</div><div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:#5F6470;padding:0 8px">
+          <span style="display:flex;justify-content:space-between"><span>警告</span><b class="mono" style="color:#7A5200">1</b></span>
+          <span style="display:flex;justify-content:space-between"><span>提示</span><b class="mono" style="color:#15161A">1</b></span>
+        </div></div>
+      </aside>
+      <div style="display:flex;flex-direction:column;min-width:0">
+        <div style="flex:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))">
+      <section class="lane" aria-label="開啟">
+        <div class="lh"><span class="chip info nd">1</span><b>開啟</b><span>在空行輸入 /，列出全部指令</span><span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center"><span class="kbd">↑↓</span> 選擇 <span class="kbd">↵</span> 插入</span></div>
+        <div class="ed">
+<div class="ln"><span class="gn">16</span><span class="tx">- 貼圖片直接上傳</span></div>
+<div class="ln"><span class="gn">17</span><span class="tx"></span></div>
+<div class="ln"><span class="gn dk">18</span><span class="tx">:::cta {bg=mint <span class="sq-i">colour=blue</span>}</span></div>
+<div class="ln"><span class="gn">19</span><span class="tx">打開就能寫，不用找按鈕。</span></div>
+<div class="ln"><span class="gn">20</span><span class="tx"><span style="color:#0B5E4E">:::</span></span></div>
+<div class="ln"><span class="gn">21</span><span class="tx"></span></div>
+<div class="ln cur"><span class="gn">22</span><span class="tx"><span class="trig">/</span><i class="caret"></i></span></div>
+<div class="ln"><span class="gn">23</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">24</span><span class="tx">回應時間要壓在 $p_{95} &lt; 100\,\text{ms}$：</span></div>
+<div class="ln"><span class="gn">25</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">26</span><span class="tx">$$</span></div>
+<div class="ln"><span class="gn">27</span><span class="tx">T = \sum_{i=1}^{n} t_i</span></div>
+<div class="ln"><span class="gn">28</span><span class="tx">$$</span></div>
+<div class="ln"><span class="gn">29</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">30</span><span class="tx"><span style="color:#7E838F">&gt; [!TIP]</span></span></div>
+<div class="ln"><span class="gn">31</span><span class="tx"><span style="color:#7E838F">&gt; 表格用 YAML 寫，不用畫直線。</span></span></div>
+<div class="ln"><span class="gn">32</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">33</span><span class="tx">以下是最近三版的壓測結果：</span></div>
+<div class="ln"><span class="gn">34</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">35</span><span class="tx"><span style="color:#7E838F">```table</span></span></div>
+<div class="ln"><span class="gn">36</span><span class="tx">caption: 壓測結果</span></div>
+<div class="ln"><span class="gn">37</span><span class="tx">align: [left, right, right]</span></div>
+<div class="ln"><span class="gn">38</span><span class="tx">columns: [版本, p95, 記憶體]</span></div>
+<div class="ln"><span class="gn">39</span><span class="tx">rows:</span></div>
+<div class="ln"><span class="gn">40</span><span class="tx">  - [0.9.3, 86 ms, 48 MB]</span></div>
+<div class="ln"><span class="gn">41</span><span class="tx">  - [0.9.4, 71 ms, 51 MB]</span></div>
+<div class="ln"><span class="gn dy">42</span><span class="tx"><span class="sq-w">  - [0.9.5, 66 ms]</span></span></div>
+<div class="ln"><span class="gn">43</span><span class="tx"><span style="color:#7E838F">```</span></span></div>
+<div class="ln"><span class="gn">44</span><span class="tx"></span></div>
+<div class="slash c" style="left:50px;top:168px" role="menu" aria-label="插入">
+          <div class="q"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><b class="ty">/</b><span>接著打字篩選</span><span class="kbd" style="margin-left:auto">ESC</span></div>
+          <a class="on" href="EditorFull.dc.html"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM21 15l-5-5-8 8"/><circle cx="8" cy="10" r="1.5"/></svg><span>圖片<div class="d2">上傳、貼網址或從附件庫選</div></span><span class="k">↵</span></a>
+          <a href="EditorFull.dc.html"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span>表格<div class="d2">用 YAML 寫欄和列，不用畫直線對齊</div></span></a>
+          <a href="EditorFull.dc.html"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM7 9l3 3-3 3M12 15h5"/></svg><span>程式碼區塊<div class="d2">指定語言會上色</div></span></a>
+          <a href="EditorFull.dc.html"><span style="font:italic 700 15px Georgia,serif;width:15px;text-align:center">∑</span><span>數學公式<div class="d2">$…$ 行內、$$…$$ 區塊，KaTeX</div></span></a>
+          <a href="EditorFull.dc.html"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM3 10h18M9 10v10"/></svg><span>LaTeX 文件<div class="d2">整份 .tex，伺服器排版成頁面</div></span></a>
+          <a href="EditorFull.dc.html"><span style="font:700 12px ui-monospace,Menlo,monospace;width:15px;text-align:center">&lt;/&gt;</span><span>HTML 區塊<div class="d2">原始 HTML，會過濾 script</div></span></a>
+          <a href="EditorFull.dc.html"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4z"/></svg><span>引用</span></a>
+          <a href="EditorFull.dc.html"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg><span>待辦清單</span></a>
+          <a href="EditorFull.dc.html"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"/></svg><span>嵌入<div class="d2">YouTube、IG、推文，貼網址就好</div></span></a>
+          <a href="EditorFull.dc.html"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg><span>「閱讀更多」分隔線<div class="d2">列表頁只顯示這條以上</div></span></a>
+          <a href="EditorFull.dc.html"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg><span>商品卡<div class="d2">插入商店裡的商品</div></span></a>
+          <a href="EditorFull.dc.html"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg><span>自訂元件<div class="d2">管理員登錄的元件，例如預購倒數</div></span></a>
+        </div>
+        </div>
+      </section>
+      <section class="lane" aria-label="篩選">
+        <div class="lh"><span class="chip mint nd">2</span><b>篩選</b><span>繼續打字，只留下符合的</span><span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center"><span class="kbd">↵</span> 插入</span></div>
+        <div class="ed">
+<div class="ln"><span class="gn">16</span><span class="tx">- 貼圖片直接上傳</span></div>
+<div class="ln"><span class="gn">17</span><span class="tx"></span></div>
+<div class="ln"><span class="gn dk">18</span><span class="tx">:::cta {bg=mint <span class="sq-i">colour=blue</span>}</span></div>
+<div class="ln"><span class="gn">19</span><span class="tx">打開就能寫，不用找按鈕。</span></div>
+<div class="ln"><span class="gn">20</span><span class="tx"><span style="color:#0B5E4E">:::</span></span></div>
+<div class="ln"><span class="gn">21</span><span class="tx"></span></div>
+<div class="ln cur"><span class="gn">22</span><span class="tx"><span class="trig">/表</span><i class="caret"></i></span></div>
+<div class="ln"><span class="gn">23</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">24</span><span class="tx">回應時間要壓在 $p_{95} &lt; 100\,\text{ms}$：</span></div>
+<div class="ln"><span class="gn">25</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">26</span><span class="tx">$$</span></div>
+<div class="ln"><span class="gn">27</span><span class="tx">T = \sum_{i=1}^{n} t_i</span></div>
+<div class="ln"><span class="gn">28</span><span class="tx">$$</span></div>
+<div class="ln"><span class="gn">29</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">30</span><span class="tx"><span style="color:#7E838F">&gt; [!TIP]</span></span></div>
+<div class="ln"><span class="gn">31</span><span class="tx"><span style="color:#7E838F">&gt; 表格用 YAML 寫，不用畫直線。</span></span></div>
+<div class="ln"><span class="gn">32</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">33</span><span class="tx">以下是最近三版的壓測結果：</span></div>
+<div class="ln"><span class="gn">34</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">35</span><span class="tx"><span style="color:#7E838F">```table</span></span></div>
+<div class="ln"><span class="gn">36</span><span class="tx">caption: 壓測結果</span></div>
+<div class="ln"><span class="gn">37</span><span class="tx">align: [left, right, right]</span></div>
+<div class="ln"><span class="gn">38</span><span class="tx">columns: [版本, p95, 記憶體]</span></div>
+<div class="ln"><span class="gn">39</span><span class="tx">rows:</span></div>
+<div class="ln"><span class="gn">40</span><span class="tx">  - [0.9.3, 86 ms, 48 MB]</span></div>
+<div class="ln"><span class="gn">41</span><span class="tx">  - [0.9.4, 71 ms, 51 MB]</span></div>
+<div class="ln"><span class="gn dy">42</span><span class="tx"><span class="sq-w">  - [0.9.5, 66 ms]</span></span></div>
+<div class="ln"><span class="gn">43</span><span class="tx"><span style="color:#7E838F">```</span></span></div>
+<div class="ln"><span class="gn">44</span><span class="tx"></span></div>
+<div class="slash c" style="left:50px;top:168px" role="menu" aria-label="插入">
+          <div class="q"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><b class="ty">/表</b><span style="margin-left:auto;font-size:11px">1 項符合</span><span class="kbd">ESC</span></div>
+          <a class="on" href="EditorFull.dc.html"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg><span><span class="hl">表</span>格<div class="d2">用 YAML 寫欄和列，不用畫直線對齊</div></span><span class="k">↵</span></a>
+        </div>
+        </div>
+      </section>
+      <section class="lane" aria-label="空">
+        <div class="lh"><span class="chip warn nd">3</span><b>空</b><span>打了找不到的字</span><span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center"><span class="kbd">Esc</span> 關閉</span></div>
+        <div class="ed">
+<div class="ln"><span class="gn">16</span><span class="tx">- 貼圖片直接上傳</span></div>
+<div class="ln"><span class="gn">17</span><span class="tx"></span></div>
+<div class="ln"><span class="gn dk">18</span><span class="tx">:::cta {bg=mint <span class="sq-i">colour=blue</span>}</span></div>
+<div class="ln"><span class="gn">19</span><span class="tx">打開就能寫，不用找按鈕。</span></div>
+<div class="ln"><span class="gn">20</span><span class="tx"><span style="color:#0B5E4E">:::</span></span></div>
+<div class="ln"><span class="gn">21</span><span class="tx"></span></div>
+<div class="ln cur"><span class="gn">22</span><span class="tx"><span class="trig">/xyz</span><i class="caret"></i></span></div>
+<div class="ln"><span class="gn">23</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">24</span><span class="tx">回應時間要壓在 $p_{95} &lt; 100\,\text{ms}$：</span></div>
+<div class="ln"><span class="gn">25</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">26</span><span class="tx">$$</span></div>
+<div class="ln"><span class="gn">27</span><span class="tx">T = \sum_{i=1}^{n} t_i</span></div>
+<div class="ln"><span class="gn">28</span><span class="tx">$$</span></div>
+<div class="ln"><span class="gn">29</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">30</span><span class="tx"><span style="color:#7E838F">&gt; [!TIP]</span></span></div>
+<div class="ln"><span class="gn">31</span><span class="tx"><span style="color:#7E838F">&gt; 表格用 YAML 寫，不用畫直線。</span></span></div>
+<div class="ln"><span class="gn">32</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">33</span><span class="tx">以下是最近三版的壓測結果：</span></div>
+<div class="ln"><span class="gn">34</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">35</span><span class="tx"><span style="color:#7E838F">```table</span></span></div>
+<div class="ln"><span class="gn">36</span><span class="tx">caption: 壓測結果</span></div>
+<div class="ln"><span class="gn">37</span><span class="tx">align: [left, right, right]</span></div>
+<div class="ln"><span class="gn">38</span><span class="tx">columns: [版本, p95, 記憶體]</span></div>
+<div class="ln"><span class="gn">39</span><span class="tx">rows:</span></div>
+<div class="ln"><span class="gn">40</span><span class="tx">  - [0.9.3, 86 ms, 48 MB]</span></div>
+<div class="ln"><span class="gn">41</span><span class="tx">  - [0.9.4, 71 ms, 51 MB]</span></div>
+<div class="ln"><span class="gn dy">42</span><span class="tx"><span class="sq-w">  - [0.9.5, 66 ms]</span></span></div>
+<div class="ln"><span class="gn">43</span><span class="tx"><span style="color:#7E838F">```</span></span></div>
+<div class="ln"><span class="gn">44</span><span class="tx"></span></div>
+<div class="slash c" style="left:50px;top:168px" role="status">
+          <div class="q"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><b class="ty">/xyz</b><span class="kbd" style="margin-left:auto">ESC</span></div>
+          <div style="display:flex;align-items:center;gap:10px;padding:14px 12px;color:#5F6470"><svg class="ic" style="width:15px;height:15px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><span>沒有符合的指令，按 <span class="kbd">Esc</span> 關閉</span></div>
+        </div>
+        </div>
+      </section>
+        </div>
+        <!-- 診斷列：伺服器每次渲染回報，點「跳到該行」游標就過去 -->
+        <div role="region" aria-label="診斷" style="border-top:1px solid #E6E7EB">
+          <div style="display:flex;align-items:center;gap:8px;min-height:32px;padding:0 14px;background:#FAFAFB;font-size:12px;color:#5F6470"><b style="color:#15161A">診斷</b><span class="chip nd">2 則</span><span>不影響存檔與發布，改好後會自動消失</span><button class="btn x s i" type="button" aria-label="收合診斷" style="margin-left:auto"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
+          <div class="dg w"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v5M12 18v1"/></svg><span class="where">L42</span><span>第 42 行：YAML 表格第 3 列欄數不符</span><button class="btn s" type="button"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg>跳到該行</button></div>
+          <div class="dg k"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><span class="where">L18</span><span>第 18 行：未知屬性 colour，已忽略</span><button class="btn s" type="button" style="background:#fff;color:#15161A"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg>跳到該行</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="status"><span>Markdown · GFM + 數學 + YAML 表格 + LaTeX / HTML 區塊</span><span>第 <b>22</b> 行，第 <b>2</b> 欄</span><span><b>1,284</b> 字 · 約 6 分鐘</span><span style="display:inline-flex;align-items:center;gap:5px;color:#7A5200"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v5M12 18v1"/></svg>2 則診斷</span><span style="margin-left:auto">自動儲存 12:03 · 本機備份 <svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg></span><span><span class="kbd">⌘/</span> 快速鍵</span></div>
+  </div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

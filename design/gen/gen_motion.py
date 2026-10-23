@@ -65,6 +65,7 @@ layout_motion = layout_motion.replace('<div><div class="lbl" style="margin-botto
  f'<div><div class="lbl" style="margin-bottom:8px">互動元件</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">{L.pal("list","分頁")}{L.pal("chevron-d","摺疊")}{L.pal("image","輪播")}{L.pal("eye","燈箱")}{L.pal("clock","倒數")}{L.pal("plus","數字跳動")}{L.pal("grid","前後比較")}{L.pal("play","Lottie 動畫")}{L.pal("comment","投票")}{L.pal("terminal","自訂元件")}</div></div>\n        <div><div class="lbl" style="margin-bottom:8px">文字</div>')
 
 # ---------- 後台 · 互動元件（自訂） ----------
+TABS_DESC = ':::tabs 容器，每個 ::: tab {title="…"} 一頁，鍵盤可操作'
 def wrow(color, ic, name, desc, by, used, state, cls):
     return f'<div class="wrow"><span style="width:48px;height:48px;background:{color};color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px">{I(ic,20)}</span><div><b>{name}</b><div style="font-size:12px;color:#5F6470">{desc}</div></div><span style="font-size:12px;color:#5F6470">{by}</span><span class="mono" style="font-size:14px">{used} 頁用到</span><span><span class="chip {cls}">{state}</span></span></div>'
 widgets_main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 520px;gap:24px;align-items:start">
@@ -73,7 +74,7 @@ widgets_main = f'''<main style="padding:16px 24px 32px;display:grid;grid-templat
       <div style="display:flex;align-items:center;gap:10px"><div class="seg"><span class="on">全部 <b>9</b></span><span>內建 7</span><span>自訂 2</span><span>來自外掛 0</span></div><button class="btn p" type="button" style="margin-left:auto">{I("plus")}新增自訂元件</button></div>
       <div>
         <div class="wrow" style="border-top:0;padding-top:0;font-size:11px;font-weight:700;color:#5F6470;letter-spacing:.06em;text-transform:uppercase"><span></span><span>元件</span><span>來源</span><span>使用</span><span>狀態</span></div>
-        {wrow("#15161A","list","分頁 tabs","::tabs 容器，每個 ::: tab 一頁，鍵盤可操作","內建","12","可用","ok")}
+        {wrow("#15161A","list","分頁 tabs",TABS_DESC,"內建","12","可用","ok")}
         {wrow("#15161A","chevron-d","摺疊 accordion","FAQ 常用，可預設展開第一項","內建","8","可用","ok")}
         {wrow("#15161A","image","輪播 carousel","拖曳、自動播放可關、縮圖列","內建","3","可用","ok")}
         {wrow("#15161A","eye","燈箱 lightbox","圖片點開放大，圖庫自動套用","內建","41","可用","ok")}

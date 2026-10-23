@@ -17,7 +17,7 @@ Jelly CMS 全部畫面的設計稿原始檔。程式與這裡必須一致：改�
 
 ```sh
 python3 design/gen/gen.py          # 前台商店流程、後台缺的功能、營運與狀態畫面
-python3 design/gen/gen_editor.py   # 編輯器滿版與專心模式
+python3 design/gen/gen_editor.py   # 編輯器滿版、專心模式、斜線選單與診斷、手機版
 python3 design/gen/gen_update.py   # 版本更新（執行檔／容器）
 python3 design/gen/gen_front2.py   # 作者、標籤、彙整索引、商品分類、會員中心、訂單查詢
 ```
