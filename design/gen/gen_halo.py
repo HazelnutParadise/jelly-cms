@@ -1,10 +1,8 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from gen import I, doc, ADMIN_CSS, FRONT_CSS, OUT, admin, front, cubes
+from gen import I, doc, ADMIN_CSS, FRONT_CSS, OUT, admin, front, cubes, SUB_CSS, profile_nav
 
-CSS = ADMIN_CSS + '''
-.sub a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#5F6470;font-weight:600;font-size:13px}
-.sub a.on{background:#F3F3F5;color:#15161A}
+CSS = ADMIN_CSS + SUB_CSS + '''
 .nrow{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;padding:12px 10px;border-top:1px solid #EEEFF2;align-items:flex-start}
 .nrow.un{background:#F8F9FF}.nrow .t{font-size:12px;color:#5F6470;white-space:nowrap}
 .app{display:flex;flex-direction:column;gap:10px;padding:14px;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 14px 0 14px;background:#fff}
@@ -21,10 +19,6 @@ CSS = ADMIN_CSS + '''
 def settings_nav(on):
     items=[("globe","網站","Settings.dc.html"),("list","閱讀與網址","SettingsRoutes.dc.html"),("key","登入與註冊","Settings.dc.html"),("comment","留言","Settings.dc.html"),("card","金流","Settings.dc.html"),("truck","運送","Settings.dc.html"),("mail","郵件與通知","Settings.dc.html"),("db","快取與佇列","Infra.dc.html"),("terminal","程式碼注入","SettingsRoutes.dc.html"),("download","更新","Update.dc.html")]
     return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px" aria-label="設定分類">'+"".join(f'<a href="{h}"{" class=\"on\"" if l==on else ""}>{I(ic,14)}{l}</a>' for ic,l,h in items)+'</nav>'
-
-def profile_nav(on):
-    items=[("user","基本資料"),("mail","通知"),("key","API 權杖"),("lock","密碼與安全"),("globe","登入裝置"),("link","第三方帳號")]
-    return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px">'+"".join(f'<a href="Profile.dc.html"{" class=\"on\"" if l==on else ""}>{I(ic,14)}{l}</a>' for ic,l in items)+'</nav>'
 
 B = {}
 

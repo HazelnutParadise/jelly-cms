@@ -276,7 +276,7 @@
       "x": 1520,
       "y": 11640,
       "w": 1440,
-      "h": 1100,
+      "h": 1768,
       "title": "後台 · 個人帳號（尚未實作）",
       "expand": "fill"
     },
@@ -527,6 +527,30 @@
       "expand": "fill",
       "x": 9120,
       "y": 11640
+    },
+    "Login2FA.dc.html": {
+      "x": 24320,
+      "y": 11640,
+      "w": 1440,
+      "h": 900,
+      "title": "後台 · 登入 · 兩步驟驗證（尚未實作）",
+      "expand": "fill"
+    },
+    "InviteAccept.dc.html": {
+      "x": 25840,
+      "y": 11640,
+      "w": 1440,
+      "h": 900,
+      "title": "接受邀請（尚未實作）",
+      "expand": "fill"
+    },
+    "PasswordReset.dc.html": {
+      "x": 27360,
+      "y": 11640,
+      "w": 1440,
+      "h": 900,
+      "title": "重設密碼（尚未實作）",
+      "expand": "fill"
     }
   },
   "order": [
@@ -583,6 +607,9 @@
     "Profile.dc.html",
     "Notifications.dc.html",
     "Tokens.dc.html",
+    "Login2FA.dc.html",
+    "InviteAccept.dc.html",
+    "PasswordReset.dc.html",
     "Settings.dc.html",
     "SettingsRoutes.dc.html",
     "SettingsCrawlers.dc.html",
@@ -651,7 +678,7 @@
       "y": 11380,
       "text": "後台 · 帳號與系統",
       "kind": "title1",
-      "maxW": 24240
+      "maxW": 28800
     },
     "s-system": {
       "x": 18160,
