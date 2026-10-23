@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -30,6 +31,7 @@ import (
 // Item types and resolved URLs (core.MenuNode.URL):
 //   home → "/", page → "/"+slug, post → "/post/"+slug, category → "/c/"+slug, tag → "/t/"+slug, shop → "/shop", custom → url as given.
 // A typed item whose target no longer exists is skipped when rendering.
+// custom url is trimmed and must be non-empty and either start with "/" or "#", or parse as a URL with scheme http, https, mailto or tel (case-insensitive); otherwise PUT items → 400 and nothing is written.
 //
 // Theme function: {{range menu "header"}} … {{end}} returns []core.MenuNode for the menu assigned to that location
 // (empty slice when none). Active is true when the request path equals the node URL (set per request through
@@ -478,6 +480,8 @@ func validateMenuTree(nodes []menuItemInput, depth int) error {
 			return errors.New("label must be 120 characters or fewer")
 		case !menuItemTypes[node.Type]:
 			return errors.New("type must be home, page, post, category, tag, shop or custom")
+		case node.Type == "custom" && !menuCustomURLAllowed(strings.TrimSpace(node.URL)):
+			return errors.New("custom url must start with / or #, or use http, https, mailto or tel")
 		case utf8.RuneCountInString(node.Icon) > menuIconMaxLen:
 			return errors.New("icon must be 40 characters or fewer")
 		case utf8.RuneCountInString(node.CSSClass) > menuCSSMaxLen:
@@ -490,9 +494,32 @@ func validateMenuTree(nodes []menuItemInput, depth int) error {
 	return nil
 }
 
+// menuCustomURLAllowed reports whether an already-trimmed custom item url may be stored.
+func menuCustomURLAllowed(trimmed string) bool {
+	if trimmed == "" {
+		return false
+	}
+	if strings.HasPrefix(trimmed, "/") || strings.HasPrefix(trimmed, "#") {
+		return true
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return false
+	}
+	switch strings.ToLower(parsed.Scheme) {
+	case "http", "https", "mailto", "tel":
+		return true
+	}
+	return false
+}
+
 // insertMenuItems writes a validated tree. Positions are the array index among siblings.
 func insertMenuItems(tx *gorm.DB, menuID uint, parentID *uint, nodes []menuItemInput) error {
 	for i, node := range nodes {
+		storedURL := node.URL
+		if node.Type == "custom" {
+			storedURL = strings.TrimSpace(node.URL)
+		}
 		row := core.MenuItem{
 			MenuID:    menuID,
 			ParentID:  parentID,
@@ -500,7 +527,7 @@ func insertMenuItems(tx *gorm.DB, menuID uint, parentID *uint, nodes []menuItemI
 			Label:     strings.TrimSpace(node.Label),
 			Type:      node.Type,
 			RefID:     node.RefID,
-			URL:       node.URL,
+			URL:       storedURL,
 			Icon:      node.Icon,
 			NewTab:    node.NewTab,
 			LoginOnly: node.LoginOnly,
