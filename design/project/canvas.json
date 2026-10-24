@@ -88,6 +88,13 @@
       "h": 844,
       "title": "手機 · 後台文章"
     },
+    "EditorMobile.dc.html": {
+      "x": 3980,
+      "y": 4420,
+      "w": 390,
+      "h": 844,
+      "title": "手機 · 編輯器（尚未實作）"
+    },
     "Dashboard.dc.html": {
       "x": 0,
       "y": 5800,
@@ -124,7 +131,7 @@
       "x": 4560,
       "y": 5800,
       "w": 1440,
-      "h": 1360,
+      "h": 1520,
       "title": "後台 · 編輯器滿版（分割＋大綱＋斜線選單）（尚未實作）",
       "expand": "fill"
     },
@@ -440,6 +447,14 @@
       "x": 12160,
       "y": 5800
     },
+    "EditorSlash.dc.html": {
+      "w": 1440,
+      "h": 1000,
+      "title": "後台 · 編輯器 · 斜線選單與診斷（尚未實作）",
+      "expand": "fill",
+      "x": 16720,
+      "y": 5800
+    },
     "Notifications.dc.html": {
       "w": 1440,
       "h": 1000,
@@ -649,6 +664,7 @@
     "Install.dc.html",
     "MobileHome.dc.html",
     "MobileAdmin.dc.html",
+    "EditorMobile.dc.html",
     "Dashboard.dc.html",
     "Posts.dc.html",
     "Editor.dc.html",
@@ -658,6 +674,7 @@
     "EditorLayout.dc.html",
     "EditorMotion.dc.html",
     "EditorExport.dc.html",
+    "EditorSlash.dc.html",
     "Revisions.dc.html",
     "Trash.dc.html",
     "Taxonomy.dc.html",
@@ -715,14 +732,14 @@
       "y": 4160,
       "text": "登入、安裝與手機版",
       "kind": "title1",
-      "maxW": 3900
+      "maxW": 4370
     },
     "t3": {
       "x": 0,
       "y": 5540,
       "text": "後台 · 寫作　— 標「尚未實作」的是程式還沒有的畫面",
       "kind": "title1",
-      "maxW": 16640
+      "maxW": 18160
     },
     "t4": {
       "x": 0,

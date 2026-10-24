@@ -117,8 +117,10 @@ type Revision struct {
 	Content   string          `json:"content" gorm:"type:text"`
 	Excerpt   string          `json:"excerpt" gorm:"type:text"`
 	Meta      json.RawMessage `json:"meta" gorm:"type:jsonb"`
-	Added     int             `json:"added"`   // lines added versus the previous revision
-	Removed   int             `json:"removed"` // lines removed versus the previous revision
+	Added     int             `json:"added"`                   // lines added versus the previous revision
+	Removed   int             `json:"removed"`                 // lines removed versus the previous revision
+	Source    string          `json:"source" gorm:"type:text"` // Markdown or Jelly MD source (ticket 09)
+	Format    string          `json:"format" gorm:"size:8"`    // html, md or jmd
 	CreatedAt time.Time       `json:"created_at"`
 }
 

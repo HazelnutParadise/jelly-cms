@@ -1,0 +1,6 @@
+KaTeX 0.19.1
+source: https://github.com/KaTeX/KaTeX commit 8000fbd4e29cca2c0cb1e88b745af3ed2f436b66
+package: https://registry.npmjs.org/katex/-/katex-0.19.1.tgz
+integrity: sha512-jG8uKntjSEcm2EpQOh0XturpPuuC9r3Sq5HLHdsFdWZT27E672SF19QEi+of0/YeOy15lDgRhKvr5614uRrEfA==
+build date: 2026-10-24
+files: katex.min.js, katex.min.css, fonts/*.woff2 (woff and ttf fallbacks are not shipped)

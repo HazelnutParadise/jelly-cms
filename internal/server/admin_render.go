@@ -189,11 +189,14 @@ func renderAdminPage(c echo.Context, p AdminPage) error {
 		theme = user.UITheme
 	}
 
-	tmpl, err := template.New("base").Funcs(adminFuncs()).ParseFiles(
-		filepath.Join(adminDir, "components.html"),
-		filepath.Join(adminDir, "layout.html"),
-		filepath.Join(adminDir, p.File),
-	)
+	files := []string{filepath.Join(adminDir, "components.html"), filepath.Join(adminDir, "layout.html"), filepath.Join(adminDir, p.File)}
+	if p.File == "post_editor.html" || p.File == "page_editor.html" {
+		editor := filepath.Join(adminDir, "editor.html")
+		if _, statErr := os.Stat(editor); statErr == nil {
+			files = append(files, editor)
+		}
+	}
+	tmpl, err := template.New("base").Funcs(adminFuncs()).ParseFiles(files...)
 	if err != nil {
 		return fmt.Errorf("parse admin template %s: %w", p.File, err)
 	}

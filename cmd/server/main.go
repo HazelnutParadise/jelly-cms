@@ -90,6 +90,7 @@ func run(ctx context.Context) error {
 
 	go runTrashPurge(ctx)
 	go runOrderExpiry(ctx)
+	go server.RerenderStalePosts(ctx)
 
 	return runHTTPServer(ctx, e, ":8080")
 }
