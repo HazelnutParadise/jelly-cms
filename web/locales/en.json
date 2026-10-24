@@ -7,6 +7,9 @@
     "pages": "Pages",
     "products": "Products",
     "orders": "Orders",
+    "coupons": "Coupons",
+    "newCoupon": "New coupon",
+    "orderDetail": "Order detail",
     "media": "Media",
     "themes": "Themes",
     "plugins": "Plugins",
@@ -483,5 +486,9 @@
     "editorFocus": "Focus mode",
     "editorLayout": "Layout mode",
     "editorExport": "Export",
-    "widgets": "Widgets"
+    "widgets": "Widgets",
+    "users": "Users",
+    "inviteUser": "Invite user",
+    "account": "Account",
+    "notificationsTitle": "Notifications"
 }

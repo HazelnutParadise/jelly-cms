@@ -7,6 +7,9 @@
     "pages": "頁面",
     "products": "產品",
     "orders": "訂單",
+    "coupons": "折扣碼",
+    "newCoupon": "新增折扣碼",
+    "orderDetail": "訂單明細",
     "media": "附件",
     "themes": "主題",
     "plugins": "插件",
@@ -483,5 +486,9 @@
     "editorFocus": "專心模式",
     "editorLayout": "版面模式",
     "editorExport": "匯出",
-    "widgets": "元件"
+    "widgets": "元件",
+    "users": "使用者",
+    "inviteUser": "邀請使用者",
+    "account": "帳號",
+    "notificationsTitle": "通知中心"
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
 func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
@@ -27,7 +29,8 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 	// Content and media are available to known content roles. All other admin
 	// endpoints are registered on the admin-only group below.
 	content := e.Group("/api/admin", auth.RequireRole("admin", "editor", "author"))
-	registerPostRoutes(content)
+	postReads := e.Group("/api/admin")
+	registerPostRoutes(content, postReads)
 	api := e.Group("/api/admin", auth.RequireRole("admin"))
 	registerEditorRoutes(e, content, api)
 
@@ -440,11 +443,35 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		if err := c.Bind(&req); err != nil {
 			return err
 		}
+		if data.DB == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+		}
+		db := data.DB.WithContext(c.Request().Context())
+		maintenance := make(map[string]string, 3)
+		for _, key := range []string{maintenanceEnabledKey, maintenanceMessageKey, maintenanceStartedKey} {
+			if value, ok := req[key]; ok {
+				maintenance[key] = value
+				delete(req, key)
+			}
+		}
+		if len(maintenance) > 0 {
+			if err := saveMaintenanceOptions(db, maintenance); err != nil {
+				status := http.StatusServiceUnavailable
+				if errors.Is(err, errInvalidMaintenanceSetting) {
+					status = http.StatusBadRequest
+				}
+				return c.JSON(status, map[string]string{"error": "Unable to save settings"})
+			}
+		}
 		for k, v := range req {
 			var opt core.Option
-			data.DB.FirstOrCreate(&opt, core.Option{Key: k})
+			if err := db.FirstOrCreate(&opt, core.Option{Key: k}).Error; err != nil {
+				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Unable to save settings"})
+			}
 			opt.Value = v
-			data.DB.Save(&opt)
+			if err := db.Save(&opt).Error; err != nil {
+				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Unable to save settings"})
+			}
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "Settings saved"})
 	})
@@ -459,6 +486,9 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 	})
 
 	api.POST("/payment/gateways/ecpay", func(c echo.Context) error {
+		if data.DB == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+		}
 		var req struct {
 			Enabled    bool   `json:"enabled"`
 			MerchantID string `json:"merchant_id"`
@@ -478,8 +508,13 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 			IsTestMode: req.TestMode,
 		}
 
-		if err := service.SaveECPayConfig(config, req.Enabled); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		if err := data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+			if err := lockShopSettings(tx); err != nil {
+				return err
+			}
+			return service.SaveECPayConfig(config, req.Enabled)
+		}); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid gateway configuration"})
 		}
 
 		// Payment service will reload from DB on next use
@@ -489,6 +524,9 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 	})
 
 	api.POST("/payment/gateways/newebpay", func(c echo.Context) error {
+		if data.DB == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+		}
 		var req struct {
 			Enabled    bool   `json:"enabled"`
 			MerchantID string `json:"merchant_id"`
@@ -508,8 +546,13 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 			IsTestMode: req.TestMode,
 		}
 
-		if err := service.SaveNewebPayConfig(config, req.Enabled); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		if err := data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+			if err := lockShopSettings(tx); err != nil {
+				return err
+			}
+			return service.SaveNewebPayConfig(config, req.Enabled)
+		}); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid gateway configuration"})
 		}
 
 		// Payment service will reload from DB on next use

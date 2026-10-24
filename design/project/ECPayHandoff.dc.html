@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>前台綠界付款中繼頁</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.ic{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
+.chip.nd:before{display:none}
+.ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DCE6FF;color:#1A3F9E}.bad{background:#FBE1DE;color:#9C2318}.mint{background:#D4F5EE;color:#0B5E4E}
+.mark{display:inline-block;width:22px;height:26px}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px;white-space:nowrap}
+.seg span.on{background:#15161A;color:#fff}
+.tg{position:relative;width:40px;height:22px;border-radius:0 11px 0 11px;background:#13C2A3;display:inline-block;flex:0 0 auto}.tg:after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;background:#fff;border-radius:0 7px 0 7px}
+.tg.off{background:#D9DBE0}.tg.off:after{right:auto;left:3px}
+.ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
+.mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
+.cube{position:absolute;border-radius:0 26% 0 26%}
+.kbd{display:inline-block;font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:#EDEEF1;color:#5F6470}
+
+body{font-size:15px}
+.ic{width:18px;height:18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 22px;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:46px;padding:0}.btn.sm{min-height:36px;padding:0 12px;font-size:13px}.btn.sm.i{width:36px}
+.nav a{color:#15161A;font-weight:600;font-size:15px;padding:0 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:0 8px 0 8px}
+.nav a.on{background:#15161A;color:#fff}
+.field{width:100%;box-sizing:border-box;min-height:46px;padding:0 14px;border:0;background:#F3F3F5;border-radius:0 10px 0 10px;font:inherit;font-size:15px;color:#15161A}
+.flbl{font-size:13px;font-weight:700;color:#15161A;display:block;margin-bottom:6px}
+.step{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px}
+.step i{width:28px;height:28px;display:grid;place-items:center;border-radius:0 9px 0 9px;background:#EDEEF1;color:#5F6470;font-style:normal;font-family:"Bricolage Grotesque",sans-serif}
+.step.on i{background:#15161A;color:#fff}.step.done i{background:#13C2A3;color:#fff}
+.opt{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:0 12px 0 12px;box-shadow:inset 0 0 0 1px #E2E3E8;cursor:pointer}
+.opt.on{box-shadow:inset 0 0 0 2px #15161A;background:#F8F8FA}
+.opt .rad{width:18px;height:18px;border-radius:0 6px 0 6px;box-shadow:inset 0 0 0 2px #B9BCC6;flex:0 0 auto}
+.opt.on .rad{background:#E8285B;box-shadow:inset 0 0 0 5px #fff,0 0 0 2px #E8285B}
+.mark{width:26px;height:30px}
+.entry{display:grid;grid-template-columns:96px minmax(0,1fr);gap:24px;padding:28px 0;border-top:1px solid #E2E3E8}
+.entry h3{margin:0 0 8px;font-size:26px}.entry h3 a{color:#15161A}
+.entry p{margin:0;color:#5F6470;line-height:1.7}
+.day{font-size:44px;line-height:1}.ym{font-size:12px;color:#5F6470;font-weight:700;letter-spacing:.06em}
+.cm{display:grid;grid-template-columns:44px minmax(0,1fr);gap:16px;padding:20px 0;border-top:1px solid #E2E3E8}
+.cm .av{width:44px;height:44px;display:grid;place-items:center;color:#fff;font-weight:800;border-radius:0 12px 0 12px}
+
+.pc{position:relative;background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 16px 0 16px;overflow:hidden;display:flex;flex-direction:column;transition:box-shadow .15s,border-radius .25s}
+.pc:hover{box-shadow:inset 0 0 0 2px #15161A;border-radius:0 28px 0 28px}
+.pc .img{aspect-ratio:1;display:grid;place-items:center;color:#fff;font-weight:800;font-size:20px}
+.pc .b{padding:16px;display:flex;flex-direction:column;gap:6px}.pc h3{margin:0;font-size:18px}.pc h3 a{color:#15161A}
+.price{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:20px;letter-spacing:-.02em}
+.hero{padding:56px 40px 40px;position:relative;overflow:hidden}
+.hero .in{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:12px;position:relative}
+.side a{display:flex;justify-content:space-between;padding:8px 10px;color:#15161A;font-weight:600;border-radius:0 8px 0 8px}
+.side a.on{background:#15161A;color:#fff}.side a span{color:#5F6470}.side a.on span{color:#fff}
+.orow{display:grid;grid-template-columns:150px minmax(0,1fr) 130px 120px 44px;gap:16px;align-items:center;padding:18px 0;border-top:1px solid #E2E3E8}
+.tl{display:grid;grid-template-columns:20px minmax(0,1fr);gap:0 14px}
+.tl .dot{width:12px;height:12px;border-radius:0 4px 0 4px;background:#D9DBE0;margin:5px 4px}.tl .dot.on{background:#13C2A3}
+.tl .ln{width:2px;background:#E2E3E8;margin:0 9px;height:100%}
+
+.hp-row{display:flex;gap:40px;align-items:flex-start;justify-content:center;flex-wrap:wrap;padding:48px 40px 72px;background:#F5F5F7;min-height:100%;box-sizing:border-box}
+.hp-col{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.hp-cap{font-size:12px;font-weight:700;letter-spacing:.08em;color:#5F6470;text-transform:uppercase}
+.hp{box-sizing:border-box;display:grid;place-items:center;padding:40px 24px;font-family:system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;background:#fff;color:#15161A;box-shadow:0 0 0 1px #E2E3E8}
+.hp.dark{background:#141519;color:#ECEDF1;box-shadow:0 0 0 1px #2A2B31}
+.hp-card{width:100%;max-width:440px;display:flex;flex-direction:column;gap:16px}
+.hp-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px}
+.hp-brand .mark{width:26px;height:30px}
+.hp h1{margin:0;font-size:32px;line-height:1.1;letter-spacing:-.03em;font-weight:800}
+.hp p{margin:0;line-height:1.7;font-size:15px}
+.hp .muted{color:#5F6470}.hp.dark .muted{color:#9A9FAB}
+.hp-bar{height:4px;background:#EDEEF1;border-radius:0 2px 0 2px;overflow:hidden}.hp.dark .hp-bar{background:#2A2B31}
+.hp-bar i{display:block;width:45%;height:100%;background:#E8285B}
+.hp-sum{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;padding:14px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:14px}.hp.dark .hp-sum{background:#1E2026}
+.hp-sum b{text-align:right}
+.hp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;font:inherit;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#E8285B;color:#fff;width:100%;box-sizing:border-box}
+.hp-link{font-size:14px;color:#2F6BFF;text-decoration:underline;text-underline-offset:3px}.hp.dark .hp-link{color:#8FB0FF}
+.hp-note{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.6}
+.hp-err{padding:12px 14px;border-radius:0 10px 0 10px;background:#FBE1DE;color:#9C2318;font-size:14px;line-height:1.6}
+.hp-spec{max-width:420px;font-size:13px;line-height:1.7;color:#3A3D46;background:#fff;border-radius:0 16px 0 16px;padding:20px;box-shadow:inset 0 0 0 1px #E2E3E8}
+.hp-spec code{font-size:12px;background:#F3F3F5;padding:1px 5px;border-radius:0 4px 0 4px}
+</style>
+</helmet>
+<div class="hp-row">
+  <div class="hp-col"><span class="hp-cap">1280 · 淺色 · 繁中</span><div class="hp" style="width:640px;min-height:640px"><div class="hp-card"><div class="hp-brand"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</div><span class="stripe"></span><div class="lbl">安全付款</div>
+        <h1>正在前往綠界付款頁</h1>
+        <div class="hp-bar" role="progressbar" aria-label="前往付款頁"><i></i></div>
+        <p class="muted">這一頁不會收集卡號。卡片資料只在綠界的付款頁輸入，付款完成後會回到本站顯示結果。</p>
+        <div class="hp-sum"><span class="muted">訂單</span><b class="mono">JL-2026-0417</b><span class="muted">金額</span><b class="mono">NT$ 880</b><span class="muted">付款方式</span><b>信用卡</b></div>
+        <button class="hp-btn" type="submit">沒有自動跳轉？繼續前往綠界</button>
+        <a class="hp-link" href="OrderDone.dc.html"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>回到訂單</a></div></div></div>
+  <div class="hp-col"><span class="hp-cap">390 · 深色 · English</span><div class="hp dark" style="width:390px;min-height:640px"><div class="hp-card"><div class="hp-brand"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#ECEDF1" fill-opacity=".9"/></svg>Hazel Jelly</div><span class="stripe"></span><div class="lbl">Secure payment</div>
+        <h1>Taking you to ECPay</h1>
+        <div class="hp-bar" role="progressbar" aria-label="Redirecting"><i></i></div>
+        <p class="muted">This page never asks for your card. You enter card details only on the ECPay page, then return here for the result.</p>
+        <div class="hp-sum"><span class="muted">Order</span><b class="mono">JL-2026-0417</b><span class="muted">Amount</span><b class="mono">NT$ 880</b><span class="muted">Method</span><b>Credit card</b></div>
+        <button class="hp-btn" type="submit">Not redirected? Continue to ECPay</button>
+        <a class="hp-link" href="OrderDone.dc.html"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>Back to your order</a></div></div></div>
+  <div class="hp-col"><span class="hp-cap">390 · 淺色 · 連線失敗</span><div class="hp" style="width:390px;min-height:640px"><div class="hp-card"><div class="hp-brand"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</div><span class="stripe"></span><div class="lbl">安全付款</div>
+        <h1>暫時無法前往付款頁</h1>
+        <div class="hp-err" role="alert">付款服務沒有回應，訂單沒有被扣款，商品仍保留到 10/27 16:02。</div>
+        <div class="hp-sum"><span class="muted">訂單</span><b class="mono">JL-2026-0417</b><span class="muted">金額</span><b class="mono">NT$ 880</b><span class="muted">付款方式</span><b>信用卡</b></div>
+        <button class="hp-btn" type="button"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>再試一次</button>
+        <a class="hp-link" href="OrderDone.dc.html">回到訂單換付款方式</a></div></div></div>
+  <div class="hp-spec">
+    <b>實作對照</b><br>
+    獨立頁，不載入主題 layout、外部字型或圖片；只用 inline style，符合目前 <code>script-src 'unsafe-inline'; style-src 'unsafe-inline'</code> 的 CSP。<br>
+    顏色：底 <code>#FFFFFF</code>／深色 <code>#141519</code>，字 <code>#15161A</code>／<code>#ECEDF1</code>，說明 <code>#5F6470</code>／<code>#9A9FAB</code>，主要按鈕 <code>#E8285B</code> 白字，連結 <code>#2F6BFF</code>／<code>#8FB0FF</code>；依 <code>prefers-color-scheme</code> 切換。<br>
+    形狀：按鈕與摘要只圓右上與左下角（<code>0 10px 0 10px</code>），品牌記號用果凍丁 SVG，上方三色斜線。<br>
+    行為：載入後自動送出表單；「繼續前往綠界」按鈕永遠可見，供停用 JavaScript 或自動送出被擋時使用；「回到訂單」連回 <code>/checkout/done/&lt;number&gt;?t=…</code>。進度條在「減少動態」時不動。<br>
+    語言：依訂單或請求語系輸出完整中文或英文，不並排。
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1150}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

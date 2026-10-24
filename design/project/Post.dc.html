@@ -44,7 +44,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
   </header>
 
   <!-- 文章頭：墨色全幅 -->
-  <section style="background: #15161A; color: #fff; padding: 72px 40px; position: relative; overflow: hidden">
+  <section style="background: #15161A; color: #F2F3F7; padding: 72px 40px; position: relative; overflow: hidden">
     <span style="position: absolute; right: 6%; top: -10%; width: 14%; aspect-ratio: 1; background: #2F6BFF; opacity: .8; border-radius: 0 24% 0 24%" aria-hidden="true"></span>
     <span style="position: absolute; right: 2%; top: 30%; width: 14%; aspect-ratio: 1; background: #E8285B; opacity: .9; border-radius: 0 24% 0 24%; rotate: -7deg" aria-hidden="true"></span>
     <div style="max-width: 1360px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; max-width: 900px">
@@ -90,7 +90,33 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
   <!-- 下一篇 / 上一篇 -->
   <section style="max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box; padding: 0 40px 96px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px">
     <a href="Post.dc.html" style="display: flex; flex-direction: column; gap: 8px; padding: 24px; background: #F5F5F7; border-radius: 0 16px 0 16px; color: #15161A"><span class="lbl" style="display: inline-flex; align-items: center; gap: 6px"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>上一篇</span><span class="d" style="font-size: 22px">一個安裝頁面要考慮的二十件事</span></a>
-    <a href="Post.dc.html" style="display: flex; flex-direction: column; gap: 8px; padding: 24px; background: #15161A; color: #fff; border-radius: 0 16px 0 16px; text-align: right; align-items: flex-end"><span class="lbl" style="display: inline-flex; align-items: center; gap: 6px; color: #B9BCC6">下一篇<svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg></span><span class="d" style="font-size: 22px">果凍丁與裝飾線：預設主題的設計筆記</span></a>
+    <a href="Post.dc.html" style="display: flex; flex-direction: column; gap: 8px; padding: 24px; background: #15161A; color: #F2F3F7; border-radius: 0 16px 0 16px; text-align: right; align-items: flex-end"><span class="lbl" style="display: inline-flex; align-items: center; gap: 6px; color: #B9BCC6">下一篇<svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg></span><span class="d" style="font-size: 22px">果凍丁與裝飾線：預設主題的設計筆記</span></a>
+  </section>
+
+  <section style="max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box; padding: 0 40px 96px">
+    <div style="max-width: 900px; margin: 0 auto">
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 40px" aria-label="文章標籤">
+        <span class="lbl" style="align-self: center; margin-right: 4px">標籤</span>
+        <a class="chip" href="Search.dc.html">#Go</a><a class="chip" href="Search.dc.html">#CMS</a><a class="chip" href="Search.dc.html">#開發日誌</a>
+      </div>
+      <section aria-labelledby="comments-title" style="border-top: 1px solid #E2E3E8; padding-top: 32px">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 20px">
+          <h2 class="d" id="comments-title" style="font-size: 32px">留言 <span style="font-size: 18px; color: #5F6470">3</span></h2>
+          <span class="lbl">友善交流，留言會先經審核</span>
+        </div>
+        <ol style="list-style: none; padding: 0; margin: 0 0 32px">
+          <li style="display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; padding: 20px 0; border-top: 1px solid #E2E3E8">
+            <span style="width: 40px; height: 40px; display: grid; place-items: center; background: #2F6BFF; color: #fff; font-weight: 800; border-radius: 0 12px 0 12px">林</span>
+            <div><div style="font-weight: 700">林小路 <time style="font-size: 13px; color: #5F6470; font-weight: 400">2026.10.23</time></div><p style="margin: 6px 0 0; color: #5F6470; line-height: 1.7">期待這個專案，也謝謝分享設計思路。</p></div>
+          </li>
+        </ol>
+        <form style="display: grid; gap: 12px; max-width: 640px">
+          <label for="comment-body" class="lbl">留下留言</label>
+          <textarea id="comment-body" rows="5" placeholder="寫下你的想法……" style="width: 100%; padding: 14px; border: 1px solid #E2E3E8; border-radius: 0 16px 0 16px; background: #F5F5F7; color: #15161A; font: inherit"></textarea>
+          <button class="btn" type="button" style="justify-self: start">送出留言</button>
+        </form>
+      </section>
+    </div>
   </section>
 
   <button type="button" aria-label="回到頂部" title="回到頂部（JS 緩動捲動，不是 #錨點）" style="position:absolute;right:32px;bottom:140px;width:48px;height:48px;display:grid;place-items:center;border:0;background:#15161A;color:#fff;border-radius:0 16px 0 16px;box-shadow:0 10px 28px rgba(21,22,26,.22);cursor:pointer"><svg viewBox="0 0 24 24" style="width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square"><path d="M12 20V4M6 10l6-6 6 6"/></svg></button>

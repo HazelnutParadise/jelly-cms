@@ -1,0 +1,31 @@
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+<div class="shop narrow" data-page="sandbox" data-lang="{{if $en}}en{{else}}zh-TW{{end}}" data-currency="{{.Currency}}" data-trade="{{.TradeNo}}">
+    <div class="notice warn" role="note">
+        <div><b>{{if $en}}Sandbox test mode:{{else}}沙盒測試模式：{{end}}</b> {{if $en}}this page only exists outside production with the sandbox gateway enabled. No real payment or charge happens.{{else}}這頁只在非正式環境且啟用沙盒金流時出現，不會產生真實付款或扣款。{{end}}</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: .75rem;">
+        <span class="shop-stripe"></span>
+        <div class="shop-lbl">{{if $en}}Payment sandbox · local test{{else}}金流沙盒 · 本地測試{{end}}</div>
+        <h1 class="page-title">{{if $en}}Simulated payment gateway{{else}}模擬付款閘道{{end}}</h1>
+        <p class="muted">{{if $en}}Transaction{{else}}交易編號{{end}}：<b class="mono" style="color: var(--ink);">{{.TradeNo}}</b>{{with .OrderNumber}} · {{if $en}}Order{{else}}訂單{{end}} <b class="mono" style="color: var(--ink);">{{.}}</b>{{end}}</p>
+    </div>
+
+    <div class="box" style="padding: 1.75rem; gap: 1.25rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--outline); padding-bottom: 1rem; gap: 1rem; flex-wrap: wrap;">
+            <span class="muted">{{if $en}}Order amount{{else}}訂單金額{{end}}</span>
+            <span class="d" style="font-size: 2rem;">{{with .Amount}}{{money .}}{{end}}</span>
+        </div>
+        <p class="small muted">{{if $en}}Choose the result to simulate. The server signs the notification with this site's own sandbox key and processes it the same way as a real gateway callback.{{else}}選擇要模擬的金流結果。伺服器會用本站自己的沙盒金鑰簽署通知，並和真實金流回呼走同一套處理。{{end}}</p>
+        <div class="sandbox-acts">
+            <button class="btn p lg" type="button" data-sandbox="paid">{{if $en}}Simulate success{{else}}模擬付款成功{{end}}</button>
+            <button class="btn t lg danger" type="button" data-sandbox="failed">{{if $en}}Simulate failure{{else}}模擬付款失敗{{end}}</button>
+            <button class="btn t lg" type="button" data-sandbox="pending">{{if $en}}Simulate ATM pending{{else}}模擬 ATM 待繳{{end}}</button>
+        </div>
+        <div data-sandbox-status hidden aria-live="polite"></div>
+    </div>
+</div>
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}

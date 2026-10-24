@@ -1,0 +1,80 @@
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+<div class="shop" data-page="security" data-lang="{{if $en}}en{{else}}zh-TW{{end}}">
+    <div class="acct">
+        <aside class="shop-side acct-side" aria-label="{{if $en}}Account{{else}}會員中心{{end}}">
+            {{with .Member}}<div class="acct-who"><span class="av" aria-hidden="true">{{if .Name}}{{initial .Name}}{{else}}{{initial .Email}}{{end}}</span><div><b>{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}</b><small>{{.Email}}</small></div></div>{{end}}
+            <nav aria-label="{{if $en}}Account sections{{else}}會員中心分頁{{end}}">
+                <a href="/account/orders"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2 12h12l2-8H6"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg>{{if $en}}My orders{{else}}我的訂單{{end}}</span></a>
+                <a href="/account/addresses"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6h12v10H2zM14 10h4l4 4v2h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>{{if $en}}Addresses{{else}}收件地址{{end}}</span></a>
+                <a href="/account/invoices"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6h20v12H2zM2 10h20"/></svg>{{if $en}}Invoices{{else}}發票設定{{end}}</span></a>
+                <a href="/account/security" aria-current="page"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{{if $en}}Account and password{{else}}帳號與密碼{{end}}</span></a>
+                <a href="/account/notifications"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM3 5l9 7 9-7"/></svg>{{if $en}}Notifications{{else}}通知{{end}}</span></a>
+            </nav>
+            <form method="post" action="/auth/logout"><button class="btn x sm" type="submit">{{if $en}}Sign out{{else}}登出{{end}}</button></form>
+        </aside>
+        <section class="acct-main" aria-labelledby="acct-title">
+            <div style="display: flex; flex-direction: column; gap: .75rem;"><span class="shop-stripe"></span><h1 class="page-title" id="acct-title" style="font-size: clamp(2rem, 5vw, 2.75rem);">{{if $en}}Account and password{{else}}帳號與密碼{{end}}</h1></div>
+            <div data-sec-status hidden></div>
+
+            <form class="box" data-profile novalidate aria-labelledby="sec-profile">
+                <h2 class="d" id="sec-profile" style="font-size: 1.25rem;">{{if $en}}Profile{{else}}基本資料{{end}}</h2>
+                <div class="grid2">
+                    <div><label class="flbl" for="sp-name">{{if $en}}Display name{{else}}顯示名稱{{end}}</label><input class="field" id="sp-name" name="display_name" type="text" maxlength="120" autocomplete="name" data-field="display_name"><div class="ferr" data-err="display_name" hidden></div></div>
+                    <div><label class="flbl" for="sp-locale">{{if $en}}Language{{else}}語言{{end}}</label><select class="field" id="sp-locale" name="locale" data-field="locale"><option value="zh-TW">繁體中文</option><option value="en">English</option></select></div>
+                </div>
+                <div class="acts"><button class="btn t sm" type="submit">{{if $en}}Save{{else}}儲存{{end}}</button></div>
+                <div data-msg hidden></div>
+            </form>
+
+            <form class="box" data-email novalidate aria-labelledby="sec-email">
+                <h2 class="d" id="sec-email" style="font-size: 1.25rem;">Email</h2>
+                <p class="small">{{if $en}}Current:{{else}}目前：{{end}} <b data-current-email></b></p>
+                <p class="chip warn" data-pending-email hidden></p>
+                <div class="grid2">
+                    <div><label class="flbl" for="se-new">{{if $en}}New email{{else}}新的 Email{{end}}</label><input class="field" id="se-new" name="new_email" type="email" autocomplete="email" data-field="new_email"><div class="ferr" data-err="new_email" hidden></div></div>
+                    <div><label class="flbl" for="se-pw">{{if $en}}Current password{{else}}目前密碼{{end}}</label><input class="field" id="se-pw" name="current_password" type="password" autocomplete="current-password" data-field="current_password"><div class="ferr" data-err="current_password" hidden></div></div>
+                </div>
+                <p class="hint">{{if $en}}We send a confirmation link to the new address; the change happens after you open it.{{else}}我們會寄確認連結到新信箱，打開後才會更換。{{end}}</p>
+                <div class="acts"><button class="btn t sm" type="submit">{{if $en}}Change email{{else}}更換 Email{{end}}</button></div>
+                <div data-msg hidden></div>
+            </form>
+
+            <form class="box" data-password novalidate aria-labelledby="sec-pw">
+                <h2 class="d" id="sec-pw" style="font-size: 1.25rem;">{{if $en}}Password{{else}}密碼{{end}}</h2>
+                <div class="grid2">
+                    <div><label class="flbl" for="sw-cur">{{if $en}}Current password{{else}}目前密碼{{end}}</label><input class="field" id="sw-cur" name="current_password" type="password" autocomplete="current-password" data-field="current_password" aria-describedby="sw-cur-hint"><div class="hint" id="sw-cur-hint">{{if $en}}Leave empty if you have only signed in with Google or GitHub.{{else}}只用 Google 或 GitHub 登入、還沒設過密碼可留空。{{end}}</div><div class="ferr" data-err="current_password" hidden></div></div>
+                    <div><label class="flbl" for="sw-new">{{if $en}}New password{{else}}新密碼{{end}}</label><input class="field" id="sw-new" name="new_password" type="password" autocomplete="new-password" minlength="8" data-field="new_password" aria-describedby="sw-new-hint"><div class="hint" id="sw-new-hint">{{if $en}}At least 8 characters. Other devices are signed out after the change.{{else}}至少 8 個字元。更改後其他裝置會登出。{{end}}</div><div class="ferr" data-err="new_password" hidden></div></div>
+                </div>
+                <div class="acts"><button class="btn t sm" type="submit">{{if $en}}Change password{{else}}更改密碼{{end}}</button></div>
+                <div data-msg hidden></div>
+            </form>
+
+            <section class="box" aria-labelledby="sec-2fa">
+                <h2 class="d" id="sec-2fa" style="font-size: 1.25rem;">{{if $en}}Two-step verification{{else}}兩步驟驗證{{end}}</h2>
+                <p class="small muted">{{if $en}}Sign-in also asks for a 6-digit code from an authenticator app.{{else}}登入時除了密碼，還要輸入驗證器 App 的 6 位數驗證碼。{{end}}</p>
+                <div data-2fa aria-live="polite"
+                    data-enable-label="{{if $en}}Turn on{{else}}啟用{{end}}"
+                    data-disable-label="{{if $en}}Turn off{{else}}停用{{end}}"
+                    data-verify-label="{{if $en}}Verify and turn on{{else}}驗證並啟用{{end}}"
+                    data-code-label="{{if $en}}6-digit code or recovery code{{else}}6 位數驗證碼或備用碼{{end}}"
+                    data-password-label="{{if $en}}Current password{{else}}目前密碼{{end}}"
+                    data-qr-label="{{if $en}}QR code for the authenticator app{{else}}驗證器 App 的 QR code{{end}}"
+                    data-secret-label="{{if $en}}Or enter this key:{{else}}或手動輸入金鑰：{{end}}"
+                    style="display: flex; flex-direction: column; gap: .75rem;"><span class="sk"></span></div>
+            </section>
+
+            <section class="box" data-sessions aria-labelledby="sec-sess">
+                <div style="display: flex; justify-content: space-between; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                    <h2 class="d" id="sec-sess" style="font-size: 1.25rem;">{{if $en}}Signed-in devices{{else}}登入裝置{{end}}</h2>
+                    <button class="btn t sm" type="button" data-revoke-others>{{if $en}}Sign out other devices{{else}}登出其他裝置{{end}}</button>
+                </div>
+                <div class="sess" data-session-list aria-live="polite"><span class="sk"></span></div>
+                <div data-msg hidden></div>
+            </section>
+        </section>
+    </div>
+</div>
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}

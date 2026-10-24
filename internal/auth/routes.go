@@ -6,6 +6,7 @@ func RegisterRoutes(e *echo.Echo) {
 	// Public auth API documentation
 	e.GET("/api/auth", HandleAuthAPIIndex)
 	e.GET("/api/auth/openapi.json", HandleAuthOpenAPI)
+	e.GET("/api/docs", HandleAuthOpenAPI)
 
 	// Local login
 	e.POST("/auth/login", ProtectBrowserWrites(ProtectLoginAttempts(HandleLocalLogin)))

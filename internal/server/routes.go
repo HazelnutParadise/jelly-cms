@@ -21,6 +21,9 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	e.Use(gate.middleware)
 	e.Use(installStateMiddleware)
 	e.Use(I18nMiddleware)
+	e.Use(maintenanceMiddleware(tm))
+	e.Use(enforceStaffAdminAPIs)
+	e.Use(enforceStaffAdminPages)
 	e.Static("/uploads", "data/uploads")
 	e.Static("/admin/assets", "web/admin/assets")
 
@@ -49,7 +52,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	registerPaletteRoutes(e)
 
 	// Admin page routes with authentication
-	adminPages := e.Group("/admin", auth.RequireAuth)
+	adminPages := e.Group("/admin", auth.RequireAuth, staffPageGate)
 	adminPages.GET("", func(c echo.Context) error {
 		return renderAdmin(c, "index.html", "dashboard")
 	})
@@ -157,6 +160,15 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 
 	// Content organisation: taxonomy, menus, comments, trash, revisions, archives
 	registerContentRoutes(e, tm, renderAdmin)
+
+	// Accounts: self-service, user administration, notifications (ticket 06).
+	registerAccountRoutes(e, renderAdmin)
+	registerUserRoutes(e, renderAdmin)
+	wireNotifications()
+
+	// Shop: storefront, cart and checkout (public), admin orders, coupons and settings
+	registerShopRoutes(e, tm)
+	registerShopAdminRoutes(e, renderAdmin)
 
 	// Public Routes (Catch-all should be last)
 	registerAccountPages(e)

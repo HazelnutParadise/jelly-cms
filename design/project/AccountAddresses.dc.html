@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>前台會員收件地址</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.ic{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
+.chip.nd:before{display:none}
+.ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DCE6FF;color:#1A3F9E}.bad{background:#FBE1DE;color:#9C2318}.mint{background:#D4F5EE;color:#0B5E4E}
+.mark{display:inline-block;width:22px;height:26px}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px;white-space:nowrap}
+.seg span.on{background:#15161A;color:#fff}
+.tg{position:relative;width:40px;height:22px;border-radius:0 11px 0 11px;background:#13C2A3;display:inline-block;flex:0 0 auto}.tg:after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;background:#fff;border-radius:0 7px 0 7px}
+.tg.off{background:#D9DBE0}.tg.off:after{right:auto;left:3px}
+.ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
+.mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
+.cube{position:absolute;border-radius:0 26% 0 26%}
+.kbd{display:inline-block;font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:#EDEEF1;color:#5F6470}
+
+body{font-size:15px}
+.ic{width:18px;height:18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 22px;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:46px;padding:0}.btn.sm{min-height:36px;padding:0 12px;font-size:13px}.btn.sm.i{width:36px}
+.nav a{color:#15161A;font-weight:600;font-size:15px;padding:0 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:0 8px 0 8px}
+.nav a.on{background:#15161A;color:#fff}
+.field{width:100%;box-sizing:border-box;min-height:46px;padding:0 14px;border:0;background:#F3F3F5;border-radius:0 10px 0 10px;font:inherit;font-size:15px;color:#15161A}
+.flbl{font-size:13px;font-weight:700;color:#15161A;display:block;margin-bottom:6px}
+.step{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px}
+.step i{width:28px;height:28px;display:grid;place-items:center;border-radius:0 9px 0 9px;background:#EDEEF1;color:#5F6470;font-style:normal;font-family:"Bricolage Grotesque",sans-serif}
+.step.on i{background:#15161A;color:#fff}.step.done i{background:#13C2A3;color:#fff}
+.opt{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:0 12px 0 12px;box-shadow:inset 0 0 0 1px #E2E3E8;cursor:pointer}
+.opt.on{box-shadow:inset 0 0 0 2px #15161A;background:#F8F8FA}
+.opt .rad{width:18px;height:18px;border-radius:0 6px 0 6px;box-shadow:inset 0 0 0 2px #B9BCC6;flex:0 0 auto}
+.opt.on .rad{background:#E8285B;box-shadow:inset 0 0 0 5px #fff,0 0 0 2px #E8285B}
+.mark{width:26px;height:30px}
+.entry{display:grid;grid-template-columns:96px minmax(0,1fr);gap:24px;padding:28px 0;border-top:1px solid #E2E3E8}
+.entry h3{margin:0 0 8px;font-size:26px}.entry h3 a{color:#15161A}
+.entry p{margin:0;color:#5F6470;line-height:1.7}
+.day{font-size:44px;line-height:1}.ym{font-size:12px;color:#5F6470;font-weight:700;letter-spacing:.06em}
+.cm{display:grid;grid-template-columns:44px minmax(0,1fr);gap:16px;padding:20px 0;border-top:1px solid #E2E3E8}
+.cm .av{width:44px;height:44px;display:grid;place-items:center;color:#fff;font-weight:800;border-radius:0 12px 0 12px}
+
+.pc{position:relative;background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 16px 0 16px;overflow:hidden;display:flex;flex-direction:column;transition:box-shadow .15s,border-radius .25s}
+.pc:hover{box-shadow:inset 0 0 0 2px #15161A;border-radius:0 28px 0 28px}
+.pc .img{aspect-ratio:1;display:grid;place-items:center;color:#fff;font-weight:800;font-size:20px}
+.pc .b{padding:16px;display:flex;flex-direction:column;gap:6px}.pc h3{margin:0;font-size:18px}.pc h3 a{color:#15161A}
+.price{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:20px;letter-spacing:-.02em}
+.hero{padding:56px 40px 40px;position:relative;overflow:hidden}
+.hero .in{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:12px;position:relative}
+.side a{display:flex;justify-content:space-between;padding:8px 10px;color:#15161A;font-weight:600;border-radius:0 8px 0 8px}
+.side a.on{background:#15161A;color:#fff}.side a span{color:#5F6470}.side a.on span{color:#fff}
+.orow{display:grid;grid-template-columns:150px minmax(0,1fr) 130px 120px 44px;gap:16px;align-items:center;padding:18px 0;border-top:1px solid #E2E3E8}
+.tl{display:grid;grid-template-columns:20px minmax(0,1fr);gap:0 14px}
+.tl .dot{width:12px;height:12px;border-radius:0 4px 0 4px;background:#D9DBE0;margin:5px 4px}.tl .dot.on{background:#13C2A3}
+.tl .ln{width:2px;background:#E2E3E8;margin:0 9px;height:100%}
+</style>
+</helmet>
+<div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff; min-height: 100vh">
+  <div class="topline"></div>
+  <header style="display: flex; align-items: center; gap: 24px; padding: 14px 40px; max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box">
+    <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 12px; color: #15161A; font-size: 20px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</a>
+    <nav class="nav" style="display: flex; gap: 4px; margin-left: auto"><a href="Main.dc.html">首頁</a><a href="PostList.dc.html">文章</a><a href="Shop.dc.html" class="on">商店</a><a href="Page.dc.html">關於</a></nav>
+    <a class="btn t" href="Cart.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>購物車<span style="background:#E8285B;color:#fff;font-size:11px;min-width:18px;height:18px;display:inline-grid;place-items:center;border-radius:0 6px 0 6px">2</span></a>
+  </header>
+
+  <main style="max-width:1360px;margin:0 auto;width:100%;box-sizing:border-box;padding:40px 40px 96px;display:grid;grid-template-columns:240px minmax(0,1fr);gap:48px;align-items:start">
+    <aside style="display:flex;flex-direction:column;gap:20px;position:sticky;top:24px">
+      <div style="display:flex;align-items:center;gap:12px"><span style="width:48px;height:48px;background:#E8285B;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px;font-size:20px" class="d">T</span><div><b>Ting</b><div style="font-size:12px;color:#5F6470">ting@example.com</div></div></div>
+      <nav class="side" style="display:flex;flex-direction:column;gap:2px"><a href="Account.dc.html"><span style="display:flex;align-items:center;gap:10px;color:#15161A"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>我的訂單</span></a><a class="on" href="AccountAddresses.dc.html"><span style="display:flex;align-items:center;gap:10px;color:inherit"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6"/><circle cx="7" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></svg>收件地址</span></a><a href="AccountInvoices.dc.html"><span style="display:flex;align-items:center;gap:10px;color:#15161A"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18"/></svg>發票設定</span></a><a href="AccountSecurity.dc.html"><span style="display:flex;align-items:center;gap:10px;color:#15161A"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>帳號與密碼</span></a><a href="AccountNotifications.dc.html"><span style="display:flex;align-items:center;gap:10px;color:#15161A"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 7l9 6 9-6"/></svg>通知</span></a></nav>
+      <a href="Login.dc.html" style="font-size:13px;color:#5F6470;display:inline-flex;align-items:center;gap:6px"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>登出</a>
+    </aside>
+    <section style="display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px"><div style="display:flex;flex-direction:column;gap:12px"><span class="stripe"></span><h1 class="d" style="font-size:44px;letter-spacing:-.035em">收件地址</h1></div><button class="btn p sm" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新增地址</button></div>
+      <div style="font-size:14px;color:#5F6470">結帳時會自動帶入預設地址。</div>
+      <form style="box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 16px 0 16px;padding:24px;display:flex;flex-direction:column;gap:14px" onsubmit="return false">
+        <b class="d" style="font-size:20px">新增地址</b>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div><label class="flbl" for="a1">名稱（可選）</label><input id="a1" class="field" type="text" placeholder="家、公司…"></div>
+          <div><label class="flbl" for="a2">收件人</label><input id="a2" class="field" type="text" value="賴庭蓁"></div>
+          <div><label class="flbl" for="a3">電話</label><input id="a3" class="field" type="tel" value="0912" style="box-shadow:inset 0 0 0 1.5px #E8285B"><div style="font-size:12px;color:#9C2318;margin-top:6px;font-weight:600">請輸入有效的電話號碼。</div></div>
+          <div><label class="flbl" for="a4">郵遞區號</label><input id="a4" class="field" type="text"></div>
+          <div><label class="flbl" for="a5">縣市</label><input id="a5" class="field" type="text"></div>
+          <div><label class="flbl" for="a6">地址</label><input id="a6" class="field" type="text"></div>
+        </div>
+        <label style="display:inline-flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" style="accent-color:#E8285B;width:16px;height:16px;margin:0">設為預設地址</label>
+        <div style="display:flex;gap:8px"><button class="btn p sm" type="button">儲存</button><button class="btn x sm" type="button">取消</button></div>
+      </form>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 16px 0 16px;padding:20px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;gap:8px;align-items:center"><b>家 · 賴庭蓁</b><span class="chip ok">預設</span></div><div style="font-size:13px;color:#5F6470;line-height:1.7">0912-345-678<br>407 台中市西屯區台灣大道三段 99 號</div><div style="display:flex;gap:8px"><button class="btn t sm" type="button">編輯</button><button class="btn x sm" type="button" style="color:#9C2318">刪除</button></div></div>
+        <div style="box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 16px 0 16px;padding:20px;display:flex;flex-direction:column;gap:10px"><div style="display:flex;gap:8px;align-items:center"><b>公司 · 賴庭蓁</b></div><div style="font-size:13px;color:#5F6470;line-height:1.7">0912-345-678<br>100 台北市中正區重慶南路一段 1 號</div><div style="display:flex;gap:8px"><button class="btn t sm" type="button">編輯</button><button class="btn t sm" type="button">設為預設</button><button class="btn x sm" type="button" style="color:#9C2318">刪除</button></div></div>
+      </div></section>
+  </main>
+  <footer style="background: #15161A; color: #EDEDF0; padding: 48px 40px; margin-top: auto"><div style="max-width: 1360px; margin: 0 auto; display: flex; justify-content: space-between; font-size: 13px; color: #9A9FAB"><span>© 榛果繽紛樂</span><span>Powered by Jelly CMS</span></div></footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
