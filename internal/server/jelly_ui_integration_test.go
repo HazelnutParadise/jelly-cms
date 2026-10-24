@@ -135,15 +135,14 @@ func TestSettingsPageRendersJellySwitchesWithTheOriginalNames(t *testing.T) {
 	}
 	want := map[string]string{
 		"googleEnabled": "google_enabled", "githubEnabled": "github_enabled",
-		"ecpayEnabled": "ecpay_enabled", "ecpayTestMode": "ecpay_test_mode",
-		"newebpayEnabled": "newebpay_enabled", "newebpayTestMode": "newebpay_test_mode",
+		"ecpayEnabled": "ecpay_enabled", "newebpayEnabled": "newebpay_enabled",
 	}
 	got := map[string]map[string]string{}
 	for _, attrs := range jellyUITags(r.body, "jelly-switch") {
 		got[attrs["id"]] = attrs
 	}
 	if len(got) != len(want) {
-		t.Errorf("the settings page renders %d <jelly-switch>, want %d (one per boolean)", len(got), len(want))
+		t.Errorf("the settings page renders %d <jelly-switch>, want %d (the two OAuth and the two payment enable settings)", len(got), len(want))
 	}
 	for id, name := range want {
 		attrs, ok := got[id]
@@ -160,6 +159,33 @@ func TestSettingsPageRendersJellySwitchesWithTheOriginalNames(t *testing.T) {
 		if _, checked := attrs["checked"]; checked {
 			t.Errorf("<jelly-switch id=%q> is server-rendered as checked; the page script sets it after loading the saved value", id)
 		}
+	}
+
+	// The two test-mode fields follow the design board: an 環境 segmented control, 測試 or 正式.
+	envs := map[string]string{"ecpayTestMode": "ecpay_test_mode", "newebpayTestMode": "newebpay_test_mode"}
+	controls := map[string]map[string]string{}
+	for _, attrs := range jellyUITags(r.body, "jelly-segmented") {
+		controls[attrs["id"]] = attrs
+	}
+	for id, name := range envs {
+		attrs, ok := controls[id]
+		if !ok {
+			t.Errorf("no <jelly-segmented id=%q> (the 環境 control)", id)
+			continue
+		}
+		if attrs["name"] != name || attrs["label"] != "環境" || attrs["value"] != "test" {
+			t.Errorf("<jelly-segmented id=%q> name=%q label=%q value=%q, want name %q, label \"環境\", value \"test\"", id, attrs["name"], attrs["label"], attrs["value"], name)
+		}
+	}
+	var segments []string
+	for _, seg := range jellyUITags(r.body, "jelly-segment") {
+		segments = append(segments, seg["value"]+"="+seg["#text"])
+	}
+	if got, want := strings.Join(segments, ","), "test=測試,live=正式,test=測試,live=正式"; got != want {
+		t.Errorf("settings page <jelly-segment> = %q, want %q (no English hard-coded labels)", got, want)
+	}
+	if strings.Contains(r.body, "Test Mode") {
+		t.Error("the settings page still shows the English \"Test Mode\" label")
 	}
 }
 

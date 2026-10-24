@@ -136,14 +136,20 @@ func TestAdminPagesHaveNoNativeOrHandMadeConfirmDialogs(t *testing.T) {
 	}
 }
 
-// settingsSwitches pins the id each boolean keeps and the form name it gains. The id stays because the
-// page script reads fields by id; the name is what a native form would submit.
+// settingsSwitches pins the id each on/off setting keeps and the form name it gains. The id stays because the
+// page script reads fields by id; the name is what a native form would submit. The two test-mode fields are
+// not switches: the design board shows them as an 環境 (測試／正式) segmented control, so they are
+// settingsEnvironments.
 var settingsSwitches = map[string]string{
-	"googleEnabled":    "google_enabled",
-	"githubEnabled":    "github_enabled",
-	"ecpayEnabled":     "ecpay_enabled",
+	"googleEnabled":   "google_enabled",
+	"githubEnabled":   "github_enabled",
+	"ecpayEnabled":    "ecpay_enabled",
+	"newebpayEnabled": "newebpay_enabled",
+}
+
+// settingsEnvironments pins the id and form name of the two 環境 segmented controls.
+var settingsEnvironments = map[string]string{
 	"ecpayTestMode":    "ecpay_test_mode",
-	"newebpayEnabled":  "newebpay_enabled",
 	"newebpayTestMode": "newebpay_test_mode",
 }
 
@@ -154,7 +160,7 @@ func TestSettingsBooleansAreJellySwitches(t *testing.T) {
 		return
 	}
 	if strings.Contains(settings, `type="checkbox"`) || strings.Contains(settings, "toggle-switch") {
-		t.Error("web/admin/settings.html still has a checkbox or .toggle-switch; every boolean is a <jelly-switch>")
+		t.Error("web/admin/settings.html still has a checkbox or .toggle-switch; every on/off setting is a <jelly-switch> and every environment a <jelly-segmented>")
 	}
 	found := map[string]map[string]string{}
 	for _, attrs := range startTags(settings, "jelly-switch") {
@@ -175,8 +181,87 @@ func TestSettingsBooleansAreJellySwitches(t *testing.T) {
 	}
 	// A jelly-switch the browser has not upgraded yet would keep a property written to it as its own value
 	// and shadow the real one, so the page writes the attribute and never assigns .checked on a switch.
-	if m := regexp.MustCompile(`(?:Enabled|TestMode)['"]\)\.checked\s*=`).FindString(settings); m != "" {
+	if m := regexp.MustCompile(`Enabled['"]\)\.checked\s*=`).FindString(settings); m != "" {
 		t.Errorf("web/admin/settings.html assigns .checked on a jelly-switch (%q); use toggleAttribute('checked', value)", m)
+	}
+}
+
+func TestSettingsEnvironmentIsAJellySegmentedControl(t *testing.T) {
+	root := repoRoot(t)
+	settings := mustRead(t, root, "web", "admin", "settings.html")
+	if settings == "" {
+		return
+	}
+	found := map[string]map[string]string{}
+	for _, attrs := range startTags(settings, "jelly-segmented") {
+		found[attrs["id"]] = attrs
+	}
+	if len(found) != len(settingsEnvironments) {
+		t.Errorf("web/admin/settings.html has %d <jelly-segmented>, want %d (ECPay and NewebPay 環境)", len(found), len(settingsEnvironments))
+	}
+	for id, name := range settingsEnvironments {
+		attrs, ok := found[id]
+		if !ok {
+			t.Errorf("web/admin/settings.html has no <jelly-segmented id=%q>", id)
+			continue
+		}
+		if attrs["name"] != name {
+			t.Errorf("<jelly-segmented id=%q> has name=%q, want %q", id, attrs["name"], name)
+		}
+		if attrs["label"] != "環境" {
+			t.Errorf("<jelly-segmented id=%q> has label=%q, want %q", id, attrs["label"], "環境")
+		}
+		if attrs["value"] != "test" {
+			t.Errorf("<jelly-segmented id=%q> has value=%q, want the server-rendered default %q", id, attrs["value"], "test")
+		}
+	}
+	// Two segments per control, in this order, with these labels and values: 測試 is test_mode true.
+	var values, labels []string
+	z := html.NewTokenizer(strings.NewReader(settings))
+	inEnv := false
+	for tt := z.Next(); tt != html.ErrorToken; tt = z.Next() {
+		switch tt {
+		case html.StartTagToken:
+			name, hasAttr := z.TagName()
+			switch string(name) {
+			case "jelly-segmented":
+				inEnv = true
+			case "jelly-segment":
+				attrs := map[string]string{}
+				for hasAttr {
+					var k, v []byte
+					k, v, hasAttr = z.TagAttr()
+					attrs[string(k)] = string(v)
+				}
+				if inEnv {
+					values = append(values, attrs["value"])
+					if z.Next() == html.TextToken {
+						labels = append(labels, strings.TrimSpace(string(z.Text())))
+					}
+				}
+			}
+		case html.EndTagToken:
+			if name, _ := z.TagName(); string(name) == "jelly-segmented" {
+				inEnv = false
+			}
+		}
+	}
+	if got, want := strings.Join(values, ","), "test,live,test,live"; got != want {
+		t.Errorf("environment <jelly-segment> values = %q, want %q", got, want)
+	}
+	if got, want := strings.Join(labels, ","), "測試,正式,測試,正式"; got != want {
+		t.Errorf("environment <jelly-segment> labels = %q, want %q (繁中，沒有英文硬字串)", got, want)
+	}
+	if strings.Contains(settings, "Test Mode") {
+		t.Error("web/admin/settings.html still has the English 'Test Mode' label; the board says 環境 / 測試 / 正式")
+	}
+	// The page writes the value attribute and reads it back; a property written before the element is
+	// upgraded would shadow the real accessor, and .checked does not exist on a segmented control.
+	if m := regexp.MustCompile(`TestMode['"]\)\.(?:value\s*=[^=]|checked)`).FindString(settings); m != "" {
+		t.Errorf("web/admin/settings.html uses a property on an environment control (%q); use setAttribute('value', …) and getAttribute('value')", m)
+	}
+	if !regexp.MustCompile(`getAttribute\(['"]value['"]\)\s*===\s*['"]test['"]`).MatchString(settings) {
+		t.Error("web/admin/settings.html never derives test_mode from getAttribute('value') === 'test'")
 	}
 }
 

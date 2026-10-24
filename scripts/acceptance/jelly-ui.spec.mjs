@@ -20,6 +20,8 @@
 //   JELLY_BASE_URL=http://127.0.0.1:8080 JELLY_ADMIN_USER=admin JELLY_ADMIN_PASSWORD=correct-horse-battery \
 //     node scripts/acceptance/jelly-ui.spec.mjs
 //
+// Run it on a freshly installed database: the ECPay 環境 check saves the gateway, and the existing
+// GET /api/admin/payment/gateways returns an empty config, so a second run would load a different state.
 // The design canvas check starts its own static server on design/project and needs design/project/fonts/
 // (run scripts/vendor/fonts.sh). JELLY_ONLY=admin|public|design runs one group. Exit code 1 on any failure.
 
@@ -290,6 +292,47 @@ async function runAdmin(browser) {
     const enabled = await on();
     const disabledFields = await page.evaluate(() => [...document.querySelectorAll('#googleForm input[type=text]')].map((i) => i.disabled));
     assert(disabledFields.every((d) => d === !enabled), `provider fields disabled=${disabledFields} while the switch is ${enabled ? 'on' : 'off'}`);
+    await page.close();
+  });
+
+  await check('segmented: the ECPay 環境 control (測試／正式) is saved as the same boolean test_mode', async () => {
+    const page = await openPage(context, [baseOrigin]);
+    page.on('dialog', (dialog) => dialog.accept());   // the page confirms a save with alert()
+    await page.goto(`${base}/admin/settings`);
+    await jellyReady(page, 'jelly-switch', 'jelly-segmented');
+    await page.locator('.tabs .tab', { hasText: /Payment|金流/ }).first().click();
+    await page.waitForSelector('#ecpayTestMode', { state: 'visible', timeout: 5000 });
+    const env = () => page.evaluate(() => document.getElementById('ecpayTestMode').getAttribute('value'));
+    assert(await env() === 'test', `the 環境 control starts at ${await env()}, want test (測試)`);
+    const labels = await page.locator('#ecpayTestMode button[role=radio]').allInnerTexts();
+    assert(labels.map((l) => l.trim()).join(',') === '測試,正式', `segment labels were ${JSON.stringify(labels)}`);
+    // Turn the gateway on with the keyboard, fill the credentials the page requires, then pick 正式.
+    await page.focus('#ecpayEnabled');
+    if (!(await page.evaluate(() => document.getElementById('ecpayEnabled').hasAttribute('checked')))) await page.keyboard.press('Space');
+    await page.fill('#ecpayMerchantID', '2000132');
+    await page.fill('#ecpayHashKey', 'key-for-acceptance');
+    await page.fill('#ecpayHashIV', 'iv-for-acceptance');
+    await page.locator('#ecpayTestMode button[role=radio]', { hasText: '正式' }).click();
+    assert(await env() === 'live', 'clicking 正式 did not select it');
+    const save = async () => {
+      const [request] = await Promise.all([
+        page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith('/api/admin/payment/gateways/ecpay'), { timeout: 5000 }),
+        page.click('#ecpaySaveBtn'),
+      ]);
+      return request.postDataJSON();
+    };
+    let body = await save();
+    assert(body.test_mode === false && body.enabled === true && body.merchant_id === '2000132',
+      `after choosing 正式 the page posted ${JSON.stringify(body)}; want test_mode:false, enabled:true (booleans, not strings)`);
+    // and back: 測試 is test_mode true; the Save button must re-enable on the change event
+    await page.locator('#ecpayTestMode button[role=radio]', { hasText: '測試' }).click();
+    await page.waitForFunction(() => !document.getElementById('ecpaySaveBtn').disabled, null, { timeout: 5000 });
+    body = await save();
+    assert(body.test_mode === true, `after choosing 測試 the page posted ${JSON.stringify(body)}; want test_mode:true`);
+    // keyboard: Right arrow from 測試 selects 正式 (RTL flips it, this page is LTR)
+    await page.locator('#ecpayTestMode button[role=radio]', { hasText: '測試' }).focus();
+    await page.keyboard.press('ArrowRight');
+    assert(await env() === 'live', 'ArrowRight did not move the 環境 control to 正式');
     await page.close();
   });
 

@@ -64,8 +64,8 @@ node design/tools/shot.mjs Main Posts EditorFull
 
 | 控制項 | 板 | 板上的樣子 | 程式 |
 |---|---|---|---|
-| 開關 | Settings、SettingsRoutes、SettingsCrawlers（`.tg.j`） | 膠囊軌道、白色圓形拇指與柔影；開是薄荷色、關是灰；上游拇指移動時會拉長，靜態板不畫 | `<jelly-switch>`，設定頁六個布林欄位 |
-| 分段選擇 | Posts（`.seg.j`） | 膠囊軌道，選中的段是墨色膠囊與柔影；每段標籤後面接篇數，同字級同色（上游的段標籤只能是純文字） | `<jelly-segmented>` 加 `<jelly-segment>`，文章列表的狀態篩選 |
+| 開關 | Settings、SettingsRoutes、SettingsCrawlers（`.tg.j`） | 膠囊軌道、白色圓形拇指與柔影；開是薄荷色、關是灰；上游拇指移動時會拉長，靜態板不畫 | `<jelly-switch>`，設定頁四個啟用欄位（Google、GitHub、綠界、藍新） |
+| 分段選擇 | Posts、Settings（`.seg.j`） | 膠囊軌道，選中的段是墨色膠囊與柔影；Posts 每段標籤後面接篇數，同字級同色（上游的段標籤只能是純文字）；Settings 的「環境」兩段是「測試」「正式」 | `<jelly-segmented>` 加 `<jelly-segment>`：文章列表的狀態篩選；設定頁綠界與藍新的「環境」（測試＝`test_mode: true`） |
 | 對話框 | Trash（`.jd`） | 對角單角圓角卡片、右上角圓形 ✕、背景暗化加輕微模糊；回收桶的「輸入刪除確認」是 `Jelly.confirm` 的 `requireText` 版 | `<jelly-dialog>`，由 `window.Jelly.confirm()` 產生 |
 | 通知 | States（`.jt`） | 墨色底（淺色版用白底）、圓形色點、右側圓形 ✕；動作按鈕與細節文字沿用 | `<jelly-toaster>`，由 `window.Jelly.toast()` 轉呼叫 `jellyToast()` |
 

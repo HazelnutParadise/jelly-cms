@@ -37,6 +37,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
 .seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px}
 .seg span.on{background:#15161A;color:#fff}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span{min-height:30px;padding:0 14px;border-radius:999px}.seg.j span.on{box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
 .mark{display:inline-block;width:22px;height:26px}
 </style>
 </helmet>
@@ -84,7 +85,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
           <div class="srow"><div><label for="e1">商店代號 (Merchant ID)</label></div><div class="c"><input id="e1" class="ul" type="text" value="2000132" style="font-family: ui-monospace, Menlo, monospace"></div></div>
           <div class="srow"><div><label for="e2">Hash Key</label><div class="h">只顯示最後四碼，重新輸入即覆蓋。</div></div><div class="c"><input id="e2" class="ul" type="password" value="••••••••••••"><button class="btn t s i" type="button" aria-label="顯示"><svg class="ic" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
           <div class="srow"><div><label for="e3">Hash IV</label></div><div class="c"><input id="e3" class="ul" type="password" value="••••••••••••"><button class="btn t s i" type="button" aria-label="顯示"><svg class="ic" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
-          <div class="srow"><div><label>測試模式 (Test Mode)</label><div class="h">Use the sandbox endpoint; no real charges.</div></div><div class="c"><span class="tg j" role="switch" aria-checked="true" aria-label="測試模式"></span></div></div>
+          <div class="srow"><div><label>環境</label><div class="h">測試環境不會真的收款。</div></div><div class="c"><div class="seg j" role="radiogroup" aria-label="環境"><span class="on" role="radio" aria-checked="true">測試</span><span role="radio" aria-checked="false">正式</span></div></div></div>
           <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label>連線測試</label><div class="h">上次：10/21 14:02 成功</div></div><div class="c"><span class="chip ok">憑證有效</span><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>測試</button></div></div>
         </div>
         <div>
@@ -92,7 +93,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
           <div class="srow" style="opacity: .5"><div><label for="n1">商店代號 (Merchant ID)</label></div><div class="c"><input id="n1" class="ul" type="text" placeholder="MS1234567"></div></div>
           <div class="srow" style="opacity: .5"><div><label for="n2">Hash Key</label></div><div class="c"><input id="n2" class="ul" type="password"></div></div>
           <div class="srow" style="opacity: .5"><div><label for="n3">Hash IV</label></div><div class="c"><input id="n3" class="ul" type="password"></div></div>
-          <div class="srow" style="opacity: .5; border-bottom: 1px solid #EEEFF2"><div><label>測試模式 (Test Mode)</label><div class="h">Use the sandbox endpoint; no real charges.</div></div><div class="c"><span class="tg j off" role="switch" aria-checked="false" aria-label="測試模式"></span></div></div>
+          <div class="srow" style="opacity: .5; border-bottom: 1px solid #EEEFF2"><div><label>環境</label><div class="h">測試環境不會真的收款。</div></div><div class="c"><div class="seg j" role="radiogroup" aria-label="環境"><span class="on" role="radio" aria-checked="true">測試</span><span role="radio" aria-checked="false">正式</span></div></div></div>
         </div>
         <div style="background: #F5F5F7; border-radius: 0 14px 0 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; font-size: 13px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v4M12 17v1"/></svg><div>金鑰只存在伺服器端資料庫，後台只回傳遮罩值。改動會寫進系統日誌。</div><a href="Settings.dc.html" style="margin-left: auto; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px">查看日誌<svg class="ic" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></div>
       </section>

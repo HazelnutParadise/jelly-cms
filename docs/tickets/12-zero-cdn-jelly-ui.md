@@ -40,7 +40,7 @@ issue 的目標有一部分在 main 已完成，下列以實測為準。
 4. **通知的 API 比現有的小**：`jellyToast(message: string, { tone?: 'info'|'success'|'warning'|'danger', duration?: number = 3500 }): HTMLElement`。沒有 `detail`、沒有 `action`、沒有滑過暫停、沒有數量上限、錯誤也會自動消失（要不消失傳 `duration: 0`）、`tone` 叫 `danger` 不叫 `error`。點通知任何地方就關掉；有 ✕ 按鈕。`jellyToast` 只掛在 `window.jellyToast`（沒有 `window.Jelly` 命名空間，所以 `window.Jelly` 不會被上游覆蓋）。通知的外觀可由外部 CSS 用 `::part(toast)`、`::part(dot)`、`::part(close)` 改，主機元素 `<jelly-toaster position="top|bottom">`。`push()` 回傳的元素是 shadow 裡的 `.toast`，內含 `.dot`、`.sr-tone`、`.toast-text`、`.close`。
 5. **對話框沒有確認／取消的概念**：`<jelly-dialog open label>` 只有 slot；Esc（`keydown` 在 document 上且沒有 `defaultPrevented`）、點背景、右上 ✕ 都會把 `open` 收起來，發出 `open`／`close` 事件（`bubbles`、`composed`）；打開時移到 `<body>`、鎖捲動、把外面設 `inert`、focus 到對話框本體（`tabindex=-1`，不是第一個按鈕）、關閉後把 focus 還給原本的元素。**沒有 Enter 處理**，所以確認鈕的 Enter 要靠「focus 在按鈕上」。`open = false` 會先跑退場動畫才移除屬性，`close` 事件在那之後。內容是 light DOM（slot），所以頁面既有的 `.btn` 樣式照常作用。
 6. **開關**：`<jelly-switch checked disabled label name value size variant>`；`checked` 反映到屬性；`value` 預設 `"on"`；勾選時 `setFormValue(value)`，沒勾送出 `null`（和原生 checkbox 一樣不出現）；空白鍵**與 Enter** 都會切換（所以在 `<form>` 裡的開關按 Enter 不會送出表單）；`change` 事件（`bubbles`、`composed`）只在使用者操作時發出，程式改屬性不發。**元素升級前**對它指定 `el.checked = x` 會變成實例自己的屬性、永遠遮住升級後的 accessor，所以頁面要改用 `el.toggleAttribute('checked', x)`、讀用 `el.hasAttribute('checked')`（`jelly.js` 是 deferred module，頁面內嵌腳本比它先跑）。沒有 `label` 屬性或 slot 文字時沒有可存取名稱。
-7. **分段選擇**：`<jelly-segmented value name label roles disabled size>` 包 `<jelly-segment value selected disabled>文字</jelly-segment>`；`value` 反映到屬性，預設選第一個；表單值是被選段的 `value`；`change` 事件的 `detail.value`；方向鍵（隨文字方向翻轉）、Home、End 移動並選取，roving tabindex；段的內容只有純文字標籤。子節點的任何變動（含改文字）都會讓它重建內部按鈕，focus 會掉，所以更新篇數文字只在資料載入後做一次。
+7. **分段選擇**：`<jelly-segmented value name label roles disabled size>` 包 `<jelly-segment value selected disabled>文字</jelly-segment>`；`value` 反映到屬性，預設選第一個（`select()` 會把選取反映回 `value` 屬性）；`value` 另有 accessor（讀出被選段的 `value`、寫入會選取），**元素升級前**對它指定 `el.value = x` 和開關的 `checked` 一樣會變成實例自己的屬性、遮住升級後的 accessor，所以頁面用 `el.setAttribute('value', v)` 寫（升級前後都有效：升級時 `sync()` 依屬性選取，升級後 `attributeChangedCallback` 選取）、`el.getAttribute('value')` 讀；表單值是被選段的 `value`；`change` 事件的 `detail.value`；方向鍵（隨文字方向翻轉）、Home、End 移動並選取，roving tabindex；段的內容只有純文字標籤。子節點的任何變動（含改文字）都會讓它重建內部按鈕，focus 會掉，所以更新篇數文字只在資料載入後做一次。
 
 ## 流程與驗收
 
@@ -49,7 +49,7 @@ issue 的目標有一部分在 main 已完成，下列以實測為準。
 - [x] 任何人在 `web/`、`design/`、`cmd/` 的 `.html`、`.tmpl`、`.css`、`.js` 加入外部 script、link、img、iframe、source、`@import`、`url()` 時，`go test ./internal/assetcheck` 會失敗並指出檔名與行號；`<a href>` 與 `<textarea>`、`<code>` 內的示範文字不算。
 - [ ] 維護者執行 `scripts/vendor/jelly-ui.sh` 就得到 `web/admin/assets/jelly-ui/{jelly.js,LICENSE,VERSION}`，釘住上游 commit；改 commit 重跑就重現。`marked` 同樣有 `scripts/vendor/marked.sh`、`LICENSE`、`VERSION`，並移到 `web/admin/assets/marked/`。
 - [ ] 站長打開任何後台頁（含錯誤頁）都載入 Jelly UI 模組一次；登入頁、安裝頁、個人帳號頁、前台頁都不載入。
-- [ ] 站長在設定頁用滑鼠或空白鍵切換 Google／GitHub OAuth、綠界、藍新的啟用，以及兩個測試模式，畫面與資料行為和原本的核取方塊一致（儲存的 JSON 與資料庫內容不變）。
+- [ ] 站長在設定頁用滑鼠或空白鍵切換 Google／GitHub OAuth、綠界、藍新的啟用（四個開關），並在綠界與藍新各自的「環境」分段選擇（測試／正式）選擇；選「測試」就是 `test_mode: true`，選「正式」是 `false`。畫面與資料行為和原本的核取方塊一致（儲存的 JSON 與資料庫內容不變，仍是布林）。設定頁沒有英文硬字串的新標籤（繁中板就是繁中）。
 - [ ] 站長在文章列表用「全部／已發布／草稿／待審核」分段選擇（每段顯示篇數）篩選列表，滑鼠點擊、方向鍵、Home 都可用。
 - [ ] 站長在後台做刪除、永久刪除、清空回收桶、還原版本、重載外掛、重設主題等需要確認的動作時，看到 Jelly UI 對話框而不是瀏覽器的 `confirm()`；Esc、取消、點背景、✕ 都不執行動作；回收桶的「輸入刪除確認」改由同一個函式提供。
 - [ ] 後台所有通知（既有 `Jelly.toast(message, {kind, detail, action, duration})` 呼叫端與伺服器端 `toast` 範本）改由 Jelly UI 的通知條顯示，呼叫端與參數都不改；成功、警告、資訊 4 秒、帶動作的 8 秒、錯誤不自動消失、滑過或聚焦暫停、最多同時 4 則。
@@ -167,22 +167,35 @@ options = {
   `comments.html`（單筆與批次刪除）、`media.html`、`plugins.html`（重載外掛）、`products.html`、`themes.html`（重設主題）這五頁的 `confirm(` / `window.confirm(`；`menus.html` 與 `taxonomy.html` 的自製 `confirmSheet`；`revisions.html` 的還原確認（`.rv-overlay`、`.rv-dlg`）；`trash.html` 的永久刪除與清空確認（`.tr-overlay`、`.tr-dlg`，`requireText` 版）。`menus.html` 的「選單編輯側板」`openMenuSheet`（表單，不是確認）不動，但它與 `confirmSheet` 共用的 `sheet()` 若只剩一個用途，可就地簡化。
 - 刪掉被取代的元素、事件處理與樣式；頁面內不得留下 `confirmSheet`、`tr-dlg`、`rv-dlg`、`tr-overlay`、`rv-overlay` 這些字（測試檢查）。
 
-### 契約 · 設定頁開關（`web/admin/settings.html`）
+### 契約 · 設定頁開關與環境分段選擇（`web/admin/settings.html`）
 
-六個布林欄位全部換成 `<jelly-switch>`，`id` 不變（頁面腳本用 id 取值），新增 `name` 與 `label`：
+設定頁原本有六個核取方塊。設計板是基準：四個「啟用」是開關；兩個「測試模式」在板上是「環境（測試／正式）」分段選擇，程式照板做。`id` 全部不變（頁面腳本用 id 取值），新增 `name` 與 `label`。
+
+**四個 `<jelly-switch>`：**
 
 | id | name | label |
 |---|---|---|
 | `googleEnabled` | `google_enabled` | `Google OAuth` |
 | `githubEnabled` | `github_enabled` | `GitHub OAuth` |
 | `ecpayEnabled` | `ecpay_enabled` | `綠界 ECPay` |
-| `ecpayTestMode` | `ecpay_test_mode` | `測試模式 (Test Mode)` |
 | `newebpayEnabled` | `newebpay_enabled` | `藍新 NewebPay` |
-| `newebpayTestMode` | `newebpay_test_mode` | `測試模式 (Test Mode)` |
 
-- 原本在 `settings-group-head` 裡的 `<label class="toggle-switch"><input type="checkbox" …><span class="slider"></span></label>` 整段換成單一 `<jelly-switch …></jelly-switch>`；兩個 `測試模式` 原本是 `<div class="control"><input type="checkbox" …></div>`，同樣換掉。`onchange="toggleGoogle()"` 等行內處理器保留（`change` 事件在元素本身上發出）。
-- 頁面腳本寫入一律 `el.toggleAttribute('checked', value)`，讀取一律 `el.hasAttribute('checked')`；測試禁止 `…Enabled').checked =`／`…TestMode').checked =` 的賦值寫法。建議在腳本頂端加兩個小函式 `isOn(id)`、`setOn(id, value)`，取代現有二十多處 `.checked`。
-- 伺服器輸出的開關不帶 `checked`（預設值由腳本在讀到設定後設定）。
+**兩個 `<jelly-segmented>`（環境）：**
+
+| id | name | label | 段 |
+|---|---|---|---|
+| `ecpayTestMode` | `ecpay_test_mode` | `環境` | `<jelly-segment value="test">測試</jelly-segment>`、`<jelly-segment value="live">正式</jelly-segment>` |
+| `newebpayTestMode` | `newebpay_test_mode` | `環境` | 同上 |
+
+- 兩段的順序固定（測試在前），標籤是繁體中文「測試」「正式」，不得出現英文硬字串（原本的 `測試模式 (Test Mode)` 標籤與 `Use the sandbox endpoint; no real charges.` 說明改成板上的「環境」與「測試環境不會真的收款。」）。
+- 伺服器輸出 `value="test"`（預設）。選「測試」＝`test_mode: true`，選「正式」＝`test_mode: false`；送到 API 的 JSON 與資料庫內容（`payment_ecpay_test_mode`、`payment_newebpay_test_mode` 為 `"true"`／`"false"` 字串）完全不變，仍是布林。
+- **讀寫寫法（釘死，避開升級前屬性遮蔽的競態）**：寫入一律 `el.setAttribute('value', isTest ? 'test' : 'live')`，讀取一律 `el.getAttribute('value') === 'test'`；測試禁止對 `…TestMode` 用 `.value =` 賦值或 `.checked`。建議在腳本頂端加 `isTestMode(id)`、`setTestMode(id, bool)`，取代現有 `ecpayTestMode`、`newebpayTestMode` 各自的 `.checked` 讀寫。
+- 既有的 `…TestMode.addEventListener('change', checkECPayForm)`（藍新同）照舊：`change` 事件由 `jelly-segmented` 在使用者操作時發出（`detail.value`），程式用 `setAttribute` 載入時不發，與原生核取方塊的語意一致。
+- 段落文字是純文字（上游不支援在段內放其他元素）；`label="環境"` 是群組的可存取名稱。
+
+- 原本在 `settings-group-head` 裡的 `<label class="toggle-switch"><input type="checkbox" …><span class="slider"></span></label>` 整段換成單一 `<jelly-switch …></jelly-switch>`；兩個 `測試模式` 原本是 `<div class="control"><input type="checkbox" …></div>`，換成上面的 `<jelly-segmented>`（留在原本的 `.setting-row` 與 `.control` 內，左欄標籤改成「環境」與說明「測試環境不會真的收款。」）。`onchange="toggleGoogle()"` 等行內處理器保留（`change` 事件在元素本身上發出）。
+- 頁面腳本寫入一律 `el.toggleAttribute('checked', value)`，讀取一律 `el.hasAttribute('checked')`；測試禁止 `…Enabled').checked =` 的賦值寫法。建議在腳本頂端加兩個小函式 `isOn(id)`、`setOn(id, value)`，取代四個開關現有的 `.checked`。
+- 伺服器輸出的開關不帶 `checked`（預設值由腳本在讀到設定後設定）；環境分段選擇輸出 `value="test"`，載入設定後由腳本以 `setAttribute` 改成已存的值。
 - 送到 `POST /api/admin/payment/gateways/{ecpay,newebpay}` 與 `POST /api/admin/oauth/providers/{google,github}` 的 JSON（`enabled`、`test_mode` 為布林）與資料庫內容（`payment_ecpay_enabled`、`payment_ecpay_test_mode` 為 `"true"`／`"false"` 字串）完全不變，後端不動。
 - 設定頁其餘的 `alert(...)` 不在本工作單範圍（`COMPONENTS.md` 已註記「之後逐頁改成 `Jelly.toast`」）。
 - `layout.html` 的 `.toggle-switch`／`.slider` 樣式保留：`menus.html`、`taxonomy.html`、`revisions.html`、`components.html` 還在用（見決策紀錄）。
@@ -209,7 +222,7 @@ options = {
 
 - `design/project/fonts.css`（兩個 `@font-face`，`font-weight: 100 900`、`font-display: swap`，路徑 `fonts/<檔名>.woff2`）；每張板 helmet 是 `<link rel="stylesheet" href="./fonts.css">`；`design/gen/gen.py` 的 `FONTS` 同步，其餘產生器透過 `gen.py` 共用；九支產生器都重新執行過，沒有手改產生出來的板。
 - `.gitignore`：`design/project/fonts/`。`scripts/vendor/fonts.sh` 在產生網站字型時也複製到這裡（已改）。
-- 板上的元件樣子：`.tg.j`（開關）、`.seg.j`（分段選擇）、`.jd`（對話框，含背景遮罩 `.jd-scrim`）、`.jt`（通知條）；Settings 板的 ECPay「環境（測試／正式）」分段選擇改成與程式一致的「測試模式」開關列，NewebPay 補上同一列。
+- 板上的元件樣子：`.tg.j`（開關）、`.seg.j`（分段選擇）、`.jd`（對話框，含背景遮罩 `.jd-scrim`）、`.jt`（通知條）；Settings 板的 ECPay「環境」列維持 main 上的分段選擇（label「環境」、說明「測試環境不會真的收款。」、兩段「測試」「正式」），改用 `.seg.j` 樣式；NewebPay 區塊補上同一列（沿用該區塊的 `opacity: .5`）。程式照板做成 `<jelly-segmented>`（見〈設定頁開關與環境分段選擇〉）。
 - 發布線上畫布時（`design/README.md` 的步驟 3），`files` 要列出 `project/fonts.css` 與 `project/fonts/*.woff2`；這是主代理合併後的步驟，本工作單不發布。
 
 ## 決策紀錄
@@ -222,13 +235,14 @@ options = {
 6. **`window.Jelly.toast` 轉呼叫 `jellyToast()`，既有呼叫端與參數不變，不保留兩套通知。** 上游的通知比現有的小（見上游事實 4），所以包裝層補回 `detail`、`action`、品牌色點、計時與暫停、數量上限、`role="alert"`。這些補丁會碰到上游 shadow DOM 裡的 `.toast`、`.dot`、`.toast-text`、`.close` 這幾個類名，上游改名時會壞，由驗收腳本的通知項目偵測（每次升版都要跑）。否決：保留舊的自製 toast、只讓新程式用 Jelly（兩套 API 與兩種外觀）；把 `detail` 與 `action` 砍掉（既有呼叫端有「復原」「重試」）；改上游加 slot（同決策 5 的理由）。
 7. **`Jelly.confirm` 一個函式取代所有確認，包含回收桶的輸入確認與版本還原。** 否決：只換原生 `confirm()`、保留自製的 `confirmSheet`／`.tr-dlg`／`.rv-dlg`（四套樣式、四套焦點陷阱與 Esc 處理，正是要收斂的）；對話框內放表單的通用 API（沒有第二個用例）。版本還原原本的「按下後在對話框內顯示忙碌」改成關閉對話框後由頁面既有的狀態列與通知回報。
 8. **不做原生 `confirm()` 與核取方塊的後備。** 兩條程式路徑的維護成本，加上測試要求頁面內零原生 `confirm(`。issue 已決定寫進系統需求。
-9. **設定頁開關以 `toggleAttribute`／`hasAttribute` 讀寫，不碰 `.checked`。** 升級競態見上游事實 6。否決：把頁面腳本全包進 `customElements.whenDefined`（整頁邏輯延後，載入前的空白更久，且仍要處理失敗情形）。
+9. **設定頁開關以 `toggleAttribute`／`hasAttribute` 讀寫，不碰 `.checked`；環境分段選擇以 `setAttribute('value', …)`／`getAttribute('value')` 讀寫，不碰 `.value`。** 升級競態見上游事實 6、7。否決：把頁面腳本全包進 `customElements.whenDefined`（整頁邏輯延後，載入前的空白更久，且仍要處理失敗情形）。
 10. **文章狀態篩選純前端、不寫進網址。** API 一次取回全部文章（沿用），篩選在前端；加 `?status=` 要同時改 API 與分頁，超出本工作單。否決：改後端 `GET /api/admin/posts?status=`。
-11. **只有設定頁的布林欄位換開關；`menus.html`（`iNewTab`、`iLoginOnly`）、`taxonomy.html`（`fHide`、`fNoCascade`）、`revisions.html`（`collapse`）、`components.html` 的 `toggle` 範本仍是 `.toggle-switch`。** issue 與 brief 明定範圍是設定頁；那些頁的腳本在載入時同步寫 `.checked`，改動風險與測試面都不小。結果是後台暫時有兩種開關外觀，列為後續；板上除設定家族外的 `.tg` 也維持舊樣式，以免板與程式不一致。
-12. **`marked` 移到 `web/admin/assets/marked/` 目錄。** 讓「每個套件一個目錄、各有 `LICENSE` 與 `VERSION`」成為單一規則，檢查才不必為鬆散單檔另立慣例。工作單 09 本來就要移除 marked，所以只是過渡；09 先合併時 `TestMarkedIsVendoredAsAPackageDirectory` 自動跳過。否決：在 `web/admin/assets/` 旁放 `marked.min.js.LICENSE`／`.VERSION`（規則不一致）。
-13. **`design/` 與 `cmd/` 也納入掃描。** issue 明寫。`design/tools/preview-admin.mjs` 仍有一行 `page.route(/fonts\.(googleapis|gstatic)\.com/, route => route.abort())`，那是擋外部請求的用法，不是載入，掃描不算，維持不動。
-14. **Jelly UI 的 `LICENSE` 要附 Fluent System Icons 的授權文字。** 打包檔內含該圖示集（MIT，需保留著作權與授權聲明），上游 `LICENSE` 檔沒有附，所以腳本要補。
-15. **驗收腳本不用 `@playwright/test`，也不進 CI。** 環境事實：Playwright 只能以 CommonJS 載入，ESM 的 `import('playwright')` 會失敗，所以用 `createRequire(import.meta.url)('playwright')`，與 `scripts/acceptance/webmcp.spec.mjs`（另一個 PR）同樣是一般 node 腳本；環境變數 `JELLY_BASE_URL`、`JELLY_ADMIN_USER`、`JELLY_ADMIN_PASSWORD`。
+11. **環境（測試／正式）用分段選擇，照設計板做。** 設計板是基準，程式照板，板上的繁中標籤不能被英文程式字串取代。`ecpayTestMode`、`newebpayTestMode` 因此是 `<jelly-segmented>`，不是開關；API 契約不變（`test_mode` 布林，「測試」＝`true`）。否決：改板遷就程式（把板上的分段選擇改成英文標籤「測試模式 (Test Mode)」的開關列）——方向反了，還會在繁中板上留下英文硬字串。
+12. **只有設定頁的啟用欄位換開關；`menus.html`（`iNewTab`、`iLoginOnly`）、`taxonomy.html`（`fHide`、`fNoCascade`）、`revisions.html`（`collapse`）、`components.html` 的 `toggle` 範本仍是 `.toggle-switch`。** issue 與 brief 明定範圍是設定頁；那些頁的腳本在載入時同步寫 `.checked`，改動風險與測試面都不小。結果是後台暫時有兩種開關外觀，列為後續；板上除設定家族外的 `.tg` 也維持舊樣式，以免板與程式不一致。
+13. **`marked` 移到 `web/admin/assets/marked/` 目錄。** 讓「每個套件一個目錄、各有 `LICENSE` 與 `VERSION`」成為單一規則，檢查才不必為鬆散單檔另立慣例。工作單 09 本來就要移除 marked，所以只是過渡；09 先合併時 `TestMarkedIsVendoredAsAPackageDirectory` 自動跳過。否決：在 `web/admin/assets/` 旁放 `marked.min.js.LICENSE`／`.VERSION`（規則不一致）。
+14. **`design/` 與 `cmd/` 也納入掃描。** issue 明寫。`design/tools/preview-admin.mjs` 仍有一行 `page.route(/fonts\.(googleapis|gstatic)\.com/, route => route.abort())`，那是擋外部請求的用法，不是載入，掃描不算，維持不動。
+15. **Jelly UI 的 `LICENSE` 要附 Fluent System Icons 的授權文字。** 打包檔內含該圖示集（MIT，需保留著作權與授權聲明），上游 `LICENSE` 檔沒有附，所以腳本要補。
+16. **驗收腳本不用 `@playwright/test`，也不進 CI。** 環境事實：Playwright 只能以 CommonJS 載入，ESM 的 `import('playwright')` 會失敗，所以用 `createRequire(import.meta.url)('playwright')`，與 `scripts/acceptance/webmcp.spec.mjs`（另一個 PR）同樣是一般 node 腳本；環境變數 `JELLY_BASE_URL`、`JELLY_ADMIN_USER`、`JELLY_ADMIN_PASSWORD`。
 
 ## 相依與合併順序
 
@@ -236,7 +250,7 @@ options = {
   - 09 先合併：本分支的 `marked` 目錄、`marked.sh`、`components.html` 的路徑改動整段拿掉；`release-checklist.md` 的套件表不列 marked，把 CodeMirror 與 KaTeX 加進去；`internal/assetcheck/vendor_test.go` 的 marked 測試自動跳過，不必改測試。
   - 本分支先合併：09 rebase 時刪除 `web/admin/assets/marked/` 與 `scripts/vendor/marked.sh`，並把 `scripts/vendor/README.md` 的表加上 `jelly-ui.sh`、`fonts.sh`。
   - `scripts/vendor/README.md` 屬 09；本工作單不建立它。
-- **工作單 08（系統，PR #27 `claude/pr-f-system`）**：改 `web/admin/settings.html`（分頁改成連結、新增「維護模式」等設定）。後合併者調和：08 新增的所有布林欄位（維護模式、索引開關等）也要用 `<jelly-switch>`，`name` 與 `label` 依本工作單的規則；`TestSettingsBooleansAreJellySwitches` 的 `settingsSwitches` 表要加列，`TestSettingsPageRendersJellySwitchesWithTheOriginalNames` 的 `want` 同步；`switchTab` 改成連結後，驗收腳本的 OAuth 分頁點擊仍然成立（點 `.tabs .tab` 含 `OAuth` 的項目）。
+- **工作單 08（系統，PR #27 `claude/pr-f-system`）**：改 `web/admin/settings.html`（分頁改成連結、新增「維護模式」等設定）。後合併者調和：08 新增的所有布林欄位（維護模式、索引開關等）也要用 `<jelly-switch>`，`name` 與 `label` 依本工作單的規則（設計板 SettingsRoutes、SettingsCrawlers 已畫成開關）；`TestSettingsBooleansAreJellySwitches` 的 `settingsSwitches` 表要加列，`TestSettingsPageRendersJellySwitchesWithTheOriginalNames` 的 `want` 同步；`switchTab` 改成連結後，驗收腳本的 OAuth 分頁點擊仍然成立（點 `.tabs .tab` 含 `OAuth` 的項目）。
 - **工作單 06（帳號，PR #24）、07（商店，PR #25）**：新增 `web/admin/{notifications,profile,users,coupons,order_detail}.html` 與前台商店頁。本工作單的 `TestAdminPagesHaveNoNativeOrHandMadeConfirmDialogs` 會掃到它們；目前這四個分支沒有原生 `confirm(`。它們若日後加確認動作，就用 `Jelly.confirm`。前台頁不載入 Jelly UI。
 - `design/project/canvas.json`：本工作單沒有新增板，不動；其他草稿 PR 都動它，無衝突。
 - 其他草稿 PR 也各自新增板，那些板的 helmet 要用 `./fonts.css`；合併順序在後的，`gen.py` 重新產生後這一點自動成立，手寫板要自己加。
@@ -249,7 +263,7 @@ options = {
 2. **Z2 自帶套件與文件。** `scripts/vendor/jelly-ui.sh`、執行它產生 `web/admin/assets/jelly-ui/`；`scripts/vendor/marked.sh` 與 marked 目錄搬移；`docs/release-checklist.md` 套件表；`docs/system-requirements.md`。測試：`vendor_test.go` 全部、`TestVendoredJellyUIIsServedAsJavaScript`。
 3. **Z3 載入、token、通知。** `layout.html` 的模組標籤、token 對接、亮暗同步、`<jelly-toaster>`、`Jelly.toast` 包裝層與排隊、移除舊通知碼；`components.html` 的 `toast` 範本維持呼叫 `Jelly.toast`。測試：`TestOnlyTheAdminLayoutLoadsJellyUI`、`TestAdminLayoutMapsTokensAndDefinesTheHelpers`（`window.Jelly.confirm` 一項要等 Z4）、`TestAdminPagesLoadTheJellyUIModuleOnce`、`TestLoginInstallAccountAndPublicPagesDoNotLoadJellyUI`；瀏覽器腳本的 `toast:` 兩項與 `dark mode`。
 4. **Z4 確認對話框。** `Jelly.confirm` 與十處呼叫端改寫、刪舊碼；各頁的 i18n 字串沿用。測試：`TestAdminPagesHaveNoNativeOrHandMadeConfirmDialogs`、`TestAdminLayoutMapsTokensAndDefinesTheHelpers`；腳本的三個 `dialog:` 項目。
-5. **Z5 設定頁開關。** 六個 `<jelly-switch>`、`isOn`／`setOn`、腳本改寫。測試：`TestSettingsBooleansAreJellySwitches`、`TestSettingsPageRendersJellySwitchesWithTheOriginalNames`、`TestSettingsPayloadsStayTheSame`（先後都綠）；腳本的 `switch:` 與 `RTL`。
+5. **Z5 設定頁開關與環境。** 四個 `<jelly-switch>`、兩個環境 `<jelly-segmented>`、`isOn`／`setOn`、`isTestMode`／`setTestMode`、腳本改寫。測試：`TestSettingsBooleansAreJellySwitches`、`TestSettingsEnvironmentIsAJellySegmentedControl`、`TestSettingsPageRendersJellySwitchesWithTheOriginalNames`、`TestSettingsPayloadsStayTheSame`（先後都綠）；腳本的 `switch:`、`segmented: the ECPay 環境 control …` 與 `RTL`。
 6. **Z6 文章列表狀態篩選。** `posts.html`。測試：`TestPostsListHasAStatusSegmentedControl`、`TestPostsPageRendersTheStatusSegmentedControl`；腳本的 `segmented:`。
 7. **Z7 主代理驗收與畫布。** 以真實伺服器跑 `scripts/acceptance/jelly-ui.spec.mjs`，1280px 與 390px 手動對照 Settings、Posts、Trash、States 板截圖；重跑 `fonts.sh`、`jelly-ui.sh` 比對 SHA-256 與 `VERSION`；`go test -race`、`go vet`、`gofmt`、三平台編譯；發布線上畫布（連同 `fonts.css` 與字型）。
 
@@ -262,10 +276,10 @@ options = {
 | 字型 woff2 子集自帶、`fonts.sh` 可重現、離線字體相同 | 既有 `TestVendoredFontsPresent`；腳本的 `document.fonts.check`；驗收步驟：重跑 `scripts/vendor/fonts.sh`，兩處 woff2 的 SHA-256 與重跑前相同；`TestDesignBoardsUseSelfHostedFonts`（設計板與 `.gitignore`、`gen.py`） |
 | `web/admin/assets/jelly-ui/` 含 `jelly.js`、`LICENSE`、`VERSION`，`jelly-ui.sh` 可重現 | `TestJellyUIVendoredBuildIsPresent`、`TestVendorScriptsExistAndRebuild`、`TestVendoredJellyUIIsServedAsJavaScript`；驗收步驟：重跑 `scripts/vendor/jelly-ui.sh`，`jelly.js` 的 SHA-256 與提交的相同 |
 | 每個自帶套件附 `LICENSE`、`VERSION`，取得與重建腳本在 `scripts/vendor/` | `TestEveryThirdPartyPackageHasLicenseAndVersion`、`TestMarkedIsVendoredAsAPackageDirectory` |
-| 至少 switch、segmented、dialog、toaster 四種在後台實際頁面上線 | `TestSettingsPageRendersJellySwitchesWithTheOriginalNames`、`TestPostsPageRendersTheStatusSegmentedControl`、`TestAdminPagesHaveNoNativeOrHandMadeConfirmDialogs`、`TestAdminPagesLoadTheJellyUIModuleOnce`（含 `<jelly-toaster>`）；靜態版 `TestSettingsBooleansAreJellySwitches`、`TestPostsListHasAStatusSegmentedControl`、`TestAdminLayoutMapsTokensAndDefinesTheHelpers`；腳本的 `switch:`、`segmented:`、`dialog:`、`toast:` |
+| 至少 switch、segmented、dialog、toaster 四種在後台實際頁面上線 | `TestSettingsPageRendersJellySwitchesWithTheOriginalNames`、`TestPostsPageRendersTheStatusSegmentedControl`、`TestAdminPagesHaveNoNativeOrHandMadeConfirmDialogs`、`TestAdminPagesLoadTheJellyUIModuleOnce`（含 `<jelly-toaster>`）；靜態版 `TestSettingsBooleansAreJellySwitches`、`TestSettingsEnvironmentIsAJellySegmentedControl`、`TestPostsListHasAStatusSegmentedControl`、`TestAdminLayoutMapsTokensAndDefinesTheHelpers`；腳本的 `switch:`、`segmented:`、`dialog:`、`toast:` |
 | 對照設計板 | 驗收步驟：Settings、Posts、Trash、States 板截圖對照實機（1280px，亮暗）；`design/README.md` 的對照表 |
 | `window.Jelly.toast` 與 `jellyToast()` 的取捨實作 | 決策 6；腳本 `toast: Jelly.toast renders a Jelly UI toast …`、`toast: a call before jelly.js has loaded is queued and shown` |
-| 深色模式、鍵盤操作、RTL 不退步（Playwright 覆蓋） | 腳本：`dark mode: …`、`RTL: …`，以及 `switch:`（空白鍵）、`segmented:`（方向鍵、Home）、`dialog:`（Esc、Enter、焦點） |
+| 深色模式、鍵盤操作、RTL 不退步（Playwright 覆蓋） | 腳本：`dark mode: …`、`RTL: …`，以及 `switch:`（空白鍵）、`segmented:`（環境分段選擇的方向鍵；文章列表的方向鍵、Home）、`dialog:`（Esc、Enter、焦點） |
 | 設計板與 `design/README.md` 更新 | 本工作單已交付；`TestDesignBoardsUseSelfHostedFonts`；線上畫布同步屬 Z7 |
 | release checklist 包含字型與 Jelly UI | `TestReleaseChecklistListsVendoredPackages`；`TestSystemRequirementsNameTheBrowserFeaturesJellyUINeeds` |
 | 登入、安裝、前台不載入 Jelly UI；不影響既有設定值 | `TestLoginInstallAccountAndPublicPagesDoNotLoadJellyUI`、`TestOnlyTheAdminLayoutLoadsJellyUI`、`TestSettingsPayloadsStayTheSame`；腳本 `no page other than the admin loads Jelly UI` |
@@ -276,9 +290,9 @@ options = {
 |---|---|---|
 | `internal/assetcheck/assetcheck_test.go` | `TestScanReportsOnlyRealExternalResourceLoads`、`TestScanReportsLineNumbers`、`TestRepositoryLoadsNoExternalResources` | 通過（Z1 已完成） |
 | `internal/assetcheck/vendor_test.go` | `TestJellyUIVendoredBuildIsPresent`、`TestVendorScriptsExistAndRebuild`、`TestMarkedIsVendoredAsAPackageDirectory`、`TestEveryThirdPartyPackageHasLicenseAndVersion`、`TestReleaseChecklistListsVendoredPackages`、`TestSystemRequirementsNameTheBrowserFeaturesJellyUINeeds`、`TestDesignBoardsUseSelfHostedFonts` | 前六項失敗（Z2 未做）；最後一項通過 |
-| `internal/assetcheck/adoption_test.go` | `TestOnlyTheAdminLayoutLoadsJellyUI`、`TestAdminLayoutMapsTokensAndDefinesTheHelpers`、`TestAdminPagesHaveNoNativeOrHandMadeConfirmDialogs`、`TestSettingsBooleansAreJellySwitches`、`TestPostsListHasAStatusSegmentedControl` | 全部失敗（Z3 至 Z6 未做） |
+| `internal/assetcheck/adoption_test.go` | `TestOnlyTheAdminLayoutLoadsJellyUI`、`TestAdminLayoutMapsTokensAndDefinesTheHelpers`、`TestAdminPagesHaveNoNativeOrHandMadeConfirmDialogs`、`TestSettingsBooleansAreJellySwitches`、`TestSettingsEnvironmentIsAJellySegmentedControl`、`TestPostsListHasAStatusSegmentedControl` | 全部失敗（Z3 至 Z6 未做） |
 | `internal/server/jelly_ui_integration_test.go`（`JELLY_TEST_POSTGRES=1`） | `TestAdminPagesLoadTheJellyUIModuleOnce`、`TestVendoredJellyUIIsServedAsJavaScript`、`TestLoginInstallAccountAndPublicPagesDoNotLoadJellyUI`、`TestSettingsPageRendersJellySwitchesWithTheOriginalNames`、`TestPostsPageRendersTheStatusSegmentedControl`、`TestSettingsPayloadsStayTheSame` | 除 `TestLoginInstallAccountAndPublicPagesDoNotLoadJellyUI` 與 `TestSettingsPayloadsStayTheSame`（防退步，現在就通過）外都失敗 |
-| `scripts/acceptance/jelly-ui.spec.mjs`（不進 CI） | 13 項 | 現在通過 4 項（後台離線、前台離線、其他頁不載入 Jelly UI、設計畫布字型），其餘 9 項失敗於「jelly.js 未載入」 |
+| `scripts/acceptance/jelly-ui.spec.mjs`（不進 CI） | 14 項 | 現在通過 4 項（後台離線、前台離線、其他頁不載入 Jelly UI、設計畫布字型），其餘 10 項失敗於「jelly.js 未載入」 |
 
 ### 測試另外釘下的約定
 
@@ -286,11 +300,12 @@ options = {
 
 - 模組標籤字串：`<script type="module" src="/admin/assets/jelly-ui/jelly.js"></script>`；通知主機：`<jelly-toaster position="bottom"`（開頭字串）。
 - 未分層 token 宣告必須出現在 `layout.html` 的清單：`--jelly-color-background-surface:`、`--jelly-color-background-accent:`、`--jelly-color-foreground-default:`、`--jelly-color-foreground-muted:`、`--jelly-color-border-default:`、`--jelly-font-display:`、`--jelly-font-text:`、`--jelly-font-mono:`、`--jelly-dialog-radius:`、`--jelly-toast-radius:`；另需字串 `data-jelly-mode`、`jelly-theme-change`、`window.Jelly.toast`、`window.Jelly.confirm`、`jellyToast`；不得再有 `class="toasts"`、`.toast-dot`、`toastRoot`。
-- 設定頁 `id` → `name` 對照表（見契約表）；每個開關要有非空 `label`；伺服器輸出不帶 `checked`。
+- 設定頁 `id` → `name` 對照表（見契約表）；每個開關要有非空 `label`；伺服器輸出的開關不帶 `checked`；兩個環境分段選擇的 `label` 是 `環境`、伺服器輸出 `value="test"`、段是 `test=測試`、`live=正式`，且頁面不得出現 `Test Mode`；環境以 `setAttribute('value', …)` 寫、`getAttribute('value') === 'test'` 讀。
 - 文章列表分段選擇：`name="status"`、`value="all"`、非空 `label`、`<jelly-segment>` 的 `value` 依序 `all,published,draft,pending`，每段有文字。
 - `Jelly.confirm` 的 DOM 約定：`<jelly-dialog data-jelly-confirm>`，確認鈕 `button[data-jelly-confirm]`、取消鈕 `button[data-jelly-cancel]`、輸入欄 `input[data-jelly-confirm-input]`；回傳後元素從 DOM 移除；`tone: 'primary'` 初始 focus 在確認鈕、`'danger'` 在取消鈕、有 `requireText` 在輸入欄。
 - `Jelly.toast` 的 DOM 約定：通知在 `jelly-toaster` 的 shadow 內，類名 `.toast`；動作按鈕是 `.toast` 內的 `<button>`；成功通知 4 秒內仍在、約 4.5 秒後消失；錯誤通知 4.5 秒後仍在；`window.jellyToast` 仍是函式。
 - 舊通知容器 `.toasts`、`.toast-dot` 不得留在頁面。
+- 環境分段選擇的驗收：腳本開啟設定頁 → 付款分頁 → 用鍵盤開啟綠界 → 填商店代號與金鑰 → 點「正式」→ 按儲存，要求送出的請求本文 `test_mode === false`（布林、不是字串）、`enabled === true`；再點「測試」→ 儲存，`test_mode === true`；方向鍵右從「測試」移到「正式」。這一項要在乾淨的資料庫上跑：既有缺陷（`GET /api/admin/payment/gateways` 回空的 `config`）會讓第二次載入頁面時讀到 `test_mode` 為假。
 - 分段選擇的 `value` 屬性隨選取更新；`jelly-segmented button[role=radio]` 是上游內部按鈕（驗收腳本以此點擊）。
 - 排隊測試：腳本把 `/admin/assets/jelly-ui/jelly.js` 延遲 2.5 秒，要求 `Jelly.toast` 在 `customElements.get('jelly-toaster')` 還是 undefined 時就已存在並可呼叫。
 - 暗色測試：`page.emulateMedia({ colorScheme })` 切換後 `data-jelly-mode` 在 5 秒內變成 `light`／`dark`，且 `<jelly-dialog>` 的 `.dialog` 背景色不同。
