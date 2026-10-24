@@ -2,8 +2,8 @@
 
 Epic：編輯與發布
 User Story：作者在一個比 WordPress 好用的編輯器裡寫 Markdown：有大綱、斜線選單、即時預覽、專心模式、自動儲存與版本；能用 `:::` 版面區塊排出多欄與英雄區、用屬性加上動效、插入內建互動元件；能寫 GFM、腳註、待辦、警示框、YAML 表格、KaTeX 數學、LaTeX 文件、HTML 區塊；能把單篇匯出成 Jelly MD、純 MD、HTML、PDF。伺服器是唯一的渲染器，所有輸出經淨化。
-Blocked by：05 前台主題的 `content.css` 抽出與字型自帶（草稿 PR #23；`layout.html` 重寫後再動主題側）、04 的版本（已合併）。07 只影響 `:::products` 區塊。
-Status：最終驗收中（編輯器、內容元件及離線 HTML 已通過本機瀏覽器驗收；純 Markdown 匯出缺口、完整測試、必要 CI 與交付待完成，證據見 STATUS.md）
+Blocked by：05 前台主題的 `content.css` 抽出與字型自帶（PR #23 已合併）、04 的版本（已合併）。07 只影響 `:::products` 區塊。
+Status：功能與本機畫面驗收完成（完整測試、必要 CI、合併與清理紀錄見 [PR #26](https://github.com/HazelnutParadise/jelly-cms/pull/26) 及 STATUS.md，沒有部署）
 設計稿：`design/project/Editor、EditorFull、EditorFocus、EditorFocus2、EditorLayout、EditorMotion、EditorExport、Widgets、Revisions、Post.dc.html`；本工作單先補：手機版編輯器（單欄）、斜線選單的三種狀態（開啟、篩選、空）、診斷列（YAML 錯誤、未知屬性）、`Widgets` 板的 `::tabs` 改成 `:::tabs`。
 
 ## 先修的安全問題（G0 第一件事）
@@ -12,18 +12,18 @@ Status：最終驗收中（編輯器、內容元件及離線 HTML 已通過本�
 
 ## 流程與驗收
 
-- [ ] 作者儲存文章時，伺服器從 `source`（Markdown）渲染出 `content`（已淨化 HTML）；請求裡的 `content` 在有 `source` 時一律忽略；只帶 `content` 的請求以呼叫者角色的政策淨化後儲存；回應附 `diagnostics`。
-- [ ] 支援的語法與輸出照本文件「語法表」：GFM（表格、刪除線、連結化、待辦）、腳註、自動標題 id、`> [!NOTE]` 警示框、`<!--more-->`、`:::name {attrs}` 容器（`:::` 收合最內層；`hero`、`section`、`columns`／`col`、`sidebar`、`cta`、`gallery`、`faq`／`item`、`tabs`／`tab`、`products`、`posts`）、`::name{attrs}` 單行指令（`embed`、`widget`、`counter`、`compare`、`countdown`）、`{#id .cls key=value}` 屬性、`$…$` 與 `$$…$$` 數學、```` ```table ```` YAML 表格、```` ```latex ````、```` ```html ````、程式碼高亮。
-- [ ] 淨化政策分兩級：`strict`（author）與 `rich`（admin／editor，另允許 `html` 區塊的允許清單元素）；兩級都不允許 `script`、`on*`、`javascript:`、`data:`、`style`、`iframe`（嵌入與元件由伺服器產生）、`form`、`svg`、`math`、`base`、`meta`、`object`、`embed`，`id`／`name` 在 `html` 區塊內剝除；伺服器產生的片段（KaTeX、嵌入、元件框）以每次渲染不同的 nonce 佔位，作者無法偽造。
-- [ ] 作者在編輯器看到：滿版外殼（原稿／分割／預覽、左側大綱與統計、右側設定抽屜）、斜線選單、狀態列（行列、選取字數、⌘/）、預覽 250 ms 去抖動經 `POST /api/admin/render`、離線時繼續打字並顯示「離線」、圖片貼上即上傳到 `POST /api/admin/media` 並替換佔位。
-- [ ] 專心模式：介面閒置 3 秒淡出、打字機模式、獨立深色切換、字數目標與今日進度、小抄面板可展開或收成一顆按鈕且每位使用者記住狀態、快捷鍵表。
-- [ ] 版面模式：左側調色盤插入區塊文字、中間區塊卡片來自伺服器的 `blocks[]`（行範圍）、拖曳等於搬移原稿行範圍、右側檢視器只改開頭那一行的 `{…}`；未知屬性、順序與註解原樣保留；桌面／手機預覽寬度切換。
-- [ ] 動效與互動元件：檢視器的 `reveal`、`hover`、`scroll`、`delay`、`dur`、`stagger`、`once` 只產生 `data-*`，由主題 `content.css` 與約 5 KB 的 `jelly-motion.js`／`jelly-components.js` 呈現，頁面用到才載入，尊重 `prefers-reduced-motion`；內建元件：分頁、摺疊、輪播、燈箱、倒數、數字跳動、前後比較。
-- [ ] 自訂元件（admin）：登錄頁（內建、自訂、來自外掛、草稿／已發布、用到的頁數）、單檔 HTML＋CSS＋JS 編輯、參數宣告、發布前自動檢查（無外部腳本、無 `eval`／`new Function`、大小上限、減少動態下可用）；前台以 `GET /widgets/:name/:v/frame` 在帶 CSP 的 `sandbox` iframe 內執行，`postMessage` 回報高度。
-- [ ] 自動儲存每 60 秒與失焦時打 `POST /api/admin/posts/:id/autosave`，只寫版本不動正式內容；重新載入時提示還原；版本比較改比 `source`。
-- [ ] 匯出：`GET /api/admin/posts/:id/export?format=jmd|md|html|pdf`；jmd 原樣（可加 YAML front matter）、md 依展平規則、html 獨立文件（可選 zip 含圖片）、pdf 第一版以列印樣式由瀏覽器「存成 PDF」，伺服器無引擎時回 501 `pdf_engine_unavailable`；作者不能匯出別人的文章。
-- [ ] 所有編輯器資產自帶（CodeMirror 6、KaTeX CSS 與字型、chroma 樣式），附 LICENSE 與 VERSION，`scripts/vendor/codemirror.sh`、`scripts/vendor/katex.sh` 可重現；`marked.min.js` 移除。
-- [ ] 後台與前台頁面照設計板，手機 390px 可用（單欄編輯器）。
+- [x] 作者儲存文章時，伺服器從 `source`（Markdown）渲染出 `content`（已淨化 HTML）；請求裡的 `content` 在有 `source` 時一律忽略；只帶 `content` 的請求以呼叫者角色的政策淨化後儲存；回應附 `diagnostics`。
+- [x] 支援的語法與輸出照本文件「語法表」：GFM（表格、刪除線、連結化、待辦）、腳註、自動標題 id、`> [!NOTE]` 警示框、`<!--more-->`、`:::name {attrs}` 容器（`:::` 收合最內層；`hero`、`section`、`columns`／`col`、`sidebar`、`cta`、`gallery`、`faq`／`item`、`tabs`／`tab`、`products`、`posts`）、`::name{attrs}` 單行指令（`embed`、`widget`、`counter`、`compare`、`countdown`）、`{#id .cls key=value}` 屬性、`$…$` 與 `$$…$$` 數學、```` ```table ```` YAML 表格、```` ```latex ````、```` ```html ````、程式碼高亮。
+- [x] 淨化政策分兩級：`strict`（author）與 `rich`（admin／editor，另允許 `html` 區塊的允許清單元素）；兩級都不允許 `script`、`on*`、`javascript:`、`data:`、`style`、`iframe`（嵌入與元件由伺服器產生）、`form`、`svg`、`math`、`base`、`meta`、`object`、`embed`，`id`／`name` 在 `html` 區塊內剝除；伺服器產生的片段（KaTeX、嵌入、元件框）以每次渲染不同的 nonce 佔位，作者無法偽造。
+- [x] 作者在編輯器看到：滿版外殼（原稿／分割／預覽、左側大綱與統計、右側設定抽屜）、斜線選單、狀態列（行列、選取字數、⌘/）、預覽 250 ms 去抖動經 `POST /api/admin/render`、離線時繼續打字並顯示「離線」、圖片貼上即上傳到 `POST /api/admin/media` 並替換佔位。
+- [x] 專心模式：介面閒置 3 秒淡出、打字機模式、獨立深色切換、字數目標與今日進度、小抄面板可展開或收成一顆按鈕且每位使用者記住狀態、快捷鍵表。
+- [x] 版面模式：左側調色盤插入區塊文字、中間區塊卡片來自伺服器的 `blocks[]`（行範圍）、拖曳等於搬移原稿行範圍、右側檢視器只改開頭那一行的 `{…}`；未知屬性、順序與註解原樣保留；桌面／手機預覽寬度切換。
+- [x] 動效與互動元件：檢視器的 `reveal`、`hover`、`scroll`、`delay`、`dur`、`stagger`、`once` 只產生 `data-*`，由主題 `content.css` 與約 5 KB 的 `jelly-motion.js`／`jelly-components.js` 呈現，頁面用到才載入，尊重 `prefers-reduced-motion`；內建元件：分頁、摺疊、輪播、燈箱、倒數、數字跳動、前後比較。
+- [x] 自訂元件（admin）：登錄頁（內建、自訂、來自外掛、草稿／已發布、用到的頁數）、單檔 HTML＋CSS＋JS 編輯、參數宣告、發布前自動檢查（無外部腳本、無 `eval`／`new Function`、大小上限、減少動態下可用）；前台以 `GET /widgets/:name/:v/frame` 在帶 CSP 的 `sandbox` iframe 內執行，`postMessage` 回報高度。
+- [x] 自動儲存每 60 秒與失焦時打 `POST /api/admin/posts/:id/autosave`，只寫版本不動正式內容；重新載入時提示還原；版本比較改比 `source`。
+- [x] 匯出：`GET /api/admin/posts/:id/export?format=jmd|md|html|pdf`；jmd 原樣（可加 YAML front matter）、md 依展平規則、html 獨立文件（可選 zip 含圖片）、pdf 第一版以列印樣式由瀏覽器「存成 PDF」，伺服器無引擎時回 501 `pdf_engine_unavailable`；作者不能匯出別人的文章。
+- [x] 所有編輯器資產自帶（CodeMirror 6、KaTeX CSS 與字型、chroma 樣式），附 LICENSE 與 VERSION，`scripts/vendor/codemirror.sh`、`scripts/vendor/katex.sh` 可重現；`marked.min.js` 移除。
+- [x] 後台與前台頁面照設計板，手機 390px 可用（單欄編輯器）。
 
 ## 錯誤與邊界
 
