@@ -159,6 +159,9 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	// Content organisation: taxonomy, menus, comments, trash, revisions, archives
 	registerContentRoutes(e, tm, renderAdmin)
 
+	// AI agent API and its admin screens (ticket 14)
+	registerAgentRoutes(e, tm, pluginRuntime, renderAdmin)
+
 	// Public Routes (Catch-all should be last)
 	registerAccountPages(e)
 	RegisterPublicRoutes(e, tm)

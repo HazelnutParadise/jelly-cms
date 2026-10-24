@@ -527,6 +527,22 @@
       "expand": "fill",
       "x": 9120,
       "y": 11640
+    },
+    "Agents.dc.html": {
+      "x": 28880,
+      "y": 11640,
+      "w": 1440,
+      "h": 1100,
+      "title": "後台 · AI agent · 清單、建立與金鑰一次性顯示（尚未實作）",
+      "expand": "fill"
+    },
+    "AgentDetail.dc.html": {
+      "x": 30400,
+      "y": 11640,
+      "w": 1440,
+      "h": 2040,
+      "title": "後台 · AI agent · 詳情、輪替對話框、提前撤銷與停用（尚未實作）",
+      "expand": "fill"
     }
   },
   "order": [
@@ -583,6 +599,8 @@
     "Profile.dc.html",
     "Notifications.dc.html",
     "Tokens.dc.html",
+    "Agents.dc.html",
+    "AgentDetail.dc.html",
     "Settings.dc.html",
     "SettingsRoutes.dc.html",
     "SettingsCrawlers.dc.html",
@@ -651,7 +669,7 @@
       "y": 11380,
       "text": "後台 · 帳號與系統",
       "kind": "title1",
-      "maxW": 24240
+      "maxW": 31840
     },
     "s-system": {
       "x": 18160,

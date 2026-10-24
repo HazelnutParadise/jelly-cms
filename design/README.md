@@ -20,6 +20,7 @@ python3 design/gen/gen.py          # 前台商店流程、後台缺的功能、�
 python3 design/gen/gen_editor.py   # 編輯器滿版與專心模式
 python3 design/gen/gen_update.py   # 版本更新（執行檔／容器）
 python3 design/gen/gen_front2.py   # 作者、標籤、彙整索引、商品分類、會員中心、訂單查詢
+python3 design/gen/gen_agents.py   # AI agent 清單、詳情與輪替對話框
 ```
 
 截圖檢查（需要 Playwright）：
