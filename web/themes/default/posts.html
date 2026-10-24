@@ -1,30 +1,49 @@
 {{define "content"}}
 <style>
-    .entry-cats { display: flex; flex-wrap: wrap; gap: .4rem; }
-    .entry-cats .chip { position: relative; z-index: 1; }
-    .entry-cats a.chip:hover { background: var(--ink); color: var(--surface); }
-    .entry.is-featured .entry-cats a.chip:hover { background: var(--surface); color: var(--ink); }
+    .category-chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .4rem; }
+    .category-chips .chip { gap: .45rem; }
+    .category-chips i { width: .625rem; height: .625rem; border-radius: 0 .25rem 0 .25rem; background: var(--category-color, var(--primary)); }
+    .entries.layout-list .entry-cover { grid-column: 3; grid-row: 1 / span 5; width: 100%; aspect-ratio: 4 / 3; margin: 0; border-radius: var(--r-md); object-fit: cover; background: var(--surface-low); }
+    .entries.layout-list .entry-readtime { color: var(--muted); font-size: .875rem; }
+    .entries.layout-list .entry-cats { display: flex; flex-wrap: wrap; gap: .35rem; }
+    .entries.layout-list .entry-cats .chip { min-height: 1.5rem; font-size: .75rem; }
+    @media (max-width: 720px) {
+        .category-chips { justify-content: flex-start; }
+        .entries.layout-list .entry-cover { grid-column: 1; grid-row: auto; max-width: 16rem; }
+    }
 </style>
-<header class="page-head">
-    <div class="label">文章</div>
+<header class="page-head posts-head">
+    <span class="stripes" aria-hidden="true"></span>
+    <p class="label">文章 · 第 {{.Page}} 頁，共 {{.TotalPages}} 頁</p>
     <h1>文章總覽</h1>
-    {{if and .Page .TotalPages}}<p class="lede">第 {{.Page}} 頁，共 {{.TotalPages}} 頁</p>{{end}}
+    <nav class="category-chips" aria-label="分類篩選">
+        <a class="chip" href="/posts">全部 {{.Total}}</a>
+        {{range .Categories}}
+        {{if not .HideFromList}}
+        <a class="chip" href="/c/{{.Slug}}">{{with flavor .Color}}<i style="background:var({{.}})" aria-hidden="true"></i>{{else}}<i aria-hidden="true"></i>{{end}}{{.Name}} {{.PostCount}}</a>
+        {{end}}
+        {{end}}
+    </nav>
 </header>
 
 {{if .Posts}}
 <ol class="entries layout-list">
     {{range $post := .Posts}}
     <li class="entry">
-        <div class="entry-date" aria-hidden="true"><b>{{$post.CreatedAt.Format "02"}}</b><span>{{$post.CreatedAt.Format "2006.01"}}</span></div>
+        <div class="entry-date" aria-hidden="true">
+            {{if $post.PublishedAt}}<b>{{$post.PublishedAt.Format "02"}}</b><span>{{$post.PublishedAt.Format "2006.01"}}</span>{{else}}<b>{{$post.CreatedAt.Format "02"}}</b><span>{{$post.CreatedAt.Format "2006.01"}}</span>{{end}}
+        </div>
+        {{if $post.Cover}}<img class="entry-cover" src="{{$post.Cover}}" alt="" loading="lazy">{{else}}{{with firstImage $post.Content}}<img class="entry-cover" src="{{.}}" alt="" loading="lazy">{{end}}{{end}}
         <div class="entry-head">
-            <time class="chip" datetime="{{$post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.CreatedAt.Format "2006.01.02"}}</time>
+            {{if $post.PublishedAt}}<time class="chip" datetime="{{$post.PublishedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.PublishedAt.Format "2006.01.02"}}</time>{{else}}<time class="chip" datetime="{{$post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.CreatedAt.Format "2006.01.02"}}</time>{{end}}
             <span class="entry-flavor" aria-hidden="true"></span>
         </div>
-        <h2 class="entry-title"><a href="/post/{{$post.Slug}}">{{$post.Title}}</a></h2>
-        <p class="entry-excerpt">{{excerpt $post.Content 160}}</p>
         {{with $post.Categories}}<div class="entry-cats">{{range .}}{{if not .HideFromList}}<a class="chip" href="/c/{{.Slug}}">{{.Name}}</a>{{end}}{{end}}</div>{{end}}
+        <h2 class="entry-title"><a href="/post/{{$post.Slug}}">{{$post.Title}}</a></h2>
+        <p class="entry-excerpt">{{if $post.Excerpt}}{{excerpt $post.Excerpt 160}}{{else}}{{excerpt $post.Content 160}}{{end}}</p>
         <div class="entry-meta">
-            {{if $post.Author.Username}}<span class="by">{{$post.Author.Username}}</span>{{end}}
+            {{if $post.Author.Username}}<span class="by">{{if $post.Author.DisplayName}}{{$post.Author.DisplayName}}{{else}}{{$post.Author.Username}}{{end}}</span>{{end}}
+            <span class="entry-readtime">{{readingTime $post.Content}} 分鐘</span>
             <a class="entry-more" href="/post/{{$post.Slug}}">閱讀全文<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
         </div>
     </li>
@@ -37,15 +56,11 @@
 </div>
 {{end}}
 
-{{if and .Page .TotalPages (gt .TotalPages 1)}}
+{{if gt .TotalPages 1}}
 <nav class="pagination" aria-label="分頁">
-    {{if gt .Page 1}}
-    <a href="/posts?page={{sub .Page 1}}" class="button button-tonal"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>上一頁</a>
-    {{end}}
+    {{if gt .Page 1}}<a href="/posts?page={{sub .Page 1}}" class="button button-tonal"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>上一頁</a>{{end}}
     <span class="page-info">{{.Page}} / {{.TotalPages}}</span>
-    {{if lt .Page .TotalPages}}
-    <a href="/posts?page={{add .Page 1}}" class="button button-tonal">下一頁<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
-    {{end}}
+    {{if lt .Page .TotalPages}}<a href="/posts?page={{add .Page 1}}" class="button button-tonal">下一頁<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>{{end}}
 </nav>
 {{end}}
 {{end}}

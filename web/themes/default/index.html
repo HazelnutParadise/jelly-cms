@@ -6,48 +6,74 @@
     .entry.is-featured .entry-cats a.chip:hover { background: var(--surface); color: var(--ink); }
 </style>
 {{if .IsHome}}
-<section class="hero" aria-labelledby="hero-title">
-    <div class="hero-copy">
+{{- $tagline := themeLayout .ThemeCustom "tagline" "寫下來，才算數。" -}}
+<section class="home-hero" aria-labelledby="home-title">
+    <div class="home-hero-copy">
+        <span class="stripes" aria-hidden="true"></span>
         <div class="label">最新文章</div>
-        <h1 class="display" id="hero-title">{{.SiteTitle}}</h1>
-        <p class="lede">{{themeLayout .ThemeCustom "tagline" "寫下來，才算數。"}}</p>
+        <h1 class="display" id="home-title">{{.SiteTitle}}</h1>
+        {{if $tagline}}<p class="home-tagline">{{$tagline}}</p>{{end}}
         <form class="search-form" role="search" action="/search" method="GET">
-            <input class="field" type="search" name="q" placeholder="搜尋文章" aria-label="搜尋文章">
+            <label class="visually-hidden" for="home-search">搜尋文章</label>
+            <input class="field" id="home-search" type="search" name="q" placeholder="搜尋文章">
             <button class="button button-primary" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>搜尋</button>
         </form>
     </div>
     <div class="hero-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
 </section>
 
-<section aria-labelledby="latest-title">
+<section class="home-stats" aria-label="網站統計">
+    <div><strong>{{.Stats.PostCount}}</strong><span>篇文章</span></div>
+    <div><strong>{{.Stats.AuthorCount}}</strong><span>位作者</span></div>
+    <div><strong>{{.Stats.SinceYear}}</strong><span>開站至今</span></div>
+</section>
+
+<section class="home-latest" aria-labelledby="latest-title">
     <div class="section-head">
         <h2 id="latest-title">最新文章</h2>
-        <span class="chip">{{len .Posts}} 篇</span>
+        <span class="chip">{{if .Featured}}{{add 1 (len .Posts)}}{{else}}{{len .Posts}}{{end}} 篇</span>
     </div>
-    {{if .Posts}}
-    <ol class="entries layout-{{themeLayout .ThemeLayout "post_layout" "grid"}}">
-        {{range $i, $post := .Posts}}
-        <li class="entry{{if eq $i 0}} is-featured{{end}}">
-            {{with firstImage $post.Content}}<img class="entry-cover" src="{{.}}" alt="" loading="lazy">{{end}}
+    {{if or .Featured .Posts}}
+    <ol class="entries layout-grid home-entries">
+        {{with .Featured}}
+        <li class="entry is-featured">
+            {{if .Cover}}<img class="entry-cover" src="{{.Cover}}" alt="" loading="lazy">{{else}}{{with firstImage .Content}}<img class="entry-cover" src="{{.}}" alt="" loading="lazy">{{end}}{{end}}
             <span class="entry-art" aria-hidden="true"><i></i><i></i><i></i></span>
-            <div class="entry-date" aria-hidden="true"><b>{{$post.CreatedAt.Format "02"}}</b><span>{{$post.CreatedAt.Format "2006.01"}}</span></div>
             <div class="entry-head">
-                <time class="chip" datetime="{{$post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.CreatedAt.Format "2006.01.02"}}</time>
+                {{if .PublishedAt}}<time class="chip" datetime="{{.PublishedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.PublishedAt.Format "2006.01.02"}}</time>{{else}}<time class="chip" datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2006.01.02"}}</time>{{end}}
+                <span class="chip chip-primary">主打</span>
+            </div>
+            <h3 class="entry-title"><a href="/post/{{.Slug}}">{{.Title}}</a></h3>
+            <p class="entry-excerpt">{{if .Excerpt}}{{excerpt .Excerpt 180}}{{else}}{{excerpt .Content 180}}{{end}}</p>
+            {{with .Categories}}<div class="entry-cats">{{range .}}{{if not .HideFromList}}<a class="chip" href="/c/{{.Slug}}">{{.Name}}</a>{{end}}{{end}}</div>{{end}}
+            <div class="entry-meta">
+                {{if .Author.Username}}<span class="by">{{if .Author.DisplayName}}{{.Author.DisplayName}}{{else}}{{.Author.Username}}{{end}}</span>{{end}}
+                <a class="entry-more" href="/post/{{.Slug}}">閱讀全文<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
+            </div>
+        </li>
+        {{end}}
+        {{range $i, $post := .Posts}}
+        {{if and (lt $i 6) (or (not $.Featured) (lt $i 5))}}
+        {{if or (not $.Featured) (ne $post.ID $.Featured.ID)}}
+        <li class="entry">
+            {{if $post.Cover}}<img class="entry-cover" src="{{$post.Cover}}" alt="" loading="lazy">{{else}}{{with firstImage $post.Content}}<img class="entry-cover" src="{{.}}" alt="" loading="lazy">{{end}}{{end}}
+            <div class="entry-head">
+                {{if $post.PublishedAt}}<time class="chip" datetime="{{$post.PublishedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.PublishedAt.Format "2006.01.02"}}</time>{{else}}<time class="chip" datetime="{{$post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.CreatedAt.Format "2006.01.02"}}</time>{{end}}
                 <span class="entry-flavor" aria-hidden="true"></span>
             </div>
             <h3 class="entry-title"><a href="/post/{{$post.Slug}}">{{$post.Title}}</a></h3>
-            <p class="entry-excerpt">{{excerpt $post.Content 110}}</p>
+            <p class="entry-excerpt">{{if $post.Excerpt}}{{excerpt $post.Excerpt 110}}{{else}}{{excerpt $post.Content 110}}{{end}}</p>
             {{with $post.Categories}}<div class="entry-cats">{{range .}}{{if not .HideFromList}}<a class="chip" href="/c/{{.Slug}}">{{.Name}}</a>{{end}}{{end}}</div>{{end}}
             <div class="entry-meta">
-                {{if $post.Author.Username}}<span class="by">{{$post.Author.Username}}</span>{{end}}
+                {{if $post.Author.Username}}<span class="by">{{if $post.Author.DisplayName}}{{$post.Author.DisplayName}}{{else}}{{$post.Author.Username}}{{end}}</span>{{end}}
                 <a class="entry-more" href="/post/{{$post.Slug}}">閱讀全文<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
             </div>
         </li>
         {{end}}
+        {{end}}
+        {{end}}
     </ol>
-    <div class="view-all">
-        <a href="/posts" class="button button-tonal">所有文章<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a>
-    </div>
+    <div class="view-all"><a href="/posts" class="button button-tonal">所有文章<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></div>
     {{else}}
     <div class="empty">
         <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -55,14 +81,17 @@
     </div>
     {{end}}
 </section>
+
+{{if or $tagline .Intro}}
+<section class="home-intro" aria-label="網站介紹">
+    {{if $tagline}}<h2 class="display">{{ $tagline }}</h2>{{end}}
+    {{if .Intro}}<p>{{.Intro}}</p>{{end}}
+</section>
+{{end}}
 {{else}}
 <article>
-    <header class="article-head">
-        <h1>{{.Title}}</h1>
-    </header>
-    <div class="prose">
-        {{.Content}}
-    </div>
+    <header class="article-head"><h1>{{.Title}}</h1></header>
+    <div class="prose">{{.Content}}</div>
 </article>
 {{end}}
 {{end}}

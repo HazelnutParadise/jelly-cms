@@ -382,6 +382,15 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		if err := c.Bind(&req); err != nil {
 			return err
 		}
+		// The three maintenance keys keep ticket 05's validation and the
+		// started_at stamping; everything else goes through the registry.
+		maintenance := make(map[string]string, 3)
+		for _, key := range []string{maintenanceEnabledKey, maintenanceMessageKey, maintenanceStartedKey} {
+			if value, ok := req[key]; ok {
+				maintenance[key] = value
+				delete(req, key)
+			}
+		}
 		var unknown []string
 		for k := range req {
 			if _, ok := settings.Lookup(k); !ok {
@@ -390,6 +399,18 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		}
 		if len(unknown) > 0 {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Unknown setting keys: " + strings.Join(unknown, ", ")})
+		}
+		if len(maintenance) > 0 {
+			if data.DB == nil {
+				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+			}
+			if err := saveMaintenanceOptions(data.DB.WithContext(c.Request().Context()), maintenance); err != nil {
+				status := http.StatusServiceUnavailable
+				if errors.Is(err, errInvalidMaintenanceSetting) {
+					status = http.StatusBadRequest
+				}
+				return c.JSON(status, map[string]string{"error": "Unable to save settings"})
+			}
 		}
 		actor, _ := auth.GetUserFromContext(c)
 		var actorID uint

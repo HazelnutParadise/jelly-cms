@@ -1,9 +1,42 @@
 {{define "content"}}
-<section class="error-page" data-code="{{.Error.Code}}">
-    <div class="stripes" aria-hidden="true"></div>
-    <div class="label">{{.Error.Code}}</div>
-    <h1>{{.Error.Title}}</h1>
-    {{if ge .Error.Code 500}}<p>{{if .Error.RequestID}}{{.Error.RequestID}}{{end}}</p>{{else}}<p><code>{{.Error.Path}}</code></p>{{end}}
-    <p><a class="button" href="/"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"></use></svg>回首頁</a></p>
+<style>
+    .error-page { min-height: min(70vh, 42rem); display: grid; grid-template-columns: minmax(0, 1fr) minmax(15rem, .9fr); gap: clamp(2rem, 5vw, 4rem); align-items: center; }
+    .error-copy { display: grid; gap: 1.25rem; }
+    .error-code { font: 800 clamp(7rem, 18vw, 10rem)/.9 var(--font-display); letter-spacing: -.06em; }
+    .error-message { max-width: 28em; color: var(--muted); font-size: 1.125rem; }
+    .error-search { display: flex; gap: .4rem; max-width: 30rem; }
+    .error-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .error-art { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 0 3rem 0 3rem; background: var(--surface-low); }
+    .error-art i { position: absolute; width: 40%; aspect-ratio: 1; border-radius: 0 24% 0 24%; }
+    .error-art i:nth-child(1) { left: 12%; top: 12%; background: var(--secondary); opacity: .82; }
+    .error-art i:nth-child(2) { left: 34%; top: 32%; background: var(--accent); opacity: .85; }
+    .error-art i:nth-child(3) { left: 55%; top: 56%; background: var(--primary); opacity: .92; rotate: 18deg; }
+    .error-art::after { content: ""; position: absolute; left: -20%; top: 70%; width: 140%; height: 1px; background: var(--ink); opacity: .16; transform: rotate(-32deg); }
+    @media (max-width: 720px) {
+        .error-page { grid-template-columns: 1fr; gap: 2rem; min-height: 0; }
+        .error-code { font-size: clamp(6rem, 28vw, 9rem); }
+        .error-art { width: min(100%, 20rem); justify-self: center; }
+        .error-search { flex-wrap: wrap; }
+        .error-search .field, .error-search .button { flex: 1 1 100%; }
+    }
+</style>
+<section class="error-page" data-code="{{.Error.Code}}" aria-labelledby="error-title">
+    <div class="error-copy">
+        <span class="stripes" aria-hidden="true"></span>
+        <div class="label">{{if eq .Error.Code 404}}找不到頁面{{else}}{{.Error.Title}}{{end}}</div>
+        <h1 class="error-code" id="error-title">{{.Error.Code}}</h1>
+        <p class="error-message">{{if .Error.Message}}{{.Error.Message}}{{else}}{{.Error.Title}}{{end}}</p>
+        {{if ge .Error.Code 500}}{{if .Error.RequestID}}<p class="label">錯誤編號 {{.Error.RequestID}}</p>{{end}}{{end}}
+        <form class="error-search" role="search" action="/search" method="GET">
+            <label class="visually-hidden" for="error-search-query">搜尋文章</label>
+            <input class="field" id="error-search-query" type="search" name="q" placeholder="搜尋看看">
+            <button class="button button-primary" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>搜尋</button>
+        </form>
+        <div class="error-actions">
+            <a class="button button-tonal" href="/"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>回首頁</a>
+            <a class="button button-tonal" href="/posts">所有文章</a>
+        </div>
+    </div>
+    <div class="error-art" aria-hidden="true"><i></i><i></i><i></i></div>
 </section>
 {{end}}

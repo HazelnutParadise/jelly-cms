@@ -46,6 +46,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	e.Use(gate.middleware)
 	e.Use(installStateMiddleware)
 	e.Use(I18nMiddleware)
+	e.Use(maintenanceMiddleware(tm))
 	registerUploadRoutes(e)
 	e.Static("/admin/assets", "web/admin/assets")
 
