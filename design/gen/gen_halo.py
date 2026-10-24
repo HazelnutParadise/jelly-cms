@@ -67,6 +67,7 @@ def profile_preferences():
 
 
 profile_title, profile_css, profile_width, profile_height, profile_body = pages["Profile"]
+profile_height = max(profile_height, 2560)
 profile_anchor = '      <div>\n        <div class="lbl" style="margin-bottom:4px">密碼與安全</div>'
 if profile_anchor not in profile_body:
     raise RuntimeError("Profile generator anchor changed; refusing to update the board")
