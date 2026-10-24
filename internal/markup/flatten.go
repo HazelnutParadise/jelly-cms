@@ -1,6 +1,7 @@
 package markup
 
 import (
+	"context"
 	"html"
 	"net/url"
 	"regexp"
@@ -8,7 +9,12 @@ import (
 )
 
 func flattenSource(src string) (string, error) {
-	lines := strings.Split(strings.ReplaceAll(src, "\r\n", "\n"), "\n")
+	normalized := strings.ReplaceAll(src, "\r\n", "\n")
+	lines := strings.Split(normalized, "\n")
+	protectedCode, err := multilineCodeSpanRanges(context.Background(), []byte(normalized))
+	if err != nil {
+		return "", err
+	}
 	var flattenRange func(int, int) string
 	var findContainerEnd func(int, int) int
 	findContainerEnd = func(start, end int) int {
@@ -20,6 +26,9 @@ func flattenSource(src string) (string, error) {
 				continue
 			}
 			inIndentedCode = false
+			if len(protectedCode[j]) > 0 {
+				continue
+			}
 			if strings.HasPrefix(lines[j], "    ") || strings.HasPrefix(lines[j], "\t") {
 				inIndentedCode = true
 				continue
@@ -55,6 +64,19 @@ func flattenSource(src string) (string, error) {
 				continue
 			}
 			inIndentedCode = false
+			if ranges := protectedCode[i]; len(ranges) > 0 {
+				var lineOut strings.Builder
+				last := 0
+				for _, span := range ranges {
+					lineOut.WriteString(flattenDirective(line[last:span[0]]))
+					lineOut.WriteString(line[span[0]:span[1]])
+					last = span[1]
+				}
+				lineOut.WriteString(flattenDirective(line[last:]))
+				out = append(out, lineOut.String())
+				i++
+				continue
+			}
 			if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t") {
 				inIndentedCode = true
 				out = append(out, line)
@@ -148,7 +170,7 @@ func flattenSource(src string) (string, error) {
 		}
 		return trimFlattenOutput(strings.Join(out, "\n"))
 	}
-	return flattenRange(0, len(lines)), nil
+	return stripJMDLinkAttributes(flattenRange(0, len(lines))), nil
 }
 
 func trimFlattenOutput(source string) string {

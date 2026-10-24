@@ -6,10 +6,75 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/text"
 )
 
 var linkMotionAttrs = []string{"reveal", "hover", "scroll", "delay", "dur", "stagger", "once"}
+
+// stripJMDLinkAttributes removes valid trailing JMD attributes from actual
+// Markdown links while preserving the original link source byte for byte.
+func stripJMDLinkAttributes(source string) string {
+	input := []byte(source)
+	md := goldmark.New(goldmark.WithExtensions(extension.GFM, extension.Footnote, extension.TaskList), goldmark.WithParserOptions(parser.WithHeadingAttribute(), parser.WithAutoHeadingID()))
+	doc := md.Parser().Parse(text.NewReader(input))
+	type span struct{ start, end int }
+	var removals []span
+	_ = ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		link, ok := node.(*ast.Link)
+		if !ok {
+			return ast.WalkContinue, nil
+		}
+		first, ok := link.NextSibling().(*ast.Text)
+		if !ok || first.Segment.Padding != 0 {
+			return ast.WalkContinue, nil
+		}
+		textNodes := []*ast.Text{first}
+		value := append([]byte(nil), first.Value(input)...)
+		last := ast.Node(first)
+		for {
+			next, ok := last.NextSibling().(*ast.Text)
+			if !ok || next.Segment.Padding != 0 || textNodes[len(textNodes)-1].Segment.Stop != next.Segment.Start {
+				break
+			}
+			piece := next.Value(input)
+			if bytes.ContainsAny(piece, "\r\n") {
+				break
+			}
+			textNodes = append(textNodes, next)
+			value = append(value, piece...)
+			last = next
+		}
+		end, ok := linkAttrTokenEnd(value)
+		if !ok || !validAttrSyntax(string(value[:end])) {
+			return ast.WalkContinue, nil
+		}
+		removals = append(removals, span{first.Segment.Start, first.Segment.Start + end})
+		return ast.WalkContinue, nil
+	})
+	if len(removals) == 0 {
+		return source
+	}
+	sort.Slice(removals, func(i, j int) bool { return removals[i].start < removals[j].start })
+	var output strings.Builder
+	output.Grow(len(source))
+	last := 0
+	for _, span := range removals {
+		if span.start < last || span.end > len(source) {
+			continue
+		}
+		output.WriteString(source[last:span.start])
+		last = span.end
+	}
+	output.WriteString(source[last:])
+	return output.String()
+}
 
 func (p *pipeline) applyLinkInlineAttrs(root ast.Node, source []byte, lineOffset int) error {
 	var starts []int

@@ -233,6 +233,10 @@ func exportPost(c echo.Context) error {
 		return c.String(200, source)
 	}
 	if format == "md" {
+		if p.Format == "md" {
+			c.Response().Header().Set(echo.HeaderContentType, "text/markdown; charset=utf-8")
+			return c.String(200, source)
+		}
 		source, e := expandDynamicSourceForMarkdown(ctx, db, source, p.Format)
 		if e != nil {
 			return c.JSON(500, map[string]string{"error": "export dynamic content unavailable"})
