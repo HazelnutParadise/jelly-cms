@@ -201,6 +201,7 @@ func (m *Manager) templateFuncs() template.FuncMap {
 		"excerpt":  Excerpt, "initial": Initial, "firstImage": FirstImage,
 		"readingTime": ReadingTime, "highlight": Highlight, "snippet": Snippet,
 		"headingIDs": headingIDsForTemplate, "flavor": Flavor,
+		"contentAssets": contentAssetsForTemplate,
 		"themeColor": func(colors map[string]string, key, defaultValue string) string {
 			if val, ok := colors[key]; ok && val != "" {
 				return val
