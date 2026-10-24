@@ -14,8 +14,10 @@ require (
 	github.com/markbates/goth v1.82.0
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/nicksnyder/go-i18n/v2 v2.6.1
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/yuin/goldmark v1.8.6
 	golang.org/x/crypto v0.58.0
+	golang.org/x/image v0.47.0
 	golang.org/x/net v0.61.0
 	golang.org/x/oauth2 v0.37.0
 	golang.org/x/sys v0.49.0

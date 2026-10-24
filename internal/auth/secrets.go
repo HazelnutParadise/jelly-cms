@@ -29,10 +29,81 @@ type secretFile struct {
 }
 
 // loadOrCreateTOTPKey returns the TOTP encryption key stored at path, adding a
-// newly generated one when the file lacks it. Stub: not wired yet and always fails.
+// newly generated one when the file lacks it. The lock covers the read/modify/
+// replace sequence across processes and preserves existing JWT/session values.
 func loadOrCreateTOTPKey(path string) ([]byte, error) {
-	_ = path
-	return nil, fmt.Errorf("totp key is not implemented")
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, err
+	}
+	unlock, err := lockSecretFile(path)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+
+	if _, _, err := loadOrCreateSecretsFile(path); err != nil {
+		return nil, err
+	}
+	if _, _, err := readSecretsFile(path); err != nil {
+		return nil, err
+	}
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var doc secretFile
+	if err := json.Unmarshal(payload, &doc); err != nil {
+		return nil, fmt.Errorf("invalid auth secret file")
+	}
+	if doc.TOTPKey != "" {
+		key, err := decodeSecret(doc.TOTPKey)
+		if err != nil || len(key) != 32 {
+			return nil, fmt.Errorf("invalid TOTP encryption key")
+		}
+		return key, nil
+	}
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		return nil, err
+	}
+	doc.TOTPKey = base64.StdEncoding.EncodeToString(key)
+	updated, err := json.Marshal(doc)
+	if err != nil {
+		return nil, err
+	}
+	if err := replaceSecretsFile(path, updated); err != nil {
+		return nil, err
+	}
+	return key, nil
+}
+
+func replaceSecretsFile(path string, payload []byte) error {
+	dir := filepath.Dir(path)
+	temp, err := os.CreateTemp(dir, ".auth-secrets-update-*")
+	if err != nil {
+		return err
+	}
+	tempName := temp.Name()
+	defer func() { _ = os.Remove(tempName) }()
+	if err := temp.Chmod(0600); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if _, err := temp.Write(payload); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if err := temp.Sync(); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tempName, path); err != nil {
+		return err
+	}
+	return syncSecretDirectories(path)
 }
 
 func secretFilePath() string {

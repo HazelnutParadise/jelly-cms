@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
@@ -14,13 +15,17 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Shared fixtures for the account self-service and devices acceptance tests
@@ -434,6 +439,15 @@ func TestProfileAvatarTypeSizeAndOwnerOnly(t *testing.T) {
 			t.Error("png avatar upload did not store avatar_url on the user")
 		}
 	}
+	avatarBeforeInvalid := acctString(t, h, "SELECT avatar_url FROM users WHERE id = ?", u.ID)
+	invalidWebP := []byte{'R', 'I', 'F', 'F', 22, 0, 0, 0, 'W', 'E', 'B', 'P', 'V', 'P', '8', ' ', 10, 0, 0, 0, 0x00, 0x00, 0x00, 0x9d, 0x01, 0x2a, 0x01, 0x00, 0x01, 0x00}
+	webpType, webpBody := acctMultipart(t, "avatar", "truncated.webp", invalidWebP)
+	webp := acctCallReader(t, h, acctRemote(), http.MethodPost, "/api/account/avatar", webpBody, token, map[string]string{echo.HeaderContentType: webpType})
+	h.mustNoPanic(webp, "truncated WebP avatar upload")
+	acctWant(t, webp, "POST truncated WebP avatar", http.StatusBadRequest)
+	if got := acctString(t, h, "SELECT avatar_url FROM users WHERE id = ?", u.ID); got != avatarBeforeInvalid {
+		t.Errorf("invalid WebP upload changed avatar_url from %q to %q", avatarBeforeInvalid, got)
+	}
 
 	gifType, gifBody := acctMultipart(t, "avatar", "face.gif", []byte("GIF89a\x01\x00\x01\x00\x00\x00\x00;"))
 	gif := acctCallReader(t, h, acctRemote(), http.MethodPost, "/api/account/avatar", gifBody, token, map[string]string{echo.HeaderContentType: gifType})
@@ -529,6 +543,136 @@ func TestProfilePasswordChangeRevokesOtherSessionsKeepsCurrent(t *testing.T) {
 	}
 	if token, _ := acctLogin(t, h, u.Username, "changed-password-22", "", acctRemote()); token == "" {
 		t.Error("login with the new password returned no token")
+	}
+}
+
+type profileAuthSnapshotGateKey struct{}
+
+func profilePauseBeforeVerifiedUserLock(t *testing.T, h *accessHarness, token, path, body string) (chan struct{}, func(), <-chan *httptest.ResponseRecorder) {
+	t.Helper()
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseBarrier := func() { releaseOnce.Do(func() { close(release) }) }
+	var armed atomic.Bool
+	armed.Store(true)
+	callbackName := "profile_pause_before_verified_user_lock"
+	if err := h.db.Callback().Query().Before("gorm:query").Register(callbackName, func(tx *gorm.DB) {
+		if tx.Statement.Context.Value(profileAuthSnapshotGateKey{}) != true || tx.Statement.Table != "users" {
+			return
+		}
+		locking, ok := tx.Statement.Clauses["FOR"].Expression.(clause.Locking)
+		if !ok || locking.Strength != clause.LockingStrengthUpdate || !armed.CompareAndSwap(true, false) {
+			return
+		}
+		close(entered)
+		<-release
+	}); err != nil {
+		t.Fatalf("register profile auth-snapshot barrier: %v", err)
+	}
+	t.Cleanup(func() { _ = h.db.Callback().Query().Remove(callbackName) })
+	done := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+		req.Host = "127.0.0.1"
+		req.RemoteAddr = acctRemote()
+		req = req.WithContext(context.WithValue(req.Context(), profileAuthSnapshotGateKey{}, true))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
+		req.Header.Set(echo.HeaderOrigin, browserWriteOrigin)
+		req.Header.Set("X-Jelly-CSRF", "1")
+		req.Header.Set(echo.HeaderAuthorization, "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.echo.ServeHTTP(rec, req)
+		done <- rec
+	}()
+	return entered, releaseBarrier, done
+}
+
+func profileIssueAndConsumeAdminReset(t *testing.T, h *accessHarness, target core.User, adminToken, newPassword string) {
+	t.Helper()
+	reset := acctJSON(t, h, http.MethodPost, fmt.Sprintf("/api/admin/users/%d/reset-password", target.ID), "", adminToken)
+	if !acctWantOK(t, reset, "issue admin password reset during account mutation") {
+		t.FailNow()
+	}
+	var link struct {
+		ResetURL string `json:"reset_url"`
+	}
+	acctDecode(t, reset, "account mutation race reset response", &link)
+	resetToken := acctTokenFromURL(t, link.ResetURL, "/password-reset/")
+	consume := acctJSON(t, h, http.MethodPost, "/api/password-reset", fmt.Sprintf(`{"token":%q,"password":%q}`, resetToken, newPassword), "")
+	if !acctWant(t, consume, "consume admin reset during in-flight account mutation", http.StatusOK) {
+		t.FailNow()
+	}
+}
+
+func TestProfilePasswordChangeRejectsStalePasswordSnapshotAfterAdminReset(t *testing.T) {
+	h := newAccessHarness(t)
+	target := acctCreateUser(t, h, acctUserSpec{Username: "profile-password-reset-race", Role: "author", Password: acctPassword})
+	admin := acctCreateUser(t, h, acctUserSpec{Username: "profile-password-reset-race-admin", Role: "admin"})
+	current, _ := acctLogin(t, h, target.Username, acctPassword, "", acctRemote())
+	adminToken := h.token(admin)
+	entered, release, done := profilePauseBeforeVerifiedUserLock(t, h, current, "/api/account/password", fmt.Sprintf(`{"current_password":%q,"new_password":"stale-password-change-33"}`, acctPassword))
+	defer release()
+	select {
+	case <-entered:
+	case <-time.After(10 * time.Second):
+		release()
+		select {
+		case response := <-done:
+			t.Fatalf("password change did not reach verified-user lock; returned %d: %s", response.Code, response.Body.String())
+		case <-time.After(3 * time.Second):
+			t.Fatal("password change did not reach verified-user lock or return")
+		}
+	}
+	profileIssueAndConsumeAdminReset(t, h, target, adminToken, "admin-reset-password-44")
+	release()
+	response := <-done
+	if response.Code != http.StatusUnauthorized {
+		t.Errorf("stale password change returned %d, want 401; body=%q", response.Code, response.Body.String())
+	}
+	if login := acctCall(t, h, acctRemote(), http.MethodPost, "/auth/login", fmt.Sprintf(`{"username":%q,"password":"stale-password-change-33"}`, target.Username), "", map[string]string{echo.HeaderContentType: echo.MIMEApplicationJSON}); login.code != http.StatusUnauthorized {
+		t.Errorf("stale requested password became valid after reset, login returned %d", login.code)
+	}
+	if login := acctCall(t, h, acctRemote(), http.MethodPost, "/auth/login", fmt.Sprintf(`{"username":%q,"password":"admin-reset-password-44"}`, target.Username), "", map[string]string{echo.HeaderContentType: echo.MIMEApplicationJSON}); login.code != http.StatusOK {
+		t.Errorf("admin reset password was not retained, login returned %d: %s", login.code, login.body)
+	}
+}
+
+func TestProfileEmailChangeRejectsStalePasswordSnapshotAfterAdminReset(t *testing.T) {
+	h := newAccessHarness(t)
+	target := acctCreateUser(t, h, acctUserSpec{Username: "profile-email-reset-race", Role: "author", Password: acctPassword})
+	admin := acctCreateUser(t, h, acctUserSpec{Username: "profile-email-reset-race-admin", Role: "admin"})
+	current, _ := acctLogin(t, h, target.Username, acctPassword, "", acctRemote())
+	adminToken := h.token(admin)
+	newEmail := "stale-email-change@example.test"
+	entered, release, done := profilePauseBeforeVerifiedUserLock(t, h, current, "/api/account/email", fmt.Sprintf(`{"current_password":%q,"new_email":%q}`, acctPassword, newEmail))
+	defer release()
+	select {
+	case <-entered:
+	case <-time.After(10 * time.Second):
+		release()
+		select {
+		case response := <-done:
+			t.Fatalf("email change did not reach verified-user lock; returned %d: %s", response.Code, response.Body.String())
+		case <-time.After(3 * time.Second):
+			t.Fatal("email change did not reach verified-user lock or return")
+		}
+	}
+	profileIssueAndConsumeAdminReset(t, h, target, adminToken, "admin-reset-email-race-55")
+	release()
+	response := <-done
+	if response.Code != http.StatusUnauthorized {
+		t.Errorf("stale email change returned %d, want 401; body=%q", response.Code, response.Body.String())
+	}
+	if got := acctString(t, h, "SELECT email FROM users WHERE id = ?", target.ID); got != target.Email {
+		t.Errorf("stale email change modified email to %q, want %q", got, target.Email)
+	}
+	if got := acctString(t, h, "SELECT pending_email FROM users WHERE id = ?", target.ID); got != "" {
+		t.Errorf("stale email change left pending_email=%q, want empty", got)
+	}
+	if invites := acctCount(t, h, "SELECT count(*) FROM user_invites WHERE user_id = ? AND kind = 'email' AND accepted_at IS NULL AND revoked_at IS NULL", target.ID); invites != 0 {
+		t.Errorf("stale email change created %d active email confirmation invites, want none", invites)
 	}
 }
 

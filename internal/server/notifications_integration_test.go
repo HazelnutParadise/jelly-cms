@@ -37,7 +37,7 @@ func ntfSeed(t *testing.T, h *accessHarness, userID uint, kind, category, groupK
 	t.Helper()
 	n := core.Notification{
 		UserID: userID, Kind: kind, Category: category, TitleKey: "notify." + kind,
-		GroupKey: groupKey, Count: 1, CreatedAt: createdAt, ExpiresAt: createdAt.Add(90 * 24 * time.Hour),
+		GroupKey: groupKey, Count: 1, InAppVisible: true, CreatedAt: createdAt, ExpiresAt: createdAt.Add(90 * 24 * time.Hour),
 	}
 	if read {
 		at := createdAt
@@ -151,7 +151,7 @@ func TestNotificationsListOwnOnlyAndCategoryCounts(t *testing.T) {
 		ntfSeed(t, h, b.ID, "comment.pending", "comments", fmt.Sprintf("comment.pending:2%d", i), false, now)
 	}
 
-	jwtA := tokTestLogin(t, h, a.Username)
+	jwtA := h.token(a)
 	_, all := ntfList(t, h, jwtA, "")
 	if len(all.Items) != len(ownIDs) {
 		t.Errorf("list returned %d items for user A, want %d", len(all.Items), len(ownIDs))
@@ -188,8 +188,8 @@ func TestNotificationsMarkReadIDOR404(t *testing.T) {
 	h := newAccessHarness(t)
 	a := tokTestUser(t, h, "ntf-idor-a", "author")
 	b := tokTestUser(t, h, "ntf-idor-b", "author")
-	jwtA := tokTestLogin(t, h, a.Username)
-	jwtB := tokTestLogin(t, h, b.Username)
+	jwtA := h.token(a)
+	jwtB := h.token(b)
 	now := time.Now()
 	n := ntfSeed(t, h, a.ID, "comment.pending", "comments", "comment.pending:201", false, now)
 	ntfSeed(t, h, a.ID, "order.new", "orders", "order.new:202", false, now)
@@ -229,7 +229,7 @@ var ntfBellCount = regexp.MustCompile(`class="bell-count"[^>]*>\s*([^<]+?)\s*<`)
 func TestNotificationsBellCountMatchesUnread(t *testing.T) {
 	h := newAccessHarness(t)
 	admin := tokTestUser(t, h, "ntf-bell-admin", "admin")
-	jwt := tokTestLogin(t, h, admin.Username)
+	jwt := h.token(admin)
 	now := time.Now()
 	for i := 0; i < 3; i++ {
 		ntfSeed(t, h, admin.ID, "comment.pending", "comments", fmt.Sprintf("comment.pending:30%d", i), false, now)
@@ -290,7 +290,7 @@ func TestNotificationsCommentPendingNotifiesAdminsAndEditorsNotAuthors(t *testin
 		t.Errorf("post author got %d notifications for a guest comment, want none", n)
 	}
 
-	jwt := tokTestLogin(t, h, admin.Username)
+	jwt := h.token(admin)
 	_, body := ntfList(t, h, jwt, "category=comments")
 	if len(body.Items) != 1 || body.Items[0].Kind != "comment.pending" {
 		t.Errorf("admin comments list = %+v, want one comment.pending item", body.Items)
@@ -304,7 +304,7 @@ func TestNotificationsCoalesceSameGroupKeyWhileUnread(t *testing.T) {
 	admin := tokTestUser(t, h, "ntf-coalesce-admin", "admin")
 	author := tokTestUser(t, h, "ntf-coalesce-author", "author")
 	post := ntfPublishedPost(t, h, author, "ntf-coalesce-post")
-	jwt := tokTestLogin(t, h, admin.Username)
+	jwt := h.token(admin)
 	groupKey := fmt.Sprintf("comment.pending:%d", post.ID)
 
 	ntfGuestComment(t, h, post.ID, "First")
@@ -337,7 +337,7 @@ func TestNotificationsPreferencesPerChannel(t *testing.T) {
 	admin := tokTestUser(t, h, "ntf-pref-admin", "admin")
 	author := tokTestUser(t, h, "ntf-pref-author", "author")
 	post := ntfPublishedPost(t, h, author, "ntf-pref-post")
-	jwt := tokTestLogin(t, h, admin.Username)
+	jwt := h.token(admin)
 
 	body := ntfPrefs(`{"comment.pending":{"in_app":false,"email":true,"webhook":false}}`, "", `{"enabled":false,"start":"","end":"","tz":""}`)
 	if r := tokTestCall(t, h, http.MethodPut, "/api/account/notification-preferences", body, jwt); r.code != http.StatusOK {
@@ -375,6 +375,191 @@ func TestNotificationsPreferencesPerChannel(t *testing.T) {
 	}
 }
 
+func TestNotificationsPreferenceChangeHidesOldInAppEventsButKeepsEmailDelivery(t *testing.T) {
+	h := newAccessHarness(t)
+	admin := tokTestUser(t, h, "ntf-pref-history-admin", "admin")
+	author := tokTestUser(t, h, "ntf-pref-history-author", "author")
+	post := ntfPublishedPost(t, h, author, "ntf-pref-history-post")
+	jwt := h.token(admin)
+	quiet := `{"enabled":false,"start":"","end":"","tz":""}`
+	setPrefs := func(inApp bool) {
+		t.Helper()
+		body := ntfPrefs(fmt.Sprintf(`{"comment.pending":{"in_app":%t,"email":true,"webhook":false}}`, inApp), "", quiet)
+		if r := tokTestCall(t, h, http.MethodPut, "/api/account/notification-preferences", body, jwt); r.code != http.StatusOK {
+			t.Fatalf("PUT notification-preferences returned %d, want 200; body=%q", r.code, r.body)
+		}
+	}
+	setPrefs(false)
+	ntfGuestComment(t, h, post.ID, "Email only")
+	queued := ntfCount(t, h, `SELECT count(*) FROM notification_deliveries d
+		JOIN notifications n ON n.id = d.notification_id
+		WHERE n.user_id = ? AND d.channel = 'email' AND d.status IN ('pending', 'held')`, admin.ID)
+	if queued != 1 {
+		t.Fatalf("email deliveries while in_app=false = %d, want 1", queued)
+	}
+
+	setPrefs(true)
+	_, list := ntfList(t, h, jwt, "")
+	if len(list.Items) != 0 || list.Counts["all"] != 0 || list.Counts["unread"] != 0 || list.UnreadCount != 0 || list.Counts["comments"] != 0 {
+		t.Errorf("old email-only event appeared after re-enabling in_app: items=%+v counts=%v unread_count=%d", list.Items, list.Counts, list.UnreadCount)
+	}
+	page := tokTestReq(t, h, tokTestRemote(), http.MethodGet, "/admin", "", jwt, map[string]string{echo.HeaderAccept: "text/html"})
+	if page.code != http.StatusOK {
+		t.Fatalf("GET /admin returned %d, want 200; body=%q", page.code, page.body)
+	}
+	if ntfBellCount.MatchString(page.body) {
+		t.Error("admin notification bell shows an old email-only event after re-enabling in_app")
+	}
+
+	ntfGuestComment(t, h, post.ID, "In-app restored")
+	_, list = ntfList(t, h, jwt, "")
+	if len(list.Items) != 1 || list.Counts["all"] != 1 || list.Counts["unread"] != 1 || list.UnreadCount != 1 || list.Items[0].Count != 1 {
+		t.Errorf("new event after re-enabling in_app produced %d items, counts %v unread_count %d; want one visible unread event", len(list.Items), list.Counts, list.UnreadCount)
+	}
+	queued = ntfCount(t, h, `SELECT count(*) FROM notification_deliveries d
+		JOIN notifications n ON n.id = d.notification_id
+		WHERE n.user_id = ? AND d.channel = 'email' AND d.status IN ('pending', 'held')`, admin.ID)
+	if queued != 2 {
+		t.Errorf("email deliveries after the second event = %d, want 2", queued)
+	}
+}
+
+func TestNotificationsSameGroupPreferenceTransitionsDoNotCoalesceAcrossVisibility(t *testing.T) {
+	h := newAccessHarness(t)
+	admin := tokTestUser(t, h, "ntf-pref-same-group-admin", "admin")
+	author := tokTestUser(t, h, "ntf-pref-same-group-author", "author")
+	post := ntfPublishedPost(t, h, author, "ntf-pref-same-group-post")
+	jwt := h.token(admin)
+	quiet := `{"enabled":false,"start":"","end":"","tz":""}`
+	setPrefs := func(inApp bool) {
+		t.Helper()
+		body := ntfPrefs(fmt.Sprintf(`{"comment.pending":{"in_app":%t,"email":true,"webhook":false}}`, inApp), "", quiet)
+		if r := tokTestCall(t, h, http.MethodPut, "/api/account/notification-preferences", body, jwt); r.code != http.StatusOK {
+			t.Fatalf("PUT notification-preferences returned %d, want 200; body=%q", r.code, r.body)
+		}
+	}
+	setPrefs(true)
+	ntfGuestComment(t, h, post.ID, "Visible event")
+	rows := ntfRows(t, h, admin.ID, "comment.pending")
+	if len(rows) != 1 || rows[0].Count != 1 || !rows[0].InAppVisible {
+		t.Fatalf("initial visible group rows=%+v, want one visible count-1 row", rows)
+	}
+	initialID := rows[0].ID
+	setPrefs(false)
+	ntfGuestComment(t, h, post.ID, "Email-only event")
+	rows = ntfRows(t, h, admin.ID, "comment.pending")
+	var original *core.Notification
+	for i := range rows {
+		if rows[i].ID == initialID {
+			original = &rows[i]
+		}
+	}
+	if original == nil || original.Count != 1 || original.ReadAt != nil || original.GroupKey != "" {
+		t.Errorf("email-only same-group event changed the original visible row: rows=%+v", rows)
+	}
+	_, list := ntfList(t, h, jwt, "")
+	if len(list.Items) != 1 || list.Items[0].ID != initialID || list.Items[0].Count != 1 || list.Items[0].ReadAt != nil || list.UnreadCount != 1 {
+		t.Errorf("email-only same-group event changed the original unread list item: items=%+v unread_count=%d", list.Items, list.UnreadCount)
+	}
+	page := tokTestReq(t, h, tokTestRemote(), http.MethodGet, "/admin", "", jwt, map[string]string{echo.HeaderAccept: "text/html"})
+	if page.code != http.StatusOK {
+		t.Fatalf("GET /admin returned %d, want 200; body=%q", page.code, page.body)
+	}
+	if match := ntfBellCount.FindStringSubmatch(page.body); len(match) != 2 || match[1] != "1" {
+		t.Errorf("bell count after email-only same-group event = %v, want original unread count 1", match)
+	}
+	var hiddenID uint
+	for _, row := range rows {
+		if row.ID != initialID && !row.InAppVisible {
+			hiddenID = row.ID
+		}
+	}
+	if hiddenID == 0 {
+		t.Errorf("email-only same-group event produced no hidden row: rows=%+v", rows)
+	}
+	setPrefs(true)
+	ntfGuestComment(t, h, post.ID, "Visible again")
+	rows = ntfRows(t, h, admin.ID, "comment.pending")
+	var fresh *core.Notification
+	for i := range rows {
+		if rows[i].ID != initialID && rows[i].ID != hiddenID && rows[i].InAppVisible {
+			fresh = &rows[i]
+		}
+	}
+	if fresh == nil || fresh.Count != 1 {
+		t.Errorf("event after re-enabling did not create a separate visible count-1 row: rows=%+v", rows)
+	}
+	if hiddenID != 0 {
+		for _, row := range rows {
+			if row.ID == hiddenID && row.InAppVisible {
+				t.Errorf("previous email-only row became visible after re-enabling: %+v", row)
+			}
+		}
+	}
+}
+
+func TestNotificationsNewDeviceEmailOnlyPreference(t *testing.T) {
+	h := newAccessHarness(t)
+	u := tokTestUser(t, h, "ntf-device-email-only", "author")
+	const uaLinux = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
+	const uaPhone = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1"
+	prefs := ntfPrefs(`{"security.new_device":{"in_app":false,"email":true,"webhook":false}}`, "", `{"enabled":false,"start":"","end":"","tz":""}`)
+	if r := tokTestCall(t, h, http.MethodPut, "/api/account/notification-preferences", prefs, h.token(u)); r.code != http.StatusOK {
+		t.Fatalf("PUT notification-preferences returned %d, want 200; body=%q", r.code, r.body)
+	}
+	tokTestLoginAs(t, h, u.Username, uaLinux)
+	tokTestLoginAs(t, h, u.Username, uaPhone)
+	if visible := ntfCount(t, h, "SELECT count(*) FROM notifications WHERE user_id = ? AND kind = 'security.new_device' AND in_app_visible = true", u.ID); visible != 0 {
+		t.Errorf("new-device logins created %d visible in-app rows with in_app=false, want 0", visible)
+	}
+	queued := ntfCount(t, h, `SELECT count(*) FROM notification_deliveries d
+		JOIN notifications n ON n.id = d.notification_id
+		WHERE n.user_id = ? AND n.kind = 'security.new_device' AND d.channel = 'email' AND d.status IN ('pending', 'held')`, u.ID)
+	if queued != 2 {
+		t.Errorf("new-device email deliveries with email=true = %d, want 2", queued)
+	}
+}
+
+func TestNotificationsExpiredUnreadGroupStartsFreshNotificationAndDelivery(t *testing.T) {
+	h := newAccessHarness(t)
+	admin := tokTestUser(t, h, "ntf-expired-group-admin", "admin")
+	author := tokTestUser(t, h, "ntf-expired-group-author", "author")
+	post := ntfPublishedPost(t, h, author, "ntf-expired-group-post")
+	jwt := h.token(admin)
+	groupKey := fmt.Sprintf("comment.pending:%d", post.ID)
+	old := ntfSeed(t, h, admin.ID, "comment.pending", "comments", groupKey, false, time.Now().Add(-91*24*time.Hour))
+	prefs := ntfPrefs(`{"comment.pending":{"in_app":true,"email":true,"webhook":false}}`, "", `{"enabled":false,"start":"","end":"","tz":""}`)
+	if r := tokTestCall(t, h, http.MethodPut, "/api/account/notification-preferences", prefs, jwt); r.code != http.StatusOK {
+		t.Fatalf("PUT notification-preferences returned %d, want 200; body=%q", r.code, r.body)
+	}
+
+	ntfGuestComment(t, h, post.ID, "After expired group")
+	rows := ntfRows(t, h, admin.ID, "comment.pending")
+	if len(rows) != 2 {
+		t.Fatalf("new event with an expired unread group left %d notification rows, want old and new", len(rows))
+	}
+	var fresh core.Notification
+	for _, row := range rows {
+		if row.ID != old.ID {
+			fresh = row
+		}
+	}
+	if fresh.ID == 0 {
+		t.Fatal("new event did not create a distinct notification row")
+	}
+	if fresh.Count != 1 || fresh.ReadAt != nil || fresh.GroupKey != groupKey || !fresh.ExpiresAt.After(time.Now()) {
+		t.Errorf("fresh notification = %+v, want a new unread count-1 row with the same group key and future expiry", fresh)
+	}
+	if updated := ntfRows(t, h, admin.ID, "comment.pending"); updated[0].ID == old.ID && updated[0].Count != 1 {
+		t.Errorf("expired row was incorrectly merged and incremented: %+v", updated[0])
+	}
+	deliveries := ntfCount(t, h, `SELECT count(*) FROM notification_deliveries d
+		WHERE d.notification_id = ? AND d.channel = 'email' AND d.status IN ('pending', 'held')`, fresh.ID)
+	if deliveries != 1 {
+		t.Errorf("email deliveries for fresh notification = %d, want 1 pending or held", deliveries)
+	}
+}
+
 // --- quiet hours -------------------------------------------------------------
 
 func TestNotificationsQuietHoursHoldDeliveries(t *testing.T) {
@@ -382,7 +567,7 @@ func TestNotificationsQuietHoursHoldDeliveries(t *testing.T) {
 	admin := tokTestUser(t, h, "ntf-quiet-admin", "admin")
 	author := tokTestUser(t, h, "ntf-quiet-author", "author")
 	post := ntfPublishedPost(t, h, author, "ntf-quiet-post")
-	jwt := tokTestLogin(t, h, admin.Username)
+	jwt := h.token(admin)
 
 	now := time.Now().UTC()
 	start := now.Add(-time.Hour).Format("15:04")
@@ -411,7 +596,7 @@ func TestNotificationsQuietHoursHoldDeliveries(t *testing.T) {
 func TestNotificationsWebhookURLRejectsPrivateAndHTTP(t *testing.T) {
 	h := newAccessHarness(t)
 	admin := tokTestUser(t, h, "ntf-hook-admin", "admin")
-	jwt := tokTestLogin(t, h, admin.Username)
+	jwt := h.token(admin)
 	quiet := `{"enabled":false,"start":"","end":"","tz":""}`
 
 	for _, u := range []string{"http://hooks.example.com/x", "https://127.0.0.1/x", "https://10.0.0.5/x", "https://localhost/x"} {
@@ -465,7 +650,7 @@ func TestNotificationsNewDeviceLoginEmitsSecurityKind(t *testing.T) {
 func TestNotificationsExpireAfterNinetyDays(t *testing.T) {
 	h := newAccessHarness(t)
 	u := tokTestUser(t, h, "ntf-expire-user", "author")
-	jwt := tokTestLogin(t, h, u.Username)
+	jwt := h.token(u)
 	now := time.Now()
 	old := ntfSeed(t, h, u.ID, "system.update_available", "system", "system.update_available:old", false, now.Add(-91*24*time.Hour))
 	fresh := ntfSeed(t, h, u.ID, "system.update_available", "system", "system.update_available:fresh", false, now)

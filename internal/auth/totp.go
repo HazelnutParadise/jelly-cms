@@ -1,9 +1,17 @@
 package auth
 
-import "time"
+import (
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha1"
+	"crypto/subtle"
+	"encoding/base32"
+	"encoding/binary"
+	"fmt"
+	"time"
+)
 
-// Two-step verification (docs/tickets/06-accounts.md, D6). Stubs only: the
-// constants fix the policy, the functions return zero values until implemented.
+// Two-step verification (docs/tickets/06-accounts.md, D6).
 const (
 	// totpStep is the time slice of one code (RFC 6238, 30 seconds).
 	totpStep = 30 * time.Second
@@ -19,27 +27,64 @@ const (
 )
 
 // GenerateTOTPSecret returns a new base32 secret for an authenticator app.
-// Stub: returns "".
 func GenerateTOTPSecret() string {
-	return ""
+	var secret [20]byte
+	if _, err := rand.Read(secret[:]); err != nil {
+		panic("auth: generate TOTP secret: " + err.Error())
+	}
+	return base32.StdEncoding.EncodeToString(secret[:])
 }
 
 // TOTPCodeAt returns the six-digit code for secret in the time slice that
-// contains t. Exported for tests. Stub: returns "".
+// contains t. Exported for tests.
 func TOTPCodeAt(secret string, t time.Time) string {
-	_ = secret
-	_ = t
-	return ""
+	key, err := base32.StdEncoding.DecodeString(secret)
+	if err != nil || len(key) != 20 || t.Unix() < 0 {
+		return ""
+	}
+	return totpCodeForStep(key, t.Unix()/int64(totpStep/time.Second))
 }
 
 // VerifyTOTP checks code against the slices within totpWindow of now and
 // rejects any slice at or before lastStep, so one code cannot be replayed.
 // It returns the matched slice, which the caller stores as the new last_step.
-// Stub: always fails.
 func VerifyTOTP(secret, code string, now time.Time, lastStep int64) (ok bool, step int64) {
-	_ = secret
-	_ = code
-	_ = now
-	_ = lastStep
-	return false, 0
+	key, err := base32.StdEncoding.DecodeString(secret)
+	if err != nil || len(key) != 20 || now.Unix() < 0 || len(code) != 6 {
+		return false, 0
+	}
+	for _, digit := range code {
+		if digit < '0' || digit > '9' {
+			return false, 0
+		}
+	}
+
+	currentStep := now.Unix() / int64(totpStep/time.Second)
+	matchedStep := int64(-1)
+	for offset := -totpWindow; offset <= totpWindow; offset++ {
+		candidateStep := currentStep + int64(offset)
+		if candidateStep < 0 || candidateStep <= lastStep {
+			continue
+		}
+		expected := totpCodeForStep(key, candidateStep)
+		if subtle.ConstantTimeCompare([]byte(code), []byte(expected)) == 1 && candidateStep > matchedStep {
+			matchedStep = candidateStep
+		}
+	}
+	if matchedStep < 0 {
+		return false, 0
+	}
+	return true, matchedStep
+}
+
+func totpCodeForStep(key []byte, step int64) string {
+	var counter [8]byte
+	binary.BigEndian.PutUint64(counter[:], uint64(step))
+
+	mac := hmac.New(sha1.New, key)
+	_, _ = mac.Write(counter[:])
+	sum := mac.Sum(nil)
+	offset := sum[len(sum)-1] & 0x0f
+	value := binary.BigEndian.Uint32(sum[offset:offset+4]) & 0x7fffffff
+	return fmt.Sprintf("%06d", value%1_000_000)
 }

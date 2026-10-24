@@ -76,6 +76,24 @@ func TestVerifyTOTPWindowAndReplay(t *testing.T) {
 	}
 }
 
+func TestTOTPRejectsEmptyAndShortSecrets(t *testing.T) {
+	now := time.Unix(1700000000, 0)
+	shortSecret := base32.StdEncoding.EncodeToString([]byte("1234567890123456789")) // 152 bits
+	for _, secret := range []string{"", shortSecret} {
+		if got := TOTPCodeAt(secret, now); got != "" {
+			t.Errorf("TOTPCodeAt(%q) = %q, want empty for a secret shorter than 160 bits", secret, got)
+		}
+	}
+	emptyCode := TOTPCodeAt("", now)
+	if ok, _ := VerifyTOTP("", emptyCode, now, 0); ok {
+		t.Error("VerifyTOTP accepted an empty secret")
+	}
+	shortCode := TOTPCodeAt(shortSecret, now)
+	if ok, _ := VerifyTOTP(shortSecret, shortCode, now, 0); ok {
+		t.Error("VerifyTOTP accepted a 152-bit secret")
+	}
+}
+
 func TestGenerateTOTPSecretIsBase32And160Bits(t *testing.T) {
 	shape := regexp.MustCompile(`^[A-Z2-7]+=*$`)
 	a := GenerateTOTPSecret()

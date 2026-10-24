@@ -122,10 +122,36 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
         <div class="lbl" style="margin-bottom:4px">基本資料</div>
         <div class="srow"><div><label for="p1">顯示名稱</label><div class="h">前台文章署名用這個。</div></div><div class="c"><input id="p1" class="ul" type="text" value="Hazel"></div></div>
         <div class="srow"><div><label for="p2">Email</label><div class="h">登入與通知。改了要輸入密碼，並到新信箱按確認連結。</div></div><div class="c"><input id="p2" class="ul" type="email" value="hazel@example.com"></div></div>
+        <div role="status" style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:#FCF0C8;color:#7A5200;border-radius:0 10px 0 10px;margin:0 0 12px">
+          <span class="chip warn">等待確認</span>
+          <div style="min-width:0;flex:1"><b>新 Email 等待確認</b><div style="font-size:12px;margin-top:4px">複製下方連結並開啟，完成新地址確認：<a href="/account/email/confirm?token=example-confirmation-token" rel="noreferrer">確認 Email</a></div></div>
+          <button class="btn t s" type="button">複製確認連結</button>
+        </div>
         <div class="srow"><div><label for="p3">簡介</label><div class="h">作者頁與文章末尾的小卡。</div></div><div class="c"><textarea id="p3" class="ul" rows="2">在台中做果凍，順便寫字。</textarea></div></div>
         <div class="srow"><div><label for="p4">介面語言</label></div><div class="c"><div class="seg"><span class="on">繁中</span><span>English</span></div></div></div>
         <div class="srow"><div><label>外觀</label><div class="h">後台配色。</div></div><div class="c"><div class="seg"><span>跟系統</span><span class="on">淺色</span><span>深色</span></div></div></div>
       </div>
+<section class="card" id="notifications" style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">通知偏好</b><a class="btn t s" href="Profile.dc.html#notifications" style="margin-left:auto">Webhook 與勿擾設定</a></div>
+      <table style="font-size:12.5px"><thead><tr><th>事件</th><th style="text-align:center">站內</th><th style="text-align:center">Email</th><th style="text-align:center">Webhook</th></tr></thead><tbody><tr><td>新留言待審</td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="新留言待審 · 站內"></span></td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="新留言待審 · Email"></span></td><td style="text-align:center"><span class="cb" role="checkbox" aria-checked="false" aria-label="新留言待審 · Webhook"></span></td></tr>
+<tr><td>有人回覆我的留言</td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="有人回覆我的留言 · 站內"></span></td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="有人回覆我的留言 · Email"></span></td><td style="text-align:center"><span class="cb" role="checkbox" aria-checked="false" aria-label="有人回覆我的留言 · Webhook"></span></td></tr>
+<tr><td>新訂單</td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="新訂單 · 站內"></span></td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="新訂單 · Email"></span></td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="新訂單 · Webhook"></span></td></tr>
+<tr><td>付款失敗或退款</td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="付款失敗或退款 · 站內"></span></td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="付款失敗或退款 · Email"></span></td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="付款失敗或退款 · Webhook"></span></td></tr>
+<tr><td>新裝置登入</td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="新裝置登入 · 站內"></span></td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="新裝置登入 · Email"></span></td><td style="text-align:center"><span class="cb" role="checkbox" aria-checked="false" aria-label="新裝置登入 · Webhook"></span></td></tr>
+<tr><td>密碼變更</td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="密碼變更 · 站內"></span></td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="密碼變更 · Email"></span></td><td style="text-align:center"><span class="cb" role="checkbox" aria-checked="false" aria-label="密碼變更 · Webhook"></span></td></tr>
+<tr><td>有可用更新</td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="有可用更新 · 站內"></span></td><td style="text-align:center"><span class="cb" role="checkbox" aria-checked="false" aria-label="有可用更新 · Email"></span></td><td style="text-align:center"><span class="cb" role="checkbox" aria-checked="false" aria-label="有可用更新 · Webhook"></span></td></tr>
+<tr><td>外掛失敗</td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="外掛失敗 · 站內"></span></td><td style="text-align:center"><span class="cb on" role="checkbox" aria-checked="true" aria-label="外掛失敗 · Email"></span></td><td style="text-align:center"><span class="cb" role="checkbox" aria-checked="false" aria-label="外掛失敗 · Webhook"></span></td></tr></tbody></table>
+      <div><label for="profileWebhook">Webhook 網址（僅 HTTPS）</label><input id="profileWebhook" class="ul" type="url" placeholder="https://…" autocomplete="url"></div>
+      <fieldset style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
+        <legend class="lbl">勿擾時段</legend>
+        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="profileQuietEnabled">啟用勿擾時段</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div><label for="profileQuietStart">開始</label><input id="profileQuietStart" class="ul" type="time"></div>
+          <div><label for="profileQuietEnd">結束</label><input id="profileQuietEnd" class="ul" type="time"></div>
+          <div><label for="profileQuietTZ">時區</label><input id="profileQuietTZ" class="ul" type="text" placeholder="Asia/Taipei" maxlength="64"></div>
+        </div>
+      </fieldset>
+    </section>
       <div>
         <div class="lbl" style="margin-bottom:4px">密碼與安全</div>
         <div class="srow"><div><label>密碼</label><div class="h">上次更改：4 個月前。改完其他裝置會全部登出。</div></div><div class="c"><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3M14 8l2 2"/></svg>更改密碼</button></div></div>

@@ -28,7 +28,8 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 	// Content and media are available to known content roles. All other admin
 	// endpoints are registered on the admin-only group below.
 	content := e.Group("/api/admin", auth.RequireRole("admin", "editor", "author"))
-	registerPostRoutes(content)
+	postReads := e.Group("/api/admin")
+	registerPostRoutes(content, postReads)
 	api := e.Group("/api/admin", auth.RequireRole("admin"))
 
 	// Media

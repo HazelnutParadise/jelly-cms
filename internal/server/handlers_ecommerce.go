@@ -12,6 +12,7 @@ import (
 
 func RegisterEcommerceRoutes(e *echo.Echo) {
 	api := e.Group("/api/admin", auth.RequireRole("admin"))
+	orderReaders := e.Group("/api/admin", auth.RequirePermission("orders_read"))
 
 	// Products
 	api.GET("/products", func(c echo.Context) error {
@@ -63,7 +64,7 @@ func RegisterEcommerceRoutes(e *echo.Echo) {
 	api.DELETE("/products/:id", softDeleteProduct)
 
 	// Orders (Basic View)
-	api.GET("/orders", func(c echo.Context) error {
+	orderReaders.GET("/orders", func(c echo.Context) error {
 		var orders []core.Order
 		if err := data.DB.Preload("User").Preload("Items").Find(&orders).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})

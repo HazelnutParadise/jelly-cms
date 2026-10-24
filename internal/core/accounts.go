@@ -55,18 +55,19 @@ func (APIToken) TableName() string { return "api_tokens" }
 // Notification is one row in a user's notification center. Unread rows that
 // share GroupKey are merged by bumping Count.
 type Notification struct {
-	ID        uint            `json:"id" gorm:"primaryKey"`
-	UserID    uint            `json:"user_id" gorm:"not null"`
-	Kind      string          `json:"kind" gorm:"size:64;not null"`
-	Category  string          `json:"category" gorm:"size:16;not null"`
-	TitleKey  string          `json:"title_key" gorm:"column:title_key;size:120;not null;default:''"`
-	Params    json.RawMessage `json:"params" gorm:"type:jsonb;not null;default:'{}'"`
-	Actions   json.RawMessage `json:"actions" gorm:"type:jsonb;not null;default:'[]'"`
-	GroupKey  string          `json:"group_key" gorm:"size:255;not null;default:''"`
-	Count     int             `json:"count" gorm:"not null;default:1"`
-	ReadAt    *time.Time      `json:"read_at"`
-	CreatedAt time.Time       `json:"created_at"`
-	ExpiresAt time.Time       `json:"expires_at"`
+	ID           uint            `json:"id" gorm:"primaryKey"`
+	UserID       uint            `json:"user_id" gorm:"not null"`
+	Kind         string          `json:"kind" gorm:"size:64;not null"`
+	Category     string          `json:"category" gorm:"size:16;not null"`
+	TitleKey     string          `json:"title_key" gorm:"column:title_key;size:120;not null;default:''"`
+	Params       json.RawMessage `json:"params" gorm:"type:jsonb;not null;default:'{}'"`
+	Actions      json.RawMessage `json:"actions" gorm:"type:jsonb;not null;default:'[]'"`
+	GroupKey     string          `json:"group_key" gorm:"size:255;not null;default:''"`
+	Count        int             `json:"count" gorm:"not null;default:1"`
+	InAppVisible bool            `json:"in_app_visible" gorm:"column:in_app_visible;not null;default:true"`
+	ReadAt       *time.Time      `json:"read_at"`
+	CreatedAt    time.Time       `json:"created_at"`
+	ExpiresAt    time.Time       `json:"expires_at"`
 }
 
 // TableName binds Notification to notifications.

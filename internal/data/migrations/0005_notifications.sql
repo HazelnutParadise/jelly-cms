@@ -11,11 +11,16 @@ CREATE TABLE IF NOT EXISTS notifications (
     actions JSONB NOT NULL DEFAULT '[]'::jsonb,
     group_key VARCHAR(255) NOT NULL DEFAULT '',
     count INTEGER NOT NULL DEFAULT 1,
+    in_app_visible BOOLEAN NOT NULL DEFAULT TRUE,
     read_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '90 days'),
     CONSTRAINT notifications_category_check CHECK (category IN ('comments', 'orders', 'system', 'security'))
 );
+
+-- Keep this migration safe when notifications already exists without the
+-- visibility flag. Adding the column leaves all prior rows visible by default.
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS in_app_visible BOOLEAN NOT NULL DEFAULT TRUE;
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_expires_at ON notifications(expires_at);

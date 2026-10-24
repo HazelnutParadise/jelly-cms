@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -286,6 +287,35 @@ func TestTOTPCodeReplaySameStepRejected(t *testing.T) {
 	}
 }
 
+func TestTOTPWrongCodeDoesNotRollBackLastAcceptedStep(t *testing.T) {
+	h := newAccessHarness(t)
+	u := tokTestUser(t, h, "totp-last-step-stable", "author")
+	secret, _, _ := totpTestEnable(t, h, u.Username)
+	var before core.UserTOTP
+	if err := h.db.Where("user_id = ?", u.ID).First(&before).Error; err != nil {
+		t.Fatalf("load enabled TOTP row: %v", err)
+	}
+	if before.LastStep <= 0 {
+		t.Fatalf("enrollment LastStep=%d, want a consumed TOTP step", before.LastStep)
+	}
+	wrongMFA := totpTestMFAToken(t, h, u.Username)
+	if r := totpTestSecondStep(t, h, wrongMFA, totpTestWrongCode(secret)); r.code != http.StatusUnauthorized {
+		t.Fatalf("wrong-code attempt returned %d, want 401; body=%q", r.code, r.body)
+	}
+	reuseMFA := totpTestMFAToken(t, h, u.Username)
+	consumedCode := auth.TOTPCodeAt(secret, time.Unix(before.LastStep*30, 0))
+	if r := totpTestSecondStep(t, h, reuseMFA, consumedCode); r.code != http.StatusUnauthorized {
+		t.Errorf("code consumed during enrollment returned %d after an incorrect attempt, want 401; body=%q", r.code, r.body)
+	}
+	var after core.UserTOTP
+	if err := h.db.Where("user_id = ?", u.ID).First(&after).Error; err != nil {
+		t.Fatalf("reload enabled TOTP row: %v", err)
+	}
+	if after.LastStep != before.LastStep {
+		t.Errorf("wrong-code attempt changed LastStep from %d to %d", before.LastStep, after.LastStep)
+	}
+}
+
 // --- mfa_token rules ---------------------------------------------------------
 
 func TestTOTPMFATokenSingleUseExpiredAndCrossUserRejected(t *testing.T) {
@@ -298,7 +328,7 @@ func TestTOTPMFATokenSingleUseExpiredAndCrossUserRejected(t *testing.T) {
 
 	userA := tokTestUser(t, h, "totp-mfa-a", "author")
 	userB := tokTestUser(t, h, "totp-mfa-b", "author")
-	secretA, _, _ := totpTestEnable(t, h, userA.Username)
+	secretA, _, recoveryA := totpTestEnable(t, h, userA.Username)
 	secretB, _, _ := totpTestEnable(t, h, userB.Username)
 
 	// Single use: a token that completed a login cannot be reused.
@@ -306,8 +336,8 @@ func TestTOTPMFATokenSingleUseExpiredAndCrossUserRejected(t *testing.T) {
 	if r := totpTestSecondStep(t, h, mfaA, totpTestCode(secretA, 1)); r.code != http.StatusOK {
 		t.Fatalf("first use of mfa_token returned %d, want 200; body=%q", r.code, r.body)
 	}
-	if r := totpTestSecondStep(t, h, mfaA, totpTestCode(secretA, 2)); r.code != http.StatusUnauthorized {
-		t.Errorf("reuse of a consumed mfa_token returned %d, want 401; body=%q", r.code, r.body)
+	if r := totpTestRecoveryStep(t, h, mfaA, recoveryA[0]); r.code != http.StatusUnauthorized {
+		t.Errorf("reuse of a consumed mfa_token with a valid recovery code returned %d, want 401; body=%q", r.code, r.body)
 	}
 
 	// Cross user: a token issued to B does not accept A's code, and the reverse.
@@ -323,12 +353,65 @@ func TestTOTPMFATokenSingleUseExpiredAndCrossUserRejected(t *testing.T) {
 	// Expiry: re-sign a fresh token with exp in the past. The control token,
 	// re-signed with its real exp, must still work so the signing key is proven.
 	control := totpTestMFAToken(t, h, userB.Username)
-	if r := totpTestSecondStep(t, h, resignMFAToken(t, control, time.Now().Add(time.Hour)), totpTestCode(secretB, 1)); r.code != http.StatusOK {
-		t.Fatalf("control: re-signed unexpired mfa_token returned %d, want 200; body=%q", r.code, r.body)
+	if r := totpTestSecondStep(t, h, resignMFATokenWithOriginalExpiry(t, control), totpTestCode(secretB, 1)); r.code != http.StatusOK {
+		t.Fatalf("control: re-signed mfa_token with its original expiry returned %d, want 200; body=%q", r.code, r.body)
 	}
 	expired := totpTestMFAToken(t, h, userB.Username)
 	if r := totpTestSecondStep(t, h, resignMFAToken(t, expired, time.Now().Add(-time.Minute)), totpTestCode(secretB, 2)); r.code != http.StatusUnauthorized {
 		t.Errorf("expired mfa_token returned %d, want 401; body=%q", r.code, r.body)
+	}
+}
+
+func resignMFATokenWithOriginalExpiry(t *testing.T, token string) string {
+	t.Helper()
+	claims := jwt.MapClaims{}
+	if _, _, err := jwt.NewParser().ParseUnverified(token, claims); err != nil {
+		t.Fatalf("parse mfa_token claims: %v", err)
+	}
+	exp, err := claims.GetExpirationTime()
+	if err != nil || exp == nil {
+		t.Fatalf("mfa_token has no valid exp claim: exp=%v err=%v", claims["exp"], err)
+	}
+	return resignMFAToken(t, token, exp.Time)
+}
+
+func TestTOTPMFATokenIsNotBearerAndConcurrentRecoveryUseIsSingleUse(t *testing.T) {
+	h := newAccessHarness(t)
+	u := tokTestUser(t, h, "totp-mfa-concurrent", "author")
+	_, _, recoveryCodes := totpTestEnable(t, h, u.Username)
+	mfa := totpTestMFAToken(t, h, u.Username)
+
+	if r := tokTestCall(t, h, http.MethodGet, "/api/account/profile", "", mfa); r.code != http.StatusUnauthorized {
+		t.Errorf("GET /api/account/profile with an mfa_token returned %d, want 401; body=%q", r.code, r.body)
+	}
+
+	results := make(chan accessResult, 2)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			results <- totpTestRecoveryStep(t, h, mfa, recoveryCodes[0])
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	successes, rejected := 0, 0
+	for r := range results {
+		switch r.code {
+		case http.StatusOK:
+			successes++
+		case http.StatusUnauthorized:
+			rejected++
+		default:
+			t.Errorf("concurrent recovery login returned %d, want exactly one 200 and one 401; body=%q", r.code, r.body)
+		}
+	}
+	if successes != 1 || rejected != 1 {
+		t.Errorf("concurrent use of one mfa_token and recovery code: successes=%d rejected=%d, want 1 each", successes, rejected)
 	}
 }
 

@@ -13,8 +13,7 @@ import (
 )
 
 // Account self-service, notifications and two-step verification
-// (docs/tickets/06-accounts.md). Skeleton: every route answers 501 through
-// notImplemented until its ticket slice is implemented.
+// (docs/tickets/06-accounts.md).
 //
 // Self-service API, auth.RequireAuth, every role. "I" marks interactive-only
 // endpoints: an API token principal gets 403 (auth.RequireInteractive).
@@ -50,48 +49,55 @@ import (
 // wireNotifications connects the comment hook and the bell count to the
 // notify package.
 func registerAccountRoutes(e *echo.Echo, renderAdmin func(c echo.Context, file, active string) error) {
-	self := e.Group("/api/account", auth.RequireAuth)
+	self := e.Group("/api/account", auth.RequireAuth, noStoreAccountAPI)
 	interactive := auth.RequireInteractive()
 
-	self.GET("/profile", notImplemented)
-	self.PATCH("/profile", notImplemented)
-	self.POST("/avatar", notImplemented, interactive)
-	self.DELETE("/avatar", notImplemented, interactive)
-	self.POST("/email", notImplemented, interactive)
-	self.POST("/password", notImplemented, interactive)
+	self.GET("/profile", getAccountProfile)
+	self.PATCH("/profile", patchAccountProfile)
+	self.POST("/avatar", uploadAccountAvatar, interactive)
+	self.DELETE("/avatar", deleteAccountAvatar, interactive)
+	self.POST("/email", requestAccountEmailChange, interactive)
+	self.POST("/password", changeAccountPassword, interactive)
 
-	self.GET("/2fa", notImplemented)
-	self.POST("/2fa/enroll", notImplemented, interactive)
-	self.POST("/2fa/verify", notImplemented, interactive)
-	self.POST("/2fa/disable", notImplemented, interactive)
-	self.POST("/2fa/recovery-codes", notImplemented, interactive)
+	self.GET("/2fa", accountTOTPStatus)
+	self.POST("/2fa/enroll", enrollAccountTOTP, interactive)
+	self.POST("/2fa/verify", verifyAccountTOTP, interactive)
+	self.POST("/2fa/disable", disableAccountTOTP, interactive)
+	self.POST("/2fa/recovery-codes", replaceAccountTOTPRecoveryCodes, interactive)
 
-	self.GET("/sessions", notImplemented)
-	self.DELETE("/sessions/:id", notImplemented, interactive)
-	self.POST("/sessions/revoke-others", notImplemented, interactive)
+	self.GET("/sessions", listAccountSessions)
+	self.DELETE("/sessions/:id", revokeAccountSession, interactive)
+	self.POST("/sessions/revoke-others", revokeOtherAccountSessions, interactive)
 
-	self.GET("/tokens", notImplemented)
-	self.POST("/tokens", notImplemented, interactive)
-	self.PATCH("/tokens/:id", notImplemented, interactive)
-	self.POST("/tokens/:id/revoke", notImplemented, interactive)
-	self.POST("/tokens/:id/restore", notImplemented, interactive)
-	self.DELETE("/tokens/:id", notImplemented, interactive)
+	self.GET("/tokens", listAccountTokens)
+	self.POST("/tokens", createAccountToken, interactive)
+	self.PATCH("/tokens/:id", patchAccountToken, interactive)
+	self.POST("/tokens/:id/revoke", func(c echo.Context) error { return changeAccountTokenRevocation(c, true) }, interactive)
+	self.POST("/tokens/:id/restore", func(c echo.Context) error { return changeAccountTokenRevocation(c, false) }, interactive)
+	self.DELETE("/tokens/:id", deleteAccountToken, interactive)
 
-	self.GET("/notifications", notImplemented)
-	self.POST("/notifications/read-all", notImplemented)
-	self.POST("/notifications/:id/read", notImplemented)
-	self.GET("/notification-preferences", notImplemented)
-	self.PUT("/notification-preferences", notImplemented)
+	self.GET("/notifications", AccountNotifications)
+	self.POST("/notifications/read-all", AccountNotificationReadAll)
+	self.POST("/notifications/:id/read", AccountNotificationRead)
+	self.GET("/notification-preferences", AccountNotificationPreferences)
+	self.PUT("/notification-preferences", AccountNotificationPreferencesUpdate)
 
-	e.GET("/account/email/confirm", notImplemented)
-	e.POST("/auth/login/2fa", auth.ProtectBrowserWrites(auth.ProtectLoginAttempts(notImplemented)))
+	e.GET("/account/email/confirm", noStoreAccountAPI(confirmAccountEmail))
+	e.POST("/auth/login/2fa", noStoreAccountAPI(auth.ProtectBrowserWrites(auth.ProtectLoginAttempts(completeAccountMFALogin))))
 
-	e.GET("/admin/account", auth.RequireAuth(func(c echo.Context) error {
+	e.GET("/admin/account", noStoreAccountPage(auth.RequireAuth(staffPageGate(func(c echo.Context) error {
 		return renderAdmin(c, "profile.html", "account")
-	}))
-	e.GET("/admin/notifications", auth.RequireAuth(func(c echo.Context) error {
+	}))))
+	e.GET("/admin/notifications", noStoreAccountPage(auth.RequireAuth(staffPageGate(func(c echo.Context) error {
 		return renderAdmin(c, "notifications.html", "notifications")
-	}))
+	}))))
+}
+
+func noStoreAccountAPI(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
+		return next(c)
+	}
 }
 
 // wireNotifications connects the comment hook and the bell count to the

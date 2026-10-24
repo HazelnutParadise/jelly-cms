@@ -5,45 +5,26 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// User administration and invitations (docs/tickets/06-accounts.md). Skeleton:
-// every route answers 501 through notImplemented until its ticket slice is
-// implemented.
-//
-// Admin API, auth.RequireRole("admin"). "I" marks interactive-only endpoints.
-//
-//	A1  GET    /api/admin/users          q, role, status, page, per_page <= 100 -> {items, total, counts}
-//	A2  POST   /api/admin/users/invite I {email, role, note} -> 201 {id, invite_url, expires_at, emailed}; Email taken 409
-//	A3  POST   /api/admin/users/:id/invite/resend I   new token; /invite/revoke removes a pending invite
-//	A4  PATCH  /api/admin/users/:id  I   {role, status active|disabled, display_name}; last active admin 409; self 409
-//	A5  POST   /api/admin/users/:id/reset-password I  1-hour link -> {reset_url, emailed}; use revokes every login
-//	A6  POST   /api/admin/users/:id/revoke-sessions I revoke all logins
-//	A7  DELETE /api/admin/users/:id?reassign_to=  I   content without a target 409 {posts, pages, comments}; self and last admin 409
-//	A8  POST   /api/admin/users/bulk          I   {ids <= 100, action disable|enable|set_role|delete} -> {updated, skipped}
-//	A9  GET    /api/admin/roles                     permission matrix, read only
-//	A10 GET    /invite/:token                       public; POST /api/invites/accept {token, username?, password, display_name?}
-//	    GET    /password-reset/:token               public; POST /api/password-reset {token, password}
-//	    Tokens are single-use; expired or used links answer 410.
-//
-// Pages (renderAdmin): /admin/users, with the invite panel reached through #invite.
+// User administration and invitations (docs/tickets/06-accounts.md).
 func registerUserRoutes(e *echo.Echo, renderAdmin func(c echo.Context, file, active string) error) {
 	admins := e.Group("/api/admin/users", auth.RequireRole("admin"))
 	interactive := auth.RequireInteractive()
 
-	admins.GET("", notImplemented)
-	admins.POST("/invite", notImplemented, interactive)
-	admins.POST("/:id/invite/resend", notImplemented, interactive)
-	admins.POST("/:id/invite/revoke", notImplemented, interactive)
-	admins.PATCH("/:id", notImplemented, interactive)
-	admins.POST("/:id/reset-password", notImplemented, interactive)
-	admins.POST("/:id/revoke-sessions", notImplemented, interactive)
-	admins.DELETE("/:id", notImplemented, interactive)
-	admins.POST("/bulk", notImplemented, interactive)
-	e.GET("/api/admin/roles", notImplemented, auth.RequireRole("admin"))
+	admins.GET("", listAdminUsers)
+	admins.POST("/invite", createAdminInvite, interactive)
+	admins.POST("/:id/invite/resend", resendAdminInvite, interactive)
+	admins.POST("/:id/invite/revoke", revokeAdminInvite, interactive)
+	admins.PATCH("/:id", patchAdminUser, interactive)
+	admins.POST("/:id/reset-password", createAdminPasswordReset, interactive)
+	admins.POST("/:id/revoke-sessions", revokeAdminUserSessions, interactive)
+	admins.DELETE("/:id", deleteAdminUser, interactive)
+	admins.POST("/bulk", bulkAdminUsers, interactive)
+	e.GET("/api/admin/roles", listAdminRoles, auth.RequireRole("admin"))
 
-	e.GET("/invite/:token", notImplemented)
-	e.POST("/api/invites/accept", auth.ProtectLoginAttempts(notImplemented))
-	e.GET("/password-reset/:token", notImplemented)
-	e.POST("/api/password-reset", auth.ProtectLoginAttempts(notImplemented))
+	e.GET("/invite/:token", noStoreUserLink(showInvitePage))
+	e.POST("/api/invites/accept", noStoreUserLink(auth.ProtectBrowserWrites(auth.ProtectLoginAttempts(acceptInvite))))
+	e.GET("/password-reset/:token", noStoreUserLink(showPasswordResetPage))
+	e.POST("/api/password-reset", noStoreUserLink(auth.ProtectBrowserWrites(auth.ProtectLoginAttempts(acceptPasswordReset))))
 
 	e.GET("/admin/users", func(c echo.Context) error {
 		return renderAdmin(c, "users.html", "users")

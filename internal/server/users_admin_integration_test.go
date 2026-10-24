@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 )
 
@@ -375,6 +378,42 @@ func TestUsersInviteResendRotatesAndRevokeDeletes(t *testing.T) {
 	}
 }
 
+func TestUsersExpiredInvitationCanBeResentWithoutLiveKindConflict(t *testing.T) {
+	h := newAccessHarness(t)
+	admin := acctCreateUser(t, h, acctUserSpec{Username: "ua-expired-resend-admin", Role: "admin"})
+	token := h.token(admin)
+	created, res := usersAdminInvite(t, h, token, "expired-resend@example.test", "author")
+	if !acctWant(t, res, "invite create", http.StatusCreated) {
+		return
+	}
+	oldToken := acctTokenFromURL(t, created.InviteURL, "/invite/")
+	if err := h.db.Exec("UPDATE user_invites SET expires_at = ? WHERE user_id = ? AND kind = 'invite'", time.Now().Add(-time.Hour), created.ID).Error; err != nil {
+		t.Fatalf("expire invitation: %v", err)
+	}
+
+	resent := acctJSON(t, h, http.MethodPost, fmt.Sprintf("/api/admin/users/%d/invite/resend", created.ID), "", token)
+	h.mustNoPanic(resent, "resend expired invitation")
+	if !acctWantOK(t, resent, "resend expired invitation") {
+		return
+	}
+	var rotated usersAdminInviteBody
+	acctDecode(t, resent, "resent expired invitation", &rotated)
+	newToken := acctTokenFromURL(t, rotated.InviteURL, "/invite/")
+	if newToken == oldToken {
+		t.Error("resending an expired invitation returned the expired token")
+	}
+	if n := acctCount(t, h, "SELECT COUNT(*) FROM user_invites WHERE user_id = ? AND kind = 'invite' AND accepted_at IS NULL AND revoked_at IS NULL", created.ID); n != 1 {
+		t.Errorf("live invite rows after resending expired link = %d, want 1", n)
+	}
+	if n := acctCount(t, h, "SELECT COUNT(*) FROM user_invites WHERE user_id = ? AND token_hash = ? AND expires_at > now()", created.ID, acctSHA256Hex(newToken)); n != 1 {
+		t.Errorf("new non-expired invite row for replacement token = %d, want 1", n)
+	}
+	stale := usersAdminAccept(t, h, oldToken, "stale-expired-pass-1", "")
+	if stale.code != http.StatusGone && stale.code != http.StatusNotFound {
+		t.Errorf("accept with the expired replaced token returned %d, want 410 or 404", stale.code)
+	}
+}
+
 func TestUsersInviteAcceptSetsPasswordOnceAndRejectsReuseOrExpiredToken(t *testing.T) {
 	h := newAccessHarness(t)
 	admin := acctCreateUser(t, h, acctUserSpec{Username: "ua-accept-admin", Role: "admin"})
@@ -668,6 +707,26 @@ func TestUsersResetPasswordLinkSingleUseAndRevokesSessions(t *testing.T) {
 	target := acctCreateUser(t, h, acctUserSpec{Username: "reset-target", Role: "author", Password: acctPassword})
 	adminToken := h.token(admin)
 	oldToken, _ := acctLogin(t, h, target.Username, acctPassword, "", acctRemote())
+	legacyToken := h.token(target) // GenerateJWT creates a valid pre-session-row style credential.
+	recoveryCodes := accountsSecurityEnableTOTP(t, h, target)
+	staleMFAToken := accountsSecurityMFAToken(t, h, target.Username, acctPassword)
+	parsed, _, err := new(jwt.Parser).ParseUnverified(legacyToken, jwt.MapClaims{})
+	if err != nil {
+		t.Fatalf("parse legacy reset fixture JWT: %v", err)
+	}
+	claims, ok := parsed.Claims.(jwt.MapClaims)
+	if !ok {
+		t.Fatalf("legacy reset fixture claims type = %T, want jwt.MapClaims", parsed.Claims)
+	}
+	legacyJTI, ok := claims["jti"].(string)
+	if !ok || legacyJTI == "" {
+		t.Fatalf("legacy reset fixture JWT has no string jti: %#v", claims["jti"])
+	}
+	legacyJTIHash := sha256.Sum256([]byte(legacyJTI))
+	legacyRevocationID := hex.EncodeToString(legacyJTIHash[:])
+	if n := acctCount(t, h, "SELECT COUNT(*) FROM login_sessions WHERE id = ?", legacyRevocationID); n != 0 {
+		t.Fatalf("legacy reset fixture jti already has %d session rows, want none before it is used", n)
+	}
 
 	reset := acctJSON(t, h, http.MethodPost, fmt.Sprintf("/api/admin/users/%d/reset-password", target.ID), "", adminToken)
 	h.mustNoPanic(reset, "reset-password")
@@ -695,11 +754,17 @@ func TestUsersResetPasswordLinkSingleUseAndRevokesSessions(t *testing.T) {
 	if r := acctJSON(t, h, http.MethodGet, "/api/auth/me", "", oldToken); r.code != http.StatusUnauthorized {
 		t.Errorf("JWT from before the reset returned %d, want 401", r.code)
 	}
+	if r := acctJSON(t, h, http.MethodGet, "/api/auth/me", "", legacyToken); r.code != http.StatusUnauthorized {
+		t.Errorf("legacy JWT without a session row from before the reset returned %d, want 401", r.code)
+	}
+	if r := totpTestRecoveryStep(t, h, staleMFAToken, recoveryCodes[0]); r.code != http.StatusUnauthorized {
+		t.Errorf("MFA token issued before admin password reset accepted a valid recovery code with status %d, want 401; body=%q", r.code, r.body)
+	}
 	if r := acctCall(t, h, acctRemote(), http.MethodPost, "/auth/login", fmt.Sprintf(`{"username":%q,"password":%q}`, target.Username, acctPassword), "", map[string]string{"Content-Type": "application/json"}); r.code != http.StatusUnauthorized {
 		t.Errorf("old password after reset returned %d, want 401", r.code)
 	}
-	if token, _ := acctLogin(t, h, target.Username, "reset-password-new-1", "", acctRemote()); token == "" {
-		t.Error("new password after reset cannot log in")
+	if token := accountsSecurityMFAToken(t, h, target.Username, "reset-password-new-1"); token == "" {
+		t.Error("new password after reset cannot start MFA login")
 	}
 
 	again := acctJSON(t, h, http.MethodPost, "/api/password-reset", body, "")
@@ -717,6 +782,195 @@ func TestUsersResetPasswordLinkSingleUseAndRevokesSessions(t *testing.T) {
 	}
 	expired := acctJSON(t, h, http.MethodPost, "/api/password-reset", fmt.Sprintf(`{"token":%q,"password":"reset-password-late-2"}`, expiringToken), "")
 	acctWant(t, expired, "reset with an expired link", http.StatusGone)
+}
+
+func TestUsersResetAndRevokeOthersAdvanceMFACredentialVersionImmediately(t *testing.T) {
+	h := newAccessHarness(t)
+	admin := acctCreateUser(t, h, acctUserSpec{Username: "reset-mfa-version-admin", Role: "admin"})
+	target := acctCreateUser(t, h, acctUserSpec{Username: "reset-mfa-version-target", Role: "author", Password: acctPassword})
+	recoveryCodes := accountsSecurityEnableTOTP(t, h, target)
+	if len(recoveryCodes) < 4 {
+		t.Fatalf("TOTP enrollment returned %d recovery codes, need four independent codes", len(recoveryCodes))
+	}
+	oldPasswordChallenge := accountsSecurityMFAToken(t, h, target.Username, acctPassword)
+	adminToken := h.token(admin)
+
+	profileIssueAndConsumeAdminReset(t, h, target, adminToken, "mfa-version-reset-password-66")
+	resetCompletedAt := time.Now().UTC()
+	resetCutoff := acctNullTime(t, h, "SELECT password_changed_at FROM users WHERE id = ?", target.ID)
+	if !resetCutoff.Valid {
+		t.Fatal("password reset did not set password_changed_at")
+	}
+	if !resetCutoff.Time.After(resetCompletedAt) {
+		t.Fatalf("password_changed_at cutoff %s is not future relative to reset completion %s", resetCutoff.Time, resetCompletedAt)
+	}
+
+	// The pre-reset challenge must stay invalid even when submitted with an
+	// otherwise-valid recovery code.
+	if stale := totpTestRecoveryStep(t, h, oldPasswordChallenge, recoveryCodes[0]); stale.code != http.StatusUnauthorized {
+		t.Fatalf("pre-reset MFA challenge returned %d, want 401; body=%q", stale.code, stale.body)
+	}
+
+	// This challenge is issued immediately after reset while the future cutoff
+	// can still be ahead of JWT iat's one-second precision.
+	postResetChallenge := accountsSecurityMFAToken(t, h, target.Username, "mfa-version-reset-password-66")
+	if elapsed := time.Since(resetCompletedAt); elapsed >= time.Second {
+		t.Fatalf("post-reset MFA challenge took %s, want issuance within one second", elapsed)
+	}
+	assertUsersAdminMFATokenIssuedBeforeCutoff(t, postResetChallenge, resetCutoff.Time, "post-reset challenge")
+	postResetLogin := totpTestRecoveryStep(t, h, postResetChallenge, recoveryCodes[1])
+	if postResetLogin.code != http.StatusOK {
+		t.Fatalf("immediate post-reset MFA challenge returned %d, want 200; body=%q", postResetLogin.code, postResetLogin.body)
+	}
+	currentToken := totpTestLoginToken(t, postResetLogin)
+
+	preRevokeChallenge := accountsSecurityMFAToken(t, h, target.Username, "mfa-version-reset-password-66")
+	revoke := acctJSON(t, h, http.MethodPost, "/api/account/sessions/revoke-others", "", currentToken)
+	if !acctWant(t, revoke, "revoke other sessions immediately after issuing MFA challenge", http.StatusOK) {
+		return
+	}
+	revokeCompletedAt := time.Now().UTC()
+	revokeCutoff := acctNullTime(t, h, "SELECT password_changed_at FROM users WHERE id = ?", target.ID)
+	if !revokeCutoff.Valid || !revokeCutoff.Time.After(resetCutoff.Time) {
+		t.Fatalf("revoke-others cutoff %v did not strictly advance past reset cutoff %s", revokeCutoff, resetCutoff.Time)
+	}
+	if stale := totpTestRecoveryStep(t, h, preRevokeChallenge, recoveryCodes[2]); stale.code != http.StatusUnauthorized {
+		t.Fatalf("pre-revoke MFA challenge returned %d, want 401; body=%q", stale.code, stale.body)
+	}
+
+	postRevokeChallenge := accountsSecurityMFAToken(t, h, target.Username, "mfa-version-reset-password-66")
+	if elapsed := time.Since(revokeCompletedAt); elapsed >= time.Second {
+		t.Fatalf("post-revoke MFA challenge took %s, want issuance within one second", elapsed)
+	}
+	assertUsersAdminMFATokenIssuedBeforeCutoff(t, postRevokeChallenge, revokeCutoff.Time, "post-revoke challenge")
+	postRevokeLogin := totpTestRecoveryStep(t, h, postRevokeChallenge, recoveryCodes[3])
+	if postRevokeLogin.code != http.StatusOK {
+		t.Errorf("immediate post-revoke MFA challenge returned %d, want 200; body=%q", postRevokeLogin.code, postRevokeLogin.body)
+	}
+}
+
+func assertUsersAdminMFATokenIssuedBeforeCutoff(t *testing.T, token string, cutoff time.Time, label string) {
+	t.Helper()
+	parsed, _, err := new(jwt.Parser).ParseUnverified(token, jwt.MapClaims{})
+	if err != nil {
+		t.Fatalf("parse %s claims: %v", label, err)
+	}
+	claims, ok := parsed.Claims.(jwt.MapClaims)
+	if !ok {
+		t.Fatalf("%s claims type = %T, want jwt.MapClaims", label, parsed.Claims)
+	}
+	issuedAt, ok := claims["iat"].(float64)
+	if !ok || issuedAt <= 0 {
+		t.Fatalf("%s iat = %#v, want positive NumericDate", label, claims["iat"])
+	}
+	if time.Unix(int64(issuedAt), 0).After(cutoff) {
+		t.Fatalf("%s iat %s is later than future cutoff %s", label, time.Unix(int64(issuedAt), 0), cutoff)
+	}
+}
+
+func TestUsersExpiredResetLinkCanBeReissuedWithoutLiveKindConflict(t *testing.T) {
+	h := newAccessHarness(t)
+	admin := acctCreateUser(t, h, acctUserSpec{Username: "reset-expired-admin", Role: "admin"})
+	target := acctCreateUser(t, h, acctUserSpec{Username: "reset-expired-target", Role: "author", Password: acctPassword})
+	adminToken := h.token(admin)
+
+	first := acctJSON(t, h, http.MethodPost, fmt.Sprintf("/api/admin/users/%d/reset-password", target.ID), "", adminToken)
+	h.mustNoPanic(first, "create initial reset link")
+	if !acctWantOK(t, first, "create initial reset link") {
+		return
+	}
+	var firstLink struct {
+		ResetURL string `json:"reset_url"`
+	}
+	acctDecode(t, first, "initial reset link", &firstLink)
+	oldToken := acctTokenFromURL(t, firstLink.ResetURL, "/password-reset/")
+	if err := h.db.Exec("UPDATE user_invites SET expires_at = ? WHERE user_id = ? AND kind = 'reset'", time.Now().Add(-time.Hour), target.ID).Error; err != nil {
+		t.Fatalf("expire reset link: %v", err)
+	}
+
+	second := acctJSON(t, h, http.MethodPost, fmt.Sprintf("/api/admin/users/%d/reset-password", target.ID), "", adminToken)
+	h.mustNoPanic(second, "reissue expired reset link")
+	if !acctWantOK(t, second, "reissue expired reset link") {
+		return
+	}
+	var nextLink struct {
+		ResetURL string `json:"reset_url"`
+	}
+	acctDecode(t, second, "reissued reset link", &nextLink)
+	newToken := acctTokenFromURL(t, nextLink.ResetURL, "/password-reset/")
+	if newToken == oldToken {
+		t.Error("reissuing an expired reset link returned the expired token")
+	}
+	if n := acctCount(t, h, "SELECT COUNT(*) FROM user_invites WHERE user_id = ? AND kind = 'reset' AND accepted_at IS NULL AND revoked_at IS NULL", target.ID); n != 1 {
+		t.Errorf("live reset rows after reissue = %d, want 1", n)
+	}
+	if n := acctCount(t, h, "SELECT COUNT(*) FROM user_invites WHERE user_id = ? AND token_hash = ? AND expires_at > now()", target.ID, acctSHA256Hex(newToken)); n != 1 {
+		t.Errorf("new non-expired reset row for replacement token = %d, want 1", n)
+	}
+	stale := acctJSON(t, h, http.MethodPost, "/api/password-reset", fmt.Sprintf(`{"token":%q,"password":"stale-reset-password-1"}`, oldToken), "")
+	if stale.code != http.StatusGone && stale.code != http.StatusNotFound {
+		t.Errorf("old expired reset link returned %d, want 410 or 404", stale.code)
+	}
+}
+
+func TestUsersInviteAcceptAndPasswordResetRejectCrossSitePlainTextJSON(t *testing.T) {
+	h := newAccessHarness(t)
+	admin := acctCreateUser(t, h, acctUserSpec{Username: "csrf-users-admin", Role: "admin"})
+	target := acctCreateUser(t, h, acctUserSpec{Username: "csrf-reset-target", Role: "author", Password: acctPassword})
+	adminToken := h.token(admin)
+
+	invite, inviteRes := usersAdminInvite(t, h, adminToken, "csrf-invite-target@example.test", "author")
+	if !acctWant(t, inviteRes, "create invite for CSRF test", http.StatusCreated) {
+		return
+	}
+	inviteToken := acctTokenFromURL(t, invite.InviteURL, "/invite/")
+	resetRes := acctJSON(t, h, http.MethodPost, fmt.Sprintf("/api/admin/users/%d/reset-password", target.ID), "", adminToken)
+	h.mustNoPanic(resetRes, "create reset link for CSRF test")
+	if !acctWantOK(t, resetRes, "create reset link for CSRF test") {
+		return
+	}
+	var resetLink struct {
+		ResetURL string `json:"reset_url"`
+	}
+	acctDecode(t, resetRes, "reset link for CSRF test", &resetLink)
+	resetToken := acctTokenFromURL(t, resetLink.ResetURL, "/password-reset/")
+
+	cases := []struct {
+		name, path, body string
+	}{
+		{"invite acceptance", "/api/invites/accept", fmt.Sprintf(`{"token":%q,"username":"csrf-invite-accepted","password":"csrf-invite-password-1"}`, inviteToken)},
+		{"password reset", "/api/password-reset", fmt.Sprintf(`{"token":%q,"password":"csrf-reset-password-2"}`, resetToken)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := acctCall(t, h, acctRemote(), http.MethodPost, tc.path, tc.body, "", map[string]string{
+				"Origin":       "https://attacker.example",
+				"Content-Type": "text/plain",
+			})
+			h.mustNoPanic(res, "cross-site text/plain "+tc.name)
+			if res.code != http.StatusForbidden {
+				t.Fatalf("cross-site text/plain %s returned %d, want 403; body=%q", tc.name, res.code, res.body)
+			}
+		})
+	}
+
+	if status := usersAdminStatusOf(t, h, invite.ID); status != "invited" {
+		t.Errorf("cross-site invite acceptance changed account status to %q, want invited", status)
+	}
+	if n := acctCount(t, h, "SELECT COUNT(*) FROM user_invites WHERE user_id = ? AND kind = 'invite' AND token_hash = ? AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > now()", invite.ID, acctSHA256Hex(inviteToken)); n != 1 {
+		t.Errorf("cross-site invite acceptance consumed or changed the valid token; rows=%d, want 1", n)
+	}
+	if n := acctCount(t, h, "SELECT COUNT(*) FROM user_invites WHERE user_id = ? AND kind = 'reset' AND token_hash = ? AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > now()", target.ID, acctSHA256Hex(resetToken)); n != 1 {
+		t.Errorf("cross-site password reset consumed or changed the valid token; rows=%d, want 1", n)
+	}
+	if token, _ := acctLogin(t, h, target.Username, acctPassword, "", acctRemote()); token == "" {
+		t.Error("cross-site password reset changed the target password")
+	}
+
+	accepted := usersAdminAccept(t, h, inviteToken, "csrf-invite-password-1", "")
+	acctWant(t, accepted, "same invite token after rejected cross-site request", http.StatusOK)
+	reset := acctJSON(t, h, http.MethodPost, "/api/password-reset", fmt.Sprintf(`{"token":%q,"password":"csrf-reset-password-2"}`, resetToken), "")
+	acctWant(t, reset, "same reset token after rejected cross-site request", http.StatusOK)
 }
 
 func TestUsersBulkDisableEnableSetRoleDelete(t *testing.T) {

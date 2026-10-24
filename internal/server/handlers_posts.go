@@ -3,12 +3,14 @@ package server
 import (
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/goccy/go-json"
@@ -16,12 +18,42 @@ import (
 	"gorm.io/gorm"
 )
 
-func registerPostRoutes(api *echo.Group) {
-	api.GET("/posts", listPosts)
+func registerPostRoutes(api, reads *echo.Group) {
+	reads.GET("/posts", listPosts, requirePostReadPermission)
 	api.POST("/posts", createPost)
-	api.GET("/posts/:id", getPost)
+	reads.GET("/posts/:id", getPost, requirePostReadPermission)
 	api.PUT("/posts/:id", updatePost)
 	api.DELETE("/posts/:id", deletePost)
+}
+
+func requirePostReadPermission(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		principal, err := auth.GetCurrentPrincipal(c)
+		if err != nil || principal == nil || principal.User == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+		}
+		if principal.Source == "api_token" {
+			for _, scope := range principal.Scopes {
+				switch scope {
+				case "admin", "editor", "author":
+					return auth.RequireRole("admin", "editor", "author")(next)(c)
+				}
+			}
+		}
+		return auth.RequirePermission("content_read")(func(c echo.Context) error {
+			if principal.Source == "api_token" {
+				user := *principal.User
+				var owner core.User
+				if err := data.DB.WithContext(c.Request().Context()).Select("id", "role").First(&owner, user.ID).Error; err != nil {
+					log.Printf("load owner role for content-read token user %d: %v", user.ID, err)
+					return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to authorize post read"})
+				}
+				user.Role = owner.Role
+				c.Set("user", &user)
+			}
+			return next(c)
+		})(c)
+	}
 }
 
 func listPosts(c echo.Context) error {

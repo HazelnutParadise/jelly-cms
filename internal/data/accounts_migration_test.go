@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/config"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
@@ -58,6 +59,66 @@ func TestAccountsMigrationIdempotentRerun(t *testing.T) {
 	}
 	if kept.Username != u.Username || kept.Email != u.Email || kept.Status != "active" || kept.Locale != "zh-TW" || kept.UITheme != "system" {
 		t.Errorf("rerun changed an existing user row: %+v", kept)
+	}
+}
+
+func TestAccountsMigrationRerunPreservesAccountSecurityState(t *testing.T) {
+	db := newAccountsMigrationDB(t)
+	if err := MigrateDB(db); err != nil {
+		t.Fatalf("first MigrateDB on a fresh database: %v", err)
+	}
+	u := core.User{Username: "accounts-preserve-user", Email: "accounts-preserve@example.test", Provider: "local"}
+	if err := db.Create(&u).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	disabledAt := time.Date(2026, time.January, 2, 3, 4, 5, 0, time.UTC)
+	pendingExpiry := disabledAt.Add(48 * time.Hour)
+	if err := db.Exec(`UPDATE users SET status = 'disabled', disabled_at = ?, pending_email = ?,
+		pending_email_hash = ?, pending_email_expires_at = ? WHERE id = ?`,
+		disabledAt, "pending@example.test", strings.Repeat("a", 64), pendingExpiry, u.ID).Error; err != nil {
+		t.Fatalf("seed account state: %v", err)
+	}
+	revokedAt := disabledAt.Add(time.Hour)
+	if err := db.Exec(`INSERT INTO api_tokens (user_id, name, token_hash, last4, scopes, revoked_at)
+		VALUES (?, 'preserve revoked token', ?, 'wxyz', '{author}', ?)`, u.ID, strings.Repeat("b", 64), revokedAt).Error; err != nil {
+		t.Fatalf("seed revoked API token: %v", err)
+	}
+	usedAt := disabledAt.Add(2 * time.Hour)
+	if err := db.Exec(`INSERT INTO user_recovery_codes (user_id, code_hash, used_at) VALUES (?, ?, ?)`,
+		u.ID, strings.Repeat("c", 64), usedAt).Error; err != nil {
+		t.Fatalf("seed used recovery code: %v", err)
+	}
+
+	if err := MigrateDB(db); err != nil {
+		t.Fatalf("second MigrateDB: %v", err)
+	}
+	var got struct {
+		Status                string
+		DisabledAt            time.Time
+		PendingEmail          string
+		PendingEmailHash      string
+		PendingEmailExpiresAt time.Time
+	}
+	if err := db.Raw(`SELECT status, disabled_at, pending_email, pending_email_hash, pending_email_expires_at
+		FROM users WHERE id = ?`, u.ID).Scan(&got).Error; err != nil {
+		t.Fatalf("reload account security state: %v", err)
+	}
+	if got.Status != "disabled" || !got.DisabledAt.Equal(disabledAt) || got.PendingEmail != "pending@example.test" ||
+		got.PendingEmailHash != strings.Repeat("a", 64) || !got.PendingEmailExpiresAt.Equal(pendingExpiry) {
+		t.Errorf("migration changed account security state: %+v", got)
+	}
+	var tokenRevokedAt, recoveryUsedAt time.Time
+	if err := db.Raw("SELECT revoked_at FROM api_tokens WHERE user_id = ? AND name = ?", u.ID, "preserve revoked token").Scan(&tokenRevokedAt).Error; err != nil {
+		t.Fatalf("reload revoked token timestamp: %v", err)
+	}
+	if err := db.Raw("SELECT used_at FROM user_recovery_codes WHERE user_id = ? AND code_hash = ?", u.ID, strings.Repeat("c", 64)).Scan(&recoveryUsedAt).Error; err != nil {
+		t.Fatalf("reload recovery-code timestamp: %v", err)
+	}
+	if !tokenRevokedAt.Equal(revokedAt) {
+		t.Errorf("revoked API token timestamp = %v, want %v", tokenRevokedAt, revokedAt)
+	}
+	if !recoveryUsedAt.Equal(usedAt) {
+		t.Errorf("used recovery code timestamp = %v, want %v", recoveryUsedAt, usedAt)
 	}
 }
 

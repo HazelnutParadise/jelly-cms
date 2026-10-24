@@ -166,7 +166,7 @@ func HandleIdentityList(c echo.Context) error {
 		providers = append(providers, providerState{Provider: name, Enabled: enabledErr == nil, Linked: count > 0})
 	}
 	return c.JSON(http.StatusOK, map[string]any{
-		"local_login": current.Provider == "local" && current.Password != "",
+		"local_login": current.Password != "",
 		"providers":   providers,
 	})
 }
@@ -264,7 +264,7 @@ func HandleIdentityUnlink(c echo.Context) error {
 			return err
 		}
 		ways := 0
-		if locked.Provider == "local" && locked.Password != "" {
+		if locked.Password != "" {
 			ways++
 		}
 		var others []core.OAuthIdentity
