@@ -164,12 +164,21 @@ func loadOAuthIdentityUser(db *gorm.DB, userID uint) (*core.User, error) {
 func createOAuthUser(db *gorm.DB, profile goth.User, username string) (*core.User, error) {
 	var user core.User
 	err := db.Transaction(func(tx *gorm.DB) error {
+		defaultRole := "author"
+		var configuredRole string
+		if err := tx.Model(&core.Option{}).Where("key = ?", "oauth_default_role").Select("value").Scan(&configuredRole).Error; err != nil {
+			return err
+		}
+		switch configuredRole {
+		case "admin", "editor", "author", "customer":
+			defaultRole = configuredRole
+		}
 		user = core.User{
 			Username:  username,
 			Email:     profile.Email,
 			AvatarURL: profile.AvatarURL,
 			Provider:  profile.Provider,
-			Role:      "author",
+			Role:      defaultRole,
 		}
 		if err := tx.Create(&user).Error; err != nil {
 			return err

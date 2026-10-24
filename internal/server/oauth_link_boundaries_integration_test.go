@@ -197,7 +197,11 @@ func TestOAuthLinkBoundaryJWTExpiryDuringIdentityReadRejectsWrite(t *testing.T) 
 		t.Errorf("expired callback created %d identity mappings, want 0", got)
 	}
 	// A live token against the same route is the success control.
-	control := oauthAccountBeginLink(t, h, p, login, "")
+	// The expired fixture shares the original token's jti, and principal loading
+	// creates its legacy session row with the shortened expiry. Use a fresh login
+	// for the success control so that fixture bookkeeping cannot invalidate it.
+	controlLogin := oauthAccountLoginFor(t, h, u)
+	control := oauthAccountBeginLink(t, h, p, controlLogin, "")
 	valid := oauthAccountCallback(h, control, "not-expired-control", true)
 	if valid.Code != http.StatusOK {
 		t.Errorf("unexpired callback returned %d, want 200: %s", valid.Code, valid.Body.String())

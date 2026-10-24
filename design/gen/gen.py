@@ -258,6 +258,15 @@ def admin(active, crumbs, actions, main, extra="", search=True):
   {extra}
 </div>'''
 
+# ---------- shared by Profile / Tokens / Notifications ----------
+SUB_CSS = '''
+.sub a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#5F6470;font-weight:600;font-size:13px}
+.sub a.on{background:#F3F3F5;color:#15161A}'''
+
+def profile_nav(on):
+    items=[("user","基本資料"),("mail","通知"),("key","API 權杖"),("lock","密碼與安全"),("globe","登入裝置"),("link","第三方帳號")]
+    return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px">'+"".join(f'<a href="Profile.dc.html"{" class=\"on\"" if l==on else ""}>{I(ic,14)}{l}</a>' for ic,l in items)+'</nav>'
+
 pages = {}
 
 # ======================= FRONT: Checkout =======================
@@ -518,8 +527,10 @@ pages["Comments"] = ("後台留言管理", ADMIN_CSS, 1440, 1000, admin("comment
   </div>'''))
 
 # ======================= ADMIN: Users =======================
-def urow(av,color,name,email,role,rcls,last,state,scls,me=False):
-    return f'''<tr><td style="width:36px"><span class="cb"></span></td><td><div style="display:flex;gap:10px;align-items:center"><span class="av" style="background:{color}">{av}</span><div><b>{name}</b>{' <span class="chip nd" style="margin-left:4px">你</span>' if me else ''}<div style="font-size:12px;color:#5F6470">{email}</div></div></div></td><td><span class="chip {rcls}">{role}</span></td><td style="color:#5F6470">{last}</td><td><span class="chip {scls}">{state}</span></td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="重設密碼">{I("key")}</button><button class="btn x s i" type="button" aria-label="更多">{I("more")}</button></td></tr>'''
+USER_MENU = lambda: f'''<div role="menu" aria-label="小魚的更多操作" style="position:absolute;right:6px;top:38px;z-index:5;width:188px;padding:6px;background:#fff;border-radius:0 12px 0 12px;box-shadow:0 0 0 1px #E2E3E8,0 12px 32px rgba(21,22,26,.14);display:flex;flex-direction:column;gap:2px;text-align:left"><button class="btn x s" role="menuitem" type="button" style="justify-content:flex-start;opacity:1;width:100%">{I("lock",14)}登出所有裝置</button><button class="btn x s" role="menuitem" type="button" style="justify-content:flex-start;opacity:1;width:100%;color:#9C2318">{I("trash",14)}刪除</button></div>'''
+
+def urow(av,color,name,email,role,rcls,last,state,scls,me=False,menu=False):
+    return f'''<tr><td style="width:36px"><span class="cb"></span></td><td><div style="display:flex;gap:10px;align-items:center"><span class="av" style="background:{color}">{av}</span><div><b>{name}</b>{' <span class="chip nd" style="margin-left:4px">你</span>' if me else ''}<div style="font-size:12px;color:#5F6470">{email}</div></div></div></td><td><span class="chip {rcls}">{role}</span></td><td style="color:#5F6470">{last}</td><td><span class="chip {scls}">{state}</span></td><td class="act"{' style="position:relative"' if menu else ''}><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="重設密碼">{I("key")}</button><button class="btn x s i" type="button" aria-label="更多"{' aria-haspopup="menu" aria-expanded="true" style="opacity:1;background:#EDEEF1"' if menu else ''}>{I("more")}</button>{USER_MENU() if menu else ''}</td></tr>'''
 
 pages["Users"] = ("後台使用者與角色", ADMIN_CSS, 1440, 1000, admin("users", ["系統","使用者"],
   f'<button class="btn t" type="button">{I("shield")}角色與權限</button><button class="btn p" type="button">{I("plus")}邀請使用者</button>',
@@ -531,7 +542,7 @@ pages["Users"] = ("後台使用者與角色", ADMIN_CSS, 1440, 1000, admin("user
         <tbody>
           {urow("H","#E8285B","Hazel","hazel@example.com","管理員","bad","剛剛 · Chrome / macOS","啟用","ok",True)}
           {urow("T","#2F6BFF","Ting","ting@example.com","管理員","bad","昨天 · Safari / iPhone","啟用","ok")}
-          {urow("小","#13C2A3","小魚","yu@example.com","編輯","info","3 天前","啟用","ok")}
+          {urow("小","#13C2A3","小魚","yu@example.com","編輯","info","3 天前","啟用","ok",menu=True)}
           {urow("J","#F5B800;color:#3A2E00","Jamie","jamie@example.com","編輯","info","從未登入","邀請中 · 2 天後過期","warn")}
           {urow("W","#15161A","Wen","wen@example.com","作者","mint","上個月","啟用","ok")}
           {urow("K","#9A9FAB","kai@example.com","來自商店訂單","顧客","","—","未啟用","")}
@@ -561,34 +572,78 @@ pages["Users"] = ("後台使用者與角色", ADMIN_CSS, 1440, 1000, admin("user
       <div style="font-size:12px;color:#5F6470;line-height:1.6">邀請連結 7 天有效。對方第一次登入會被要求設密碼，建議順便開兩步驟驗證。</div>
       <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("mail")}寄出邀請</button><button class="btn t" type="button">{I("copy")}複製連結</button></div>
     </aside>
-  </main>'''))
+  </main>''',
+  extra=f'''<div class="sheet" role="dialog" aria-label="刪除使用者" style="width:400px">
+    <div style="display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid #EEEFF2"><span class="stripe" style="width:40px"></span><b style="font-size:15px">刪除使用者</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto">{I("x")}</button></div>
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;flex:1;overflow:auto">
+      <div style="display:flex;align-items:center;gap:12px"><span class="av" style="background:#13C2A3;width:40px;height:40px;font-size:16px;border-radius:0 12px 0 12px">小</span><div><b>小魚</b><div style="font-size:12px;color:#5F6470">yu@example.com · 編輯</div></div></div>
+      <div><span class="lbl">這個帳號名下還有</span>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px">
+          <div style="padding:10px 12px;background:#F5F5F7;border-radius:0 10px 0 10px;display:flex;align-items:baseline;gap:6px;white-space:nowrap">{I("doc",14)}<span style="font-size:13px">文章</span><b class="d" style="font-size:20px">12</b></div>
+          <div style="padding:10px 12px;background:#F5F5F7;border-radius:0 10px 0 10px;display:flex;align-items:baseline;gap:6px;white-space:nowrap">{I("page",14)}<span style="font-size:13px">頁面</span><b class="d" style="font-size:20px">2</b></div>
+          <div style="padding:10px 12px;background:#F5F5F7;border-radius:0 10px 0 10px;display:flex;align-items:baseline;gap:6px;white-space:nowrap">{I("comment",14)}<span style="font-size:13px">留言</span><b class="d" style="font-size:20px">31</b></div>
+        </div></div>
+      <div><label class="lbl" for="rt">轉移給</label><select id="rt" class="ul"><option>Hazel · 管理員</option><option>Ting · 管理員</option><option>Wen · 作者</option></select><div style="font-size:12px;color:#5F6470;margin-top:6px;line-height:1.5">只能選啟用中、能寫作的人。文章、頁面和留言的作者會改成他。</div></div>
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:12px;background:#FBE1DE;color:#9C2318;border-radius:0 10px 0 10px;font-size:13px;line-height:1.6"><span style="margin-top:2px">{I("alert",16)}</span><span><b>刪除後無法復原。</b>小魚在所有裝置上的登入會立刻登出，Google、GitHub 綁定也一併移除。</span></div>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid #EEEFF2;display:flex;gap:8px"><button class="btn danger" type="button">{I("trash")}轉移並刪除</button><button class="btn t" type="button">{I("x")}取消</button></div>
+  </div>'''))
 
 # ======================= ADMIN: Profile =======================
-pages["Profile"] = ("後台個人帳號", ADMIN_CSS, 1440, 1000, admin("", ["個人帳號"],
+def tfa_card(state, chip, body):
+    return f'<div class="card" style="display:flex;flex-direction:column;gap:12px;position:relative"><div style="display:flex;align-items:center;gap:8px"><span class="lbl">{state}</span><span style="margin-left:auto">{chip}</span></div>{body}</div>'
+
+RECOVERY = ["7QK2-9XMD","H4TA-RN8E","B6WP-3ZCJ","M9LV-5YQF","D2GS-8KHT","X5NR-4PUB","J8CE-6VAW","T3FY-7MZD","K9QH-2LSX","R4BN-5WGE"]
+pages["Profile"] = ("後台個人帳號", ADMIN_CSS + SUB_CSS, 1440, 1000, admin("", ["個人帳號"],
   f'<button class="btn p" type="button">{I("save")}儲存</button>',
   f'''<main style="padding: 16px 24px 32px; display:grid; grid-template-columns: 200px minmax(0,1fr); gap:32px; align-items:start">
-    <nav class="sub tree" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:2px"><a class="on" href="Profile.dc.html">{I("user",14)}基本資料</a><a href="Profile.dc.html">{I("lock",14)}密碼與安全</a><a href="Profile.dc.html">{I("globe",14)}登入裝置</a><a href="Profile.dc.html">{I("key",14)}API 金鑰</a><a href="Profile.dc.html">{I("mail",14)}通知</a></nav>
-    <section style="max-width:820px;display:flex;flex-direction:column;gap:32px">
+    {profile_nav("基本資料")}
+    <section style="max-width:936px;display:flex;flex-direction:column;gap:32px">
       <div style="display:flex;align-items:center;gap:20px"><span style="width:72px;height:72px;display:grid;place-items:center;background:#E8285B;color:#fff;font-size:28px;border-radius:0 22px 0 22px" class="d">H</span><div><h1 class="d" style="font-size:26px">Hazel</h1><div style="color:#5F6470;font-size:13px">管理員 · 加入於 2026/03 · 寫了 41 篇</div></div><div style="margin-left:auto;display:flex;gap:6px"><button class="btn t s" type="button">{I("upload")}換頭像</button><a class="btn t s" href="Archive.dc.html">{I("external")}作者頁</a></div></div>
       <div>
         <div class="lbl" style="margin-bottom:4px">基本資料</div>
         <div class="srow"><div><label for="p1">顯示名稱</label><div class="h">前台文章署名用這個。</div></div><div class="c"><input id="p1" class="ul" type="text" value="Hazel"></div></div>
-        <div class="srow"><div><label for="p2">Email</label><div class="h">登入與通知。改了要重新驗證。</div></div><div class="c"><input id="p2" class="ul" type="email" value="hazel@example.com"></div></div>
+        <div class="srow"><div><label for="p2">Email</label><div class="h">登入與通知。改了要輸入密碼，並到新信箱按確認連結。</div></div><div class="c"><input id="p2" class="ul" type="email" value="hazel@example.com"></div></div>
         <div class="srow"><div><label for="p3">簡介</label><div class="h">作者頁與文章末尾的小卡。</div></div><div class="c"><textarea id="p3" class="ul" rows="2">在台中做果凍，順便寫字。</textarea></div></div>
-        <div class="srow"><div><label for="p4">介面語言</label></div><div class="c"><div class="seg"><span class="on">繁中</span><span>English</span><span>日本語</span></div></div></div>
+        <div class="srow"><div><label for="p4">介面語言</label></div><div class="c"><div class="seg"><span class="on">繁中</span><span>English</span></div></div></div>
         <div class="srow"><div><label>外觀</label><div class="h">後台配色。</div></div><div class="c"><div class="seg"><span>跟系統</span><span class="on">淺色</span><span>深色</span></div></div></div>
       </div>
       <div>
         <div class="lbl" style="margin-bottom:4px">密碼與安全</div>
-        <div class="srow"><div><label>密碼</label><div class="h">上次更改：4 個月前。</div></div><div class="c"><button class="btn t s" type="button">{I("key")}更改密碼</button></div></div>
-        <div class="srow"><div><label>兩步驟驗證</label><div class="h">用 Google Authenticator 或 1Password 掃 QR code。</div></div><div class="c"><span class="chip ok">已開啟</span><button class="btn t s" type="button">{I("refresh")}重新設定</button></div></div>
-        <div class="srow"><div><label>備用碼</label><div class="h">剩 6 組未使用。</div></div><div class="c"><button class="btn t s" type="button">{I("download")}下載</button></div></div>
+        <div class="srow"><div><label>密碼</label><div class="h">上次更改：4 個月前。改完其他裝置會全部登出。</div></div><div class="c"><button class="btn t s" type="button">{I("key")}更改密碼</button></div></div>
+        <div class="srow" style="grid-template-columns:minmax(0,1fr)"><div><label>兩步驟驗證</label><div class="h">登入時除了密碼，還要輸入驗證器 App 的 6 位數驗證碼。用 Google 或 GitHub 登入不受影響。下面是三種狀態。</div></div></div>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start">
+          {tfa_card("1 · 尚未啟用", '<span class="chip nd">未開啟</span>', f"""<span style="width:44px;height:44px;display:grid;place-items:center;background:#EDEEF1;border-radius:0 12px 0 12px">{I("shield",22)}</span>
+            <div style="font-size:13px;line-height:1.6;color:#5F6470">帳號被盜用時，多一道關卡。需要 Google Authenticator、1Password 之類的驗證器 App。</div>
+            <button class="btn p" type="button" style="align-self:flex-start">{I("shield")}啟用兩步驟驗證</button>""")}
+          {tfa_card("2 · 設定中", '<span class="chip warn">尚未驗證</span>', f"""<div style="display:flex;gap:12px;align-items:center"><div role="img" aria-label="QR code 位置" style="width:104px;height:104px;flex:0 0 auto;display:grid;place-items:center;background:#F3F3F5;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 12px 0 12px;color:#9A9FAB">{I("grid",44)}</div><div style="font-size:12px;line-height:1.6;color:#5F6470">用驗證器 App 掃這個 QR code。</div></div>
+            <div style="font-size:12px;color:#5F6470">掃不了？手動輸入密鑰<div style="margin-top:4px"><span class="kbd" style="font-size:12px;letter-spacing:.04em;user-select:all">JBSW Y3DP EHPK 3PXP</span></div></div>
+            <div><span class="lbl">驗證碼</span><input class="ul" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="000000" aria-label="6 位數驗證碼" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:20px;letter-spacing:.35em"></div>
+            <div style="display:flex;gap:6px"><button class="btn p" type="button">{I("check")}驗證並啟用</button><button class="btn x" type="button">{I("x")}取消</button></div>""")}
+          {tfa_card("3 · 已啟用", '<span class="chip ok">已開啟</span>', f"""<div style="font-size:13px;color:#5F6470;line-height:1.6">2026/08/14 啟用。每次登入都要輸入驗證碼。</div>
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#F5F5F7;border-radius:0 10px 0 10px"><span style="width:32px;height:32px;display:grid;place-items:center;background:#15161A;color:#fff;border-radius:0 9px 0 9px">{I("key",16)}</span><div><b>備用碼 剩 8 組</b><div style="font-size:12px;color:#5F6470">手機不在身邊時用，一組只能用一次。</div></div></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn t s" type="button">{I("refresh",14)}重新產生備用碼</button><button class="btn danger s" type="button">{I("x",14)}關閉</button></div>
+            <div style="font-size:12px;color:#5F6470">重新產生會讓舊的 10 組全部失效；關閉要輸入密碼與驗證碼。</div>""")}
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:24px;align-items:start;margin-top:20px">
+          <div role="dialog" aria-label="備用碼" style="background:#fff;border-radius:0 24px 0 24px;box-shadow:0 0 0 1px #E2E3E8,0 24px 48px rgba(21,22,26,.1);display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid #EEEFF2"><span class="stripe" style="width:40px"></span><b style="font-size:15px">備用碼</b><span class="chip warn" style="margin-left:auto">只顯示這一次</span></div>
+            <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+              <div style="font-size:13px;line-height:1.6;color:#5F6470">每組只能用一次。關掉這張卡就看不到了，請現在存到密碼管理員或印出來。</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;padding:14px;background:#F6F7F9;border-radius:0 12px 0 12px">
+                {"".join(f'<span style="font:700 14px/1.9 ui-monospace,SF Mono,Menlo,Consolas,monospace;letter-spacing:.04em"><span style="color:#9A9FAB;font-size:11px;margin-right:6px">{i+1:02d}</span>{c}</span>' for i,c in enumerate(RECOVERY))}
+              </div>
+            </div>
+            <div style="padding:12px 20px;border-top:1px solid #EEEFF2;display:flex;gap:8px"><button class="btn t" type="button">{I("copy")}複製</button><button class="btn p" type="button">{I("check")}我已存好</button></div>
+          </div>
+          <div style="font-size:12.5px;line-height:1.7;color:#5F6470;padding-top:6px">啟用成功後會自動出現這張卡，重新產生備用碼後也會出現。「我已存好」之前不能關。</div>
+        </div>
       </div>
       <div>
         <div class="lbl" style="margin-bottom:4px">登入裝置</div>
-        <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label style="display:flex;align-items:center;gap:8px">Chrome · macOS<span class="chip ok">這台</span></label><div class="h">台中 · 1.160.x.x · 現在</div></div><div class="c"><span style="font-size:12px;color:#5F6470">目前</span></div></div>
-        <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label>Safari · iPhone</label><div class="h">台中 · 行動網路 · 昨天 22:14</div></div><div class="c"><button class="btn x s" type="button" style="color:#9C2318">{I("x")}登出它</button></div></div>
-        <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label style="display:flex;align-items:center;gap:8px">Firefox · Windows<span class="chip warn">不認得？</span></label><div class="h">台北 · 114.x.x.x · 3 天前</div></div><div class="c"><button class="btn x s" type="button" style="color:#9C2318">{I("x")}登出它</button></div></div>
+        <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label style="display:flex;align-items:center;gap:8px">Chrome · macOS<span class="chip ok">這台</span></label><div class="h">1.160.12.x · 登入於 今天 09:12 · 最近活動 現在</div></div><div class="c"><span style="font-size:12px;color:#5F6470">目前</span></div></div>
+        <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label>Safari · iPhone</label><div class="h">42.77.31.x · 登入於 10/18 · 最近活動 昨天 22:14</div></div><div class="c"><button class="btn x s" type="button" style="color:#9C2318">{I("x")}登出它</button></div></div>
+        <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label style="display:flex;align-items:center;gap:8px">Firefox · Windows<span class="chip warn">新裝置</span></label><div class="h">114.25.88.x · 登入於 3 天前 · 最近活動 3 天前</div></div><div class="c"><button class="btn x s" type="button" style="color:#9C2318">{I("x")}登出它</button></div></div>
         <button class="btn t s" type="button" style="margin-top:10px">{I("lock")}登出其他所有裝置</button>
       </div>
     </section>

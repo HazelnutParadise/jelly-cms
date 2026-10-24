@@ -1,10 +1,8 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from gen import I, doc, ADMIN_CSS, FRONT_CSS, OUT, admin, front, cubes
+from gen import I, doc, ADMIN_CSS, FRONT_CSS, OUT, admin, front, cubes, SUB_CSS, profile_nav, pages
 
-CSS = ADMIN_CSS + '''
-.sub a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#5F6470;font-weight:600;font-size:13px}
-.sub a.on{background:#F3F3F5;color:#15161A}
+CSS = ADMIN_CSS + SUB_CSS + '''
 .nrow{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;padding:12px 10px;border-top:1px solid #EEEFF2;align-items:flex-start}
 .nrow.un{background:#F8F9FF}.nrow .t{font-size:12px;color:#5F6470;white-space:nowrap}
 .app{display:flex;flex-direction:column;gap:10px;padding:14px;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 14px 0 14px;background:#fff}
@@ -22,15 +20,69 @@ def settings_nav(on):
     items=[("globe","網站","Settings.dc.html"),("list","閱讀與網址","SettingsRoutes.dc.html"),("key","登入與註冊","Settings.dc.html"),("comment","留言","Settings.dc.html"),("card","金流","Settings.dc.html"),("truck","運送","Settings.dc.html"),("mail","郵件與通知","Settings.dc.html"),("db","快取與佇列","Infra.dc.html"),("terminal","程式碼注入","SettingsRoutes.dc.html"),("download","更新","Update.dc.html")]
     return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px" aria-label="設定分類">'+"".join(f'<a href="{h}"{" class=\"on\"" if l==on else ""}>{I(ic,14)}{l}</a>' for ic,l,h in items)+'</nav>'
 
-def profile_nav(on):
-    items=[("user","基本資料"),("mail","通知"),("key","API 權杖"),("lock","密碼與安全"),("globe","登入裝置"),("link","第三方帳號")]
-    return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px">'+"".join(f'<a href="Profile.dc.html"{" class=\"on\"" if l==on else ""}>{I(ic,14)}{l}</a>' for ic,l in items)+'</nav>'
-
 B = {}
 
 # ---------- 通知中心 ----------
 def nrow(ic,color,title,body,t,un=False,actions=""):
     return f'<div class="nrow{" un" if un else ""}"><span style="width:36px;height:36px;background:{color};color:#fff;display:grid;place-items:center;border-radius:0 10px 0 10px">{I(ic,16)}</span><div><b style="font-size:13.5px">{title}</b><div style="font-size:13px;color:#3A3D45;margin-top:2px;line-height:1.5">{body}</div>{actions}</div><span class="t">{t}</span></div>'
+
+PREFERENCE_EVENTS = [
+    ("新留言待審", (True, True, False)),
+    ("有人回覆我的留言", (True, True, False)),
+    ("新訂單", (True, True, True)),
+    ("付款失敗或退款", (True, True, True)),
+    ("新裝置登入", (True, True, False)),
+    ("密碼變更", (True, True, False)),
+    ("有可用更新", (True, False, False)),
+    ("外掛失敗", (True, True, False)),
+]
+
+
+def preference_rows():
+    rows = []
+    for event, channels in PREFERENCE_EVENTS:
+        cells = "".join(
+            f'<td style="text-align:center"><span class="cb{" on" if enabled else ""}" role="checkbox" aria-checked="{str(enabled).lower()}" aria-label="{event} · {channel}"></span></td>'
+            for channel, enabled in zip(("站內", "Email", "Webhook"), channels)
+        )
+        rows.append(f"<tr><td>{event}</td>{cells}</tr>")
+    return "\n".join(rows)
+
+
+def profile_preferences():
+    return f'''<section class="card" id="notifications" style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">通知偏好</b><a class="btn t s" href="Profile.dc.html#notifications" style="margin-left:auto">Webhook 與勿擾設定</a></div>
+      <table style="font-size:12.5px"><thead><tr><th>事件</th><th style="text-align:center">站內</th><th style="text-align:center">Email</th><th style="text-align:center">Webhook</th></tr></thead><tbody>{preference_rows()}</tbody></table>
+      <div><label for="profileWebhook">Webhook 網址（僅 HTTPS）</label><input id="profileWebhook" class="ul" type="url" placeholder="https://…" autocomplete="url"></div>
+      <fieldset style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
+        <legend class="lbl">勿擾時段</legend>
+        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="profileQuietEnabled">啟用勿擾時段</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div><label for="profileQuietStart">開始</label><input id="profileQuietStart" class="ul" type="time"></div>
+          <div><label for="profileQuietEnd">結束</label><input id="profileQuietEnd" class="ul" type="time"></div>
+          <div><label for="profileQuietTZ">時區</label><input id="profileQuietTZ" class="ul" type="text" placeholder="Asia/Taipei" maxlength="64"></div>
+        </div>
+      </fieldset>
+    </section>'''
+
+
+profile_title, profile_css, profile_width, profile_height, profile_body = pages["Profile"]
+profile_height = max(profile_height, 2560)
+profile_anchor = '      <div>\n        <div class="lbl" style="margin-bottom:4px">密碼與安全</div>'
+if profile_anchor not in profile_body:
+    raise RuntimeError("Profile generator anchor changed; refusing to update the board")
+profile_body = profile_body.replace(profile_anchor, profile_preferences() + "\n" + profile_anchor, 1)
+profile_email_anchor = '        <div class="srow"><div><label for="p2">Email</label><div class="h">登入與通知。改了要輸入密碼，並到新信箱按確認連結。</div></div><div class="c"><input id="p2" class="ul" type="email" value="hazel@example.com"></div></div>'
+if profile_email_anchor not in profile_body:
+    raise RuntimeError("Profile email generator anchor changed; refusing to update the board")
+profile_email_state = '''        <div role="status" style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:#FCF0C8;color:#7A5200;border-radius:0 10px 0 10px;margin:0 0 12px">
+          <span class="chip warn">等待確認</span>
+          <div style="min-width:0;flex:1"><b>新 Email 等待確認</b><div style="font-size:12px;margin-top:4px">複製下方連結並開啟，完成新地址確認：<a href="/account/email/confirm?token=example-confirmation-token" rel="noreferrer">確認 Email</a></div></div>
+          <button class="btn t s" type="button">複製確認連結</button>
+        </div>'''
+profile_body = profile_body.replace(profile_email_anchor, profile_email_anchor + "\n" + profile_email_state, 1)
+B["Profile"] = (profile_title, profile_css, profile_width, profile_height, profile_body)
+
 B["Notifications"] = ("後台 · 通知中心", CSS, 1440, 1000, admin("", ["通知"],
   f'<button class="btn t" type="button">{I("check")}全部標為已讀</button><a class="btn t" href="Notifications.dc.html">{I("settings")}通知設定</a>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start">
@@ -39,7 +91,7 @@ B["Notifications"] = ("後台 · 通知中心", CSS, 1440, 1000, admin("", ["通
       {nrow("comment","#F5B800;color:#3A2E00","2 則新留言待審","阿凱、Mei 在「零失敗焦糖布丁」留言。","5 分鐘前",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="Comments.dc.html">{I("eye",12)}去審核</a><button class="btn x s" type="button">{I("check",12)}全部核准</button></div>')}
       {nrow("cart","#E8285B","新訂單 JL-2026-0417 · NT$ 880","Ting 下單，信用卡已付款。","16:02",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="OrderDetail.dc.html">{I("arrow-r",12)}看訂單</a></div>')}
       {nrow("alert","#9C2318","外掛「SEO Boost」載入失敗","v1.4.0 與目前版本不相容，已自動停用。網站照常運作。","15:40",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="PluginDetail.dc.html">{I("plug",12)}看外掛</a><a class="btn x s" href="Logs.dc.html">{I("terminal",12)}日誌</a></div>')}
-      {nrow("globe","#2F6BFF","新裝置登入：Firefox · Windows · 台北","不是你？立刻登出它並改密碼。","3 天前",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="Profile.dc.html">{I("lock",12)}登入裝置</a></div>')}
+      {nrow("globe","#2F6BFF","新裝置登入：Firefox · Windows","IP：114.25.88.x（已遮罩）。不是你？立刻登出它並改密碼。","3 天前",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="Profile.dc.html">{I("lock",12)}登入裝置</a></div>')}
       {nrow("download","#15161A","Jelly 0.9.4 可以更新","新增留言管理與回收桶。這台是容器，要換映像。","昨天")}
       {nrow("db","#13C2A3","每日備份完成 · 412 MB","已同步到 R2。","今天 03:00")}
       {nrow("check","#13C2A3","排程文章已發布","「開店第 200 天」在 09:00 上線。","今天 09:00")}
@@ -49,17 +101,19 @@ B["Notifications"] = ("後台 · 通知中心", CSS, 1440, 1000, admin("", ["通
     <aside class="card" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">我要收到什麼</b></div>
       <table style="font-size:12.5px"><thead><tr><th>事件</th><th style="text-align:center">站內</th><th style="text-align:center">Email</th><th style="text-align:center">Webhook</th></tr></thead><tbody>
-        <tr><td>新留言待審</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb"></span></td></tr>
-        <tr><td>有人回覆我的留言</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb"></span></td></tr>
-        <tr><td>新訂單</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td></tr>
-        <tr><td>付款失敗、退款</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td></tr>
-        <tr><td>新裝置登入</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb"></span></td></tr>
-        <tr><td>外掛失敗、更新可用</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb"></span></td><td style="text-align:center"><span class="cb"></span></td></tr>
-        <tr><td>備份結果</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb"></span></td><td style="text-align:center"><span class="cb"></span></td></tr>
-        <tr><td>排程發布</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb"></span></td><td style="text-align:center"><span class="cb"></span></td></tr>
+        {preference_rows()}
       </tbody></table>
-      <div><span class="lbl">Webhook（送 JSON 到）</span><input class="ul" type="text" value="https://hooks.slack.com/services/…" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"><div style="font-size:12px;color:#5F6470;margin-top:6px">Slack、Discord、LINE Notify、Telegram 的格式由通知外掛提供；這裡是通用 JSON。</div></div>
-      <div style="font-size:12px;color:#5F6470;line-height:1.6">Email 走佇列寄出；SMTP 在「設定 › 郵件與通知」。靜音時段 23:00–08:00 只累積不推播。</div>
+      <div><label for="notificationWebhook">Webhook 網址（僅 HTTPS）</label><input id="notificationWebhook" class="ul" type="url" placeholder="https://…" autocomplete="url"><div style="font-size:12px;color:#5F6470;margin-top:6px">Webhook 目的地與勿擾時段可在個人帳號通知偏好設定。Email 走佇列寄出；SMTP 在「設定 › 郵件與通知」。</div></div>
+      <fieldset style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
+        <legend class="lbl">勿擾時段</legend>
+        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="quietEnabled">啟用勿擾時段</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><label for="quietStart">開始</label><input id="quietStart" class="ul" type="time"></div>
+          <div><label for="quietEnd">結束</label><input id="quietEnd" class="ul" type="time"></div>
+        </div>
+        <div><label for="quietTZ">時區</label><input id="quietTZ" class="ul" type="text" placeholder="Asia/Taipei" maxlength="64"></div>
+      </fieldset>
+      <a class="btn t s" href="Profile.dc.html#notifications" style="align-self:flex-start">前往通知偏好設定</a>
       <button class="btn p" type="button" style="align-self:flex-start">{I("save")}儲存</button>
     </aside>
   </main>'''))
