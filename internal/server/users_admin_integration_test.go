@@ -1151,13 +1151,28 @@ func TestUsersResetAndRevokeOthersAdvanceMFACredentialVersionImmediately(t *test
 		t.Fatalf("pre-reset MFA challenge returned %d, want 401; body=%q", stale.code, stale.body)
 	}
 
-	// This challenge is issued immediately after reset while the future cutoff
-	// can still be ahead of JWT iat's one-second precision.
-	postResetChallenge := accountsSecurityMFAToken(t, h, target.Username, "mfa-version-reset-password-66")
-	if elapsed := time.Since(resetCompletedAt); elapsed >= time.Second {
-		t.Fatalf("post-reset MFA challenge took %s, want issuance within one second", elapsed)
+	// Use a future credential cutoff so the real JWT issuer and validator
+	// exercise second-precision iat against the credential snapshot without a
+	// wall-clock latency assumption. The reset endpoint above writes its own
+	// cutoff, so this fixture is set only after the real reset revocation check.
+	fixtureCutoff := time.Now().UTC().Add(time.Hour).Truncate(time.Microsecond)
+	updated := h.db.Model(&core.User{}).Where("id = ?", target.ID).Update("password_changed_at", fixtureCutoff)
+	if updated.Error != nil {
+		t.Fatalf("set future MFA credential cutoff fixture: %v", updated.Error)
 	}
-	assertUsersAdminMFATokenIssuedBeforeCutoff(t, postResetChallenge, resetCutoff.Time, "post-reset challenge")
+	if updated.RowsAffected != 1 {
+		t.Fatalf("set future MFA credential cutoff fixture affected %d rows, want 1", updated.RowsAffected)
+	}
+	fixtureCutoffReadback := acctNullTime(t, h, "SELECT password_changed_at FROM users WHERE id = ?", target.ID)
+	if !fixtureCutoffReadback.Valid || !fixtureCutoffReadback.Time.Equal(fixtureCutoff) {
+		t.Fatalf("future MFA credential cutoff readback = %v, want %s", fixtureCutoffReadback, fixtureCutoff)
+	}
+	fixtureCutoff = fixtureCutoffReadback.Time
+
+	// The actual password route issues a challenge with JWT iat no later than
+	// the explicit future cutoff, despite iat's one-second precision.
+	postResetChallenge := accountsSecurityMFAToken(t, h, target.Username, "mfa-version-reset-password-66")
+	assertUsersAdminMFATokenIssuedBeforeCutoff(t, postResetChallenge, fixtureCutoff, "post-reset challenge")
 	postResetLogin := totpTestRecoveryStep(t, h, postResetChallenge, recoveryCodes[1])
 	if postResetLogin.code != http.StatusOK {
 		t.Fatalf("immediate post-reset MFA challenge returned %d, want 200; body=%q", postResetLogin.code, postResetLogin.body)
@@ -1169,19 +1184,15 @@ func TestUsersResetAndRevokeOthersAdvanceMFACredentialVersionImmediately(t *test
 	if !acctWant(t, revoke, "revoke other sessions immediately after issuing MFA challenge", http.StatusOK) {
 		return
 	}
-	revokeCompletedAt := time.Now().UTC()
 	revokeCutoff := acctNullTime(t, h, "SELECT password_changed_at FROM users WHERE id = ?", target.ID)
-	if !revokeCutoff.Valid || !revokeCutoff.Time.After(resetCutoff.Time) {
-		t.Fatalf("revoke-others cutoff %v did not strictly advance past reset cutoff %s", revokeCutoff, resetCutoff.Time)
+	if !revokeCutoff.Valid || !revokeCutoff.Time.After(fixtureCutoff) {
+		t.Fatalf("revoke-others cutoff %v did not strictly advance past fixture cutoff %s", revokeCutoff, fixtureCutoff)
 	}
 	if stale := totpTestRecoveryStep(t, h, preRevokeChallenge, recoveryCodes[2]); stale.code != http.StatusUnauthorized {
 		t.Fatalf("pre-revoke MFA challenge returned %d, want 401; body=%q", stale.code, stale.body)
 	}
 
 	postRevokeChallenge := accountsSecurityMFAToken(t, h, target.Username, "mfa-version-reset-password-66")
-	if elapsed := time.Since(revokeCompletedAt); elapsed >= time.Second {
-		t.Fatalf("post-revoke MFA challenge took %s, want issuance within one second", elapsed)
-	}
 	assertUsersAdminMFATokenIssuedBeforeCutoff(t, postRevokeChallenge, revokeCutoff.Time, "post-revoke challenge")
 	postRevokeLogin := totpTestRecoveryStep(t, h, postRevokeChallenge, recoveryCodes[3])
 	if postRevokeLogin.code != http.StatusOK {
