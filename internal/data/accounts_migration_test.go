@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Acceptance tests for the account migrations 0002 to 0007
+// Acceptance tests for the account migrations 0002 to 0008
 // (docs/tickets/06-accounts.md, D1, 資料表). Each test gets its own fresh
 // database on the dedicated PostgreSQL container.
 
@@ -120,6 +120,103 @@ func TestAccountsMigrationRerunPreservesAccountSecurityState(t *testing.T) {
 	if !recoveryUsedAt.Equal(usedAt) {
 		t.Errorf("used recovery code timestamp = %v, want %v", recoveryUsedAt, usedAt)
 	}
+}
+
+func TestAccountsMigrationUpgradesLegacyNotificationsVisibilityIdempotently(t *testing.T) {
+	db := newAccountsMigrationDB(t)
+	if err := db.AutoMigrate(&core.User{}); err != nil {
+		t.Fatalf("create legacy users table: %v", err)
+	}
+	legacySchema, err := embeddedMigrationFiles.ReadFile("migrations/0005_notifications.sql")
+	if err != nil {
+		t.Fatalf("read immutable legacy notifications migration: %v", err)
+	}
+	if err := db.Exec(string(legacySchema)).Error; err != nil {
+		t.Fatalf("create legacy notification schema: %v", err)
+	}
+	if accountsMigrationCount(t, db, `SELECT count(*) FROM information_schema.columns
+		WHERE table_schema = current_schema() AND table_name = 'notifications' AND column_name = 'in_app_visible'`) != 0 {
+		t.Fatal("legacy 0005 notifications schema already contains in_app_visible")
+	}
+	u := core.User{Username: "legacy-notification-user", Email: "legacy-notification@example.test", Provider: "local"}
+	if err := db.Create(&u).Error; err != nil {
+		t.Fatalf("create legacy notification owner: %v", err)
+	}
+	var originalID int64
+	if err := db.Raw(`INSERT INTO notifications (user_id, kind, category, title_key, params, actions, group_key, count)
+		VALUES (?, 'comment.pending', 'comments', 'legacy.title', '{"post_id":17}'::jsonb,
+		'[{"label":"review"}]'::jsonb, 'comment.pending:17', 3) RETURNING id`, u.ID).Row().Scan(&originalID); err != nil {
+		t.Fatalf("insert pre-upgrade notification: %v", err)
+	}
+	type notificationSnapshot struct {
+		ID        int64
+		UserID    uint
+		Kind      string
+		Category  string
+		TitleKey  string
+		Params    string
+		Actions   string
+		GroupKey  string
+		Count     int
+		ReadAt    string
+		CreatedAt time.Time
+		ExpiresAt time.Time
+	}
+	readOriginal := func() notificationSnapshot {
+		t.Helper()
+		var got notificationSnapshot
+		if err := db.Raw(`SELECT id, user_id, kind, category, title_key, params::text, actions::text, group_key,
+			count, COALESCE(read_at::text, ''), created_at, expires_at FROM notifications WHERE id = ?`, originalID).Scan(&got).Error; err != nil {
+			t.Fatalf("read legacy notification %d: %v", originalID, err)
+		}
+		return got
+	}
+	before := readOriginal()
+	assertNotificationUnchanged := func(stage string) {
+		t.Helper()
+		got := readOriginal()
+		if got.ID != before.ID || got.UserID != before.UserID || got.Kind != before.Kind || got.Category != before.Category ||
+			got.TitleKey != before.TitleKey || got.Params != before.Params || got.Actions != before.Actions || got.GroupKey != before.GroupKey ||
+			got.Count != before.Count || got.ReadAt != before.ReadAt || !got.CreatedAt.Equal(before.CreatedAt) || !got.ExpiresAt.Equal(before.ExpiresAt) {
+			t.Errorf("%s changed legacy notification data: before=%+v after=%+v", stage, before, got)
+		}
+	}
+
+	if err := MigrateDB(db); err != nil {
+		t.Fatalf("upgrade legacy account schema: %v", err)
+	}
+	var existingVisible bool
+	if err := db.Raw("SELECT in_app_visible FROM notifications WHERE id = ?", originalID).Row().Scan(&existingVisible); err != nil {
+		t.Fatalf("read upgraded visibility for legacy notification: %v", err)
+	}
+	if !existingVisible {
+		t.Error("existing notification visibility = false after upgrade, want default true")
+	}
+	assertNotificationUnchanged("migration")
+	var defaultID int64
+	if err := db.Raw(`INSERT INTO notifications (user_id, kind, category) VALUES (?, 'system.update_available', 'system') RETURNING id`, u.ID).Row().Scan(&defaultID); err != nil {
+		t.Fatalf("insert notification using upgraded default: %v", err)
+	}
+	var defaultVisible bool
+	if err := db.Raw("SELECT in_app_visible FROM notifications WHERE id = ?", defaultID).Row().Scan(&defaultVisible); err != nil {
+		t.Fatalf("read new notification visibility default: %v", err)
+	}
+	if !defaultVisible {
+		t.Error("new notification default in_app_visible = false, want true")
+	}
+	if err := db.Exec("UPDATE notifications SET in_app_visible = FALSE WHERE id = ?", originalID).Error; err != nil {
+		t.Fatalf("set notification visibility false: %v", err)
+	}
+	if err := MigrateDB(db); err != nil {
+		t.Fatalf("rerun MigrateDB after changing visibility: %v", err)
+	}
+	if err := db.Raw("SELECT in_app_visible FROM notifications WHERE id = ?", originalID).Row().Scan(&existingVisible); err != nil {
+		t.Fatalf("read visibility after migration rerun: %v", err)
+	}
+	if existingVisible {
+		t.Error("migration rerun reset an explicitly hidden notification to visible")
+	}
+	assertNotificationUnchanged("migration rerun")
 }
 
 func TestAccountsMigrationConstraints(t *testing.T) {
