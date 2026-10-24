@@ -701,6 +701,337 @@ func TestUsersDeleteRequiresReassignmentAndMovesPostsComments(t *testing.T) {
 	}
 }
 
+func TestUsersDeleteReassignPreservesHTTPPostRevisions(t *testing.T) {
+	h := newAccessHarness(t)
+	admin := acctCreateUser(t, h, acctUserSpec{Username: "revision-delete-admin", Role: "admin"})
+	target := acctCreateUser(t, h, acctUserSpec{Username: "revision-delete-target", Role: "author"})
+	heir := acctCreateUser(t, h, acctUserSpec{Username: "revision-delete-heir", Role: "editor"})
+	otherAuthor := acctCreateUser(t, h, acctUserSpec{Username: "revision-delete-other-author", Role: "author"})
+	adminToken := h.token(admin)
+	targetToken := h.token(target)
+	otherToken := h.token(otherAuthor)
+
+	postID := revTestCreate(t, h, targetToken, map[string]any{
+		"title": "Revision owner before deletion", "content": "original revision body", "status": "draft",
+	})
+	revTestPut(t, h, targetToken, postID, map[string]any{
+		"title": "Revision owner after edit", "content": "updated revision body", "status": "draft",
+	})
+	var before []core.Revision
+	if err := h.db.Where("post_id = ?", postID).Order("id ASC").Find(&before).Error; err != nil {
+		t.Fatalf("read generated HTTP revisions: %v", err)
+	}
+	if len(before) < 2 {
+		t.Fatalf("HTTP create and edit produced %d revisions, want at least 2", len(before))
+	}
+	otherPostID := revTestCreate(t, h, otherToken, map[string]any{
+		"title": "Unrelated version owner", "content": "unrelated original", "status": "draft",
+	})
+	revTestPut(t, h, otherToken, otherPostID, map[string]any{
+		"title": "Unrelated version owner edited", "content": "unrelated updated", "status": "draft",
+	})
+	var otherBefore []core.Revision
+	if err := h.db.Where("post_id = ?", otherPostID).Order("id ASC").Find(&otherBefore).Error; err != nil {
+		t.Fatalf("read unrelated revisions before owner deletion: %v", err)
+	}
+	var revisionFK string
+	if err := h.db.Raw(`SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'fk_revisions_user' AND conrelid = 'revisions'::regclass`).Scan(&revisionFK).Error; err != nil {
+		t.Fatalf("inspect revision actor foreign key: %v", err)
+	}
+	if revisionFK == "" {
+		t.Fatal("expected the database to retain fk_revisions_user on revision actors")
+	}
+	t.Logf("revision actor constraint: %s", revisionFK)
+
+	withoutReassign := acctJSON(t, h, http.MethodDelete, fmt.Sprintf("/api/admin/users/%d", target.ID), "", adminToken)
+	h.mustNoPanic(withoutReassign, "delete revision owner without reassignment")
+	if !acctWant(t, withoutReassign, "DELETE revision owner without reassign_to", http.StatusConflict) {
+		t.Fatalf("delete without reassignment should stop before touching revisions: %q", withoutReassign.body)
+	}
+
+	moved := acctJSON(t, h, http.MethodDelete, fmt.Sprintf("/api/admin/users/%d?reassign_to=%d", target.ID, heir.ID), "", adminToken)
+	h.mustNoPanic(moved, "delete revision owner with reassignment")
+	if !acctWantOK(t, moved, "DELETE revision owner with reassign_to") {
+		t.Fatalf("delete with reassignment failed; revision actor FK is %s", revisionFK)
+	}
+	if usersAdminExists(t, h, target.ID) {
+		t.Fatal("deleted revision owner row still exists")
+	}
+	var post core.Post
+	if err := h.db.First(&post, postID).Error; err != nil || post.AuthorID != heir.ID {
+		t.Fatalf("reassigned post author=%d err=%v, want heir %d", post.AuthorID, err, heir.ID)
+	}
+	var after []core.Revision
+	if err := h.db.Where("post_id = ?", postID).Order("id ASC").Find(&after).Error; err != nil {
+		t.Fatalf("read revisions after author deletion: %v", err)
+	}
+	if len(after) != len(before) {
+		t.Fatalf("revision count after author deletion=%d, want %d", len(after), len(before))
+	}
+	if nullActors := acctCount(t, h, "SELECT COUNT(*) FROM revisions WHERE post_id = ? AND user_id IS NULL", postID); nullActors != int64(len(before)) {
+		t.Errorf("revision rows with SQL NULL user_id=%d, want %d", nullActors, len(before))
+	}
+	for i := range before {
+		if after[i].UserID != 0 {
+			t.Errorf("revision %d actor user_id=%d after deletion, want SQL NULL", after[i].ID, after[i].UserID)
+		}
+		if before[i].ID != after[i].ID || before[i].PostID != after[i].PostID || before[i].Kind != after[i].Kind ||
+			before[i].Title != after[i].Title || before[i].Content != after[i].Content || before[i].Excerpt != after[i].Excerpt ||
+			string(before[i].Meta) != string(after[i].Meta) || before[i].Added != after[i].Added || before[i].Removed != after[i].Removed ||
+			!before[i].CreatedAt.Equal(after[i].CreatedAt) {
+			t.Errorf("revision %d changed across author deletion: before=%+v after=%+v", i, before[i], after[i])
+		}
+	}
+	listed := revTestList(t, h, h.token(heir), postID)
+	if len(listed) != len(before) {
+		t.Fatalf("revision API returned %d rows after reassignment, want %d", len(listed), len(before))
+	}
+	for _, original := range before {
+		detail, code := revTestGet(h, h.token(heir), postID, original.ID)
+		if code != http.StatusOK || detail.Title != original.Title || detail.Content != original.Content || detail.User.ID != 0 {
+			t.Errorf("GET revision %d after deleting its actor: status=%d detail=%+v", original.ID, code, detail)
+		}
+	}
+	diff := h.request(http.MethodGet, fmt.Sprintf("/api/admin/posts/%d/revisions/diff?from=%d&to=%d", postID, before[0].ID, before[1].ID), "", h.token(heir), echo.MIMEApplicationJSON, "")
+	h.mustNoPanic(diff, "diff revisions after actor deletion")
+	if diff.code != http.StatusOK {
+		t.Errorf("revision diff after actor deletion returned %d: %q", diff.code, diff.body)
+	} else {
+		var changes revTestDiff
+		if err := json.Unmarshal([]byte(diff.body), &changes); err != nil {
+			t.Errorf("decode revision diff after actor deletion: %v; body=%q", err, diff.body)
+		} else {
+			var removedOriginal, addedUpdated bool
+			for _, op := range changes.Content {
+				removedOriginal = removedOriginal || op.Op == "-" && op.Text == "original revision body"
+				addedUpdated = addedUpdated || op.Op == "+" && op.Text == "updated revision body"
+			}
+			if !removedOriginal || !addedUpdated {
+				t.Errorf("revision diff after actor deletion=%+v, want original body removed and updated body added", changes.Content)
+			}
+		}
+	}
+	restore := h.request(http.MethodPost, fmt.Sprintf("/api/admin/posts/%d/revisions/%d/restore", postID, before[0].ID), "", h.token(heir), echo.MIMEApplicationJSON, "")
+	h.mustNoPanic(restore, "restore revision after actor deletion")
+	if restore.code != http.StatusOK {
+		t.Errorf("restore after actor deletion returned %d: %q", restore.code, restore.body)
+	}
+	var restored struct {
+		Title   string `json:"title"`
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal([]byte(restore.body), &restored); err != nil || restored.Title != before[0].Title || restored.Content != before[0].Content {
+		t.Errorf("restore after actor deletion returned title=%q content=%q err=%v", restored.Title, restored.Content, err)
+	}
+	if restoredList := revTestList(t, h, h.token(heir), postID); len(restoredList) != len(before)+1 || restoredList[0].Kind != "restore" {
+		t.Errorf("revision history after restore=%+v, want prior history plus newest restore", restoredList)
+	}
+	var otherAfter []core.Revision
+	if err := h.db.Where("post_id = ?", otherPostID).Order("id ASC").Find(&otherAfter).Error; err != nil {
+		t.Fatalf("read unrelated revisions after owner deletion: %v", err)
+	}
+	if len(otherAfter) != len(otherBefore) {
+		t.Fatalf("unrelated revision count changed from %d to %d", len(otherBefore), len(otherAfter))
+	}
+	for i := range otherBefore {
+		if otherAfter[i].UserID != otherAuthor.ID || otherAfter[i].ID != otherBefore[i].ID || otherAfter[i].Content != otherBefore[i].Content {
+			t.Errorf("unrelated revision changed: before=%+v after=%+v", otherBefore[i], otherAfter[i])
+		}
+	}
+}
+
+func TestUsersDeleteRevisionOnlyContributorPreservesRevision(t *testing.T) {
+	h := newAccessHarness(t)
+	admin := acctCreateUser(t, h, acctUserSpec{Username: "revision-only-admin", Role: "admin"})
+	owner := acctCreateUser(t, h, acctUserSpec{Username: "revision-only-owner", Role: "author"})
+	contributor := acctCreateUser(t, h, acctUserSpec{Username: "revision-only-contributor", Role: "editor"})
+	adminToken := h.token(admin)
+	ownerToken := h.token(owner)
+	contributorToken := h.token(contributor)
+	postID := revTestCreate(t, h, ownerToken, map[string]any{
+		"title": "Owned by someone else", "content": "owner original", "status": "draft",
+	})
+	revTestPut(t, h, contributorToken, postID, map[string]any{
+		"title": "Edited by contributor", "content": "contributor revision body", "status": "draft",
+	})
+	var before []core.Revision
+	if err := h.db.Where("post_id = ? AND user_id = ?", postID, contributor.ID).Order("id ASC").Find(&before).Error; err != nil {
+		t.Fatalf("read contributor revisions: %v", err)
+	}
+	if len(before) != 1 || before[0].Content != "contributor revision body" {
+		t.Fatalf("contributor revision fixture=%+v, want one saved edit", before)
+	}
+	if posts := acctCount(t, h, "SELECT COUNT(*) FROM posts WHERE author_id = ?", contributor.ID); posts != 0 {
+		t.Fatalf("revision-only contributor unexpectedly owns %d posts", posts)
+	}
+	if comments := acctCount(t, h, "SELECT COUNT(*) FROM comments WHERE author_id = ?", contributor.ID); comments != 0 {
+		t.Fatalf("revision-only contributor unexpectedly owns %d comments", comments)
+	}
+
+	deleted := acctJSON(t, h, http.MethodDelete, fmt.Sprintf("/api/admin/users/%d", contributor.ID), "", adminToken)
+	h.mustNoPanic(deleted, "delete revision-only contributor")
+	if !acctWantOK(t, deleted, "DELETE revision-only contributor") {
+		t.Fatalf("deleting contributor with only revision actor rows returned %d: %q", deleted.code, deleted.body)
+	}
+	if usersAdminExists(t, h, contributor.ID) {
+		t.Fatal("deleted revision-only contributor row still exists")
+	}
+	var after []core.Revision
+	if err := h.db.Where("post_id = ?", postID).Order("id ASC").Find(&after).Error; err != nil {
+		t.Fatalf("read revisions after contributor deletion: %v", err)
+	}
+	if len(after) != 2 || after[1].ID != before[0].ID || after[1].Title != before[0].Title || after[1].Content != before[0].Content {
+		t.Errorf("deleting revision-only contributor did not preserve the full revision history: before=%+v after=%+v", before, after)
+	}
+	if len(after) == 2 && after[1].UserID != 0 {
+		t.Errorf("revision-only contributor actor user_id=%d after deletion, want SQL NULL", after[1].UserID)
+	}
+	listed := revTestList(t, h, h.token(owner), postID)
+	if len(listed) != 2 {
+		t.Errorf("owner sees %d revisions after contributor deletion, want 2", len(listed))
+	}
+}
+
+func TestUsersDeleteCustomerWithOrdersReturnsConflictAndBulkSkips(t *testing.T) {
+	h := newAccessHarness(t)
+	admin := acctCreateUser(t, h, acctUserSpec{Username: "order-delete-admin", Role: "admin"})
+	customer := acctCreateUser(t, h, acctUserSpec{Username: "order-delete-customer", Role: "customer"})
+	removable := acctCreateUser(t, h, acctUserSpec{Username: "order-delete-removable", Role: "author"})
+	adminToken := h.token(admin)
+	product := core.Product{Title: "Order retention fixture", Slug: "order-retention-fixture", Price: 2599, SKU: "order-retention-fixture", Stock: 2, Status: "active"}
+	if err := h.db.Create(&product).Error; err != nil {
+		t.Fatalf("create order product: %v", err)
+	}
+	order := core.Order{UserID: customer.ID, TotalAmount: 2599, Status: "paid", PaymentMethod: "fixture", ShippingAddress: "1 Test Street"}
+	if err := h.db.Create(&order).Error; err != nil {
+		t.Fatalf("create retained customer order: %v", err)
+	}
+	item := core.OrderItem{OrderID: order.ID, ProductID: product.ID, Quantity: 1, Price: 2599}
+	if err := h.db.Create(&item).Error; err != nil {
+		t.Fatalf("create retained order item: %v", err)
+	}
+
+	deleted := acctJSON(t, h, http.MethodDelete, fmt.Sprintf("/api/admin/users/%d", customer.ID), "", adminToken)
+	h.mustNoPanic(deleted, "delete customer with retained order")
+	if deleted.code != http.StatusConflict {
+		t.Fatalf("deleting a customer with an order returned %d, want 409: %q", deleted.code, deleted.body)
+	}
+	if !strings.Contains(strings.ToLower(deleted.body), "disable") && !strings.Contains(deleted.body, "停用") {
+		t.Errorf("order conflict did not advise disabling the account: %q", deleted.body)
+	}
+	if !usersAdminExists(t, h, customer.ID) {
+		t.Fatal("order owner was deleted despite retained order")
+	}
+
+	res, body := usersAdminBulk(t, h, adminToken, fmt.Sprintf(`{"ids":[%d,%d],"action":"delete"}`, customer.ID, removable.ID))
+	if !acctWant(t, res, "bulk delete with a customer order", http.StatusOK) {
+		return
+	}
+	if body["updated"] != float64(1) {
+		t.Errorf("bulk delete updated=%v, want 1 successful deletion", body["updated"])
+	}
+	skipped, _ := body["skipped"].([]any)
+	orderOwnerSkipped := false
+	for _, entry := range skipped {
+		item, _ := entry.(map[string]any)
+		if item["id"] == float64(customer.ID) {
+			reason, _ := item["reason"].(string)
+			orderOwnerSkipped = strings.Contains(strings.ToLower(reason), "order") && (strings.Contains(strings.ToLower(reason), "disable") || strings.Contains(reason, "停用"))
+		}
+	}
+	if !orderOwnerSkipped {
+		t.Errorf("bulk delete did not skip order owner with a disable hint: %v", skipped)
+	}
+	if !usersAdminExists(t, h, customer.ID) || usersAdminExists(t, h, removable.ID) {
+		t.Errorf("bulk delete customer exists=%t, no-order user exists=%t; want true, false", usersAdminExists(t, h, customer.ID), usersAdminExists(t, h, removable.ID))
+	}
+	var afterOrder core.Order
+	if err := h.db.First(&afterOrder, order.ID).Error; err != nil || afterOrder.UserID != customer.ID || afterOrder.TotalAmount != order.TotalAmount || afterOrder.Status != order.Status || afterOrder.PaymentMethod != order.PaymentMethod || afterOrder.ShippingAddress != order.ShippingAddress {
+		t.Errorf("retained order changed: before=%+v after=%+v err=%v", order, afterOrder, err)
+	}
+	var afterItem core.OrderItem
+	if err := h.db.First(&afterItem, item.ID).Error; err != nil || afterItem.OrderID != item.OrderID || afterItem.ProductID != item.ProductID || afterItem.Quantity != item.Quantity || afterItem.Price != item.Price {
+		t.Errorf("retained order item changed: before=%+v after=%+v err=%v", item, afterItem, err)
+	}
+}
+
+func TestUsersDeleteReassignmentRollsBackWhenFinalDeleteFails(t *testing.T) {
+	h := newAccessHarness(t)
+	admin := acctCreateUser(t, h, acctUserSpec{Username: "delete-rollback-admin", Role: "admin"})
+	target := acctCreateUser(t, h, acctUserSpec{Username: "delete-rollback-target", Role: "author", Password: acctPassword})
+	heir := acctCreateUser(t, h, acctUserSpec{Username: "delete-rollback-heir", Role: "editor"})
+	adminToken := h.token(admin)
+	targetToken := h.token(target)
+	targetLoginToken, _ := acctLogin(t, h, target.Username, acctPassword, "", acctRemote())
+	postID := revTestCreate(t, h, targetToken, map[string]any{
+		"title": "Rollback snapshot", "content": "rollback original content", "status": "draft",
+	})
+	revTestPut(t, h, targetToken, postID, map[string]any{
+		"title": "Rollback changed", "content": "rollback changed content", "status": "draft",
+	})
+	var before []core.Revision
+	if err := h.db.Where("post_id = ?", postID).Order("id ASC").Find(&before).Error; err != nil || len(before) != 2 {
+		t.Fatalf("read rollback revision fixture: count=%d err=%v", len(before), err)
+	}
+	activeSessionsBefore := acctCount(t, h, "SELECT COUNT(*) FROM login_sessions WHERE user_id = ? AND revoked_at IS NULL", target.ID)
+	if activeSessionsBefore == 0 {
+		t.Fatal("target login did not create an active session fixture")
+	}
+	targetID := target.ID
+	comment := core.Comment{PostID: postID, AuthorID: &targetID, Name: "Rollback target", Email: target.Email, Body: "comment before delete", BodyHTML: "<p>comment before delete</p>", Status: "approved"}
+	if err := h.db.Create(&comment).Error; err != nil {
+		t.Fatalf("create rollback comment fixture: %v", err)
+	}
+	if err := oauthAccountInsertIdentity(h.db, target.ID, "google", "delete-rollback-google"); err != nil {
+		t.Fatalf("create rollback OAuth identity fixture: %v", err)
+	}
+	auditBefore := acctCount(t, h, "SELECT COUNT(*) FROM oauth_identity_audit_log WHERE user_id = ?", target.ID)
+	if err := h.db.Exec(`CREATE TABLE account_delete_final_blocker (user_id bigint NOT NULL REFERENCES users(id))`).Error; err != nil {
+		t.Fatalf("create test-only final delete blocker: %v", err)
+	}
+	if err := h.db.Exec("INSERT INTO account_delete_final_blocker (user_id) VALUES (?)", target.ID).Error; err != nil {
+		t.Fatalf("insert final delete blocker: %v", err)
+	}
+
+	failed := acctJSON(t, h, http.MethodDelete, fmt.Sprintf("/api/admin/users/%d?reassign_to=%d", target.ID, heir.ID), "", adminToken)
+	h.mustNoPanic(failed, "delete with injected final-delete failure")
+	if failed.code != http.StatusInternalServerError {
+		t.Fatalf("injected final user delete failure returned %d, want 500: %q", failed.code, failed.body)
+	}
+	if !usersAdminExists(t, h, target.ID) {
+		t.Fatal("failed final delete removed the target user")
+	}
+	var post core.Post
+	if err := h.db.First(&post, postID).Error; err != nil || post.AuthorID != target.ID {
+		t.Errorf("post assignment after transaction rollback author=%d err=%v, want original author %d", post.AuthorID, err, target.ID)
+	}
+	var commentAfter core.Comment
+	if err := h.db.First(&commentAfter, comment.ID).Error; err != nil || commentAfter.AuthorID == nil || *commentAfter.AuthorID != target.ID {
+		t.Errorf("comment author after transaction rollback=%v err=%v, want target %d", commentAfter.AuthorID, err, target.ID)
+	}
+	var after []core.Revision
+	if err := h.db.Where("post_id = ?", postID).Order("id ASC").Find(&after).Error; err != nil || len(after) != len(before) {
+		t.Fatalf("revision history after rollback has %d rows, want %d; err=%v", len(after), len(before), err)
+	}
+	for i := range before {
+		if after[i].UserID != target.ID || after[i].ID != before[i].ID || after[i].Title != before[i].Title || after[i].Content != before[i].Content {
+			t.Errorf("revision row %d was not rolled back: before=%+v after=%+v", i, before[i], after[i])
+		}
+	}
+	if active, history := oauthAccountIdentityCounts(t, h.db, target.ID, "google"); active != 1 || history != 1 {
+		t.Errorf("OAuth identity after transaction rollback active/history=%d/%d, want 1/1", active, history)
+	}
+	if auditAfter := acctCount(t, h, "SELECT COUNT(*) FROM oauth_identity_audit_log WHERE user_id = ?", target.ID); auditAfter != auditBefore {
+		t.Errorf("OAuth audit rows after transaction rollback=%d, want unchanged %d", auditAfter, auditBefore)
+	}
+	if activeSessions := acctCount(t, h, "SELECT COUNT(*) FROM login_sessions WHERE user_id = ? AND revoked_at IS NULL", target.ID); activeSessions != activeSessionsBefore {
+		t.Errorf("active login sessions after transaction rollback=%d, want unchanged %d", activeSessions, activeSessionsBefore)
+	}
+	if profile := acctJSON(t, h, http.MethodGet, "/api/account/profile", "", targetLoginToken); profile.code != http.StatusOK {
+		t.Errorf("original target JWT profile after transaction rollback returned %d: %q", profile.code, profile.body)
+	}
+}
+
 func TestUsersResetPasswordLinkSingleUseAndRevokesSessions(t *testing.T) {
 	h := newAccessHarness(t)
 	admin := acctCreateUser(t, h, acctUserSpec{Username: "reset-admin", Role: "admin"})
