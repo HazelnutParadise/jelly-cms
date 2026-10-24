@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"html"
+	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
@@ -13,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	xhtml "golang.org/x/net/html"
 )
 
 func erRender(t *testing.T, source, format string) Result {
@@ -31,6 +34,139 @@ func TestLegacyMarkdownHTMLFenceStaysCode(t *testing.T) {
 	}
 	if strings.Contains(r.HTML, "<strong>safe</strong>") || strings.Contains(r.HTML, "jc-html") {
 		t.Fatalf("legacy Markdown HTML fence was interpreted as rich HTML: %s", r.HTML)
+	}
+}
+
+func TestLinkInlineAttributesAllowOnlyApprovedClasses(t *testing.T) {
+	source := "[Go](/posts){.btn}\n\n" +
+		"[Tagged](/posts){.btn.t}\n\n" +
+		"[Unknown](/posts){.not-allowed onclick=alert(1) style=color:red}\n\n" +
+		"[Unsafe](javascript:alert(1)){.btn}\n\n" +
+		"`[inline](/posts){.btn}`\n\n" +
+		"```text\n[fenced](/posts){.btn}\n```\n\n" +
+		"    [indented](/posts){.btn}\n"
+	r, err := Render(context.Background(), source, Options{Trust: TrustRich, Format: "jmd"})
+	if err != nil {
+		t.Fatalf("Render Jelly MD: %v", err)
+	}
+	doc, err := xhtml.Parse(strings.NewReader(r.HTML))
+	if err != nil {
+		t.Fatalf("parse rendered HTML: %v", err)
+	}
+	type link struct{ text, href, class, onclick, style string }
+	var links []link
+	var nodeText func(*xhtml.Node) string
+	nodeText = func(node *xhtml.Node) string {
+		if node.Type == xhtml.TextNode {
+			return node.Data
+		}
+		var text strings.Builder
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			text.WriteString(nodeText(child))
+		}
+		return text.String()
+	}
+	var visit func(*xhtml.Node)
+	visit = func(node *xhtml.Node) {
+		if node.Type == xhtml.ElementNode && node.Data == "a" {
+			item := link{text: nodeText(node)}
+			for _, attr := range node.Attr {
+				switch attr.Key {
+				case "href":
+					item.href = attr.Val
+				case "class":
+					item.class = attr.Val
+				case "onclick":
+					item.onclick = attr.Val
+				case "style":
+					item.style = attr.Val
+				}
+			}
+			links = append(links, item)
+		}
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			visit(child)
+		}
+	}
+	visit(doc)
+	findLink := func(text string) (link, bool) {
+		for _, item := range links {
+			if item.text == text {
+				return item, true
+			}
+		}
+		return link{}, false
+	}
+	for _, tc := range []struct{ text, class string }{{"Go", "jc-btn"}, {"Tagged", "jc-btn"}, {"Tagged", "jc-t"}} {
+		item, ok := findLink(tc.text)
+		if !ok || !strings.Contains(" "+item.class+" ", " "+tc.class+" ") {
+			t.Errorf("link %q did not receive approved class %q: %+v; HTML=%s", tc.text, tc.class, item, r.HTML)
+		}
+	}
+	unknown, ok := findLink("Unknown")
+	if !ok {
+		t.Errorf("unknown-attribute link missing from output: %s", r.HTML)
+	} else if strings.Contains(unknown.class, "not-allowed") || unknown.onclick != "" || unknown.style != "" {
+		t.Errorf("unknown class or unsafe attributes reached rendered link: %+v", unknown)
+	}
+	unsafe, ok := findLink("Unsafe")
+	if ok && strings.HasPrefix(strings.ToLower(unsafe.href), "javascript:") {
+		t.Errorf("javascript URL survived sanitization: %+v", unsafe)
+	}
+	if strings.Contains(strings.ToLower(r.HTML), "javascript:") {
+		t.Errorf("javascript URL text or attribute survived sanitization: %s", r.HTML)
+	}
+
+	var codeText strings.Builder
+	var collectCode func(*xhtml.Node, bool)
+	collectCode = func(node *xhtml.Node, inCode bool) {
+		inCode = inCode || node.Type == xhtml.ElementNode && (node.Data == "code" || node.Data == "pre")
+		if inCode && node.Type == xhtml.TextNode {
+			codeText.WriteString(node.Data)
+			codeText.WriteByte('\n')
+		}
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			collectCode(child, inCode)
+		}
+	}
+	collectCode(doc, false)
+	for _, literal := range []string{"[inline](/posts){.btn}", "[fenced](/posts){.btn}", "[indented](/posts){.btn}"} {
+		if !strings.Contains(codeText.String(), literal) {
+			t.Errorf("code literal %q was interpreted or lost: %s", literal, r.HTML)
+		}
+	}
+	var nonCodeText strings.Builder
+	var collectNonCode func(*xhtml.Node, bool)
+	collectNonCode = func(node *xhtml.Node, inCode bool) {
+		inCode = inCode || node.Type == xhtml.ElementNode && (node.Data == "code" || node.Data == "pre")
+		if !inCode && node.Type == xhtml.TextNode {
+			nonCodeText.WriteString(node.Data)
+		}
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			collectNonCode(child, inCode)
+		}
+	}
+	collectNonCode(doc, false)
+	for _, literal := range []string{"{.btn}", "{.btn.t}", "{.not-allowed", "onclick=", "style="} {
+		if strings.Contains(nonCodeText.String(), literal) {
+			t.Errorf("literal attribute text %q remained outside code: %s", literal, r.HTML)
+		}
+	}
+	for _, diagnosticToken := range []string{"not-allowed", "onclick", "style"} {
+		found := false
+		for _, diagnostic := range r.Diagnostics {
+			if strings.Contains(strings.ToLower(diagnostic.Message), diagnosticToken) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("unknown link attribute %q had no diagnostic: %+v", diagnosticToken, r.Diagnostics)
+		}
+	}
+	legacy := erRender(t, "[Legacy](/posts){.btn}", "md")
+	if strings.Contains(legacy.HTML, `class="jc-btn"`) || !strings.Contains(legacy.HTML, "{.btn}") {
+		t.Errorf("legacy Markdown incorrectly interpreted Jelly link attributes: %s", legacy.HTML)
 	}
 }
 
@@ -209,6 +345,53 @@ func TestRenderDoesNotRewriteInlineCodeOrJSONHeading(t *testing.T) {
 	}
 	if !strings.Contains(r.HTML, "Config") || !strings.Contains(r.HTML, `&#34;a&#34;:1`) {
 		t.Errorf("JSON heading content was removed: %s", r.HTML)
+	}
+}
+
+func TestMultilineInlineCodeSpanKeepsJellySyntaxLiteral(t *testing.T) {
+	source := "before `\n::counter{to=7}\n::widget{name=missing}\n$x$\n:::literal\nafter` trailing"
+	r := erRender(t, source, "jmd")
+	if !strings.Contains(r.HTML, "<code>") || !strings.Contains(r.HTML, "::counter{to=7}") || !strings.Contains(r.HTML, "::widget{name=missing}") || !strings.Contains(r.HTML, "$x$") || !strings.Contains(r.HTML, ":::literal") {
+		t.Errorf("multiline inline code source was lost or transformed: %s", r.HTML)
+	}
+	for _, active := range []string{`class="jc-counter"`, `class="jc-widget"`, `class="jc-math"`, `<iframe`, `class="jc-latex"`} {
+		if strings.Contains(r.HTML, active) {
+			t.Errorf("multiline inline code unexpectedly emitted active markup %q: %s", active, r.HTML)
+		}
+	}
+	if len(r.Diagnostics) != 0 {
+		t.Errorf("multiline inline code produced active-syntax diagnostics: %+v", r.Diagnostics)
+	}
+}
+
+func TestMultilineInlineCodeSpanProtectsOnlyItsContents(t *testing.T) {
+	source := "::counter{to=1} `literal\n::counter{to=2}\nend` ::counter{to=3}"
+	r := erRender(t, source, "jmd")
+	if got := strings.Count(r.HTML, `class="jc-counter"`); got != 2 {
+		t.Errorf("got %d active counters, want the two outside the inline code span: %s", got, r.HTML)
+	}
+	if !strings.Contains(r.HTML, `to="1"`) || !strings.Contains(r.HTML, `to="3"`) {
+		t.Errorf("counter outside the code span was not rendered: %s", r.HTML)
+	}
+	if !strings.Contains(r.HTML, "<code>") || !strings.Contains(r.HTML, "::counter{to=2}") {
+		t.Errorf("counter inside the code span was not kept literal: %s", r.HTML)
+	}
+	if strings.Contains(r.HTML, `to="2"`) || strings.Contains(r.HTML, `class="jc-counter"`+"</code>") {
+		t.Errorf("counter inside the code span emitted active markup: %s", r.HTML)
+	}
+}
+
+func TestAdjacentMultilineInlineCodeSpansDoNotOverlap(t *testing.T) {
+	source := "`a\nb` `c\nd`"
+	r := erRender(t, source, "jmd")
+	if got := strings.Count(r.HTML, "<code>"); got != 2 {
+		t.Fatalf("got %d code spans, want 2: %s", got, r.HTML)
+	}
+	if !strings.Contains(r.HTML, "<code>a b</code> <code>c d</code>") {
+		t.Errorf("adjacent multiline code span contents changed: %s", r.HTML)
+	}
+	if strings.Contains(r.HTML, `class="jc-counter"`) || strings.Contains(r.HTML, "<iframe") {
+		t.Errorf("adjacent multiline code spans emitted active markup: %s", r.HTML)
 	}
 }
 
@@ -724,5 +907,177 @@ func TestFlattenYAMLTableEscapesPipeAndKeepsEntitiesReadable(t *testing.T) {
 	}
 	if strings.Count(strings.ReplaceAll(row, `\|`, ""), "|") != 3 {
 		t.Errorf("pipe in a cell changed the two-column table structure: %q", row)
+	}
+}
+
+func TestEditorQuotedContainerAttributesSurviveRenderAndFlatten(t *testing.T) {
+	source := `:::columns {ratio=2:1 unknown="brace {inside=1}" single='brace {inside=2}' escaped="quote\"inside" even="tail\\" odd="tail\\\"inside" empty=""} <!-- opener comment -->
+::: col
+LEFT_SENTINEL
+:::
+::: col
+RIGHT_SENTINEL
+:::
+:::
+`
+	r := erRender(t, source, "jmd")
+	var columns *Block
+	for i := range r.Blocks {
+		if r.Blocks[i].Kind == "container" && r.Blocks[i].Name == "columns" {
+			columns = &r.Blocks[i]
+			break
+		}
+	}
+	if columns == nil {
+		t.Fatalf("quoted opener was not recognized as one columns block; diagnostics=%+v blocks=%+v html=%s", r.Diagnostics, r.Blocks, r.HTML)
+	}
+	if columns.StartLine != 1 || columns.EndLine != 8 {
+		t.Errorf("columns source range = %d-%d, want complete opener-through-closer range 1-8", columns.StartLine, columns.EndLine)
+	}
+	wantAttrs := map[string]string{
+		"ratio":   "2:1",
+		"unknown": "brace {inside=1}",
+		"single":  "brace {inside=2}",
+		"escaped": `quote"inside`,
+		"even":    `tail\`,
+		"odd":     `tail\"inside`,
+		"empty":   "",
+	}
+	for key, want := range wantAttrs {
+		got, ok := columns.Attrs[key]
+		if !ok || got != want {
+			t.Errorf("columns attribute %q = %q (present=%v), want exact logical value %q; attrs=%#v", key, got, ok, want, columns.Attrs)
+		}
+	}
+	if !strings.Contains(r.HTML, `class="jc-columns"`) || strings.Count(r.HTML, `class="jc-col"`) != 2 || !strings.Contains(r.HTML, "LEFT_SENTINEL") || !strings.Contains(r.HTML, "RIGHT_SENTINEL") {
+		t.Errorf("quoted opener damaged the two-column container or its child content: %s", r.HTML)
+	}
+
+	flat, err := Flatten(source)
+	if err != nil {
+		t.Fatalf("Flatten quoted columns: %v", err)
+	}
+	for _, content := range []string{"LEFT_SENTINEL", "RIGHT_SENTINEL"} {
+		if !strings.Contains(flat, content) {
+			t.Errorf("Flatten lost child content %q: %q", content, flat)
+		}
+	}
+	for _, attr := range []string{"ratio=2:1", "unknown=", "single=", "escaped=", "even=", "odd=", "empty="} {
+		if strings.Contains(flat, attr) {
+			t.Errorf("Flatten retained container attribute syntax %q: %q", attr, flat)
+		}
+	}
+}
+
+func TestEditorQuotedAttributesAreSharedByHeadingLinkAndWidgetDirective(t *testing.T) {
+	heading := erRender(t, `## Heading {#stable-id reveal=fade-up note="brace {inside=3}" escaped="quote\"inside"}`, "jmd")
+	if !strings.Contains(heading.HTML, `<h2 id="stable-id"`) || !strings.Contains(heading.HTML, `data-reveal="fade-up"`) || !strings.Contains(heading.HTML, `>Heading</h2>`) {
+		t.Errorf("heading trailing quoted attributes were not extracted symmetrically: %s", heading.HTML)
+	}
+
+	link := erRender(t, `[label](/target){.btn reveal=fade-up note="brace {inside=4}" escaped="quote\"inside"}`, "jmd")
+	if !strings.Contains(link.HTML, `class="jc-btn"`) || !strings.Contains(link.HTML, `data-reveal="fade-up"`) || !strings.Contains(link.HTML, `>label</a>`) {
+		t.Errorf("link trailing quoted attributes were not consumed as one token: %s", link.HTML)
+	}
+	if strings.Contains(link.HTML, `note=`) || strings.Contains(link.HTML, `escaped=`) {
+		t.Errorf("link attribute syntax leaked into visible link text: %s", link.HTML)
+	}
+
+	source := `::widget{name=quoted-widget label="brace {inside=5} and quote\"inside"}`
+	r, err := Render(context.Background(), source, Options{
+		Trust:  TrustRich,
+		Format: "jmd",
+		Widgets: map[string]WidgetSpec{
+			"quoted-widget": {
+				Version: 2,
+				Params:  map[string]WidgetParamSpec{"label": {Type: "string", Required: true}},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Render quoted custom widget parameter: %v", err)
+	}
+	var frameSrc string
+	for _, frame := range xhtmlElements(t, r.HTML, "iframe") {
+		frameSrc = xhtmlAttr(frame, "src")
+	}
+	parsedURL, err := url.Parse(frameSrc)
+	gotLabel := ""
+	if err == nil {
+		gotLabel = parsedURL.Query().Get("label")
+	}
+	if err != nil || gotLabel != `brace {inside=5} and quote"inside` {
+		t.Errorf("typed widget string parameter = %q (src %q, parse err %v), want braces and escaped quote intact", gotLabel, frameSrc, err)
+	}
+}
+
+func TestEditorMalformedQuotedAttributesStayLiteralAndCannotCreateHooks(t *testing.T) {
+	for _, tc := range []struct{ name, source string }{
+		{"unclosed quote", ":::columns {ratio=2:1 note=\"unterminated\nonload=evil}\n::: col\ninside\n:::\n:::\n"},
+		{"trailing escape", ":::columns {ratio=2:1 note=\"trailing\\\nonload=evil\"}\n::: col\ninside\n:::\n:::\n"},
+		{"attribute crosses newline", ":::columns {ratio=2:1\nonload=evil}\n::: col\ninside\n:::\n:::\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := erRender(t, tc.source, "jmd")
+			if strings.Contains(r.HTML, `class="jc-columns"`) || strings.Contains(r.HTML, `data-onload=`) || strings.Contains(r.HTML, `onload="`) {
+				t.Errorf("malformed opener was interpreted as a live container or extracted a fake event attribute: %s", r.HTML)
+			}
+			if !strings.Contains(r.HTML, "inside") {
+				t.Errorf("malformed quoted source discarded following content: %s", r.HTML)
+			}
+		})
+	}
+}
+
+// xhtmlElements parses the rendered fragment and returns elements with the requested tag.
+func xhtmlElements(t *testing.T, source, tag string) []*xhtml.Node {
+	t.Helper()
+	doc, err := xhtml.Parse(strings.NewReader(source))
+	if err != nil {
+		t.Fatalf("parse rendered fragment: %v", err)
+	}
+	var found []*xhtml.Node
+	var walk func(*xhtml.Node)
+	walk = func(n *xhtml.Node) {
+		if n.Type == xhtml.ElementNode && n.Data == tag {
+			found = append(found, n)
+		}
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	walk(doc)
+	return found
+}
+
+func xhtmlAttr(node *xhtml.Node, key string) string {
+	for _, attr := range node.Attr {
+		if attr.Key == key {
+			return attr.Val
+		}
+	}
+	return ""
+}
+
+func TestEditorHeadingTextPunctuationDoesNotHideTrailingAttributes(t *testing.T) {
+	for _, tc := range []struct {
+		name, source, title string
+	}{
+		{"apostrophe", `## It's ready {reveal=fade-up}`, `It's ready`},
+		{"unmatched closing brace", `## A } title {reveal=fade-up}`, `A } title`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := erRender(t, tc.source, "jmd")
+			if !strings.Contains(r.HTML, `data-reveal="fade-up"`) || !strings.Contains(r.HTML, ">"+html.EscapeString(tc.title)+"</h2>") {
+				t.Errorf("heading punctuation hid trailing attributes or changed title %q: %s", tc.title, r.HTML)
+			}
+			flat, err := Flatten(tc.source)
+			if err != nil {
+				t.Fatalf("Flatten: %v", err)
+			}
+			if !strings.Contains(flat, "## "+tc.title) || strings.Contains(flat, "reveal=fade-up") {
+				t.Errorf("Flatten failed to remove trailing attributes while retaining title %q: %q", tc.title, flat)
+			}
+		})
 	}
 }

@@ -1,10 +1,13 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -15,6 +18,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/markup"
 	"github.com/labstack/echo/v4"
+	xhtml "golang.org/x/net/html"
 	"gorm.io/gorm"
 )
 
@@ -41,6 +45,93 @@ func TestWidgetPublishedVersionsRemainImmutableAndAddressable(t *testing.T) {
 		}
 		if !strings.Contains(r.body, tc.want) || strings.Contains(r.body, tc.absent) {
 			t.Errorf("version %d frame content does not match immutable source: %s", tc.version, r.body)
+		}
+	}
+}
+
+func TestKaTeXVendorAssetsServedThroughPublicHTTP(t *testing.T) {
+	h := newAccessHarness(t)
+	root := filepath.Join(repoRoot(t), "web", "vendor", "katex")
+	assets := []struct {
+		path string
+		file string
+	}{
+		{path: "/vendor/katex/katex.min.css", file: filepath.Join(root, "katex.min.css")},
+		{path: "/vendor/katex/katex.min.js", file: filepath.Join(root, "katex.min.js")},
+		{path: "/vendor/katex/fonts/KaTeX_Main-Regular.woff2", file: filepath.Join(root, "fonts", "KaTeX_Main-Regular.woff2")},
+	}
+	for _, asset := range assets {
+		expected, err := os.ReadFile(asset.file)
+		if err != nil {
+			t.Fatalf("read vendored asset %s: %v", asset.file, err)
+		}
+		response := h.request(http.MethodGet, asset.path, "", "", "", "")
+		if response.code != http.StatusOK {
+			t.Errorf("anonymous GET %s returned %d, want 200", asset.path, response.code)
+			continue
+		}
+		if !bytes.Equal([]byte(response.body), expected) {
+			t.Errorf("anonymous GET %s did not return the corresponding vendored file bytes", asset.path)
+		}
+	}
+
+	projectFile, err := os.ReadFile(filepath.Join(repoRoot(t), "go.mod"))
+	if err != nil {
+		t.Fatalf("read project-file traversal sentinel: %v", err)
+	}
+	for _, path := range []string{
+		"/vendor/katex/../../../go.mod",
+		"/vendor/katex/%2e%2e/%2e%2e/%2e%2e/go.mod",
+		"/vendor/katex/../../../config/config.go",
+	} {
+		response := h.request(http.MethodGet, path, "", "", "", "")
+		if response.code >= http.StatusOK && response.code < http.StatusMultipleChoices {
+			t.Errorf("path traversal GET %s returned success status %d", path, response.code)
+		}
+		if bytes.Contains([]byte(response.body), projectFile) || strings.Contains(response.body, "module github.com/HazelnutParadise/jelly-cms") {
+			t.Errorf("path traversal GET %s leaked project-file content", path)
+		}
+	}
+}
+
+func TestCountdownFrameProvidesNoScriptDeadlineAndKeepsSandbox(t *testing.T) {
+	h := newAccessHarness(t)
+	deadline := "2031-07-08"
+	response := wgtFrame(h, "countdown", 1, "?to="+deadline)
+	h.mustNoPanic(response, "built-in countdown frame")
+	if response.code != http.StatusOK {
+		t.Fatalf("built-in countdown frame returned %d: %s", response.code, response.body)
+	}
+	csp := response.header.Get("Content-Security-Policy")
+	if !strings.Contains(csp, "sandbox allow-scripts") || strings.Contains(csp, "allow-same-origin") {
+		t.Errorf("countdown CSP must remain sandboxed without same-origin access: %q", csp)
+	}
+	doc, err := xhtml.Parse(strings.NewReader(response.body))
+	if err != nil {
+		t.Fatalf("parse countdown frame DOM: %v", err)
+	}
+	var visible strings.Builder
+	var collectVisible func(*xhtml.Node)
+	collectVisible = func(node *xhtml.Node) {
+		if node.Type == xhtml.ElementNode && (node.Data == "script" || node.Data == "style") {
+			return
+		}
+		if node.Type == xhtml.TextNode {
+			visible.WriteString(node.Data)
+			visible.WriteByte(' ')
+		}
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			collectVisible(child)
+		}
+	}
+	collectVisible(doc)
+	if !strings.Contains(visible.String(), deadline) {
+		t.Errorf("countdown frame has no visible no-script deadline %q after script/style removal: %q", deadline, visible.String())
+	}
+	for _, query := range []string{"?to=notadate", "?to=2031-07-08%3Cscript%3E"} {
+		bad := wgtFrame(h, "countdown", 1, query)
+		if bad.code != http.StatusBadRequest {
+			t.Errorf("countdown frame with invalid or malicious date %q returned %d, want 400", query, bad.code)
 		}
 	}
 }
@@ -74,6 +165,80 @@ func TestDraftWidgetVersionDoesNotOverridePublishedRenderVersion(t *testing.T) {
 	assertRenderedVersion(1, "version-one")
 	wgtPublishOK(t, h, token, id)
 	assertRenderedVersion(2, "version-two-draft")
+}
+
+func TestPostContentOnlyWritesPreserveNonObjectJSONMetadata(t *testing.T) {
+	h := newAccessHarness(t)
+	adminToken := h.token(h.user("admin", "editor-regression-meta-values"))
+	for _, tc := range []struct {
+		name  string
+		value string
+	}{
+		{name: "array", value: `[1,"two",{"three":3}]`},
+		{name: "string", value: `"metadata"`},
+		{name: "number", value: `17`},
+		{name: "boolean", value: `true`},
+		{name: "null", value: `null`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			postResponse := h.request(http.MethodPost, "/api/admin/posts", `{"title":"metadata `+tc.name+`","content":"initial body","meta":`+tc.value+`}`, adminToken, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
+			if postResponse.code != http.StatusOK {
+				t.Fatalf("POST returned %d: %s", postResponse.code, postResponse.body)
+			}
+			var created core.Post
+			if err := json.Unmarshal([]byte(postResponse.body), &created); err != nil {
+				t.Fatalf("decode POST response: %v", err)
+			}
+			if !jsonEqual(created.Meta, tc.value) {
+				t.Errorf("POST response metadata=%s, want %s", created.Meta, tc.value)
+			}
+			var stored core.Post
+			if err := h.db.First(&stored, created.ID).Error; err != nil {
+				t.Fatalf("reload POST result: %v", err)
+			}
+			if !jsonEqual(stored.Meta, tc.value) {
+				t.Errorf("POST database metadata=%s, want %s", stored.Meta, tc.value)
+			}
+
+			path := fmt.Sprintf("/api/admin/posts/%d", created.ID)
+			putResponse := h.request(http.MethodPut, path, `{"content":"updated body","meta":`+tc.value+`}`, adminToken, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
+			if putResponse.code != http.StatusOK {
+				t.Fatalf("content-only PUT returned %d: %s", putResponse.code, putResponse.body)
+			}
+			var updated core.Post
+			if err := json.Unmarshal([]byte(putResponse.body), &updated); err != nil {
+				t.Fatalf("decode content-only PUT response: %v", err)
+			}
+			if !jsonEqual(updated.Meta, tc.value) {
+				t.Errorf("content-only PUT response metadata=%s, want %s", updated.Meta, tc.value)
+			}
+			stored = core.Post{}
+			if err := h.db.First(&stored, created.ID).Error; err != nil {
+				t.Fatalf("reload content-only PUT result: %v", err)
+			}
+			if !jsonEqual(stored.Meta, tc.value) {
+				t.Errorf("content-only PUT database metadata=%s, want %s", stored.Meta, tc.value)
+			}
+
+			titleResponse := h.request(http.MethodPut, path, `{"title":"title-only `+tc.name+`"}`, adminToken, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
+			if titleResponse.code != http.StatusOK {
+				t.Fatalf("title-only PUT returned %d: %s", titleResponse.code, titleResponse.body)
+			}
+			if err := json.Unmarshal([]byte(titleResponse.body), &updated); err != nil {
+				t.Fatalf("decode title-only PUT response: %v", err)
+			}
+			if !jsonEqual(updated.Meta, tc.value) {
+				t.Errorf("title-only PUT response metadata=%s, want %s", updated.Meta, tc.value)
+			}
+			stored = core.Post{}
+			if err := h.db.First(&stored, created.ID).Error; err != nil {
+				t.Fatalf("reload title-only PUT result: %v", err)
+			}
+			if !jsonEqual(stored.Meta, tc.value) {
+				t.Errorf("title-only PUT database metadata=%s, want %s", stored.Meta, tc.value)
+			}
+		})
+	}
 }
 
 func TestSoftDeletedWidgetKeepsPublishedFrameAddressable(t *testing.T) {
@@ -248,6 +413,255 @@ func TestPostFormatSourceRevisionAndRestoreContracts(t *testing.T) {
 	}
 	if restoredMeta["markdown"] != "legacy client markdown" || restoredMeta["other"] != "preserved metadata" {
 		t.Errorf("HTML snapshot restore lost compatibility metadata: %#v", restoredMeta)
+	}
+}
+
+func TestLegacyMarkdownRenderAutosaveAndRestoreKeepMarkdownSemantics(t *testing.T) {
+	h := newAccessHarness(t)
+	author := h.user("author", "editor-regression-legacy-md")
+	token := h.token(author)
+	source := "Legacy **bold** prose\n\n```html\n<strong>safe</strong>\n```\n\n" +
+		":::columns\n::: col\nleft column\n:::\n::: col\nright column\n:::\n:::\n"
+	id, _ := edtCreate(t, h, token, map[string]any{
+		"title":  "legacy Markdown",
+		"type":   "post",
+		"status": "draft",
+		"source": source,
+		"format": "md",
+	})
+	row := edtLoadRow(t, h, id)
+	if row.Format != "md" {
+		t.Fatalf("created legacy post format = %q, want md", row.Format)
+	}
+	assertLegacyMDHTML := func(stage, got string) {
+		t.Helper()
+		if !strings.Contains(got, `class="language-html"`) || !strings.Contains(got, `&lt;strong&gt;safe&lt;/strong&gt;`) {
+			t.Errorf("%s did not retain the HTML fence as escaped code: %s", stage, got)
+		}
+		for _, active := range []string{`<strong>safe</strong>`, `class="jc-html"`, `class="jc-columns"`, `class="jc-col"`} {
+			if strings.Contains(got, active) {
+				t.Errorf("%s interpreted legacy Markdown literal %q: %s", stage, active, got)
+			}
+		}
+		if !strings.Contains(got, ":::columns") || !strings.Contains(got, "left column") || !strings.Contains(got, "right column") {
+			t.Errorf("%s lost literal container source: %s", stage, got)
+		}
+	}
+	assertLegacyMDHTML("stored md content", row.Content)
+
+	renderReq, err := json.Marshal(map[string]any{"post_id": id, "source": source})
+	if err != nil {
+		t.Fatalf("encode post-aware render request: %v", err)
+	}
+	render := h.request(http.MethodPost, edtRenderPath, string(renderReq), token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
+	h.mustNoPanic(render, "legacy md editor preview")
+	if render.code != http.StatusOK {
+		t.Fatalf("POST /api/admin/render for legacy md post returned %d: %s", render.code, render.body)
+	}
+	preview := edtDecode(t, render.body)["html"]
+	previewHTML, ok := preview.(string)
+	if !ok {
+		t.Fatalf("legacy md preview response has no html string: %s", render.body)
+	}
+	assertLegacyMDHTML("post-aware preview", previewHTML)
+	if previewHTML != row.Content {
+		t.Errorf("legacy md preview differs from stored published content:\npreview: %s\nstored:  %s", previewHTML, row.Content)
+	}
+
+	// A new document still defaults to JMD, and a render without post_id follows
+	// the same JMD default without adding a client-supplied format field.
+	newID, _ := edtCreate(t, h, token, map[string]any{"title": "new JMD document", "source": source})
+	if newPost := edtLoadRow(t, h, newID); newPost.Format != "jmd" {
+		t.Errorf("new post without an explicit format = %q, want jmd", newPost.Format)
+	}
+	newRender := h.request(http.MethodPost, edtRenderPath, edtRenderBody(t, source), token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
+	h.mustNoPanic(newRender, "new-document default render")
+	if newRender.code != http.StatusOK {
+		t.Fatalf("POST /api/admin/render without post_id returned %d: %s", newRender.code, newRender.body)
+	}
+	newHTML, _ := edtDecode(t, newRender.body)["html"].(string)
+	if !strings.Contains(newHTML, `class="jc-columns"`) {
+		t.Errorf("render without post_id did not retain the JMD default: %s", newHTML)
+	}
+
+	autosave := edtAutosave(h, token, id, "legacy Markdown", source)
+	h.mustNoPanic(autosave, "legacy md autosave")
+	if autosave.code != http.StatusOK {
+		t.Fatalf("legacy md autosave returned %d: %s", autosave.code, autosave.body)
+	}
+	var saved struct {
+		ID     uint
+		Source string
+		Format string
+	}
+	if err := h.db.Raw("SELECT id, source, format FROM revisions WHERE post_id = ? AND kind = 'autosave' ORDER BY id DESC LIMIT 1", id).Scan(&saved).Error; err != nil {
+		t.Fatalf("load legacy md autosave revision: %v", err)
+	}
+	if saved.ID == 0 || saved.Source != source {
+		t.Fatalf("legacy md autosave revision = id %d source %q", saved.ID, saved.Source)
+	}
+	if saved.Format != "md" {
+		t.Errorf("legacy md autosave revision format = %q, want md", saved.Format)
+	}
+	changed := edtUpdate(h, token, id, map[string]any{"source": "changed JMD source", "format": "jmd"})
+	h.mustNoPanic(changed, "change source before autosave restore")
+	if changed.code != http.StatusOK {
+		t.Fatalf("change source before restore returned %d: %s", changed.code, changed.body)
+	}
+	restore := h.request(http.MethodPost, fmt.Sprintf("/api/admin/posts/%d/revisions/%d/restore", id, saved.ID), "", token, echo.MIMEApplicationJSON, "")
+	h.mustNoPanic(restore, "restore legacy md autosave revision")
+	if restore.code != http.StatusOK {
+		t.Fatalf("restore legacy md autosave revision returned %d: %s", restore.code, restore.body)
+	}
+	row = edtLoadRow(t, h, id)
+	if row.Format != "md" || row.Source != source {
+		t.Errorf("restored autosave state = format %q source %q", row.Format, row.Source)
+	}
+	assertLegacyMDHTML("restored legacy md content", row.Content)
+}
+
+func TestSourceWorkflowPreservesNonObjectMetadata(t *testing.T) {
+	h := newAccessHarness(t)
+	token := h.token(h.user("author", "editor-regression-source-meta-values"))
+	tests := []struct {
+		name string
+		meta string
+	}{
+		{name: "array", meta: `[1,"two",{"three":3}]`},
+		{name: "string", meta: `"metadata"`},
+		{name: "number", meta: `17`},
+		{name: "boolean", meta: `false`},
+		{name: "null", meta: `null`},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assertState := func(stage string, response accessResult, postID uint, wantSource, wantFormat, wantMeta string) {
+				t.Helper()
+				h.mustNoPanic(response, stage)
+				if response.code != http.StatusOK {
+					t.Errorf("%s returned %d: %s", stage, response.code, response.body)
+					return
+				}
+				var apiPost core.Post
+				if err := json.Unmarshal([]byte(response.body), &apiPost); err != nil {
+					t.Errorf("decode %s response: %v", stage, err)
+					return
+				}
+				if apiPost.Source != wantSource || apiPost.Format != wantFormat || !jsonEqual(apiPost.Meta, wantMeta) {
+					t.Errorf("%s response state = source %q format %q meta %s; want source %q format %q meta %s", stage, apiPost.Source, apiPost.Format, apiPost.Meta, wantSource, wantFormat, wantMeta)
+				}
+				var stored core.Post
+				if err := h.db.First(&stored, postID).Error; err != nil {
+					t.Errorf("reload after %s: %v", stage, err)
+					return
+				}
+				if stored.Source != wantSource || stored.Format != wantFormat || !jsonEqual(stored.Meta, wantMeta) {
+					t.Errorf("%s database state = source %q format %q meta %s; want source %q format %q meta %s", stage, stored.Source, stored.Format, stored.Meta, wantSource, wantFormat, wantMeta)
+				}
+			}
+
+			create := h.request(http.MethodPost, "/api/admin/posts", edtBody(t, map[string]any{
+				"title": "source meta " + tc.name, "source": "## initial " + tc.name, "format": "jmd", "meta": json.RawMessage(tc.meta),
+			}), token, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
+			h.mustNoPanic(create, "create source metadata post")
+			if create.code != http.StatusOK {
+				t.Fatalf("create source metadata post returned %d: %s", create.code, create.body)
+			}
+			var created core.Post
+			if err := json.Unmarshal([]byte(create.body), &created); err != nil || created.ID == 0 {
+				t.Fatalf("decode created source metadata post: id=%d err=%v body=%s", created.ID, err, create.body)
+			}
+			assertState("POST source plus metadata", create, created.ID, "## initial "+tc.name, "jmd", tc.meta)
+
+			newSource := "## changed " + tc.name
+			assertState("PUT source without metadata", edtUpdate(h, token, created.ID, map[string]any{"source": newSource}), created.ID, newSource, "jmd", tc.meta)
+			assertState("PUT empty source without metadata", edtUpdate(h, token, created.ID, map[string]any{"source": ""}), created.ID, "", "jmd", tc.meta)
+
+			// RecordRevision snapshots the post after the empty-source update. Select that exact
+			// snapshot by its stored source/format so restore cannot accidentally target the
+			// preceding non-empty revision.
+			var emptySourceSnapshot core.Revision
+			if err := h.db.Where("post_id = ? AND source = ? AND format = ?", created.ID, "", "jmd").Order("id DESC").First(&emptySourceSnapshot).Error; err != nil {
+				t.Fatalf("load empty-source revision snapshot: %v", err)
+			}
+			if emptySourceSnapshot.Source != "" || emptySourceSnapshot.Format != "jmd" || !jsonEqual(emptySourceSnapshot.Meta, tc.meta) {
+				t.Errorf("empty-source revision snapshot = source %q format %q meta %s; want empty/jmd/%s", emptySourceSnapshot.Source, emptySourceSnapshot.Format, emptySourceSnapshot.Meta, tc.meta)
+			}
+
+			changedMeta := json.RawMessage(`{"other":"changed"}`)
+			changedSource := "## alternate " + tc.name
+			changedExpectedMeta, err := json.Marshal(map[string]string{"other": "changed", "markdown": changedSource})
+			if err != nil {
+				t.Fatalf("encode expected changed metadata: %v", err)
+			}
+			change := edtUpdate(h, token, created.ID, map[string]any{"source": changedSource, "meta": changedMeta})
+			assertState("change source and object metadata before restore", change, created.ID, changedSource, "jmd", string(changedExpectedMeta))
+
+			restore := h.request(http.MethodPost, fmt.Sprintf("/api/admin/posts/%d/revisions/%d/restore", created.ID, emptySourceSnapshot.ID), "", token, echo.MIMEApplicationJSON, "")
+			assertState("restore empty-source metadata snapshot", restore, created.ID, "", "jmd", tc.meta)
+		})
+	}
+}
+
+func TestWidgetUsageCountCountsOnlyActiveJMDReferences(t *testing.T) {
+	h := newAccessHarness(t)
+	token := h.token(h.user("admin", "editor-regression-widget-usage-precision"))
+	wgtCreate(t, h, token, "usage-w", wgtParams(), wgtSafeSource)
+	wgtCreate(t, h, token, "usage-w-more", wgtParams(), wgtSafeSource)
+
+	pageID, _ := edtCreate(t, h, token, map[string]any{
+		"title": "quoted duplicate page", "slug": "widget-usage-quoted-page", "type": "page", "status": "published",
+		"source": "::widget{name=\"usage-w\" to=\"2027-01-01\"}\n\n::widget{name=\"usage-w\" to=\"2027-02-01\"}\n",
+	})
+	_, _ = edtCreate(t, h, token, map[string]any{
+		"title": "private widget post", "slug": "widget-usage-private", "status": "private", "visibility": "private",
+		"source": "::widget{name=usage-w to=2027-03-01}\n",
+	})
+	_, _ = edtCreate(t, h, token, map[string]any{
+		"title": "draft widget post", "slug": "widget-usage-draft", "status": "draft",
+		"source": "::widget{name=usage-w to=2027-04-01}\n",
+	})
+	for slug, source := range map[string]string{
+		"widget-usage-inline-code": "`::widget{name=usage-w to=2027-01-01}`\n",
+		"widget-usage-fenced-code": "```text\n::widget{name=usage-w to=2027-01-01}\n```\n",
+		"widget-usage-plain-text":  "name=usage-w\n",
+	} {
+		_, _ = edtCreate(t, h, token, map[string]any{
+			"title": slug, "slug": slug, "status": "published", "source": source,
+		})
+	}
+	_, _ = edtCreate(t, h, token, map[string]any{
+		"title": "longer widget name", "slug": "widget-usage-prefix", "status": "published",
+		"source": "::widget{name=usage-w-more to=2027-01-01}\n",
+	})
+	_, _ = edtCreate(t, h, token, map[string]any{
+		"title": "legacy Markdown text", "slug": "widget-usage-legacy-md", "status": "published", "format": "md",
+		"source": "::widget{name=usage-w to=2027-01-01}\n",
+	})
+	deletedID, _ := edtCreate(t, h, token, map[string]any{
+		"title": "deleted widget post", "slug": "widget-usage-deleted", "status": "published",
+		"source": "::widget{name=usage-w to=2027-01-01}\n",
+	})
+	trashTestDeletePost(t, h, token, deletedID)
+	if pageID == 0 {
+		t.Fatal("page with quoted widget references was not created")
+	}
+
+	list := h.request(http.MethodGet, "/api/admin/widgets", "", token, echo.MIMEApplicationJSON, "")
+	h.mustNoPanic(list, "admin widget usage precision list")
+	if list.code != http.StatusOK {
+		t.Fatalf("GET /api/admin/widgets returned %d, want 200; body=%q", list.code, list.body)
+	}
+	items := wgtListItems(t, list.body)
+	for name, want := range map[string]int{"usage-w": 3, "usage-w-more": 1} {
+		item := wgtFindByName(items, name)
+		if item == nil {
+			t.Errorf("widget %s is missing from the list: %s", name, list.body)
+			continue
+		}
+		if got, _ := item["uses"].(float64); int(got) != want {
+			t.Errorf("widget %s uses = %v, want %d active JMD source documents", name, item["uses"], want)
+		}
 	}
 }
 

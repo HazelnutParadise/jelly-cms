@@ -13,12 +13,15 @@ package markup
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
+
+	xhtml "golang.org/x/net/html"
 )
 
 // mtGoldenNames is the explicit list of golden pairs. The list is not globbed, so a missing .html
@@ -54,10 +57,6 @@ const mtAnyMarker = "<!-- any -->"
 var (
 	mtTagGap   = regexp.MustCompile(`>\s+<`)
 	mtSpaceRun = regexp.MustCompile(`\s+`)
-	// mtOnAttr and mtJSAttr look only inside tags. Escaped text in a code block legitimately
-	// contains "onerror=" or "javascript:", so the safety checks match real tags only.
-	mtOnAttr = regexp.MustCompile(`(?i)<[a-z][^>]*\son[a-z]+\s*=`)
-	mtJSAttr = regexp.MustCompile(`(?i)<[a-z][^>]*javascript\s*:`)
 )
 
 func mtReadFile(t testing.TB, path string) string {
@@ -109,14 +108,105 @@ func mtFindBlock(blocks []Block, name string) (Block, bool) {
 
 func mtAssertSafe(t *testing.T, trust, out string) {
 	t.Helper()
-	if strings.Contains(strings.ToLower(out), "<script") {
-		t.Errorf("trust=%s: output contains <script: %q", trust, out)
+	if reason, err := mtUnsafeHTMLReason(out); err != nil {
+		t.Errorf("trust=%s: inspect rendered HTML: %v", trust, err)
+	} else if reason != "" {
+		t.Errorf("trust=%s: unsafe rendered HTML (%s): %q", trust, reason, out)
 	}
-	if mtOnAttr.MatchString(out) {
-		t.Errorf("trust=%s: output has an on* attribute inside a tag: %q", trust, out)
+}
+
+var mtURLAttrs = map[string]struct{}{
+	"action": {}, "background": {}, "cite": {}, "codebase": {}, "data": {},
+	"formaction": {}, "href": {}, "longdesc": {}, "manifest": {}, "poster": {},
+	"profile": {}, "src": {}, "usemap": {}, "xlink:href": {},
+}
+
+// mtUnsafeHTMLReason classifies actual HTML tags and attributes. Attribute values are already
+// entity-decoded by x/net/html, so only the browser-relevant ASCII tab/newline/carriage-return
+// obfuscation is removed inside URL values. Other internal whitespace and percent escapes stay
+// intact because they do not form a javascript: scheme.
+func mtUnsafeHTMLReason(out string) (string, error) {
+	tokenizer := xhtml.NewTokenizer(strings.NewReader(out))
+	for {
+		tokenType := tokenizer.Next()
+		if tokenType == xhtml.ErrorToken {
+			if err := tokenizer.Err(); err != io.EOF {
+				return "", err
+			}
+			return "", nil
+		}
+		if tokenType != xhtml.StartTagToken && tokenType != xhtml.SelfClosingTagToken {
+			continue
+		}
+		tagName, hasAttr := tokenizer.TagName()
+		if strings.EqualFold(string(tagName), "script") {
+			return "script element", nil
+		}
+		for hasAttr {
+			key, value, moreAttr := tokenizer.TagAttr()
+			name := strings.ToLower(string(key))
+			if len(name) > 2 && strings.HasPrefix(name, "on") {
+				return "event attribute " + name, nil
+			}
+			if _, isURL := mtURLAttrs[name]; isURL && mtHasJavaScriptScheme(string(value)) {
+				return "javascript URL in " + name, nil
+			}
+			hasAttr = moreAttr
+		}
 	}
-	if mtJSAttr.MatchString(out) {
-		t.Errorf("trust=%s: output has javascript: inside a tag: %q", trust, out)
+}
+
+func mtHasJavaScriptScheme(value string) bool {
+	value = strings.Map(func(r rune) rune {
+		if r == '\t' || r == '\n' || r == '\r' {
+			return -1
+		}
+		return r
+	}, value)
+	start, end := 0, len(value)
+	for start < end && mtASCIIControlOrSpace(value[start]) {
+		start++
+	}
+	for end > start && mtASCIIControlOrSpace(value[end-1]) {
+		end--
+	}
+	return strings.HasPrefix(strings.ToLower(value[start:end]), "javascript:")
+}
+
+func mtASCIIControlOrSpace(b byte) bool { return b <= 0x20 || b == 0x7f }
+
+func TestMarkupSafetyOracleClassifiesHTMLTokens(t *testing.T) {
+	tests := []struct {
+		name string
+		html string
+		want bool
+	}{
+		{name: "script start tag", html: `<script>alert(1)</script>`, want: true},
+		{name: "self-closing script tag", html: `<script />`, want: true},
+		{name: "quoted event attribute", html: `<img onerror="alert(1)">`, want: true},
+		{name: "unquoted event attribute", html: `<svg onload=alert(1)>`, want: true},
+		{name: "case-insensitive javascript URL", html: `<a href="JaVaScRiPt:alert(1)">x</a>`, want: true},
+		{name: "entity-decoded javascript URL", html: `<a href="jav&#x61;script:alert(1)">x</a>`, want: true},
+		{name: "tab-obfuscated javascript URL", html: `<a href="java&#x09;script:alert(1)">x</a>`, want: true},
+		{name: "newline-obfuscated javascript URL", html: "<a href=\"java&#x0a;script:alert(1)\">x</a>", want: true},
+		{name: "ASCII controls around javascript URL", html: `<a href="&#x01; javascript:alert(1)&#x7f;">x</a>`, want: true},
+		{name: "quoted class containing event-like text", html: `<pre class="chroma"><code class="language-0 onA=">code</code></pre>`, want: false},
+		{name: "quoted title containing javascript text", html: `<span title="javascript: is only text">safe</span>`, want: false},
+		{name: "escaped script and attributes in code", html: `<pre><code>&lt;script&gt; onerror=alert(1) javascript:alert(1)</code></pre>`, want: false},
+		{name: "ordinary URL path containing javascript text", html: `<a href="https://example.test/docs/javascript:guide">safe</a>`, want: false},
+		{name: "internal ordinary space is preserved", html: `<a href="java script:alert(1)">safe</a>`, want: false},
+		{name: "percent-encoded scheme is not decoded", html: `<a href="java%73cript:alert(1)">safe</a>`, want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			reason, err := mtUnsafeHTMLReason(tc.html)
+			if err != nil {
+				t.Fatalf("mtUnsafeHTMLReason: %v", err)
+			}
+			if got := reason != ""; got != tc.want {
+				t.Errorf("unsafe=%t, want %t (reason=%q)", got, tc.want, reason)
+			}
+		})
 	}
 }
 
