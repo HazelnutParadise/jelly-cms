@@ -9,8 +9,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -20,14 +22,21 @@ const MaxRedirects = 3
 // ErrBlockedAddress is returned when a dial target is not public.
 var ErrBlockedAddress = errors.New("safehttp: destination address is not allowed")
 
-// ErrNotImplemented marks behaviour that the skeleton does not provide yet.
-var ErrNotImplemented = errors.New("safehttp: not implemented")
+// ErrBodyTooLarge is returned by Read when a response body passes Options.MaxBytes.
+var ErrBodyTooLarge = errors.New("safehttp: response body exceeds the size limit")
+
+// allowLoopbackEnv lets tests dial a fake server on 127.0.0.1. Production
+// deployments never set it; loopback stays blocked unless it is exactly "1".
+const allowLoopbackEnv = "JELLY_TEST_ALLOW_LOOPBACK"
+
+func loopbackAllowed() bool { return os.Getenv(allowLoopbackEnv) == "1" }
 
 // Options bounds one client.
 type Options struct {
 	Timeout time.Duration
-	// MaxBytes limits how much of a response body a caller may read; callers
-	// wrap bodies with io.LimitReader using this value.
+	// MaxBytes limits how much of a response body a caller may read. A body
+	// that is longer fails with ErrBodyTooLarge after MaxBytes bytes. Zero
+	// means no limit.
 	MaxBytes int64
 	// AllowHosts, when set, restricts requests to these host names (lowercase).
 	AllowHosts []string
@@ -92,16 +101,20 @@ func Client(opts Options) *http.Client {
 				return nil, fmt.Errorf("safehttp: no address for %s", host)
 			}
 			for _, ip := range ips {
-				if BlockedIP(ip.IP) {
+				if BlockedIP(ip.IP) && !(loopbackAllowed() && ip.IP.IsLoopback()) {
 					return nil, fmt.Errorf("%w: %s", ErrBlockedAddress, host)
 				}
 			}
 			return dialer.DialContext(ctx, network, net.JoinHostPort(ips[0].IP.String(), port))
 		},
 	}
+	var rt http.RoundTripper = transport
+	if opts.MaxBytes > 0 {
+		rt = &limitTransport{base: transport, max: opts.MaxBytes}
+	}
 	return &http.Client{
 		Timeout:   timeout,
-		Transport: transport,
+		Transport: rt,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= MaxRedirects {
 				return fmt.Errorf("safehttp: stopped after %d redirects", MaxRedirects)
@@ -122,3 +135,48 @@ func hostAllowed(host string, allow []string) bool {
 	}
 	return false
 }
+
+// limitTransport caps every response body at max bytes.
+type limitTransport struct {
+	base http.RoundTripper
+	max  int64
+}
+
+func (t *limitTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.ContentLength > t.max {
+		_ = resp.Body.Close()
+		return nil, fmt.Errorf("%w: %d bytes", ErrBodyTooLarge, resp.ContentLength)
+	}
+	resp.Body = &limitedBody{rc: resp.Body, left: t.max}
+	return resp, nil
+}
+
+// limitedBody returns ErrBodyTooLarge instead of silently truncating.
+type limitedBody struct {
+	rc   io.ReadCloser
+	left int64
+}
+
+func (b *limitedBody) Read(p []byte) (int, error) {
+	if b.left <= 0 {
+		// Probe one byte: a clean EOF means the body ended exactly at the limit.
+		var one [1]byte
+		n, err := b.rc.Read(one[:])
+		if n > 0 {
+			return 0, ErrBodyTooLarge
+		}
+		return 0, err
+	}
+	if int64(len(p)) > b.left {
+		p = p[:b.left]
+	}
+	n, err := b.rc.Read(p)
+	b.left -= int64(n)
+	return n, err
+}
+
+func (b *limitedBody) Close() error { return b.rc.Close() }

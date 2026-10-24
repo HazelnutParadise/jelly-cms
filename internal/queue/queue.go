@@ -1,10 +1,10 @@
 // Package queue is the background job queue. Queue names: mail, media,
 // webhook, import, schedule. Job kinds are registered with Register.
 //
-// Drivers: postgres (the jobs table, migration 0019), redis (Redis Streams)
-// and nats (JetStream, behind a build tag). Only the in-process driver below
-// is implemented; the postgres driver currently wraps it so the worker and
-// the admin pages can run end to end without a database table.
+// Drivers: postgres (the jobs table, migration 0019), memory (in-process, for
+// tests and as a switch target), redis (Redis Streams) and nats (JetStream,
+// behind a build tag). The postgres driver lives in postgres.go; redis and
+// nats are not implemented yet.
 package queue
 
 import (
@@ -23,6 +23,7 @@ import (
 // Driver names accepted by Config.Driver.
 const (
 	DriverPostgres = "postgres"
+	DriverMemory   = "memory"
 	DriverRedis    = "redis"
 	DriverNATS     = "nats"
 )
@@ -122,13 +123,14 @@ func HandlerFor(kind string) (HandlerFunc, bool) {
 	return h, ok
 }
 
-// Open returns the queue for cfg. postgres and the in-process driver are
+// Open returns the queue for cfg. postgres (the default) and memory are
 // available now; redis and nats return ErrNotImplemented.
 func Open(cfg Config) (Queue, error) {
 	switch strings.ToLower(strings.TrimSpace(cfg.Driver)) {
 	case "", DriverPostgres:
-		// STUB: jobs are kept in memory until the jobs table driver lands.
-		return newMemoryQueue(DriverPostgres), nil
+		return newPostgresQueue()
+	case DriverMemory:
+		return newMemoryQueue(DriverMemory), nil
 	case DriverRedis, DriverNATS:
 		return nil, fmt.Errorf("queue: driver %q: %w", cfg.Driver, ErrNotImplemented)
 	default:
@@ -136,10 +138,34 @@ func Open(cfg Config) (Queue, error) {
 	}
 }
 
-// Switch moves queued jobs from one backend to another without losing them.
-// TODO(08a): wait for running jobs, pause workers and verify counts.
+// switchBatch is how many queued jobs Switch moves per round.
+const switchBatch = 200
+
+// Switch moves queued jobs from one backend to another. Jobs are removed from
+// from only after to has accepted them, in batches; if to refuses a job the
+// rest of the batch goes back to from, so a failed switch loses nothing.
+// Running jobs finish on from. Callers pause workers first so nothing new is
+// reserved while the move runs.
 func Switch(ctx context.Context, from, to Queue) error {
-	return ErrNotImplemented
+	for {
+		batch, err := from.Drain(ctx, switchBatch)
+		if err != nil {
+			return fmt.Errorf("queue: drain source: %w", err)
+		}
+		if len(batch) == 0 {
+			return nil
+		}
+		for i, j := range batch {
+			if _, err := to.Enqueue(ctx, j); err != nil {
+				for _, back := range batch[i:] {
+					if _, rerr := from.Enqueue(context.WithoutCancel(ctx), back); rerr != nil {
+						err = errors.Join(err, rerr)
+					}
+				}
+				return fmt.Errorf("queue: enqueue on target: %w", err)
+			}
+		}
+	}
 }
 
 func newJobID() string {
