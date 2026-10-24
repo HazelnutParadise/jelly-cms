@@ -1,77 +1,172 @@
 {{define "title"}}{{.T.products}}{{end}}
+{{define "styles"}}<link rel="stylesheet" href="/admin/assets/shop-admin.css">{{end}}
 {{define "content"}}
-<div class="page-header">
-    <div class="page-title-wrapper">
-        <h1>{{.T.products}}</h1>
-    </div>
-    <div class="page-actions">
-        <a href="/admin/products/new" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>New Product</a>
-    </div>
+<div class="sa-head">
+    <h1>{{.T.products}}</h1>
+    <div class="sa-seg" id="segs" role="group" aria-label="{{.T.status}}"></div>
+    <span class="sa-grow"></span>
+    <label class="sa-search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="q" autocomplete="off" enterkeyhint="search"></label>
+    <a href="/admin/products/new" class="btn btn-primary" id="newBtn"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span></span></a>
 </div>
-<div class="table-wrapper">
-    <table>
-        <thead>
-            <tr>
-                <th>{{.T.title}}</th>
-                <th>Price</th>
-                <th>Stock</th>
-                <th>{{.T.status}}</th>
-                <th class="actions">{{.T.actions}}</th>
-            </tr>
-        </thead>
-        <tbody id="productsList">
-            <tr>
-                <td colspan="5" class="table-empty">{{.T.loading}}</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
+<div class="sa-alert" id="stockAlert" role="status" hidden><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><span id="stockAlertText"></span><button type="button" class="btn btn-text btn-sm" id="onlyOut"></button></div>
+<div id="list" aria-live="polite" aria-busy="true"></div>
+<nav class="sa-pager" id="pager" hidden></nav>
 {{end}}
 {{define "scripts"}}
+<script src="/admin/assets/shop-admin.js"></script>
 <script>
-    const T = { edit: "{{.T.edit}}", delete: "{{.T.delete}}" };
+(function () {
+    'use strict';
+    const SA = window.ShopAdmin;
+    SA.extend({
+        zh: {
+            newProduct: '新商品', searchPh: '搜尋商品名稱或 SKU', colProduct: '商品', colSku: 'SKU', colPrice: '價格', colStock: '庫存', colStatus: '狀態', colUpdated: '更新', colActions: '操作',
+            alertOut: '%s 件商品缺貨', alertLow: '另有 %s 件低於低庫存門檻', alertLowOnly: '%s 件商品低於低庫存門檻', onlyOut: '只看缺貨',
+            emptyTitle: '還沒有商品', emptyText: '建立第一件商品，顧客就能在商店看到它。', noMatch: '沒有符合條件的商品', clearFilter: '清除篩選',
+            variants: '%s 種規格', delTitle: '刪除「%s」？', delBody: '商品會移到回收桶，舊訂單保留商品快照。', duplicated: '已建立複本（草稿）', openCopy: '編輯複本'
+        },
+        en: {
+            newProduct: 'New product', searchPh: 'Search name or SKU', colProduct: 'Product', colSku: 'SKU', colPrice: 'Price', colStock: 'Stock', colStatus: 'Status', colUpdated: 'Updated', colActions: 'Actions',
+            alertOut: '%s products are out of stock', alertLow: '%s more are at or below the low-stock threshold', alertLowOnly: '%s products are at or below the low-stock threshold', onlyOut: 'Out of stock only',
+            emptyTitle: 'No products yet', emptyText: 'Create the first product and it appears in the shop.', noMatch: 'No products match', clearFilter: 'Clear filters',
+            variants: '%s variants', delTitle: 'Delete “%s”?', delBody: 'The product moves to the trash. Past orders keep their snapshot.', duplicated: 'Copy created as a draft', openCopy: 'Edit the copy'
+        }
+    });
+    const t = SA.t, esc = SA.esc;
+    const $ = (id) => document.getElementById(id);
+    const PER = 20;
+    const SEGS = ['all', 'active', 'draft', 'out_of_stock', 'archived'];
+    const params = new URLSearchParams(location.search);
+    let st = { status: SEGS.includes(params.get('status')) ? params.get('status') : 'all', q: params.get('q') || '', page: Math.max(1, +params.get('page') || 1) };
+    let counts = {};
+    let seq = 0;
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text == null ? '' : String(text);
-        return div.innerHTML;
+    $('q').placeholder = t('searchPh');
+    $('q').setAttribute('aria-label', t('searchPh'));
+    $('q').value = st.q;
+    $('newBtn').querySelector('span').textContent = t('newProduct');
+    $('onlyOut').textContent = t('onlyOut');
+
+    function segLabel(s) { return s === 'all' ? t('all') : t('ps_' + s); }
+    function renderSegs() {
+        $('segs').innerHTML = SEGS.map(s => '<button type="button" data-s="' + s + '" aria-pressed="' + (st.status === s) + '">' + esc(segLabel(s)) + (counts[s] != null ? ' <b>' + (+counts[s]) + '</b>' : '') + '</button>').join('');
+        $('segs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { st.status = b.dataset.s; st.page = 1; load(); }));
     }
 
-    const STATUS_BADGE = { active: 'success', draft: 'warning', archived: 'info' };
+    // 規格與庫存：列表顯示最低售價、總庫存，任一規格不高於門檻就標低庫存
+    function summary(p) {
+        const vs = Array.isArray(p.variants) && p.variants.length ? p.variants : [{ price: p.price, stock: p.stock, sku: p.sku }];
+        const prices = vs.map(v => +v.price || 0);
+        const min = Math.min(...prices), max = Math.max(...prices);
+        const stock = vs.reduce((n, v) => n + (+v.stock || 0), 0);
+        const threshold = p.low_stock_threshold == null ? 5 : +p.low_stock_threshold;
+        const low = stock > 0 && vs.some(v => (+v.stock || 0) <= threshold);
+        const sku = vs.length > 1 ? t('variants', vs.length) : (vs[0].sku || p.sku || '—');
+        return { price: min === max ? SA.money(min) : SA.money(min) + '–' + SA.money(max), stock, low, sku, threshold };
+    }
+    function firstImage(p) {
+        let imgs = p.images;
+        if (typeof imgs === 'string') { try { imgs = JSON.parse(imgs); } catch (e) { imgs = []; } }
+        return Array.isArray(imgs) && imgs.length ? SA.safeUrl(typeof imgs[0] === 'string' ? imgs[0] : imgs[0] && imgs[0].url) : '';
+    }
 
-    async function loadProducts() {
-        const res = await fetch('/api/admin/products');
-        const products = await res.json();
-        const tbody = document.getElementById('productsList');
-        tbody.innerHTML = '';
-
-        if (!products.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="table-empty">—</td></tr>';
+    function render(data) {
+        const items = Array.isArray(data.items) ? data.items : [];
+        const box = $('list');
+        box.setAttribute('aria-busy', 'false');
+        const filtered = st.q || st.status !== 'all';
+        if (!items.length) {
+            if (filtered) SA.state(box, 'empty', { title: t('noMatch'), actions: [{ label: t('clearFilter'), onClick: () => { st = { status: 'all', q: '', page: 1 }; $('q').value = ''; load(); } }] });
+            else SA.state(box, 'empty', { title: t('emptyTitle'), text: t('emptyText'), actions: [{ label: t('newProduct'), primary: true, icon: 'i-plus', href: '/admin/products/new' }] });
+            $('pager').hidden = true;
             return;
         }
+        let html = '<div class="table-wrapper"><table class="sa-table"><thead><tr><th>' + esc(t('colProduct')) + '</th><th class="sa-hide-sm">' + esc(t('colSku')) + '</th><th class="sa-num">' + esc(t('colPrice')) + '</th><th>' + esc(t('colStock')) + '</th><th>' + esc(t('colStatus')) + '</th><th class="sa-hide-sm">' + esc(t('colUpdated')) + '</th><th class="actions">' + esc(t('colActions')) + '</th></tr></thead><tbody>';
+        items.forEach(p => {
+            const s = summary(p);
+            const img = firstImage(p);
+            const status = s.stock === 0 && p.status === 'active' ? 'out_of_stock' : p.status;
+            const pct = Math.max(0, Math.min(100, s.stock / Math.max(s.threshold * 4, 1) * 100));
+            html += '<tr' + (s.low ? ' class="sa-row-low"' : '') + '>' +
+                '<td><span class="sa-prod">' + (img ? '<img class="sa-thumb" src="' + esc(img) + '" alt="" loading="lazy">' : '<span class="sa-thumb" aria-hidden="true"></span>') +
+                '<a href="/admin/products/' + (+p.id) + '">' + esc(p.title || '—') + '</a></span></td>' +
+                '<td class="cell-mono sa-hide-sm">' + esc(s.sku) + '</td>' +
+                '<td class="sa-num">' + esc(s.price) + '</td>' +
+                '<td><span class="sa-stock"><span class="sa-meter" aria-hidden="true"><i class="' + (s.low ? 'low' : '') + '" style="width:' + pct.toFixed(0) + '%"></i></span><span class="' + (s.stock === 0 ? 'zero' : '') + '">' + s.stock + '</span>' + (s.low ? '<span class="badge badge-warning">' + esc(t('lowStock')) + '</span>' : '') + '</span></td>' +
+                '<td>' + SA.badge('product', status) + '</td>' +
+                '<td class="cell-muted sa-hide-sm">' + esc(SA.day(p.updated_at)) + '</td>' +
+                '<td class="actions"><a class="btn btn-secondary btn-sm btn-icon" href="/admin/products/' + (+p.id) + '" title="' + esc(t('edit')) + '" aria-label="' + esc(t('edit') + '：' + (p.title || '')) + '">' + SA.svg('i-pencil') + '</a>' +
+                '<button type="button" class="btn btn-text btn-sm btn-icon" data-dup="' + (+p.id) + '" title="' + esc(t('duplicate')) + '" aria-label="' + esc(t('duplicate') + '：' + (p.title || '')) + '">' + SA.svg('i-copy') + '</button>' +
+                '<button type="button" class="btn btn-text btn-sm btn-icon" data-del="' + (+p.id) + '" title="' + esc(t('delete')) + '" aria-label="' + esc(t('delete') + '：' + (p.title || '')) + '">' + SA.svg('i-trash') + '</button></td></tr>';
+        });
+        box.innerHTML = html + '</tbody></table></div>';
+        const byId = new Map(items.map(p => [p.id, p]));
+        box.querySelectorAll('[data-dup]').forEach(b => b.addEventListener('click', () => duplicate(+b.dataset.dup, b)));
+        box.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => remove(byId.get(+b.dataset.del), b)));
+        SA.pager($('pager'), { page: st.page, perPage: PER, total: +data.total || items.length, unit: t('unitItems') }, (p) => { st.page = p; load(); });
+    }
 
-        products.forEach(p => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                    <td class="cell-title"><a href="/admin/products/${p.id}">${escapeHtml(p.title)}</a></td>
-                    <td class="cell-mono">NT$ ${p.price}</td>
-                    <td class="cell-mono">${p.stock}</td>
-                    <td><span class="badge badge-${STATUS_BADGE[p.status] || 'info'}">${escapeHtml(p.status)}</span></td>
-                    <td class="actions">
-                        <a href="/admin/products/${p.id}" class="btn btn-secondary btn-sm btn-icon" title="${T.edit}" aria-label="${T.edit}"><svg class="icon" aria-hidden="true"><use href="#i-pencil"/></svg></a>
-                        <button onclick="deleteProduct(${p.id})" class="btn btn-text btn-sm btn-icon" title="${T.delete}" aria-label="${T.delete}"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg></button>
-                    </td>
-                `;
-            tbody.appendChild(tr);
+    function renderAlert() {
+        const out = +counts.out_of_stock || 0, low = +counts.low_stock || 0;
+        $('stockAlert').hidden = !out && !low;
+        $('stockAlertText').textContent = out ? t('alertOut', out) + (low ? '；' + t('alertLow', low) : '') : t('alertLowOnly', low);
+        $('onlyOut').hidden = !out || st.status === 'out_of_stock';
+    }
+
+    async function load() {
+        const my = ++seq;
+        SA.setQuery({ status: st.status === 'all' ? '' : st.status, q: st.q, page: st.page > 1 ? st.page : '' });
+        renderSegs();
+        SA.state($('list'), 'loading');
+        const qs = new URLSearchParams({ page: st.page, per_page: PER });
+        if (st.status !== 'all') qs.set('status', st.status);
+        if (st.q) qs.set('q', st.q);
+        try {
+            const data = await SA.api('GET', '/api/admin/products?' + qs);
+            if (my !== seq) return;
+            const page = Array.isArray(data) ? { items: data, total: data.length, counts: {} } : (data || {});
+            counts = page.counts || {};
+            const pages = Math.max(1, Math.ceil((+page.total || 0) / PER));
+            if (st.page > pages && (+page.total || 0) > 0) { st.page = pages; return load(); }
+            renderSegs();
+            renderAlert();
+            render(page);
+        } catch (err) {
+            if (my !== seq || err.kind === 'aborted') return;
+            $('pager').hidden = true;
+            SA.state($('list'), 'error', { text: SA.errText(err), retry: load });
+        }
+    }
+
+    async function duplicate(id, btn) {
+        await SA.busy(btn, async () => {
+            try {
+                const copy = await SA.api('POST', '/api/admin/products/' + id + '/duplicate');
+                const newId = copy && (copy.id || (copy.product && copy.product.id));
+                SA.toast(t('duplicated'), 'success', newId ? { action: { label: t('openCopy'), href: '/admin/products/' + (+newId) } } : {});
+                load();
+            } catch (err) { SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) }); }
         });
     }
 
-    async function deleteProduct(id) {
-        if (!confirm('Are you sure?')) return;
-        await fetch(`/api/admin/products/${id}`, { method: 'DELETE' });
-        loadProducts();
+    async function remove(p, btn) {
+        if (!p) return;
+        const ok = await SA.confirm({ title: t('delTitle', p.title || ''), body: t('delBody'), ok: t('delete'), danger: true });
+        if (!ok) return;
+        await SA.busy(btn, async () => {
+            try {
+                await SA.api('DELETE', '/api/admin/products/' + (+p.id));
+                SA.toast(t('deleted'));
+                load();
+            } catch (err) { SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) }); }
+        });
     }
 
-    loadProducts();
+    let timer = null;
+    $('q').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { st.q = $('q').value.trim(); st.page = 1; load(); }, 300); });
+    $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(timer); st.q = $('q').value.trim(); st.page = 1; load(); } });
+    $('onlyOut').addEventListener('click', () => { st.status = 'out_of_stock'; st.page = 1; load(); });
+    load();
+})();
 </script>
 {{end}}

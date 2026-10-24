@@ -18,6 +18,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
 func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
@@ -484,6 +485,9 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 	})
 
 	api.POST("/payment/gateways/ecpay", func(c echo.Context) error {
+		if data.DB == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+		}
 		var req struct {
 			Enabled    bool   `json:"enabled"`
 			MerchantID string `json:"merchant_id"`
@@ -503,8 +507,13 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 			IsTestMode: req.TestMode,
 		}
 
-		if err := service.SaveECPayConfig(config, req.Enabled); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		if err := data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+			if err := lockShopSettings(tx); err != nil {
+				return err
+			}
+			return service.SaveECPayConfig(config, req.Enabled)
+		}); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid gateway configuration"})
 		}
 
 		// Payment service will reload from DB on next use
@@ -514,6 +523,9 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 	})
 
 	api.POST("/payment/gateways/newebpay", func(c echo.Context) error {
+		if data.DB == nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+		}
 		var req struct {
 			Enabled    bool   `json:"enabled"`
 			MerchantID string `json:"merchant_id"`
@@ -533,8 +545,13 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 			IsTestMode: req.TestMode,
 		}
 
-		if err := service.SaveNewebPayConfig(config, req.Enabled); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		if err := data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+			if err := lockShopSettings(tx); err != nil {
+				return err
+			}
+			return service.SaveNewebPayConfig(config, req.Enabled)
+		}); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid gateway configuration"})
 		}
 
 		// Payment service will reload from DB on next use

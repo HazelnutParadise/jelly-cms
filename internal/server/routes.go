@@ -166,6 +166,10 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	registerUserRoutes(e, renderAdmin)
 	wireNotifications()
 
+	// Shop: storefront, cart and checkout (public), admin orders, coupons and settings
+	registerShopRoutes(e, tm)
+	registerShopAdminRoutes(e, renderAdmin)
+
 	// Public Routes (Catch-all should be last)
 	registerAccountPages(e)
 	RegisterPublicRoutes(e, tm)

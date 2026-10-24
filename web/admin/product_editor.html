@@ -1,91 +1,454 @@
-{{define "title"}}Edit Product{{end}}
+{{define "title"}}{{.T.products}}{{end}}
+{{define "styles"}}<link rel="stylesheet" href="/admin/assets/shop-admin.css">{{end}}
 {{define "content"}}
-<form id="productForm" class="doc-layout">
-    <div class="doc">
-        <label for="productTitle" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Title</label>
-        <input type="text" id="productTitle" name="title" class="doc-title" placeholder="商品名稱" required autocomplete="off">
-        <textarea id="productDescription" name="description" class="doc-body" style="font-family: var(--font); font-size: .9375rem; min-height: 14rem;" placeholder="商品描述"></textarea>
-        <p class="doc-hint">Description</p>
+<div class="sa-editor-bar">
+    <a href="/admin/products" class="btn btn-secondary btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>{{.T.products}}</a>
+    <span id="modeBadge" class="badge"></span>
+    <span class="muted" id="savedAt" aria-live="polite"></span>
+    <span class="sa-grow"></span>
+    <a class="btn btn-secondary btn-sm" id="viewBtn" target="_blank" rel="noopener" hidden><svg class="icon" aria-hidden="true"><use href="#i-external"/></svg><span></span></a>
+    <button type="button" class="btn btn-secondary btn-sm" id="dupBtn" hidden><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span></span></button>
+    <button type="submit" form="pf" class="btn btn-primary btn-sm" id="saveBtn" aria-keyshortcuts="Control+S Meta+S"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg><span></span></button>
+</div>
+<div id="loadBox" aria-live="polite"></div>
+<form id="pf" class="sa-layout" novalidate autocomplete="off" hidden>
+    <div class="sa-main">
+        <section class="sa-sec">
+            <label for="fTitle" class="label" id="lTitle"></label>
+            <input type="text" id="fTitle" class="sa-title" maxlength="255" required>
+        </section>
+        <section class="sa-sec" aria-labelledby="hImages">
+            <h2 id="hImages"></h2>
+            <div class="sa-images" id="images"></div>
+            <div class="sa-img-add"><input type="text" id="fImageUrl" inputmode="url" placeholder="/uploads/product.jpg" aria-labelledby="hImages"><button type="button" class="btn btn-secondary btn-sm" id="addImage"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span></span></button></div>
+            <small class="hint" id="imgHint"></small>
+        </section>
+        <section class="sa-sec" aria-labelledby="hDesc">
+            <h2 id="hDesc"></h2>
+            <div class="sa-md-tools" role="toolbar" id="mdTools">
+                <button type="button" class="md-tool" data-md="bold"><svg class="icon" aria-hidden="true"><use href="#i-bold"/></svg></button>
+                <button type="button" class="md-tool" data-md="list"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg></button>
+                <button type="button" class="md-tool" data-md="link"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg></button>
+            </div>
+            <textarea id="fDesc" class="sa-desc" aria-labelledby="hDesc"></textarea>
+        </section>
+        <section class="sa-sec" aria-labelledby="hPrice">
+            <h2 id="hPrice"></h2>
+            <div class="sa-grid">
+                <div class="sa-field" data-field><label for="fPrice" id="lPrice"></label><input type="text" id="fPrice" inputmode="decimal" required></div>
+                <div class="sa-field" data-field><label for="fCompare" id="lCompare"></label><input type="text" id="fCompare" inputmode="decimal"></div>
+                <div class="sa-field" data-field><label for="fThreshold" id="lThreshold"></label><div class="sa-suffix"><input type="text" id="fThreshold" inputmode="numeric"><span id="thresholdUnit"></span></div></div>
+            </div>
+            <p class="hint" id="priceHint"></p>
+        </section>
+        <section class="sa-sec" aria-labelledby="hVariants">
+            <h2 id="hVariants"></h2>
+            <div class="table-wrapper"><table class="sa-variants"><thead><tr id="variantHead"></tr></thead><tbody id="variants"></tbody></table></div>
+            <div class="sa-add-row"><button type="button" class="btn btn-secondary btn-sm" id="addVariant"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span></span></button><span id="variantHint"></span></div>
+        </section>
+        <section class="sa-sec" aria-labelledby="hSeo">
+            <h2 id="hSeo"></h2>
+            <div class="sa-seo">
+                <div class="sa-grid two" style="grid-template-columns:minmax(0,1fr)">
+                    <div class="sa-field"><label for="fSeoTitle" id="lSeoTitle"></label><input type="text" id="fSeoTitle" maxlength="255"><small class="hint" id="seoTitleCount"></small></div>
+                    <div class="sa-field"><label for="fSeoDesc" id="lSeoDesc"></label><textarea id="fSeoDesc" rows="3"></textarea><small class="hint" id="seoDescCount"></small></div>
+                </div>
+                <div class="sa-seo-preview" aria-live="off"><span class="label" id="seoPreviewLabel"></span><span class="t" id="seoT"></span><span class="u" id="seoU"></span><span class="d" id="seoD"></span></div>
+            </div>
+        </section>
     </div>
-    <aside class="props">
-        <div class="label">{{.T.products}}</div>
-        <div class="prop">
-            <label for="productPrice">Price (NT$) <span class="required">*</span></label>
-            <input type="number" id="productPrice" name="price" step="0.01" required placeholder="0.00">
-            <small class="hint">價格將自動轉換為分（cents）</small>
+    <aside class="sa-side">
+        <div class="sa-field"><span class="label" id="lStatus"></span>
+            <div class="segmented" role="radiogroup" aria-labelledby="lStatus" id="statusSeg">
+                <label><input type="radio" name="status" value="draft"><span data-l="ps_draft"></span></label>
+                <label><input type="radio" name="status" value="active"><span data-l="ps_active"></span></label>
+                <label><input type="radio" name="status" value="archived"><span data-l="ps_archived"></span></label>
+            </div>
         </div>
-        <div class="prop">
-            <label for="productStock">Stock <span class="required">*</span></label>
-            <input type="number" id="productStock" name="stock" required placeholder="0">
+        <div class="sa-field" data-field><label for="fSlug" id="lSlug"></label><div class="sa-slug"><span>/shop/p/</span><input type="text" id="fSlug" maxlength="255" spellcheck="false"></div><small class="hint" id="slugHint"></small></div>
+        <div class="sa-field"><span class="label" id="lCats"></span>
+            <div class="sa-cats" id="cats" role="group" aria-labelledby="lCats"></div>
+            <a href="/admin/taxonomy#products" class="sa-link" style="font-size:.8125rem"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg> <span id="manageCats"></span></a>
         </div>
-        <div class="prop">
-            <label for="productStatus">Status</label>
-            <select id="productStatus" name="status">
-                <option value="draft">Draft</option>
-                <option value="active">Active</option>
-                <option value="archived">Archived</option>
-            </select>
+        <div class="sa-field"><span class="label" id="lShip"></span>
+            <div class="sa-checks" role="group" aria-labelledby="lShip">
+                <label><input type="checkbox" id="fShip"><span id="lShipReq"></span></label>
+                <label><input type="checkbox" id="fCold"><span id="lCold"></span></label>
+            </div>
         </div>
-        <div class="prop">
-            <label for="productSlug">Slug</label>
-            <input type="text" id="productSlug" name="slug" autocomplete="off">
-        </div>
-        <div class="prop">
-            <label for="productSku">SKU</label>
-            <input type="text" id="productSku" name="sku" autocomplete="off">
-        </div>
-        <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save Product</button>
-        <a href="/admin/products" class="btn btn-text"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>{{.T.products}}</a>
+        <button type="button" class="btn btn-text sa-danger-link" id="delBtn" hidden><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg><span></span></button>
     </aside>
 </form>
 {{end}}
 {{define "scripts"}}
+<script src="/admin/assets/shop-admin.js"></script>
 <script>
-    const form = document.getElementById('productForm');
-    const id = window.location.pathname.split('/').pop();
-    const isNew = id === 'new';
-
-    if (!isNew) {
-        loadProduct();
-    }
-
-    async function loadProduct() {
-        const res = await fetch(`/api/admin/products/${id}`);
-        if (res.ok) {
-            const p = await res.json();
-            form.title.value = p.title;
-            form.slug.value = p.slug;
-            form.description.value = p.description;
-            form.price.value = (p.price / 100).toFixed(2);
-            form.sku.value = p.sku;
-            form.stock.value = p.stock;
-            form.status.value = p.status;
-        }
-    }
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData.entries());
-        // Convert price from dollars to cents
-        data.price = Math.round(parseFloat(data.price) * 100);
-        data.stock = parseInt(data.stock);
-
-        const url = isNew ? '/api/admin/products' : `/api/admin/products/${id}`;
-        const method = isNew ? 'POST' : 'PUT';
-
-        const res = await fetch(url, {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-
-        if (res.ok) {
-            alert('Saved!');
-            window.location.href = '/admin/products';
-        } else {
-            alert('Error saving product');
+(function () {
+    'use strict';
+    const SA = window.ShopAdmin;
+    SA.extend({
+        zh: {
+            newProduct: '新商品', editing: '編輯', savedAt: '上次儲存 %s', viewPage: '查看商品頁', dupBtn: '複製一份', saveBtn: '儲存',
+            title: '商品名稱', images: '圖片', addImage: '加入圖片', imgHint: '輸入附件庫的網址（/uploads/…）或 https 圖片網址；第一張是主圖。', mainImg: '主圖', setMain: '設為主圖', removeImg: '移除圖片', badImage: '只接受 /uploads/… 或 https:// 開頭的網址。',
+            desc: '描述', mdBold: '粗體', mdList: '清單', mdLink: '連結',
+            price: '價格', priceLabel: '售價 (NT$)', compareLabel: '原價 (NT$)', comparePh: '劃線價，可留空', threshold: '低庫存門檻', thresholdUnit: '件以下',
+            priceHint: '價格以元輸入，系統以分儲存。新增規格時預設帶入這裡的售價與原價；任一規格庫存不高於門檻，列表就標黃。',
+            variants: '規格', vName: '名稱', vSku: 'SKU', vPrice: '售價 (NT$)', vCompare: '原價 (NT$)', vStock: '庫存', addVariant: '新增規格', variantHint: '只有一種規格時，名稱留空就好；顧客不會看到選擇器。', removeVariant: '刪除規格', lastVariant: '至少要保留一種規格。',
+            seo: '搜尋引擎 (SEO)', seoTitle: '標題', seoDesc: '描述', seoTitleCount: '%s / 60 字，空白會用商品名稱。', seoDescCount: '%s / 160 字，空白會取長描述前段。', seoPreview: '預覽',
+            status: '狀態', slug: '網址', slugHint: '留空會依商品名稱產生。', cats: '商品分類', catsEmpty: '還沒有商品分類。', catsFailed: '商品分類載入失敗', manageCats: '管理商品分類',
+            ship: '運送', shipReq: '需要運送', cold: '冷藏', delBtn: '刪除商品', delTitle: '刪除「%s」？', delBody: '商品會移到回收桶，舊訂單保留商品快照。',
+            created: '已建立商品', duplicated: '已建立複本（草稿）', fixErrors: '有欄位需要修正', titleRequired: '請輸入商品名稱', priceRequired: '請輸入售價',
+            loadFailedTitle: '商品載入失敗', notFoundTitle: '找不到這件商品', backList: '回商品列表'
+        },
+        en: {
+            newProduct: 'New product', editing: 'Editing', savedAt: 'Last saved %s', viewPage: 'View product page', dupBtn: 'Duplicate', saveBtn: 'Save',
+            title: 'Product name', images: 'Images', addImage: 'Add image', imgHint: 'Enter a media library path (/uploads/…) or an https image URL. The first image is the main one.', mainImg: 'Main', setMain: 'Make main image', removeImg: 'Remove image', badImage: 'Only /uploads/… or https:// URLs are accepted.',
+            desc: 'Description', mdBold: 'Bold', mdList: 'List', mdLink: 'Link',
+            price: 'Pricing', priceLabel: 'Price (NT$)', compareLabel: 'Compare-at price (NT$)', comparePh: 'Struck-through price, optional', threshold: 'Low-stock threshold', thresholdUnit: 'or fewer',
+            priceHint: 'Enter prices in dollars; they are stored in cents. New variants start with this price and compare-at price. A variant at or below the threshold is flagged in the list.',
+            variants: 'Variants', vName: 'Name', vSku: 'SKU', vPrice: 'Price (NT$)', vCompare: 'Compare-at (NT$)', vStock: 'Stock', addVariant: 'Add variant', variantHint: 'With one variant, leave the name empty and shoppers see no picker.', removeVariant: 'Remove variant', lastVariant: 'Keep at least one variant.',
+            seo: 'Search engines (SEO)', seoTitle: 'Title', seoDesc: 'Description', seoTitleCount: '%s / 60 characters. Empty uses the product name.', seoDescCount: '%s / 160 characters. Empty uses the start of the description.', seoPreview: 'Preview',
+            status: 'Status', slug: 'URL', slugHint: 'Leave empty to build it from the name.', cats: 'Product categories', catsEmpty: 'No product categories yet.', catsFailed: 'Could not load product categories', manageCats: 'Manage product categories',
+            ship: 'Shipping', shipReq: 'Requires shipping', cold: 'Refrigerated', delBtn: 'Delete product', delTitle: 'Delete “%s”?', delBody: 'The product moves to the trash. Past orders keep their snapshot.',
+            created: 'Product created', duplicated: 'Copy created as a draft', fixErrors: 'Some fields need attention', titleRequired: 'Enter a product name', priceRequired: 'Enter a price',
+            loadFailedTitle: 'Could not load the product', notFoundTitle: 'Product not found', backList: 'Back to products'
         }
     });
+    const t = SA.t, esc = SA.esc;
+    const $ = (id) => document.getElementById(id);
+    const form = $('pf');
+    const idFromPath = () => { const last = location.pathname.split('/').pop(); return /^\d+$/.test(last) ? +last : null; };
+    let id = idFromPath();
+    let product = null;     // last server copy
+    let images = [];
+    let variants = [];      // {id?, name, sku, price, compare, stock, status}
+    let catTree = [];
+    let selectedCats = new Set();
+    let dirty = false;
+
+    /* ---------- static text ---------- */
+    const text = (el, k) => { if ($(el)) $(el).textContent = t(k); };
+    [['lTitle', 'title'], ['hImages', 'images'], ['imgHint', 'imgHint'], ['hDesc', 'desc'], ['hPrice', 'price'], ['lPrice', 'priceLabel'], ['lCompare', 'compareLabel'], ['lThreshold', 'threshold'], ['thresholdUnit', 'thresholdUnit'], ['priceHint', 'priceHint'],
+        ['hVariants', 'variants'], ['variantHint', 'variantHint'], ['hSeo', 'seo'], ['lSeoTitle', 'seoTitle'], ['lSeoDesc', 'seoDesc'], ['seoPreviewLabel', 'seoPreview'], ['lStatus', 'status'], ['lSlug', 'slug'], ['slugHint', 'slugHint'],
+        ['lCats', 'cats'], ['manageCats', 'manageCats'], ['lShip', 'ship'], ['lShipReq', 'shipReq'], ['lCold', 'cold']].forEach(([el, k]) => text(el, k));
+    $('addImage').querySelector('span').textContent = t('addImage');
+    $('addVariant').querySelector('span').textContent = t('addVariant');
+    $('viewBtn').querySelector('span').textContent = t('viewPage');
+    $('dupBtn').querySelector('span').textContent = t('dupBtn');
+    $('saveBtn').querySelector('span').textContent = t('saveBtn');
+    $('delBtn').querySelector('span').textContent = t('delBtn');
+    $('fCompare').placeholder = t('comparePh');
+    $('fTitle').placeholder = t('title');
+    document.querySelectorAll('#statusSeg [data-l]').forEach(s => { s.textContent = t(s.dataset.l); });
+    document.querySelectorAll('#mdTools [data-md]').forEach(b => { const l = t({ bold: 'mdBold', list: 'mdList', link: 'mdLink' }[b.dataset.md]); b.setAttribute('aria-label', l); b.title = l; });
+    $('variantHead').innerHTML = ['vName', 'vSku', 'vPrice', 'vCompare', 'vStock'].map(k => '<th' + (k === 'vPrice' || k === 'vCompare' || k === 'vStock' ? ' class="sa-num"' : '') + '>' + esc(t(k)) + '</th>').join('') + '<th class="actions"><span class="sr-only"></span></th>';
+
+    function slugify(s) { return String(s || '').trim().toLowerCase().replace(/[\s_\/]+/g, '-').replace(/[^\p{L}\p{N}-]/gu, '').replace(/-+/g, '-').replace(/^-|-$/g, ''); }
+    function setDirty(v) { dirty = v; }
+
+    /* ---------- images ---------- */
+    function renderImages() {
+        $('images').innerHTML = images.map((u, i) => '<div class="sa-img">' + '<img src="' + esc(u) + '" alt="" loading="lazy">' + (i === 0 ? '<span class="sa-img-tag">' + esc(t('mainImg')) + '</span>' : '') +
+            '<span class="sa-img-acts">' + (i > 0 ? '<button type="button" class="btn btn-sm btn-icon" data-main="' + i + '" aria-label="' + esc(t('setMain')) + '" title="' + esc(t('setMain')) + '">' + SA.svg('i-star') + '</button>' : '') +
+            '<button type="button" class="btn btn-sm btn-icon" data-rm="' + i + '" aria-label="' + esc(t('removeImg')) + '" title="' + esc(t('removeImg')) + '">' + SA.svg('i-x') + '</button></span></div>').join('');
+        $('images').querySelectorAll('[data-main]').forEach(b => b.addEventListener('click', () => { const i = +b.dataset.main; images.unshift(images.splice(i, 1)[0]); setDirty(true); renderImages(); }));
+        $('images').querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => { images.splice(+b.dataset.rm, 1); setDirty(true); renderImages(); $('fImageUrl').focus(); }));
+    }
+    function addImage() {
+        const raw = $('fImageUrl').value.trim();
+        if (!raw) return;
+        const u = SA.safeUrl(raw);
+        if (!u) { SA.fieldError($('fImageUrl'), t('badImage')); return; }
+        SA.fieldError($('fImageUrl'), '');
+        if (!images.includes(u)) images.push(u);
+        $('fImageUrl').value = '';
+        setDirty(true);
+        renderImages();
+    }
+    $('addImage').addEventListener('click', addImage);
+    $('fImageUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addImage(); } });
+
+    /* ---------- markdown helpers ---------- */
+    $('mdTools').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-md]');
+        if (!b) return;
+        const ta = $('fDesc');
+        const s = ta.selectionStart, en = ta.selectionEnd, sel = ta.value.slice(s, en);
+        let ins;
+        if (b.dataset.md === 'bold') ins = '**' + (sel || t('mdBold')) + '**';
+        else if (b.dataset.md === 'list') ins = (sel || t('mdList')).split('\n').map(l => '- ' + l).join('\n');
+        else ins = '[' + (sel || t('mdLink')) + '](https://)';
+        ta.setRangeText(ins, s, en, 'end');
+        ta.focus();
+        setDirty(true);
+    });
+
+    /* ---------- variants ---------- */
+    function renderVariants() {
+        const threshold = SA.parseInt($('fThreshold').value);
+        const th = threshold.ok && !threshold.empty ? threshold.value : 5;
+        $('variants').innerHTML = variants.map((v, i) => {
+            const stock = SA.parseInt(v.stock);
+            const low = stock.ok && !stock.empty && stock.value > 0 && stock.value <= th;
+            const n = i + 1;
+            return '<tr data-i="' + i + '"' + (low ? ' class="sa-row-low"' : '') + '>' +
+                '<td data-l="' + esc(t('vName')) + '"><input type="text" data-k="name" value="' + esc(v.name) + '" maxlength="120" aria-label="' + esc(t('vName') + ' ' + n) + '"></td>' +
+                '<td data-l="' + esc(t('vSku')) + '"><input type="text" data-k="sku" value="' + esc(v.sku) + '" maxlength="100" class="cell-mono" aria-label="' + esc(t('vSku') + ' ' + n) + '"></td>' +
+                '<td data-l="' + esc(t('vPrice')) + '" data-field><input type="text" id="vPrice' + i + '" data-k="price" value="' + esc(v.price) + '" inputmode="decimal" class="sa-num" placeholder="' + esc($('fPrice').value) + '" aria-label="' + esc(t('vPrice') + ' ' + n) + '"></td>' +
+                '<td data-l="' + esc(t('vCompare')) + '" data-field><input type="text" id="vCompare' + i + '" data-k="compare" value="' + esc(v.compare) + '" inputmode="decimal" class="sa-num" placeholder="—" aria-label="' + esc(t('vCompare') + ' ' + n) + '"></td>' +
+                '<td data-l="' + esc(t('vStock')) + '" data-field><span class="sa-stock"><input type="text" id="vStock' + i + '" data-k="stock" value="' + esc(v.stock) + '" inputmode="numeric" class="sa-num" aria-label="' + esc(t('vStock') + ' ' + n) + '">' + (low ? '<span class="badge badge-warning">' + esc(t('lowStock')) + '</span>' : '') + '</span></td>' +
+                '<td class="actions"><button type="button" class="btn btn-text btn-sm btn-icon" data-rmv="' + i + '" aria-label="' + esc(t('removeVariant') + ' ' + n) + '" title="' + esc(t('removeVariant')) + '"' + (variants.length < 2 ? ' disabled' : '') + '>' + SA.svg('i-trash') + '</button></td></tr>';
+        }).join('');
+    }
+    $('variants').addEventListener('input', (e) => {
+        const tr = e.target.closest('tr[data-i]'), k = e.target.dataset.k;
+        if (!tr || !k) return;
+        variants[+tr.dataset.i][k] = e.target.value;
+        SA.fieldError(e.target, '');
+        setDirty(true);
+    });
+    $('variants').addEventListener('change', (e) => { if (e.target.dataset.k === 'stock') { const at = e.target.id; renderVariants(); const el = $(at); if (el) el.focus(); } });
+    $('variants').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-rmv]');
+        if (!b) return;
+        if (variants.length < 2) { SA.toast(t('lastVariant'), 'warning'); return; }
+        variants.splice(+b.dataset.rmv, 1);
+        setDirty(true);
+        renderVariants();
+        $('addVariant').focus();
+    });
+    $('addVariant').addEventListener('click', () => {
+        variants.push({ name: '', sku: '', price: $('fPrice').value.trim(), compare: $('fCompare').value.trim(), stock: '0', status: 'active' });
+        setDirty(true);
+        renderVariants();
+        const inputs = $('variants').querySelectorAll('tr:last-child input');
+        if (inputs[0]) inputs[0].focus();
+    });
+    $('fThreshold').addEventListener('change', renderVariants);
+
+    /* ---------- categories ---------- */
+    function flatten(nodes, depth, out) {
+        (nodes || []).forEach(n => { out.push({ n, depth }); flatten(n.children, depth + 1, out); });
+        return out;
+    }
+    function treeFromFlat(list) {
+        // The API may return a nested tree or a flat list with parent_id.
+        if (!list.some(n => Array.isArray(n.children))) {
+            const by = new Map(list.map(n => [n.id, Object.assign({}, n, { children: [] })]));
+            const roots = [];
+            by.forEach(n => { const p = n.parent_id && by.get(n.parent_id); (p ? p.children : roots).push(n); });
+            const sort = (a) => { a.sort((x, y) => (x.position - y.position) || (x.id - y.id)); a.forEach(n => sort(n.children)); return a; };
+            return sort(roots);
+        }
+        return list;
+    }
+    function renderCats() {
+        const rows = flatten(catTree, 0, []);
+        if (!rows.length) { $('cats').innerHTML = '<span class="muted" style="font-size:.8125rem">' + esc(t('catsEmpty')) + '</span>'; return; }
+        $('cats').innerHTML = rows.map(({ n, depth }) => {
+            const count = n.product_count != null ? n.product_count : n.count;
+            return '<label style="padding-left:' + (depth * 1.5) + 'rem"><input type="checkbox" value="' + (+n.id) + '"' + (selectedCats.has(+n.id) ? ' checked' : '') + '><span>' + esc(n.name) + '</span>' + (count != null ? '<span class="count">' + (+count) + '</span>' : '') + '</label>';
+        }).join('');
+    }
+    $('cats').addEventListener('change', (e) => { if (e.target.type === 'checkbox') { const v = +e.target.value; e.target.checked ? selectedCats.add(v) : selectedCats.delete(v); setDirty(true); } });
+    async function loadCats() {
+        try {
+            const data = await SA.api('GET', '/api/admin/product-categories');
+            const list = Array.isArray(data) ? data : (data && (data.items || data.tree)) || [];
+            catTree = treeFromFlat(list);
+            renderCats();
+        } catch (err) {
+            $('cats').innerHTML = '';
+            const p = document.createElement('div');
+            p.className = 'sa-note';
+            p.innerHTML = SA.svg('i-alert') + '<span></span>';
+            p.querySelector('span').textContent = t('catsFailed') + '：' + SA.errText(err);
+            const r = document.createElement('button');
+            r.type = 'button'; r.className = 'btn btn-text btn-sm'; r.textContent = t('retry');
+            r.addEventListener('click', loadCats);
+            $('cats').append(p, r);
+        }
+    }
+
+    /* ---------- SEO preview ---------- */
+    function renderSeo() {
+        const title = $('fSeoTitle').value.trim() || $('fTitle').value.trim();
+        const desc = $('fSeoDesc').value.trim() || $('fDesc').value.replace(/[#*_>\[\]()`-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 160);
+        $('seoT').textContent = title || '—';
+        $('seoU').textContent = location.host + ' › shop › p › ' + ($('fSlug').value.trim() || slugify($('fTitle').value) || '…');
+        $('seoD').textContent = desc;
+        $('seoTitleCount').textContent = t('seoTitleCount', [...$('fSeoTitle').value].length);
+        $('seoDescCount').textContent = t('seoDescCount', [...$('fSeoDesc').value].length);
+    }
+    ['fSeoTitle', 'fSeoDesc', 'fTitle', 'fDesc', 'fSlug'].forEach(i => $(i).addEventListener('input', renderSeo));
+
+    /* ---------- fill / collect ---------- */
+    function fill(p) {
+        product = p;
+        $('fTitle').value = p.title || '';
+        $('fDesc').value = p.description || '';
+        $('fPrice').value = SA.toInput(p.price);
+        $('fCompare').value = p.compare_at_price ? SA.toInput(p.compare_at_price) : '';
+        $('fThreshold').value = p.low_stock_threshold == null ? '5' : String(p.low_stock_threshold);
+        $('fSlug').value = p.slug || '';
+        $('fShip').checked = p.requires_shipping !== false;
+        $('fCold').checked = !!p.cold_chain;
+        $('fSeoTitle').value = p.seo_title || '';
+        $('fSeoDesc').value = p.seo_description || '';
+        const status = ['draft', 'active', 'archived'].includes(p.status) ? p.status : 'draft';
+        form.querySelector('input[name="status"][value="' + status + '"]').checked = true;
+        let imgs = p.images;
+        if (typeof imgs === 'string') { try { imgs = JSON.parse(imgs); } catch (e) { imgs = []; } }
+        images = (Array.isArray(imgs) ? imgs : []).map(x => SA.safeUrl(typeof x === 'string' ? x : x && x.url)).filter(Boolean);
+        const vs = Array.isArray(p.variants) && p.variants.length ? p.variants.slice().sort((a, b) => (a.position - b.position) || (a.id - b.id)) : null;
+        variants = vs ? vs.map(v => ({ id: v.id, name: v.name || '', sku: v.sku || '', price: SA.toInput(v.price), compare: v.compare_at_price ? SA.toInput(v.compare_at_price) : '', stock: String(v.stock == null ? 0 : v.stock), status: v.status || 'active' }))
+            : [{ name: '', sku: p.sku || '', price: SA.toInput(p.price), compare: '', stock: String(p.stock || 0), status: 'active' }];
+        const cs = Array.isArray(p.categories) ? p.categories : [];
+        selectedCats = new Set(cs.map(c => +(typeof c === 'object' ? c.id : c)).filter(Boolean));
+        renderImages();
+        renderVariants();
+        renderCats();
+        renderSeo();
+        renderHeader();
+        setDirty(false);
+    }
+
+    function renderHeader() {
+        const editing = id != null;
+        $('modeBadge').className = 'badge' + (editing && product ? ' ' + ({ active: 'badge-success', draft: 'badge-warning' }[product.status] || '') : '');
+        $('modeBadge').textContent = editing && product ? t('editing') + '・' + t('ps_' + product.status) : t('newProduct');
+        $('savedAt').textContent = editing && product && product.updated_at ? t('savedAt', SA.date(product.updated_at)) : '';
+        $('dupBtn').hidden = !editing;
+        $('delBtn').hidden = !editing;
+        const view = $('viewBtn');
+        view.hidden = !(editing && product && product.slug);
+        if (product && product.slug) view.href = '/shop/p/' + encodeURIComponent(product.slug);
+        document.title = (editing && product ? product.title : t('newProduct')) + ' · Jelly CMS';
+    }
+
+    function clearErrors() { form.querySelectorAll('[aria-invalid="true"]').forEach(el => SA.fieldError(el, '')); }
+
+    function collect() {
+        clearErrors();
+        const bad = [];
+        const fail = (el, msg) => { SA.fieldError(el, msg); bad.push(el); };
+        const title = $('fTitle').value.trim();
+        if (!title) fail($('fTitle'), t('titleRequired'));
+        const price = SA.parseAmount($('fPrice').value);
+        if (!price.ok) fail($('fPrice'), t('invalidAmount'));
+        else if (price.empty) fail($('fPrice'), t('priceRequired'));
+        const compare = SA.parseAmount($('fCompare').value);
+        if (!compare.ok) fail($('fCompare'), t('invalidAmount'));
+        const threshold = SA.parseInt($('fThreshold').value);
+        if (!threshold.ok) fail($('fThreshold'), t('invalidInt'));
+        const vs = variants.map((v, i) => {
+            const vp = SA.parseAmount(v.price), vc = SA.parseAmount(v.compare), vsk = SA.parseInt(v.stock);
+            if (!vp.ok) fail($('vPrice' + i), t('invalidAmount'));
+            if (!vc.ok) fail($('vCompare' + i), t('invalidAmount'));
+            if (!vsk.ok) fail($('vStock' + i), t('invalidInt'));
+            const out = {
+                name: v.name.trim(), sku: v.sku.trim(),
+                price: vp.ok && !vp.empty ? vp.text : (price.ok ? price.text : ''),
+                compare_at_price: vc.ok && !vc.empty ? vc.text : '',
+                stock: vsk.ok ? vsk.value : 0, position: i, status: v.status || 'active'
+            };
+            if (v.id) out.id = v.id;
+            return out;
+        });
+        if (bad.length) { bad[0].focus(); SA.toast(t('fixErrors'), 'error'); return null; }
+        const body = {
+            title, slug: $('fSlug').value.trim() || slugify(title), description: $('fDesc').value,
+            price: price.text, compare_at_price: compare.empty ? '' : compare.text,
+            status: (form.querySelector('input[name="status"]:checked') || { value: 'draft' }).value,
+            low_stock_threshold: threshold.empty ? 5 : threshold.value,
+            requires_shipping: $('fShip').checked, cold_chain: $('fCold').checked,
+            images: images.slice(), categories: [...selectedCats], variants: vs,
+            seo_title: $('fSeoTitle').value.trim(), seo_description: $('fSeoDesc').value.trim()
+        };
+        // Keep fields this page does not edit.
+        if (product) {
+            if (product.kind) body.kind = product.kind;
+            if (product.attributes && typeof product.attributes === 'object' && !Array.isArray(product.attributes)) body.attributes = product.attributes;
+            if (Array.isArray(product.related_ids)) body.related_ids = product.related_ids;
+        }
+        return body;
+    }
+
+    async function save() {
+        const body = collect();
+        if (!body) return;
+        await SA.busy($('saveBtn'), async () => {
+            const creating = id == null;
+            try {
+                const saved = await SA.api(creating ? 'POST' : 'PUT', creating ? '/api/admin/products' : '/api/admin/products/' + id, body);
+                const p = saved && (saved.product || saved);
+                if (creating && p && p.id) { id = +p.id; history.replaceState(null, '', '/admin/products/' + id); }
+                if (p && p.id) fill(p); else { setDirty(false); renderHeader(); }
+                SA.toast(creating ? t('created') : t('saved'));
+            } catch (err) {
+                const fields = SA.fieldErrors(err);
+                const map = { title: 'fTitle', slug: 'fSlug', price: 'fPrice', compare_at_price: 'fCompare', low_stock_threshold: 'fThreshold', seo_title: 'fSeoTitle', seo_description: 'fSeoDesc' };
+                Object.keys(fields).forEach(k => { if (map[k]) SA.fieldError($(map[k]), String(fields[k])); });
+                SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) });
+            }
+        });
+    }
+
+    form.addEventListener('submit', (e) => { e.preventDefault(); save(); });
+    form.addEventListener('input', (e) => { if (!e.target.closest('#variants')) { setDirty(true); if (e.target.getAttribute('aria-invalid')) SA.fieldError(e.target, ''); } });
+    form.addEventListener('change', () => setDirty(true));
+    document.addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's' && !form.hidden) { e.preventDefault(); save(); } });
+    window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+    $('dupBtn').addEventListener('click', async () => {
+        if (dirty && !(await SA.confirm({ title: t('leaveUnsaved'), ok: t('dupBtn') }))) return;
+        await SA.busy($('dupBtn'), async () => {
+            try {
+                const copy = await SA.api('POST', '/api/admin/products/' + id + '/duplicate');
+                const newId = copy && (copy.id || (copy.product && copy.product.id));
+                SA.toast(t('duplicated'));
+                if (newId) { dirty = false; location.href = '/admin/products/' + (+newId); }
+            } catch (err) { SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) }); }
+        });
+    });
+    $('delBtn').addEventListener('click', async () => {
+        const ok = await SA.confirm({ title: t('delTitle', $('fTitle').value || (product && product.title) || ''), body: t('delBody'), ok: t('delete'), danger: true });
+        if (!ok) return;
+        await SA.busy($('delBtn'), async () => {
+            try {
+                await SA.api('DELETE', '/api/admin/products/' + id);
+                dirty = false;
+                SA.toast(t('deleted'));
+                location.href = '/admin/products';
+            } catch (err) { SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) }); }
+        });
+    });
+
+    async function load() {
+        loadCats();
+        if (id == null) {
+            fill({ status: 'draft', low_stock_threshold: 5, requires_shipping: true, variants: [] });
+            form.hidden = false;
+            $('loadBox').innerHTML = '';
+            $('fTitle').focus();
+            return;
+        }
+        SA.state($('loadBox'), 'loading');
+        form.hidden = true;
+        try {
+            const p = await SA.api('GET', '/api/admin/products/' + id);
+            fill(p && p.product ? p.product : p);
+            $('loadBox').innerHTML = '';
+            form.hidden = false;
+        } catch (err) {
+            if (err.status === 404) SA.state($('loadBox'), 'error', { title: t('notFoundTitle'), text: SA.errText(err), actions: [{ label: t('backList'), icon: 'i-arrow-left', href: '/admin/products' }] });
+            else SA.state($('loadBox'), 'error', { title: t('loadFailedTitle'), text: SA.errText(err), retry: load });
+            $('saveBtn').hidden = true;
+            return;
+        }
+        $('saveBtn').hidden = false;
+    }
+    load();
+})();
 </script>
 {{end}}

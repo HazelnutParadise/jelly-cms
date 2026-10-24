@@ -902,11 +902,13 @@ func TestUsersDeleteCustomerWithOrdersReturnsConflictAndBulkSkips(t *testing.T) 
 	if err := h.db.Create(&product).Error; err != nil {
 		t.Fatalf("create order product: %v", err)
 	}
-	order := core.Order{UserID: customer.ID, TotalAmount: 2599, Status: "paid", PaymentMethod: "fixture", ShippingAddress: "1 Test Street"}
+	custID := customer.ID
+	order := core.Order{UserID: &custID, TotalAmount: 2599, Status: "paid", PaymentMethod: "fixture", ShippingAddress: "1 Test Street"}
 	if err := h.db.Create(&order).Error; err != nil {
 		t.Fatalf("create retained customer order: %v", err)
 	}
-	item := core.OrderItem{OrderID: order.ID, ProductID: product.ID, Quantity: 1, Price: 2599}
+	prodID := product.ID
+	item := core.OrderItem{OrderID: order.ID, ProductID: &prodID, Quantity: 1, Price: 2599}
 	if err := h.db.Create(&item).Error; err != nil {
 		t.Fatalf("create retained order item: %v", err)
 	}
@@ -946,13 +948,20 @@ func TestUsersDeleteCustomerWithOrdersReturnsConflictAndBulkSkips(t *testing.T) 
 		t.Errorf("bulk delete customer exists=%t, no-order user exists=%t; want true, false", usersAdminExists(t, h, customer.ID), usersAdminExists(t, h, removable.ID))
 	}
 	var afterOrder core.Order
-	if err := h.db.First(&afterOrder, order.ID).Error; err != nil || afterOrder.UserID != customer.ID || afterOrder.TotalAmount != order.TotalAmount || afterOrder.Status != order.Status || afterOrder.PaymentMethod != order.PaymentMethod || afterOrder.ShippingAddress != order.ShippingAddress {
+	if err := h.db.First(&afterOrder, order.ID).Error; err != nil || afterOrder.UserID == nil || *afterOrder.UserID != customer.ID || afterOrder.TotalAmount != order.TotalAmount || afterOrder.Status != order.Status || afterOrder.PaymentMethod != order.PaymentMethod || afterOrder.ShippingAddress != order.ShippingAddress {
 		t.Errorf("retained order changed: before=%+v after=%+v err=%v", order, afterOrder, err)
 	}
 	var afterItem core.OrderItem
-	if err := h.db.First(&afterItem, item.ID).Error; err != nil || afterItem.OrderID != item.OrderID || afterItem.ProductID != item.ProductID || afterItem.Quantity != item.Quantity || afterItem.Price != item.Price {
+	if err := h.db.First(&afterItem, item.ID).Error; err != nil || afterItem.OrderID != item.OrderID || !sameOptionalUint(afterItem.ProductID, item.ProductID) || afterItem.Quantity != item.Quantity || afterItem.Price != item.Price {
 		t.Errorf("retained order item changed: before=%+v after=%+v err=%v", item, afterItem, err)
 	}
+}
+
+func sameOptionalUint(a, b *uint) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 func TestUsersDeleteReassignmentRollsBackWhenFinalDeleteFails(t *testing.T) {

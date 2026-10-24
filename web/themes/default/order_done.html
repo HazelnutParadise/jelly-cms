@@ -1,0 +1,126 @@
+{{define "shop_pm"}}{{$en := eq (print .Lang) "en"}}{{with .Order}}{{if eq .PaymentMethod "credit_card"}}{{if $en}}Credit card{{else}}信用卡{{end}}{{else if eq .PaymentMethod "atm"}}{{if $en}}ATM transfer{{else}}ATM 轉帳{{end}}{{else if eq .PaymentMethod "cvs"}}{{if $en}}Convenience store code{{else}}超商代碼{{end}}{{else if eq .PaymentMethod "bank_transfer"}}{{if $en}}Bank transfer{{else}}銀行轉帳{{end}}{{else}}{{.PaymentMethod}}{{end}}{{if eq .PaymentProvider "sandbox"}}{{if $en}} (test){{else}}（測試）{{end}}{{else if eq .PaymentProvider "ecpay"}}{{if $en}} · ECPay{{else}}（綠界）{{end}}{{end}}{{end}}{{end}}
+
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+{{- $root := . -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+{{with .Order}}
+{{- $o := . -}}
+{{- $noPayment := eq .PaymentKind "none" -}}
+{{- $ok := or (eq .Status "paid") (eq .Status "shipped") (eq .Status "completed") -}}
+{{- $pending := eq .Status "pending" -}}
+{{- $failed := and $pending (eq .PaymentStatus "failed") -}}
+{{- $offline := and $pending (not $failed) (or (eq .PaymentMethod "bank_transfer") (eq .PaymentMethod "atm") (eq .PaymentMethod "cvs")) -}}
+<div class="shop" data-page="done" data-lang="{{if $en}}en{{else}}zh-TW{{end}}" data-currency="{{.Currency}}" data-number="{{.Number}}" data-access="{{$root.Access}}" data-status="{{.Status}}" data-payment-status="{{.PaymentStatus}}" data-method="{{.PaymentMethod}}" data-kind="{{if eq .PaymentMethod "credit_card"}}redirect{{else}}offline{{end}}" data-email="{{.Email}}">
+    <ol class="steps no-print" aria-label="{{if $en}}Checkout steps{{else}}結帳步驟{{end}}" style="justify-content: flex-end;">
+        <li class="step done"><i>✓</i><span>{{if $en}}Cart{{else}}購物車{{end}}</span></li>
+        <li class="step done"><i>✓</i><span>{{if $en}}Checkout{{else}}結帳{{end}}</span></li>
+        <li class="step{{if $ok}} done{{end}}"{{if not $ok}} aria-current="step"{{end}}><i>{{if $ok}}✓{{else}}3{{end}}</i><span>{{if $noPayment}}{{if $en}}No payment required{{else}}無需付款{{end}}{{else}}{{if $en}}Payment{{else}}付款{{end}}{{end}}</span></li>
+        <li class="step"{{if $ok}} aria-current="step"{{end}}><i>4</i><span>{{if $en}}Done{{else}}完成{{end}}</span></li>
+    </ol>
+
+    <div class="done-grid">
+        <section class="done-hero{{if $failed}} fail{{else if $pending}} wait{{else if not $ok}} neutral{{end}}" aria-labelledby="done-title">
+            <span class="shop-stripe stripe-ink"></span>
+            {{if $ok}}
+            <div class="shop-lbl">{{if $noPayment}}{{if $en}}Order placed{{else}}訂單已成立{{end}}{{else}}{{if $en}}Payment received{{else}}付款成功{{end}}{{end}}</div>
+            <h1 id="done-title" style="font-size:clamp(2.5rem, 4vw, 3.25rem)">{{if $noPayment}}{{if $en}}Your order is<br>confirmed.{{else}}訂單已成立。{{end}}{{else}}{{if $en}}Got it.<br>We're packing your order.{{else}}收到了，<br>正在幫你準備。{{end}}{{end}}</h1>
+            <p>{{if $en}}Order number <b class="mono">{{.Number}}</b>. {{if $noPayment}}No payment is required. {{end}}We'll send a confirmation email to {{.Email}} and another update when it ships.{{else}}訂單編號 <b class="mono">{{.Number}}</b>。{{if $noPayment}}這筆訂單無需付款。{{end}}確認信將寄至 {{.Email}}，出貨時會再通知一次。{{end}}</p>
+            {{else if $failed}}
+            <div class="shop-lbl">{{if $en}}Payment not completed{{else}}付款沒有完成{{end}}</div>
+            <h1 id="done-title">{{if $en}}The payment<br>didn't go through.{{else}}付款沒有完成。{{end}}</h1>
+            <p>{{if $en}}Order <b class="mono">{{.Number}}</b> is kept{{with .ExpiresAt}} until {{.Format "2006-01-02 15:04"}}{{end}}. Try again or choose another payment method.{{else}}訂單 <b class="mono">{{.Number}}</b> 先幫你保留{{with .ExpiresAt}}到 {{.Format "2006-01-02 15:04"}}{{end}}，可以重新付款或換一種付款方式。{{end}}</p>
+            <div class="acts no-print">
+                {{if .CanRetry}}
+                <button class="btn" type="button" data-retry-open="same">{{if $en}}Pay again{{else}}重新付款{{end}}</button>
+                <button class="btn t" type="button" data-retry-open="choose">{{if $en}}Change payment method{{else}}換付款方式{{end}}</button>
+                {{end}}
+            </div>
+            {{else if $offline}}
+            <div class="shop-lbl">{{if $en}}Order placed · awaiting payment{{else}}訂單已成立 · 等待付款{{end}}</div>
+            <h1 id="done-title">{{if $en}}Almost there.<br>Please complete payment.{{else}}還差一步，<br>請完成付款。{{end}}</h1>
+            <p>{{if $en}}Order <b class="mono">{{.Number}}</b> is reserved{{with .ExpiresAt}} until {{.Format "2006-01-02 15:04"}}{{end}}. It is cancelled automatically if unpaid by then.{{else}}訂單 <b class="mono">{{.Number}}</b> 已保留商品{{with .ExpiresAt}}到 {{.Format "2006-01-02 15:04"}}{{end}}，逾期未付款會自動取消。{{end}}</p>
+            {{if or .Instructions .PaymentInfo}}
+            <div class="methods">
+                {{with .PaymentInfo}}<div style="white-space: pre-line; font-weight: 700;">{{.}}</div>{{end}}
+                {{with .Instructions}}<div style="white-space: pre-line;">{{.}}</div>{{end}}
+            </div>
+            {{end}}
+            {{else if $pending}}
+            <div class="shop-lbl">{{if $en}}Confirming payment{{else}}正在確認付款{{end}}</div>
+            <h1 id="done-title">{{if $en}}Waiting for the<br>payment result.{{else}}正在等待<br>付款結果。{{end}}</h1>
+            <p role="status">{{if $en}}Order <b class="mono">{{.Number}}</b>. This page updates by itself once the payment provider confirms.{{else}}訂單 <b class="mono">{{.Number}}</b>。金流確認後這頁會自動更新。{{end}}</p>
+            <div class="acts no-print">{{if .CanRetry}}<button class="btn t" type="button" data-retry-open="choose">{{if $en}}Change payment method{{else}}換付款方式{{end}}</button>{{end}}</div>
+            {{else}}
+            <div class="shop-lbl">{{if eq .Status "refunded"}}{{if $en}}Refunded{{else}}已退款{{end}}{{else if eq .Status "expired"}}{{if $en}}Expired{{else}}已逾期{{end}}{{else}}{{if $en}}Cancelled{{else}}已取消{{end}}{{end}}</div>
+            <h1 id="done-title">{{if $en}}This order is closed.{{else}}這筆訂單已結束。{{end}}</h1>
+            <p>{{if $en}}Order <b class="mono">{{.Number}}</b> can no longer be paid. You can start a new order from the shop.{{else}}訂單 <b class="mono">{{.Number}}</b> 已無法付款，可以回商店重新下單。{{end}}</p>
+            {{end}}
+
+            {{if .CanRetry}}
+            <form class="methods no-print" data-retry hidden>
+                <fieldset><legend class="shop-lbl" style="margin-bottom: .5rem;">{{if $en}}Payment method{{else}}付款方式{{end}}</legend>
+                    <div data-retry-methods style="display: flex; flex-direction: column; gap: .5rem;"></div>
+                </fieldset>
+                <button class="btn" type="submit">{{if $en}}Continue to payment{{else}}前往付款{{end}}</button>
+            </form>
+            {{end}}
+            <div class="acts no-print">
+                <a class="btn t" href="/shop">← {{if $en}}Keep shopping{{else}}繼續逛{{end}}</a>
+            </div>
+        </section>
+
+        <aside style="display: flex; flex-direction: column; gap: 1.25rem; min-width: 0;">
+            <div data-done-status hidden></div>
+            <div class="info-grid">
+                <div class="info-card">
+                    <span class="shop-lbl">{{if $en}}Payment{{else}}付款方式{{end}}</span>
+                    <b>{{if $noPayment}}{{if $en}}No payment required{{else}}無需付款{{end}}{{else}}{{template "shop_pm" $root}}{{end}}</b>
+                    <span class="small muted">{{if $noPayment}}{{if $en}}Order placed{{else}}訂單已成立{{end}}{{else if eq .PaymentStatus "paid"}}{{if $en}}Paid{{else}}已付款{{end}}{{else if eq .PaymentStatus "failed"}}{{if $en}}Failed{{else}}付款失敗{{end}}{{else}}{{if $en}}Awaiting payment{{else}}等待付款{{end}}{{end}}{{if and .PaymentInfo (not $offline)}} · {{.PaymentInfo}}{{end}}</span>
+                </div>
+                <div class="info-card">
+                    <span class="shop-lbl">{{if $en}}Delivery{{else}}配送{{end}}</span>
+                    <b>{{if .ShippingLabel}}{{.ShippingLabel}}{{else}}{{.ShippingMethod}}{{end}}{{if gt .ETADays 0}} · {{if $en}}about {{.ETADays}} days{{else}}約 {{.ETADays}} 天{{end}}{{end}}</b>
+                    <span class="small muted">{{.Shipping.Name}}{{if .Shipping.Address}} · {{.Shipping.City}}{{.Shipping.Address}}{{end}}</span>
+                </div>
+            </div>
+            <div class="box">
+                <div class="shop-lbl">{{if $en}}Items{{else}}明細{{end}}</div>
+                <div class="lines">
+                    {{range .Items}}
+                    <div>
+                        <span class="thumb sm">{{if .Image}}<img src="{{.Image}}" alt="" loading="lazy">{{else}}{{initial .Title}}{{end}}</span>
+                        <span><b>{{.Title}}</b><div class="sub">{{if .VariantName}}{{.VariantName}} · {{end}}× {{.Qty}}</div></span>
+                        <b>{{money .LineTotal}}</b>
+                    </div>
+                    {{end}}
+                </div>
+                <div class="sumgrid">
+                    <span>{{if $en}}Subtotal{{else}}小計{{end}}</span><b>{{money .Subtotal}}</b>
+                    {{if gt .DiscountTotal 0}}<span>{{if $en}}Discount{{else}}折扣{{end}}{{with .CouponCode}} ({{.}}){{end}}</span><b>-{{money .DiscountTotal}}</b>{{end}}
+                    <span>{{if $en}}Shipping{{else}}運費{{end}}</span><b>{{if gt .ShippingTotal 0}}{{money .ShippingTotal}}{{else}}{{if $en}}Free{{else}}免運{{end}}{{end}}</b>
+                    {{if gt .TaxTotal 0}}<span>{{if $en}}Tax included{{else}}內含稅額{{end}}</span><b>{{money .TaxTotal}}</b>{{end}}
+                    {{if ne .RoundingAdjustment 0}}<span>{{if $en}}Rounding adjustment{{else}}尾數調整{{end}}</span><b>{{if gt .RoundingAdjustment 0}}+{{end}}{{money .RoundingAdjustment}}</b>{{end}}
+                </div>
+                <div class="total"><span>{{if $en}}Total{{else}}總計{{end}}</span><span class="d" style="font-size: 1.5rem;">{{money .Total}}</span></div>
+            </div>
+            <div class="acts no-print">
+                {{if $root.ReceiptURL}}<a class="btn t sm" href="{{$root.ReceiptURL}}">{{if $en}}Download receipt{{else}}下載收據{{end}}</a>{{else}}<button class="btn t sm" type="button" data-print>{{if $en}}Print receipt{{else}}列印收據{{end}}</button>{{end}}
+                <button class="btn t sm" type="button" data-resend>{{if $en}}Resend confirmation{{else}}重寄確認信{{end}}</button>
+                {{with $root.ContactEmail}}<a class="btn t sm" href="mailto:{{.}}?subject={{$o.Number}}">{{if $en}}Contact us{{else}}聯絡我們{{end}}</a>{{end}}
+            </div>
+        </aside>
+    </div>
+</div>
+{{else}}
+<div class="shop" data-page="none" data-lang="{{if $en}}en{{else}}zh-TW{{end}}">
+    <div class="done-hero neutral" style="max-width: 44rem;">
+        <span class="shop-stripe stripe-ink"></span>
+        <h1>{{if $en}}We can't show this order.{{else}}無法顯示這筆訂單。{{end}}</h1>
+        <p>{{if $en}}The link may have expired. Look up the order with its number and email to get a new link.{{else}}連結可能已失效。用訂單編號與 Email 查詢，就會收到新的連結。{{end}}</p>
+        <div class="acts"><a class="btn" href="/orders/lookup">{{if $en}}Look up an order{{else}}查詢訂單{{end}}</a><a class="btn t" href="/shop">{{if $en}}Back to the shop{{else}}回到商店{{end}}</a></div>
+    </div>
+</div>
+{{end}}
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}

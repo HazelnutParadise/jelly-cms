@@ -69,6 +69,7 @@ ICONS = {
  "grid": '<path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>',
  "chevron-d": '<path d="M6 9l6 6 6-6"/>',
  "chevron-r": '<path d="M9 6l6 6-6 6"/>',
+ "ticket": '<path d="M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4zM14 6v2M14 11v2M14 16v2"/>',
  "wp": '<circle cx="12" cy="12" r="9"/><path d="M5 9l3 9 3-7 3 7 3-9M9 9h2M14 9h2"/>',
 }
 def I(name, size=None, extra=""):
@@ -206,7 +207,7 @@ class Component extends DCLogic {{
 # ---------- front shell ----------
 def front(active, main, cart=True):
     nav = [("Main.dc.html","首頁","home"),("PostList.dc.html","文章","posts"),("Shop.dc.html","商店","shop"),("Page.dc.html","關於","about")]
-    links = "".join(f'<a href="{h}"{" class=\"on\"" if k==active else ""}>{t}</a>' for h,t,k in nav)
+    links = "".join(('<a href="%s"%s>%s</a>' % (h, ' class="on"' if k == active else '', t)) for h, t, k in nav)
     cartbtn = f'<a class="btn t" href="Cart.dc.html">{I("cart")}購物車<span style="background:#E8285B;color:#fff;font-size:11px;min-width:18px;height:18px;display:inline-grid;place-items:center;border-radius:0 6px 0 6px">2</span></a>' if cart else ""
     return f'''<div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff; min-height: 100vh">
   <div class="topline"></div>
@@ -223,7 +224,7 @@ def front(active, main, cart=True):
 NAV = [
  ("內容", [("dashboard","Dashboard.dc.html","儀表板","home",None),("posts","Posts.dc.html","文章","doc",None),("pages","Posts.dc.html","頁面","page",None),
           ("taxonomy","Taxonomy.dc.html","分類與標籤","tag","new"),("comments","Comments.dc.html","留言","comment","7"),("media","Media.dc.html","附件","image",None),("trash","Trash.dc.html","回收桶","trash","new")]),
- ("商店", [("products","Products.dc.html","商品","box",None),("orders","Orders.dc.html","訂單","cart","3")]),
+ ("商店", [("products","Products.dc.html","商品","box",None),("orders","Orders.dc.html","訂單","cart","3"),("coupons","Coupons.dc.html","折扣碼","ticket",None)]),
  ("外觀", [("themes","Themes.dc.html","主題","theme",None),("menus","Menus.dc.html","導覽選單","menu","new"),("plugins","Plugins.dc.html","外掛","plug",None)]),
  ("系統", [("users","Users.dc.html","使用者","users","new"),("redirects","Redirects.dc.html","轉址與 SEO","redirect","new"),("tools","Import.dc.html","工具","tools","new"),("logs","Logs.dc.html","日誌","terminal","new"),("settings","Settings.dc.html","設定","settings",None)]),
 ]
@@ -265,7 +266,7 @@ SUB_CSS = '''
 
 def profile_nav(on):
     items=[("user","基本資料"),("mail","通知"),("key","API 權杖"),("lock","密碼與安全"),("globe","登入裝置"),("link","第三方帳號")]
-    return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px">'+"".join(f'<a href="Profile.dc.html"{" class=\"on\"" if l==on else ""}>{I(ic,14)}{l}</a>' for ic,l in items)+'</nav>'
+    return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px">'+"".join(('<a href="Profile.dc.html"%s>%s%s</a>' % (' class="on"' if l==on else '', I(ic,14), l)) for ic,l in items)+'</nav>'
 
 pages = {}
 
@@ -281,34 +282,38 @@ pages["Checkout"] = ("前台結帳", FRONT_CSS, 1440, 1400, front("shop", f'''
         <section style="display: flex; flex-direction: column; gap: 16px">
           <h2 class="d" style="font-size: 24px; display: flex; align-items: center; gap: 10px"><span class="chip nd" style="background:#15161A;color:#fff">1</span>聯絡方式</h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
-            <div><label class="flbl" for="em">Email</label><input id="em" class="field" type="email" value="ting@example.com"><div style="font-size:12px;color:#5F6470;margin-top:6px">訂單通知與發票會寄到這裡。</div></div>
+            <div><label class="flbl" for="em">Email</label><input id="em" class="field" type="email" value="ting@example.com"><div style="font-size:12px;color:#5F6470;margin-top:6px">訂單通知與收據會寄到這裡。</div></div>
             <div><label class="flbl" for="ph">手機</label><input id="ph" class="field" type="tel" placeholder="09xx xxx xxx"></div>
           </div>
           <label style="display: inline-flex; align-items: center; gap: 8px; font-size: 14px"><input type="checkbox" style="accent-color:#E8285B;width:16px;height:16px;margin:0">建立帳號，下次免填（可選）</label>
+          <div style="font-size:13px;color:#5F6470">已經有帳號？<a href="Login.dc.html">登入</a>。</div>
+          <div style="font-size:12px;color:#5F6470">會員結帳會帶入本人 Email、預設地址與發票設定，並隱藏建立帳號及登入提示；已自行編輯的欄位不會被較晚載入的資料覆蓋。</div>
         </section>
         <section style="display: flex; flex-direction: column; gap: 16px">
           <h2 class="d" style="font-size: 24px; display: flex; align-items: center; gap: 10px"><span class="chip nd" style="background:#15161A;color:#fff">2</span>配送</h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px">
-            <label class="opt on"><span class="rad"></span><span>{I("truck")}</span><span><b>宅配</b><div style="font-size:12px;color:#5F6470">NT$ 80 · 2 天</div></span></label>
-            <label class="opt"><span class="rad"></span><span>{I("box")}</span><span><b>超商取貨</b><div style="font-size:12px;color:#5F6470">NT$ 60 · 3 天</div></span></label>
-            <label class="opt"><span class="rad"></span><span>{I("home")}</span><span><b>自取</b><div style="font-size:12px;color:#5F6470">免運 · 台中門市</div></span></label>
+            <label class="opt on"><span class="rad"></span><span>{I("truck")}</span><span><b>宅配</b><div style="font-size:12px;color:#5F6470">NT$ 80 · 約 3 天</div></span></label>
+            <label class="opt" aria-disabled="true" style="opacity:.55;cursor:not-allowed;background:#F8F8FA"><span class="rad" style="box-shadow:inset 0 0 0 2px #D9DBE0"></span><span>{I("box")}</span><span><b>超商取貨</b><div style="font-size:12px;color:#5F6470;margin-top:2px"><span class="chip nd">稍後開放</span></div></span></label>
+            <label class="opt"><span class="rad"></span><span>{I("home")}</span><span><b>自取</b><div style="font-size:12px;color:#5F6470">免運 · 約 1 天 · 取貨說明</div></span></label>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
             <div><label class="flbl" for="nm">收件人</label><input id="nm" class="field" type="text" value="賴庭蓁"></div>
             <div><label class="flbl" for="zip">郵遞區號</label><input id="zip" class="field" type="text" placeholder="407"></div>
             <div style="grid-column: 1 / -1"><label class="flbl" for="ad">地址</label><input id="ad" class="field" type="text" placeholder="台中市西屯區…"></div>
           </div>
+          <div style="font-size:12px;color:#5F6470">純數位訂單會隱藏配送與地址欄位，可直接結帳；零額的實體商品仍要選配送方式。</div>
         </section>
         <section style="display: flex; flex-direction: column; gap: 16px">
-          <h2 class="d" style="font-size: 24px; display: flex; align-items: center; gap: 10px"><span class="chip nd" style="background:#15161A;color:#fff">3</span>付款</h2>
+          <h2 class="d" style="font-size: 24px; display: flex; align-items: center; gap: 10px"><span class="chip nd" style="background:#15161A;color:#fff">3</span>付款與發票</h2>
+          <div style="font-size:12px;color:#5F6470">只列出站長在設定裡啟用的付款方式；運費與到貨天數來自運送設定。</div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
-            <label class="opt on"><span class="rad"></span><span>{I("card")}</span><span><b>信用卡</b><div style="font-size:12px;color:#5F6470">綠界付款頁，支援一次付清、分期</div></span></label>
-            <label class="opt"><span class="rad"></span><span>{I("db")}</span><span><b>ATM 轉帳</b><div style="font-size:12px;color:#5F6470">取得虛擬帳號，3 天內匯款</div></span></label>
-            <label class="opt"><span class="rad"></span><span>{I("box")}</span><span><b>超商代碼</b><div style="font-size:12px;color:#5F6470">7-11、全家、萊爾富</div></span></label>
-            <label class="opt"><span class="rad"></span><span>{I("globe")}</span><span><b>LINE Pay</b><div style="font-size:12px;color:#5F6470">藍新金流</div></span></label>
+            <label class="opt on"><span class="rad"></span><span>{I("card")}</span><span><b>信用卡</b><div style="font-size:12px;color:#5F6470">前往付款頁刷卡</div></span></label>
+            <label class="opt"><span class="rad"></span><span>{I("db")}</span><span><b>ATM 轉帳</b><div style="font-size:12px;color:#5F6470">取得虛擬帳號後匯款</div></span></label>
+            <label class="opt"><span class="rad"></span><span>{I("box")}</span><span><b>超商代碼</b><div style="font-size:12px;color:#5F6470">取得繳費代碼到超商繳費</div></span></label>
+            <label class="opt"><span class="rad"></span><span>{I("home")}</span><span><b>銀行轉帳</b><div style="font-size:12px;color:#5F6470">下單後依轉帳說明匯款，人工確認</div></span></label>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
-            <div><label class="flbl" for="inv">發票</label><select id="inv" class="field"><option>個人電子發票（存手機條碼）</option><option>公司統編</option><option>捐贈</option></select></div>
+            <div><label class="flbl" for="inv">發票</label><select id="inv" class="field"><option>手機條碼載具</option><option>個人（Email 收據）</option><option>公司統編</option><option>捐贈發票</option></select></div>
             <div><label class="flbl" for="bc">手機條碼</label><input id="bc" class="field" type="text" placeholder="/ABC1234"></div>
           </div>
         </section>
@@ -317,10 +322,13 @@ pages["Checkout"] = ("前台結帳", FRONT_CSS, 1440, 1400, front("shop", f'''
         <div class="lbl" style="color: #B9BCC6">你的訂單</div>
         <div style="display: flex; gap: 12px; align-items: center"><span style="width:48px;height:48px;background:#E8285B;border-radius:0 10px 0 10px;flex:0 0 auto"></span><span style="flex:1"><b>榛果可可醬 200g</b><div style="font-size:12px;color:#B9BCC6">× 1</div></span><b>NT$ 320</b></div>
         <div style="display: flex; gap: 12px; align-items: center"><span style="width:48px;height:48px;background:#2F6BFF;border-radius:0 10px 0 10px;flex:0 0 auto"></span><span style="flex:1"><b>藍莓果凍 6 入</b><div style="font-size:12px;color:#B9BCC6">× 2</div></span><b>NT$ 480</b></div>
-        <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 15px; padding-top: 16px; border-top: 1px solid #2A2B31"><span style="color:#B9BCC6">小計</span><b>NT$ 800</b><span style="color:#B9BCC6">宅配</span><b>NT$ 80</b></div>
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 15px; padding-top: 16px; border-top: 1px solid #2A2B31"><span style="color:#B9BCC6">小計</span><b>NT$ 800</b><span style="color:#B9BCC6">運費（預估）· 宅配</span><b>NT$ 80</b><span style="color:#B9BCC6">尾數調整（四捨五入至整元）</span><b>NT$ 0</b></div>
         <div style="display: flex; align-items: baseline; justify-content: space-between; padding-top: 16px; border-top: 1px solid #2A2B31"><span>總計</span><span class="d" style="font-size: 36px">NT$ 880</span></div>
+        <div style="font-size: 12px; color: #9A9FAB; line-height: 1.6">價格已含稅。實際金額以送出時系統重新計算為準。</div>
+        <label style="display: flex; align-items: flex-start; gap: 10px; font-size: 13px; line-height: 1.6; color: #E3E4E8"><input type="checkbox" checked style="accent-color:#E8285B;width:16px;height:16px;margin:2px 0 0;flex:0 0 auto">我已閱讀並同意<a href="Page.dc.html" style="color:#8FB0FF">購物須知與退換貨政策</a></label>
         <a class="btn p" href="OrderDone.dc.html" style="min-height: 56px; font-size: 17px">{I("lock")}前往付款 NT$ 880</a>
-        <div style="font-size: 12px; color: #9A9FAB; line-height: 1.6">按下去會前往綠界的付款頁。付款完成後回到本站看訂單結果。</div>
+        <div style="font-size:12px;color:#9A9FAB;line-height:1.6">應付金額四捨五入後若為 NT$ 0，改顯示「確認訂單（無需付款）」，不要求選付款方式。</div>
+        <div style="font-size: 12px; color: #9A9FAB; line-height: 1.6">信用卡、ATM 與超商代碼會前往付款頁；銀行轉帳送出後會顯示匯款說明。付款完成後回到本站看訂單結果。</div>
         <a href="Cart.dc.html" style="color: #C9CBD3; font-size: 13px; display: inline-flex; align-items: center; gap: 6px">{I("arrow-l",14)}回購物車修改</a>
       </aside>
     </div>
@@ -335,25 +343,26 @@ pages["OrderDone"] = ("前台付款完成", FRONT_CSS, 1440, 1000, front("shop",
         {cubes(1.3, 430, 300, .9)}
         <span class="stripe" style="background: linear-gradient(90deg,#0B3A31 0 52%,transparent 52% 60%,#0B3A31 60% 82%,transparent 82% 88%,#0B3A31 88% 100%)"></span>
         <div class="lbl" style="color:#0B5E4E;margin-top:16px">付款成功</div>
-        <h1 class="d" style="font-size: 64px; letter-spacing: -.04em; margin: 8px 0 20px">收到了，<br>正在幫你包。</h1>
-        <p style="margin: 0; font-size: 17px; line-height: 1.7; max-width: 24em">訂單編號 <b class="mono">JL-2026-0417</b>。確認信已寄到 ting@example.com，出貨時會再通知一次。</p>
-        <div style="display: flex; gap: 10px; margin-top: 32px; flex-wrap: wrap"><a class="btn" href="OrderDone.dc.html">{I("eye")}查看訂單</a><a class="btn t" href="Shop.dc.html">{I("arrow-l")}繼續逛</a></div>
+        <h1 class="d" style="font-size: clamp(40px, 4vw, 52px); letter-spacing: -.04em; margin: 8px 0 20px">收到了，<br>正在幫你準備。</h1>
+        <p style="margin: 0; font-size: 17px; line-height: 1.7; max-width: 24em">訂單編號 <b class="mono">JL-2026-0417</b>。確認信將寄至 ting@example.com，出貨時會再通知一次。</p>
+        <div style="display: flex; gap: 10px; margin-top: 32px; flex-wrap: wrap"><a class="btn t" href="Shop.dc.html">{I("arrow-l")}繼續逛</a></div>
       </section>
       <aside style="display: flex; flex-direction: column; gap: 20px">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
           <div style="background:#F5F5F7;border-radius:0 14px 0 14px;padding:16px;display:flex;flex-direction:column;gap:6px"><span class="lbl">付款方式</span><b style="display:flex;align-items:center;gap:8px">{I("card")}信用卡（綠界）</b><span style="font-size:13px;color:#5F6470">末四碼 4321 · 一次付清</span></div>
-          <div style="background:#F5F5F7;border-radius:0 14px 0 14px;padding:16px;display:flex;flex-direction:column;gap:6px"><span class="lbl">配送</span><b style="display:flex;align-items:center;gap:8px">{I("truck")}宅配 · 預計 10/24 到</b><span style="font-size:13px;color:#5F6470">台中市西屯區…</span></div>
+          <div style="background:#F5F5F7;border-radius:0 14px 0 14px;padding:16px;display:flex;flex-direction:column;gap:6px"><span class="lbl">配送</span><b style="display:flex;align-items:center;gap:8px">{I("truck")}宅配 · 約 3 天</b><span style="font-size:13px;color:#5F6470">台中市西屯區…</span></div>
         </div>
         <div style="box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 16px 0 16px;padding:20px;display:flex;flex-direction:column;gap:14px">
           <div class="lbl">明細</div>
           <div style="display:flex;gap:12px;align-items:center"><span style="width:44px;height:44px;background:#E8285B;border-radius:0 10px 0 10px"></span><span style="flex:1"><b>榛果可可醬 200g</b><div style="font-size:12px;color:#5F6470">× 1</div></span><b>NT$ 320</b></div>
           <div style="display:flex;gap:12px;align-items:center"><span style="width:44px;height:44px;background:#2F6BFF;border-radius:0 10px 0 10px"></span><span style="flex:1"><b>藍莓果凍 6 入</b><div style="font-size:12px;color:#5F6470">× 2</div></span><b>NT$ 480</b></div>
-          <div style="display:grid;grid-template-columns:1fr auto;gap:6px;font-size:14px;padding-top:12px;border-top:1px solid #E2E3E8"><span style="color:#5F6470">小計</span><b>NT$ 800</b><span style="color:#5F6470">運費</span><b>NT$ 80</b><span style="font-weight:700">總計</span><span class="mono" style="font-size:22px">NT$ 880</span></div>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:6px;font-size:14px;padding-top:12px;border-top:1px solid #E2E3E8"><span style="color:#5F6470">小計</span><b>NT$ 800</b><span style="color:#5F6470">運費</span><b>NT$ 80</b><span style="color:#5F6470">內含稅額</span><b>NT$ 42</b><span style="color:#5F6470">尾數調整</span><b>NT$ 0</b><span style="font-weight:700">總計</span><span class="mono" style="font-size:22px">NT$ 880</span></div>
+          <div style="font-size:12px;color:#5F6470">無需付款的訂單顯示「訂單已成立」，不標示付款成功。</div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn t sm" type="button">{I("download")}下載發票</button><button class="btn t sm" type="button">{I("mail")}重寄確認信</button><a class="btn t sm" href="Page.dc.html">{I("comment")}聯絡我們</a></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn t sm" type="button">{I("download")}列印收據</button><button class="btn t sm" type="button">{I("mail")}重寄確認信</button><a class="btn t sm" href="Page.dc.html">{I("comment")}聯絡我們</a></div>
       </aside>
     </div>
-    <section style="background:#FBE1DE;color:#9C2318;border-radius:0 16px 0 16px;padding:16px 20px;display:flex;align-items:center;gap:12px;max-width:720px">{I("alert")}<div style="font-size:14px"><b>付款失敗時長這樣：</b>整塊換成覆盆子底，標題「付款沒有完成」，主要按鈕變成「重新付款」，副按鈕「換付款方式」。訂單保留 24 小時。</div></section>
+    <section style="background:#FBE1DE;color:#9C2318;border-radius:0 16px 0 16px;padding:16px 20px;display:flex;align-items:center;gap:12px;max-width:720px">{I("alert")}<div style="font-size:14px"><b>付款失敗時長這樣：</b>整塊換成覆盆子底，標題「付款沒有完成」，主要按鈕變成「重新付款」，副按鈕「換付款方式」，並寫出訂單保留到幾點（依付款方式的保留設定）。ATM、超商代碼與轉帳換成黃底「還差一步」並列出付款資訊與期限；金流尚未回報時顯示「正在等待付款結果」並自動更新。</div></section>
   </main>'''))
 
 # ======================= FRONT: Archive (category + comments) =======================
@@ -400,11 +409,18 @@ def row_tax(name, slug, n, lv=0, color=None, kind="分類"):
     arrow = '<span style="color:#B9BCC6;margin-right:6px">└</span>' if lv else ""
     return f'<tr><td style="width:36px"><span class="cb"></span></td><td{pad}>{arrow}{dot}<b>{name}</b></td><td style="color:#5F6470">/{slug}</td><td class="mono" style="font-size:15px">{n}</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="看前台">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>'
 
-pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS, 1440, 1000, admin("taxonomy", ["內容","分類與標籤"],
+def prow(name, slug, n, lv=0, color=None, sel=False):
+    pad = f' style="padding-left:{10+lv*22}px"' if lv else ""
+    dot = f'<span style="width:10px;height:10px;background:{color};border-radius:0 3px 0 3px;display:inline-block;margin-right:8px;vertical-align:middle"></span>' if color else ""
+    arrow = '<span style="color:#B9BCC6;margin-right:6px">└</span>' if lv else ""
+    bg = ' style="background:#F8F9FF"' if sel else ""
+    return f'<tr{bg}><td style="width:36px"><span class="cb{" on" if sel else ""}"></span></td><td{pad}>{arrow}{dot}<b>{name}</b></td><td style="color:#5F6470">/shop/c/{slug}</td><td class="mono" style="font-size:15px">{n}</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="看前台">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>'
+
+pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS + "\n@media(max-width:700px){.seg{flex-wrap:wrap;max-width:100%;box-sizing:border-box}}\n", 1440, 1300, admin("taxonomy", ["內容","分類與標籤"],
   f'<button class="btn t" type="button">{I("upload")}從 WordPress 匯入</button><button class="btn p" type="button">{I("plus")}新增分類</button>',
   f'''<main style="padding: 16px 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start">
     <section>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">{I("folder",14)}分類 <b>7</b></span><span>{I("tag",14)}標籤 <b>42</b></span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="篩選" aria-label="篩選" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><button class="btn t s" type="button">{I("drag")}拖曳排序</button></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">{I("folder",14)}分類 <b>7</b></span><span>{I("tag",14)}標籤 <b>42</b></span><span>{I("box",14)}商品分類 <b>5</b></span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="篩選" aria-label="篩選" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><button class="btn t s" type="button">{I("drag")}拖曳排序</button></div>
       <table>
         <thead><tr><th><span class="cb"></span></th><th>名稱</th><th>網址</th><th>文章</th><th></th></tr></thead>
         <tbody>
@@ -429,12 +445,46 @@ pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS, 1440, 1000, admin("taxo
       <div><span class="lbl">描述（SEO 與分類頁開頭）</span><textarea class="ul" rows="3">做過才敢寫。每篇食譜都有份量、時間，和哪一步最容易失敗。</textarea></div>
       <div style="display:flex;gap:8px;margin-top:4px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("external")}看前台</button><button class="btn x i" type="button" aria-label="刪除" style="margin-left:auto;color:#9C2318">{I("trash")}</button></div>
     </aside>
+  </main>
+  <div style="margin:4px 24px 0;padding-top:14px;border-top:1px dashed #D9DBE0;display:flex;align-items:center;gap:10px;color:#5F6470;font-size:13px">{I("box",14)}<b style="color:#15161A">切到「商品分類」分段</b>商品有自己的分類樹，網址是 <span class="mono">/shop/c/…</span>，跟文章分類互不相干。</div>
+  <main style="padding: 16px 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start">
+    <section>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span>{I("folder",14)}分類 <b>7</b></span><span>{I("tag",14)}標籤 <b>42</b></span><span class="on">{I("box",14)}商品分類 <b>5</b></span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="篩選" aria-label="篩選商品分類" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><button class="btn p s" type="button">{I("plus")}新增商品分類</button></div>
+      <table>
+        <thead><tr><th><span class="cb"></span></th><th>名稱</th><th>網址</th><th>商品</th><th></th></tr></thead>
+        <tbody>
+          {prow("果凍","jelly",18,0,"#2F6BFF")}
+          {prow("水果","jelly-fruit",8,1,sel=True)}
+          {prow("茶與咖啡","jelly-tea-coffee",5,1)}
+          {prow("禮盒","gift-box",6,0,"#F5B800")}
+          {prow("器具","tools",4,0,"#13C2A3")}
+        </tbody>
+      </table>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px;font-size:12px;color:#5F6470">{I("alert",14)}分類底下還有子分類或商品時不能刪除，先把商品移出、子分類移走再刪。一個商品可以同時放進多個分類，父分類的數量含子分類；隱藏的分類不出現在商店列表。</div>
+      <div class="card" style="margin-top:20px;display:flex;gap:12px;align-items:flex-start;background:#F8F9FF">
+        <span style="width:36px;height:36px;display:grid;place-items:center;background:#2F6BFF;color:#fff;border-radius:0 10px 0 10px;flex:0 0 auto">{I("box")}</span>
+        <div style="font-size:13px;line-height:1.7"><b>商品分類跟文章分類是兩棵樹。</b><br>文章的「食譜」「甜點」不會出現在商店，商品的「果凍」「禮盒」也不會出現在文章。兩邊可以有同名分類，網址各自獨立：文章在 <span class="mono">/recipes</span>，商品在 <span class="mono">/shop/c/jelly</span>。</div>
+      </div>
+    </section>
+    <aside class="card" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">編輯：水果</b><span class="chip info" style="margin-left:auto">果凍 的子分類</span></div>
+      <div><span class="lbl">名稱</span><input class="ul" type="text" value="水果"></div>
+      <div><span class="lbl">網址</span><div style="display:flex;align-items:center;gap:6px"><span style="color:#9A9FAB;font-size:13px">/shop/c/</span><input class="ul" type="text" value="jelly-fruit"></div></div>
+      <div><span class="lbl">上層分類</span><select class="ul"><option>果凍</option><option>（無）</option><option>禮盒</option><option>器具</option></select></div>
+      <div><span class="lbl">封面圖網址（分類頁頂端）</span><input class="ul" type="text" value="/uploads/jelly-fruit.jpg"></div>
+      <div><span class="lbl">描述（SEO 與分類頁開頭）</span><textarea class="ul" rows="3">真的水果榨汁做的，不加香精。冷藏寄出，兩天內到貨最好吃。</textarea></div>
+      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">在商店隱藏（網址仍可進入）<span class="tg off"></span></label>
+      <div style="display:flex;gap:8px;margin-top:4px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("external")}看前台</button><button class="btn x i" type="button" aria-label="刪除" style="margin-left:auto;color:#9C2318">{I("trash")}</button></div>
+      <div style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;background:#FBE1DE;color:#9C2318;border-radius:0 10px 0 10px;font-size:12px;line-height:1.6">{I("alert",14)}<span><b>無法刪除「水果」</b><br>這個分類裡還有 8 個商品，先把商品移出再刪。</span></div>
+    </aside>
   </main>'''))
 
 # ======================= ADMIN: Menus =======================
 def mi(label, kind, lv=0, drop=False, extra=""):
     cls = "mi" + (" drop" if drop else "")
-    return f'<div class="{cls}" style="margin-left:{lv*28}px">{I("drag",16,' style="color:#B9BCC6;cursor:grab"')}<span>{label}</span><span class="chip nd" style="margin-left:4px">{kind}</span><span class="k">{extra}</span><button class="btn x s i" type="button" aria-label="展開">{I("chevron-d",14)}</button></div>'
+    drag = I("drag", 16, ' style="color:#B9BCC6;cursor:grab"')
+    chv = I("chevron-d", 14)
+    return f'<div class="{cls}" style="margin-left:{lv*28}px">{drag}<span>{label}</span><span class="chip nd" style="margin-left:4px">{kind}</span><span class="k">{extra}</span><button class="btn x s i" type="button" aria-label="展開">{chv}</button></div>'
 
 pages["Menus"] = ("後台導覽選單", ADMIN_CSS, 1440, 1000, admin("menus", ["外觀","導覽選單"],
   f'<span style="font-size:12px;color:#7A5200;background:#FCF0C8;padding:4px 10px;border-radius:0 7px 0 7px;font-weight:700">1 項未儲存</span><button class="btn t" type="button">{I("eye")}預覽</button><button class="btn p" type="button">{I("save")}儲存選單</button>',
@@ -921,7 +971,8 @@ pages["States"] = ("後台狀態畫面", ADMIN_CSS, 1440, 1000, admin("posts", [
     </section>
   </main>'''))
 
-for name,(title,css,w,h,body) in pages.items():
-    with open(os.path.join(OUT, f"{name}.dc.html"), "w", encoding="utf-8") as f:
-        f.write(doc(title, css, body, w, h))
-    print("wrote", name)
+if __name__ == "__main__":
+    for name,(title,css,w,h,body) in pages.items():
+        with open(os.path.join(OUT, f"{name}.dc.html"), "w", encoding="utf-8") as f:
+            f.write(doc(title, css, body, w, h))
+        print("wrote", name)

@@ -22,11 +22,30 @@ var accountPageMessageIDs = []string{
 }
 
 func registerAccountPages(e *echo.Echo) {
-	e.GET("/account", noStoreAccountPage(auth.RequireAuth(staffPageGate(func(c echo.Context) error {
-		query := c.QueryParams()
-		query.Set("tab", "identities")
-		return c.Redirect(http.StatusFound, "/admin/account?"+query.Encode())
-	}))))
+	e.GET("/account", noStoreAccountPage(auth.RequireAuth(func(c echo.Context) error {
+		user, err := auth.GetCurrentUser(c)
+		if err != nil || user == nil {
+			return echo.NewHTTPError(http.StatusUnauthorized)
+		}
+		lang := ""
+		if values := c.QueryParams()["lang"]; len(values) == 1 && supportedLanguage(values[0]) {
+			lang = values[0]
+		}
+		switch user.Role {
+		case "admin", "editor", "author":
+			target := "/admin/account?tab=identities"
+			if lang != "" {
+				target += "&lang=" + url.QueryEscape(lang)
+			}
+			return c.Redirect(http.StatusFound, target)
+		default:
+			target := "/account/orders"
+			if lang != "" {
+				target += "?lang=" + url.QueryEscape(lang)
+			}
+			return c.Redirect(http.StatusFound, target)
+		}
+	})))
 	e.GET("/account/recover", noStoreAccountPage(func(c echo.Context) error {
 		return renderAccountPage(c, "account_recover.html")
 	}))

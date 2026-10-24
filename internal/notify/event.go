@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
@@ -21,6 +22,8 @@ type Recipients struct {
 	Roles []string
 	// UserIDs lists explicit recipients.
 	UserIDs []uint
+	// Emails carries guest addresses that have no account (added by ticket 07).
+	Emails []string
 }
 
 // Event is one thing that happened and should reach someone's notification center.
@@ -134,11 +137,46 @@ func Emit(ctx context.Context, db *gorm.DB, ev Event) error {
 		return fmt.Errorf("notify: encode actions: %w", err)
 	}
 
-	users, err := resolveRecipients(ctx, db, ev.Recipients)
+	users, err := resolveRecipients(ctx, db, ev.Recipients, ev.Kind)
 	if err != nil {
 		return err
 	}
 	now := time.Now().UTC()
+
+	// Handle guest emails (only explicitly listed). Do not create fake accounts.
+	if len(ev.Recipients.Emails) > 0 {
+		userEmails := map[string]struct{}{}
+		for _, u := range users {
+			if ne, err := normalizeEmail(u.Email); err == nil && ne != "" {
+				userEmails[ne] = struct{}{}
+			}
+		}
+		guestList := make([]string, 0, len(ev.Recipients.Emails))
+		seenGuest := map[string]struct{}{}
+		for _, e := range ev.Recipients.Emails {
+			ne, err := normalizeEmail(e)
+			if err != nil {
+				return fmt.Errorf("notify: invalid guest email")
+			}
+			if ne == "" {
+				return fmt.Errorf("notify: invalid guest email")
+			}
+			if _, ok := userEmails[ne]; ok {
+				continue // only one mail if same email appears as userID and in Emails
+			}
+			if _, ok := seenGuest[ne]; ok {
+				continue
+			}
+			seenGuest[ne] = struct{}{}
+			guestList = append(guestList, ne)
+		}
+		if len(guestList) > 0 {
+			if err := queueGuestEmails(db.WithContext(ctx), ev.Kind, ev.Params, guestList, now); err != nil {
+				return err
+			}
+		}
+	}
+
 	for _, candidate := range users {
 		if err := emitForRecipient(ctx, db, candidate.ID, ev.Recipients, spec, ev, params, actions, now); err != nil {
 			return err
@@ -147,7 +185,7 @@ func Emit(ctx context.Context, db *gorm.DB, ev Event) error {
 	return nil
 }
 
-func resolveRecipients(ctx context.Context, db *gorm.DB, recipients Recipients) ([]core.User, error) {
+func resolveRecipients(ctx context.Context, db *gorm.DB, recipients Recipients, kind string) ([]core.User, error) {
 	query := db.WithContext(ctx).Model(&core.User{}).Where("status = ?", "active")
 	roles := uniqueStrings(recipients.Roles)
 	ids := uniqueIDs(recipients.UserIDs)
@@ -164,6 +202,24 @@ func resolveRecipients(ctx context.Context, db *gorm.DB, recipients Recipients) 
 	var users []core.User
 	if err := query.Order("id").Find(&users).Error; err != nil {
 		return nil, fmt.Errorf("notify: resolve recipients: %w", err)
+	}
+	if isRequiredEmailKind(kind) && len(ids) > 0 {
+		var invited []core.User
+		if err := db.WithContext(ctx).Where("status = ? AND role = ? AND id IN ?", "invited", "customer", ids).Order("id").Find(&invited).Error; err != nil {
+			return nil, fmt.Errorf("notify: resolve invited customer recipients: %w", err)
+		}
+		byID := make(map[uint]core.User, len(users)+len(invited))
+		for _, user := range users {
+			byID[user.ID] = user
+		}
+		for _, user := range invited {
+			byID[user.ID] = user
+		}
+		users = make([]core.User, 0, len(byID))
+		for _, user := range byID {
+			users = append(users, user)
+		}
+		sort.Slice(users, func(i, j int) bool { return users[i].ID < users[j].ID })
 	}
 	return users, nil
 }
@@ -218,16 +274,26 @@ func emitForRecipient(ctx context.Context, db *gorm.DB, userID uint, recipients 
 			return fmt.Errorf("notify: lock recipient %d: %w", userID, err)
 		}
 		if user.Status != "active" {
-			return nil
+			if user.Status != "invited" || user.Role != "customer" || !isRequiredEmailKind(ev.Kind) || !explicitlySelectedUser(user.ID, recipients.UserIDs) {
+				return nil
+			}
 		}
 		if !stillRecipient(user, recipients) {
 			return nil
 		}
 
 		prefs := channelPreferences{inApp: true}
-		if spec.Preference != "" {
+		prefKey := spec.Preference
+		// For order.refunded, preference follows order.payment_failed.
+		if ev.Kind == KindOrderRefunded {
+			prefKey = KindOrderPaymentFailed
+		}
+		if isRequiredEmailKind(ev.Kind) {
+			// Required customer emails ignore channel preferences.
+			prefs = channelPreferences{inApp: user.Status == "active", email: true}
+		} else if prefKey != "" {
 			var pref core.NotificationPref
-			err := tx.Where("user_id = ? AND event = ?", userID, spec.Preference).First(&pref).Error
+			err := tx.Where("user_id = ? AND event = ?", userID, prefKey).First(&pref).Error
 			if err != nil && err != gorm.ErrRecordNotFound {
 				return fmt.Errorf("notify: load preferences for user %d: %w", userID, err)
 			}
@@ -235,6 +301,7 @@ func emitForRecipient(ctx context.Context, db *gorm.DB, userID uint, recipients 
 				prefs = channelPreferences{inApp: pref.InApp, email: pref.Email, webhook: pref.Webhook}
 			}
 		}
+
 		if !prefs.inApp && !prefs.email && !prefs.webhook {
 			return nil
 		}
@@ -247,6 +314,9 @@ func emitForRecipient(ctx context.Context, db *gorm.DB, userID uint, recipients 
 			}
 		}
 		held := quietNow(now, settings)
+		if user.Status == "invited" {
+			return queueRequiredCustomerEmail(tx, user, ev.Kind, params, held, now)
+		}
 
 		if ev.GroupKey != "" {
 			// Expired unread rows still occupy idx_notifications_unread_group.
@@ -267,7 +337,7 @@ func emitForRecipient(ctx context.Context, db *gorm.DB, userID uint, recipients 
 				if err := tx.Model(&core.Notification{}).Where("id = ?", existing.ID).Update("count", gorm.Expr("count + 1")).Error; err != nil {
 					return fmt.Errorf("notify: merge event for user %d: %w", userID, err)
 				}
-				return createDeliveries(tx, user, existing.ID, prefs, settings, held, now)
+				return createDeliveries(tx, user, existing.ID, prefs, settings, held, now, ev.Kind, params)
 			}
 			if err == nil {
 				// A group cannot mix in-app and email-only events: that would
@@ -297,8 +367,17 @@ func emitForRecipient(ctx context.Context, db *gorm.DB, userID uint, recipients 
 				return fmt.Errorf("notify: hide email-only notification for user %d: %w", userID, err)
 			}
 		}
-		return createDeliveries(tx, user, notification.ID, prefs, settings, held, now)
+		return createDeliveries(tx, user, notification.ID, prefs, settings, held, now, ev.Kind, params)
 	})
+}
+
+func explicitlySelectedUser(userID uint, recipients []uint) bool {
+	for _, id := range recipients {
+		if id == userID {
+			return true
+		}
+	}
+	return false
 }
 
 func stillRecipient(user core.User, recipients Recipients) bool {
@@ -315,17 +394,19 @@ func stillRecipient(user core.User, recipients Recipients) bool {
 	return false
 }
 
-func createDeliveries(tx *gorm.DB, user core.User, notificationID uint, prefs channelPreferences, settings core.NotificationSettings, held bool, now time.Time) error {
+func createDeliveries(tx *gorm.DB, user core.User, notificationID uint, prefs channelPreferences, settings core.NotificationSettings, held bool, now time.Time, kind string, params []byte) error {
 	status := "pending"
 	if held {
 		status = "held"
 	}
 	rows := make([]core.NotificationDelivery, 0, 2)
 	if prefs.email {
-		rows = append(rows, core.NotificationDelivery{NotificationID: notificationID, Channel: "email", Status: status, NextAttemptAt: now})
+		nid := notificationID
+		rows = append(rows, core.NotificationDelivery{NotificationID: nid, Kind: kind, ToAddress: user.Email, Channel: "email", Status: status, NextAttemptAt: now, Params: params})
 	}
 	if prefs.webhook {
-		rows = append(rows, core.NotificationDelivery{NotificationID: notificationID, Channel: "webhook", Status: status, NextAttemptAt: now})
+		nid := notificationID
+		rows = append(rows, core.NotificationDelivery{NotificationID: nid, Kind: kind, ToAddress: "", Channel: "webhook", Status: status, NextAttemptAt: now, Params: params})
 	}
 	if len(rows) == 0 {
 		return nil
@@ -350,8 +431,14 @@ func actionsFor(kind string) []action {
 		label, target = "comments.open", "/admin/comments"
 	case KindOrderNew, KindOrderPaymentFailed:
 		label, target = "orders.open", "/admin/orders"
+	case KindOrderRefunded:
+		label, target = "orders.open", "/admin/orders"
+	case KindOrderConfirmation, KindOrderShipped, KindOrderLookupLink, KindOrderOfflineInstructions:
+		label, target = "orders.open", "/account/orders"
 	case KindSecurityNewDevice, KindSecurityPasswordChanged:
 		label, target = "account.security", "/admin/account?tab=security"
+	case KindCustomerSetPassword:
+		label, target = "account.security", "/account/security"
 	case KindSystemPluginFailed:
 		label, target = "plugins.open", "/admin/plugins"
 	case KindUserInviteAccepted:

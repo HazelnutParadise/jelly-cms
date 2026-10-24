@@ -138,7 +138,7 @@
     },
     "Products.dc.html": {
       "x": 0,
-      "y": 8860,
+      "y": 9160,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 商品",
@@ -146,15 +146,15 @@
     },
     "ProductEditor.dc.html": {
       "x": 1520,
-      "y": 8860,
+      "y": 9160,
       "w": 1440,
-      "h": 1000,
+      "h": 1440,
       "title": "後台 · 商品編輯",
       "expand": "fill"
     },
     "Orders.dc.html": {
       "x": 3040,
-      "y": 8860,
+      "y": 9160,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 訂單",
@@ -162,15 +162,15 @@
     },
     "OrderDetail.dc.html": {
       "x": 4560,
-      "y": 8860,
+      "y": 9160,
       "w": 1440,
-      "h": 1000,
-      "title": "後台 · 訂單明細（尚未實作）",
+      "h": 1760,
+      "title": "後台 · 訂單明細",
       "expand": "fill"
     },
     "Themes.dc.html": {
       "x": 0,
-      "y": 10200,
+      "y": 10940,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 主題與客製化",
@@ -178,7 +178,7 @@
     },
     "Plugins.dc.html": {
       "x": 1520,
-      "y": 10200,
+      "y": 10940,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 外掛",
@@ -186,9 +186,9 @@
     },
     "Settings.dc.html": {
       "x": 6080,
-      "y": 11640,
+      "y": 12380,
       "w": 1440,
-      "h": 1000,
+      "h": 3360,
       "title": "後台 · 設定",
       "expand": "fill"
     },
@@ -197,7 +197,7 @@
       "y": 2580,
       "w": 1440,
       "h": 1500,
-      "title": "前台 · 商店（尚未實作）",
+      "title": "前台 · 商店",
       "expand": "fill"
     },
     "Product.dc.html": {
@@ -205,7 +205,7 @@
       "y": 2580,
       "w": 1440,
       "h": 1500,
-      "title": "前台 · 商品頁（尚未實作）",
+      "title": "前台 · 商品頁",
       "expand": "fill"
     },
     "Cart.dc.html": {
@@ -213,7 +213,7 @@
       "y": 2580,
       "w": 1440,
       "h": 1100,
-      "title": "前台 · 購物車（尚未實作）",
+      "title": "前台 · 購物車",
       "expand": "fill"
     },
     "Checkout.dc.html": {
@@ -221,7 +221,7 @@
       "y": 2580,
       "w": 1440,
       "h": 1400,
-      "title": "前台 · 結帳（尚未實作）",
+      "title": "前台 · 結帳",
       "expand": "fill"
     },
     "OrderDone.dc.html": {
@@ -229,7 +229,7 @@
       "y": 2580,
       "w": 1440,
       "h": 1020,
-      "title": "前台 · 付款完成（尚未實作）",
+      "title": "前台 · 付款完成",
       "expand": "fill"
     },
     "Archive.dc.html": {
@@ -244,7 +244,7 @@
       "x": 0,
       "y": 7520,
       "w": 1440,
-      "h": 1000,
+      "h": 1300,
       "title": "後台 · 分類與標籤",
       "expand": "fill"
     },
@@ -266,7 +266,7 @@
     },
     "Users.dc.html": {
       "x": 0,
-      "y": 11640,
+      "y": 12380,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 使用者與角色",
@@ -274,7 +274,7 @@
     },
     "Profile.dc.html": {
       "x": 1520,
-      "y": 11640,
+      "y": 12380,
       "w": 1440,
       "h": 2560,
       "title": "後台 · 個人帳號",
@@ -298,7 +298,7 @@
     },
     "Import.dc.html": {
       "x": 18240,
-      "y": 11640,
+      "y": 12380,
       "w": 1440,
       "h": 1000,
       "title": "後台 · WordPress 匯入（尚未實作）",
@@ -306,7 +306,7 @@
     },
     "Backup.dc.html": {
       "x": 19760,
-      "y": 11640,
+      "y": 12380,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 備份與匯出（尚未實作）",
@@ -314,7 +314,7 @@
     },
     "Redirects.dc.html": {
       "x": 15200,
-      "y": 11640,
+      "y": 12380,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 轉址與 SEO（尚未實作）",
@@ -322,7 +322,7 @@
     },
     "Logs.dc.html": {
       "x": 16720,
-      "y": 11640,
+      "y": 12380,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 系統日誌（尚未實作）",
@@ -330,7 +330,7 @@
     },
     "Palette.dc.html": {
       "x": 21280,
-      "y": 11640,
+      "y": 12380,
       "w": 1440,
       "h": 1000,
       "title": "後台 · ⌘K 指令面板（尚未實作）",
@@ -338,7 +338,7 @@
     },
     "States.dc.html": {
       "x": 22800,
-      "y": 11640,
+      "y": 12380,
       "w": 1440,
       "h": 1000,
       "title": "後台 · 空白、載入、錯誤、無權限（尚未實作）",
@@ -358,7 +358,7 @@
       "title": "後台 · 更新 · 執行檔可直接更新（尚未實作）",
       "expand": "fill",
       "x": 10640,
-      "y": 11640
+      "y": 12380
     },
     "UpdateContainer.dc.html": {
       "w": 1440,
@@ -366,7 +366,7 @@
       "title": "後台 · 更新 · 容器只提示、換映像（尚未實作）",
       "expand": "fill",
       "x": 12160,
-      "y": 11640
+      "y": 12380
     },
     "Author.dc.html": {
       "w": 1440,
@@ -395,7 +395,7 @@
     "ShopCategory.dc.html": {
       "w": 1440,
       "h": 1500,
-      "title": "前台 · 商品分類頁（尚未實作）",
+      "title": "前台 · 商品分類頁",
       "expand": "fill",
       "x": 1520,
       "y": 2580
@@ -403,7 +403,7 @@
     "Account.dc.html": {
       "w": 1440,
       "h": 1300,
-      "title": "前台 · 會員中心與我的訂單（尚未實作）",
+      "title": "前台 · 會員中心與我的訂單",
       "expand": "fill",
       "x": 9120,
       "y": 2580
@@ -411,7 +411,7 @@
     "OrderLookup.dc.html": {
       "w": 1440,
       "h": 1000,
-      "title": "前台 · 訪客訂單查詢（尚未實作）",
+      "title": "前台 · 訪客訂單查詢",
       "expand": "fill",
       "x": 10640,
       "y": 2580
@@ -421,7 +421,7 @@
       "h": 1100,
       "title": "後台 · 設定 · 快取與佇列（尚未實作）",
       "expand": "fill",
-      "y": 11640,
+      "y": 12380,
       "x": 13680
     },
     "EditorLayout.dc.html": {
@@ -446,7 +446,7 @@
       "title": "後台 · 通知中心與通知設定",
       "expand": "fill",
       "x": 3040,
-      "y": 11640
+      "y": 12380
     },
     "Tokens.dc.html": {
       "w": 1440,
@@ -454,7 +454,7 @@
       "title": "後台 · 個人帳號 · API 權杖",
       "expand": "fill",
       "x": 4560,
-      "y": 11640
+      "y": 12380
     },
     "MediaPolicies.dc.html": {
       "w": 1440,
@@ -470,7 +470,7 @@
       "title": "後台 · 應用市場（尚未實作）",
       "expand": "fill",
       "x": 3040,
-      "y": 10200
+      "y": 10940
     },
     "PluginDetail.dc.html": {
       "w": 1440,
@@ -478,7 +478,7 @@
       "title": "後台 · 外掛詳情與擴充設定（尚未實作）",
       "expand": "fill",
       "x": 4560,
-      "y": 10200
+      "y": 10940
     },
     "SettingsRoutes.dc.html": {
       "w": 1440,
@@ -486,7 +486,7 @@
       "title": "後台 · 設定 · 閱讀與網址、程式碼注入、維護模式（尚未實作）",
       "expand": "fill",
       "x": 7600,
-      "y": 11640
+      "y": 12380
     },
     "Maintenance.dc.html": {
       "w": 1440,
@@ -498,11 +498,11 @@
     },
     "Coupons.dc.html": {
       "w": 1440,
-      "h": 1000,
-      "title": "後台 · 折扣碼與行銷（尚未實作）",
+      "h": 1280,
+      "title": "後台 · 折扣碼與行銷",
       "expand": "fill",
       "x": 6080,
-      "y": 8860
+      "y": 9160
     },
     "EditorMotion.dc.html": {
       "w": 1440,
@@ -518,7 +518,7 @@
       "title": "後台 · 互動元件：內建與自訂（尚未實作）",
       "expand": "fill",
       "x": 6080,
-      "y": 10200
+      "y": 10940
     },
     "SettingsCrawlers.dc.html": {
       "w": 1440,
@@ -526,7 +526,7 @@
       "title": "後台 · 設定 · 搜尋引擎與 AI 爬蟲（尚未實作）",
       "expand": "fill",
       "x": 9120,
-      "y": 11640
+      "y": 12380
     },
     "Login2FA.dc.html": {
       "x": 24320,
@@ -551,6 +551,70 @@
       "h": 900,
       "title": "重設密碼",
       "expand": "fill"
+    },
+    "OrderView.dc.html": {
+      "x": 0,
+      "y": 16100,
+      "w": 1440,
+      "h": 1300,
+      "title": "前台 · 訪客訂單檢視",
+      "expand": "fill"
+    },
+    "SandboxPay.dc.html": {
+      "x": 1520,
+      "y": 16100,
+      "w": 1440,
+      "h": 900,
+      "title": "前台 · 沙盒付款",
+      "expand": "fill"
+    },
+    "ECPayHandoff.dc.html": {
+      "x": 3040,
+      "y": 16100,
+      "w": 1440,
+      "h": 1150,
+      "title": "前台 · 綠界付款中繼頁",
+      "expand": "fill"
+    },
+    "AccountOrder.dc.html": {
+      "x": 4560,
+      "y": 16100,
+      "w": 1440,
+      "h": 1400,
+      "title": "前台 · 會員訂單詳情",
+      "expand": "fill"
+    },
+    "AccountAddresses.dc.html": {
+      "x": 6080,
+      "y": 16100,
+      "w": 1440,
+      "h": 1100,
+      "title": "前台 · 會員收件地址",
+      "expand": "fill"
+    },
+    "AccountInvoices.dc.html": {
+      "x": 7600,
+      "y": 16100,
+      "w": 1440,
+      "h": 1000,
+      "title": "前台 · 會員發票設定",
+      "expand": "fill"
+    },
+    "AccountSecurity.dc.html": {
+      "x": 9120,
+      "y": 16100,
+      "w": 1440,
+      "h": 1500,
+      "title": "前台 · 會員帳號安全",
+      "expand": "fill"
+    },
+    "AccountNotifications.dc.html": {
+      "x": 10640,
+      "y": 16100,
+      "w": 1440,
+      "h": 1000,
+      "title": "前台 · 會員通知",
+      "expand": "fill"
     }
   },
   "order": [
@@ -573,6 +637,14 @@
     "OrderDone.dc.html",
     "Account.dc.html",
     "OrderLookup.dc.html",
+    "OrderView.dc.html",
+    "SandboxPay.dc.html",
+    "ECPayHandoff.dc.html",
+    "AccountOrder.dc.html",
+    "AccountAddresses.dc.html",
+    "AccountInvoices.dc.html",
+    "AccountSecurity.dc.html",
+    "AccountNotifications.dc.html",
     "Login.dc.html",
     "Install.dc.html",
     "MobileHome.dc.html",
@@ -661,21 +733,21 @@
     },
     "t5": {
       "x": 0,
-      "y": 8600,
+      "y": 8900,
       "text": "後台 · 商店",
       "kind": "title1",
       "maxW": 7520
     },
     "t6": {
       "x": 0,
-      "y": 9940,
+      "y": 10680,
       "text": "後台 · 外觀與擴充",
       "kind": "title1",
       "maxW": 7520
     },
     "t7": {
       "x": 0,
-      "y": 11380,
+      "y": 12120,
       "text": "後台 · 帳號與系統",
       "kind": "title1",
       "maxW": 28800
@@ -693,6 +765,13 @@
       "w": 420,
       "text": "缺頁清單對照 ENG.md 里程碑\n3 編輯與發布：分類標籤、預覽、排程、版本、回收桶、導覽、留言\n2 帳號：使用者角色、個人帳號、登入裝置\n5 商店：前台商品、購物車、結帳、付款結果\n6 遷移與營運：WordPress 匯入、備份匯出、轉址、SEO、日誌\n7 品質：空白／載入／錯誤狀態",
       "fill": "orange"
+    },
+    "shop-member": {
+      "x": 0,
+      "y": 15840,
+      "text": "前台 · 訂單查詢、付款與會員中心",
+      "kind": "title1",
+      "maxW": 12080
     }
   },
   "designSystems": []

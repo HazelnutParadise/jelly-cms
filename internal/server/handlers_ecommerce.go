@@ -1,12 +1,7 @@
 package server
 
 import (
-	"net/http"
-	"strconv"
-
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
-	"github.com/HazelnutParadise/jelly-cms/internal/core"
-	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/labstack/echo/v4"
 )
 
@@ -14,61 +9,13 @@ func RegisterEcommerceRoutes(e *echo.Echo) {
 	api := e.Group("/api/admin", auth.RequireRole("admin"))
 	orderReaders := e.Group("/api/admin", auth.RequirePermission("orders_read"))
 
-	// Products
-	api.GET("/products", func(c echo.Context) error {
-		var products []core.Product
-		if err := data.DB.Find(&products).Error; err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, products)
-	})
-
-	api.POST("/products", func(c echo.Context) error {
-		productService := core.NewProductService(data.DB)
-		var product core.Product
-		if err := c.Bind(&product); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
-		}
-		if err := productService.Create(&product); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, product)
-	})
-
-	api.GET("/products/:id", func(c echo.Context) error {
-		productService := core.NewProductService(data.DB)
-		id, _ := strconv.Atoi(c.Param("id"))
-		product, err := productService.GetByID(uint(id))
-		if err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Product not found"})
-		}
-		return c.JSON(http.StatusOK, product)
-	})
-
-	api.PUT("/products/:id", func(c echo.Context) error {
-		productService := core.NewProductService(data.DB)
-		id, _ := strconv.Atoi(c.Param("id"))
-		product, err := productService.GetByID(uint(id))
-		if err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Product not found"})
-		}
-		if err := c.Bind(product); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
-		}
-		if err := productService.Update(product); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, product)
-	})
-
-	api.DELETE("/products/:id", softDeleteProduct)
+	// Products are owned by the typed catalog handlers. Orders remain below.
+	api.GET("/products", adminProductsList)
+	api.POST("/products", adminProductsCreate)
+	api.GET("/products/:id", adminProductsGet)
+	api.PUT("/products/:id", adminProductsUpdate)
+	api.DELETE("/products/:id", adminProductsDelete)
 
 	// Orders (Basic View)
-	orderReaders.GET("/orders", func(c echo.Context) error {
-		var orders []core.Order
-		if err := data.DB.Preload("User").Preload("Items").Find(&orders).Error; err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, orders)
-	})
+	orderReaders.GET("/orders", adminOrdersList)
 }

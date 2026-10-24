@@ -103,13 +103,16 @@ func (NotificationPref) TableName() string { return "notification_prefs" }
 // NotificationDelivery is one queued email or webhook send. Status held means
 // the send waits for quiet hours to end or for a sender to be configured.
 type NotificationDelivery struct {
-	ID             uint      `json:"id" gorm:"primaryKey"`
-	NotificationID uint      `json:"notification_id" gorm:"column:notification_id;not null"`
-	Channel        string    `json:"channel" gorm:"size:16;not null"`
-	Status         string    `json:"status" gorm:"size:16;not null;default:'pending'"`
-	Attempts       int       `json:"attempts" gorm:"not null;default:0"`
-	NextAttemptAt  time.Time `json:"next_attempt_at"`
-	Error          string    `json:"error" gorm:"type:text;not null;default:''"`
+	ID             uint            `json:"id" gorm:"primaryKey"`
+	NotificationID uint            `json:"notification_id" gorm:"column:notification_id"`
+	Kind           string          `json:"kind" gorm:"size:64;not null;default:''"`
+	ToAddress      string          `json:"to_address" gorm:"column:to_address;type:text;not null;default:''"`
+	Channel        string          `json:"channel" gorm:"size:16;not null"`
+	Status         string          `json:"status" gorm:"size:16;not null;default:'pending'"`
+	Attempts       int             `json:"attempts" gorm:"not null;default:0"`
+	NextAttemptAt  time.Time       `json:"next_attempt_at"`
+	Error          string          `json:"error" gorm:"type:text;not null;default:''"`
+	Params         json.RawMessage `json:"params" gorm:"type:jsonb;not null;default:'{}'"`
 }
 
 // TableName binds NotificationDelivery to notification_deliveries.

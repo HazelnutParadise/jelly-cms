@@ -336,35 +336,65 @@ B["Maintenance"] = ("前台 · 維護模式", FRONT_CSS + ".maintenance-art{posi
   <footer style="padding:24px 80px;font-size:13px;color:#5F6470;position:relative">搜尋引擎會收到 503 與 Retry-After，不會影響排名 · Powered by Jelly CMS</footer>
 </div>''')
 
-# ---------- 後台 · 折扣碼與行銷 ----------
-B["Coupons"] = ("後台 · 折扣碼", CSS, 1440, 1000, admin("orders", ["商店","折扣碼"],
-  f'<button class="btn p" type="button">{I("plus")}新增折扣碼</button>',
+# ---------- 後台 · 折扣碼 ----------
+def coupon_row(code, label, offer, cond, used, limit, pct, period, dim=False, note=""):
+    bar = f'<div class="bar" style="height:4px;background:#EDEEF1;border-radius:2px;margin-top:4px;width:80px"><span style="display:block;width:{pct}%;height:4px;background:#13C2A3"></span></div>' if limit else ''
+    sub = label + (f' · {note}' if note else '')
+    return (f'<tr{" style=\"opacity:.6\"" if dim else ""}><td><b class="mono" style="font-size:15px">{code}</b><div style="font-size:12px;color:#5F6470">{sub}</div></td>'
+            f'<td>{offer}</td><td style="color:#5F6470">{cond}</td><td><b class="mono">{used}</b> / {limit or "不限"}{bar}</td><td style="color:#5F6470">{period}</td>'
+            f'<td class="act"><button class="btn x s i" type="button" aria-label="編輯 {code}">{I("edit")}</button><button class="btn x s i" type="button" aria-label="複製 {code}">{I("copy")}</button><button class="btn x s i" type="button" aria-label="刪除 {code}">{I("trash")}</button></td></tr>')
+
+B["Coupons"] = ("後台 · 折扣碼", CSS, 1440, 1280, admin("coupons", ["商店","折扣碼"],
+  f'<button class="btn t" type="button">{I("list")}批次產生</button><button class="btn p" type="button">{I("plus")}新增折扣碼</button>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start">
     <section>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">進行中 <b>3</b></span><span>排程 1</span><span>已結束 8</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="找代碼" aria-label="搜尋" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">進行中 <b>4</b></span><span>排程 1</span><span>已結束 8</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="找代碼（跨分段搜尋）" aria-label="找代碼" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label></div>
       <table><thead><tr><th>代碼</th><th>優惠</th><th>條件</th><th>用量</th><th>期間</th><th></th></tr></thead><tbody>
-        <tr><td><b class="mono" style="font-size:15px">MOON15</b><div style="font-size:12px;color:#5F6470">中秋預購</div></td><td>85 折</td><td style="color:#5F6470">禮盒分類 · 滿 1,000</td><td><b class="mono">41</b> / 300<div class="bar" style="height:4px;background:#EDEEF1;border-radius:2px;margin-top:4px;width:80px"><span style="display:block;width:14%;height:4px;background:#13C2A3"></span></div></td><td style="color:#5F6470">9/1 – 9/20</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="複製">{I("copy")}</button><button class="btn x s i" type="button" aria-label="停用">{I("pause")}</button></td></tr>
-        <tr><td><b class="mono" style="font-size:15px">FREESHIP</b><div style="font-size:12px;color:#5F6470">免運</div></td><td>免運費</td><td style="color:#5F6470">滿 800 · 台灣本島</td><td><b class="mono">212</b> / 不限</td><td style="color:#5F6470">長期</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="複製">{I("copy")}</button><button class="btn x s i" type="button" aria-label="停用">{I("pause")}</button></td></tr>
-        <tr><td><b class="mono" style="font-size:15px">HAZEL-xxxx</b><div style="font-size:12px;color:#5F6470">訂閱者專屬 · 一人一碼</div></td><td>NT$ 100</td><td style="color:#5F6470">每人一次 · 滿 500</td><td><b class="mono">38</b> / 120 組</td><td style="color:#5F6470">到 12/31</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="匯出">{I("download")}</button><button class="btn x s i" type="button" aria-label="停用">{I("pause")}</button></td></tr>
-        <tr style="opacity:.6"><td><b class="mono" style="font-size:15px">XMAS</b><div style="font-size:12px;color:#5F6470">排程中</div></td><td>9 折</td><td style="color:#5F6470">全店</td><td class="mono">0</td><td style="color:#5F6470">12/15 起</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button></td></tr>
+        {coupon_row("MOON15","中秋預購","85 折","分類（1 項） · 滿 NT$1,000",41,300,14,"09/01–09/20")}
+        {coupon_row("FREESHIP","免運","免運費","全店 · 滿 NT$800",212,None,0,"長期")}
+        {coupon_row("BUY3GET1","果凍買三送一","買 3 送 1","全店 · 每人 1 次 · 只給會員",9,None,0,"到 10/31")}
+        {coupon_row("VIP7Q2KD9","批次：VIP","9 折","全店 · 限 vip@example.com",0,1,0,"到 12/31")}
+        {coupon_row("SUMMER10","夏季","9 折","全店",128,None,0,"長期",dim=True,note="已停用")}
       </tbody></table>
-      <div style="margin-top:20px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
-        <div class="card" style="display:flex;flex-direction:column;gap:4px"><span class="lbl">本月折扣帶來</span><b class="mono" style="font-size:24px">NT$ 48,200</b><span style="font-size:12px;color:#5F6470">62 筆訂單 · 讓利 NT$ 6,930</span></div>
-        <div class="card" style="display:flex;flex-direction:column;gap:4px"><span class="lbl">數位商品交付</span><b class="mono" style="font-size:24px">17 次</b><span style="font-size:12px;color:#5F6470">付款後寄下載連結，24 小時、3 次有效</span></div>
-        <div class="card" style="display:flex;flex-direction:column;gap:4px"><span class="lbl">訂閱制</span><b style="font-size:14px;color:#5F6470">之後再做</b><span style="font-size:12px;color:#5F6470">每月定期扣款要金流支援定期定額，先列在里程碑 5 後段</span></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:#5F6470">{I("alert",14)}用過的折扣碼不能刪除，按刪除會改問要不要停用；沒用過的才會真的刪掉。</div>
+      <div style="margin-top:20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start">
+        <div class="card" style="display:flex;flex-direction:column;gap:4px"><span class="lbl">本月折扣帶來</span><b class="mono" style="font-size:24px">NT$48,200</b><span style="font-size:12px;color:#5F6470">62 筆訂單 · 讓利 NT$6,930</span></div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px" role="group" aria-label="批次產生一人一碼">
+          <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:32px"></span><b style="font-size:14px">批次產生一人一碼</b></div>
+          <div style="font-size:12px;color:#5F6470">用右側表單目前的類型、折扣、條件與期間當範本，每個代碼限用一次。</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">前綴</span><input class="ul mono" type="text" value="VIP"></div><div><span class="lbl">數量（1–1000）</span><input class="ul mono" type="text" value="50"></div></div>
+          <div><span class="lbl">只限這個 Email（選填）</span><input class="ul" type="text" placeholder="vip@example.com"></div>
+          <div style="font-size:13px;padding:8px 10px;background:#F3F3F5;border-radius:0 8px 0 8px">已產生 50 個代碼</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn p s" type="button">{I("list",12)}產生</button><button class="btn t s" type="button">{I("download",12)}下載代碼 CSV</button><button class="btn t s" type="button">關閉</button></div>
+          <div style="font-size:12px;color:#5F6470">伺服器有回傳代碼清單時才出現下載鈕。</div>
+        </div>
       </div>
     </section>
     <aside class="card" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:14px">
-      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">新增折扣碼</b></div>
-      <div><span class="lbl">代碼</span><div style="display:flex;gap:8px;align-items:center"><input class="ul" type="text" value="MOON15" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px;letter-spacing:.04em"><button class="btn t s" type="button">{I("refresh",12)}隨機</button></div></div>
+      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">編輯：MOON15</b><span class="chip ok" style="margin-left:auto">進行中</span></div>
+      <div><span class="lbl">代碼</span><div style="display:flex;gap:8px;align-items:center"><input class="ul" type="text" value="MOON15" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px;letter-spacing:.04em"><button class="btn t s" type="button">{I("refresh",12)}隨機</button></div><div style="font-size:12px;color:#5F6470;margin-top:4px">英數字、- 與 _；用過的代碼不能改。</div></div>
+      <div><span class="lbl">名稱（只在後台）</span><input class="ul" type="text" value="中秋預購"></div>
       <div><span class="lbl">類型</span><div class="seg" style="margin-top:6px"><span class="on">百分比</span><span>固定金額</span><span>免運</span><span>買 X 送 Y</span></div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">折扣</span><input class="ul" type="text" value="15 %"></div><div><span class="lbl">最低消費</span><input class="ul" type="text" value="NT$ 1,000"></div></div>
-      <div><span class="lbl">適用</span><div class="seg" style="margin-top:6px"><span>全店</span><span class="on">分類</span><span>指定商品</span></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><span class="chip nd">禮盒 ×</span><button class="btn x s" type="button">{I("plus",12)}加分類</button></div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">總次數上限</span><input class="ul" type="text" value="300"></div><div><span class="lbl">每人</span><input class="ul" type="text" value="1 次"></div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">開始</span><input class="ul" type="text" value="2026-09-01 00:00"></div><div><span class="lbl">結束</span><input class="ul" type="text" value="2026-09-20 23:59"></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">折扣</span><div style="display:flex;align-items:center;gap:6px"><input class="ul mono" type="text" value="15" style="text-align:right"><span style="color:#5F6470">%</span></div></div><div><span class="lbl">最低消費 (NT$)</span><input class="ul mono" type="text" value="1000"></div></div>
+      <div style="border:1.5px dashed #B9BCC6;border-radius:0 12px 0 12px;padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px"><span class="chip info nd">買 X 送 Y</span><span style="font-size:12px;color:#5F6470">類型選「買 X 送 Y」時取代上面的折扣欄</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">買幾件</span><input class="ul mono" type="text" value="3"></div><div><span class="lbl">送幾件</span><input class="ul mono" type="text" value="1"></div></div>
+        <div style="font-size:12px;color:#5F6470">同一適用範圍的商品，每買足件數就送最便宜的件數；贈品不另算運費。</div>
+      </div>
+      <div><span class="lbl">適用</span><div class="seg" style="margin-top:6px"><span>全店</span><span class="on">分類</span><span>指定商品</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:13px;font-weight:600"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" style="accent-color:#E8285B;width:16px;height:16px;margin:0">果凍</label><label style="display:flex;align-items:center;gap:8px;padding-left:20px"><input type="checkbox" style="accent-color:#E8285B;width:16px;height:16px;margin:0">水果</label><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" checked style="accent-color:#E8285B;width:16px;height:16px;margin:0">禮盒</label></div>
+        <div style="font-size:12px;color:#5F6470;margin-top:6px">選「指定商品」時改成搜尋商品並加入。</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">總次數上限</span><input class="ul mono" type="text" value="300"></div><div><span class="lbl">每人次數</span><input class="ul mono" type="text" placeholder="不限"></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">開始</span><input class="ul mono" type="text" value="2026/09/01 00:00"></div><div><span class="lbl">結束</span><input class="ul mono" type="text" value="2026/09/20 23:59"></div></div>
+      <div><span class="lbl">只限這個 Email（選填）</span><input class="ul" type="text" placeholder="name@example.com"></div>
       <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">可與免運碼疊加<span class="tg"></span></label>
-      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">只給登入會員<span class="tg off"></span></label>
-      <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("save")}建立</button><button class="btn t" type="button">{I("eye")}在結帳頁預覽</button></div>
+      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">只給會員<span class="tg off"></span></label>
+      <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:600"><span>啟用<span style="display:block;font-size:12px;font-weight:400;color:#5F6470">停用後顧客無法套用，已用過的紀錄保留。</span></span><span class="tg"></span></label>
+      <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("eye")}在結帳頁預覽</button></div>
+      <div style="border:1.5px dashed #B9BCC6;border-radius:0 12px 0 12px;padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">試算小計 (NT$)</span><input class="ul mono" type="text" value="1200"></div><div><span class="lbl">件數</span><input class="ul mono" type="text" value="2"></div></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button class="btn t s" type="button">{I("eye",12)}試算</button><span style="font-size:13px;padding:6px 10px;background:#F3F3F5;border-radius:0 8px 0 8px">折抵 NT$180，結帳金額 NT$1,020</span></div>
+      </div>
     </aside>
   </main>'''))
 
