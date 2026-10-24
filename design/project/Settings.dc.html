@@ -81,6 +81,7 @@ textarea.ul{resize:vertical;line-height:1.6}
       <nav class="sub" style="display: flex; flex-direction: column; gap: 2px; position: sticky; top: 16px" aria-label="設定分類">
         <a href="Settings.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>網站</a>
         <a href="Settings.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l3 3"/></svg>登入與 OAuth</a>
+        <a href="Settings.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>商店</a>
         <a href="Settings.dc.html" class="on"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18"/><circle cx="7" cy="15" r="1" fill="currentColor"/></svg>金流</a>
         <a href="Settings.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6"/><circle cx="7" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></svg>運送</a>
         <a href="Settings.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 7l9 6 9-6"/></svg>郵件</a>
@@ -90,23 +91,25 @@ textarea.ul{resize:vertical;line-height:1.6}
       </nav>
 
       <section style="display: flex; flex-direction: column; gap: 28px; max-width: 920px">
+        <!-- 金流分頁（目前所在） -->
         <div class="pane">
-          <div class="tab" role="tablist" aria-label="商店設定"><a href="Settings.dc.html" class="on" role="tab" aria-selected="true"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18"/></svg>金流</a><a href="Settings.dc.html" role="tab"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6"/><circle cx="7" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></svg>運送</a></div>
+          <div class="tab" role="tablist" aria-label="商店設定"><a href="Settings.dc.html" role="tab" aria-selected="false"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>商店</a><a href="Settings.dc.html" role="tab" aria-selected="false"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6"/><circle cx="7" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></svg>運送</a><a href="Settings.dc.html" role="tab" class="on" aria-selected="true"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18"/></svg>金流</a></div>
           <div>
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 8px"><div><h1 class="d" style="font-size: 24px">綠界 ECPay</h1><div style="color: #5F6470; font-size: 13px; margin-top: 2px">信用卡、ATM、超商代碼。</div></div><span class="tg" role="img" aria-label="已啟用"></span></div>
             <div class="srow"><div><label for="e1">商店代號 (Merchant ID)</label></div><div class="c"><input id="e1" class="ul mono" type="text" value="2000132"></div></div>
-            <div class="srow"><div><label for="e2">Hash Key</label><div class="h">只顯示最後四碼，按右邊的筆重新輸入即覆蓋。</div></div><div class="c"><input id="e2" class="ul ro" type="text" value="****1234" readonly aria-describedby="e2"><button class="btn t s i" type="button" aria-label="重新輸入"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/></svg></button></div></div>
-            <div class="srow"><div><label for="e3">Hash IV</label></div><div class="c"><input id="e3" class="ul ro" type="text" value="****5678" readonly aria-describedby="e3"><button class="btn t s i" type="button" aria-label="重新輸入"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/></svg></button></div></div>
+            <div class="srow"><div><label for="e2">Hash Key</label><div class="h">保留：只顯示最後四碼。鉛筆＝更換，垃圾桶＝儲存後清空。</div></div><div class="c"><input id="e2" class="ul ro" type="text" value="****1234" readonly><button class="btn t s i" type="button" aria-label="更換 Hash Key"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/></svg></button><button class="btn x s i" type="button" aria-label="清空 Hash Key"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button></div></div>
+            <div class="srow"><div><label for="e3">Hash IV</label><div class="h">更換中：輸入新的值，儲存前可取消更換。</div></div><div class="c"><input id="e3" class="ul mono" type="password" value="xxxxxxxxxxxx" placeholder="輸入新的值"><button class="btn t s i" type="button" aria-label="取消更換"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button></div></div>
             <div class="srow"><div><label>環境</label><div class="h">測試環境不會真的收款。</div></div><div class="c"><div class="seg"><span class="on">測試</span><span>正式</span></div></div></div>
-            <div class="srow"><div><label>通知網址 (Notify URL)</label><div class="h">貼到綠界後台的「付款結果通知網址」。</div></div><div class="c"><span class="code">/api/payment/ecpay/notify</span><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 15V4h11"/></svg>複製</button></div></div>
-            <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label>連線測試</label><div class="h">上次：10/21 14:02 成功</div></div><div class="c"><span class="chip ok">憑證有效</span><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>連線測試</button></div></div>
+            <div class="srow"><div><label>通知網址 (Notify URL)</label><div class="h">貼到綠界後台的「付款結果通知網址」。</div></div><div class="c"><span class="code">https://shop.example.com/api/payment/ecpay/notify</span><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 15V4h11"/></svg>複製</button></div></div>
+            <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label>連線測試</label><div class="h">只有伺服器實際向綠界驗證成功才顯示「憑證有效」；未儲存的金鑰要先儲存再測。上次：10/21 14:02</div></div><div class="c"><span class="chip ok">憑證有效</span><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>連線測試</button></div></div>
           </div>
           <div>
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 8px"><div><h2 class="d" style="font-size: 20px">藍新 NewebPay</h2><div style="color: #5F6470; font-size: 13px; margin-top: 2px">信用卡、ATM、超商。轉接器保留，目前不開放結帳。</div></div><span class="tg off" role="img" aria-label="已停用"></span></div>
-            <div class="srow" style="opacity: .5"><div><label for="n1">商店代號 (Merchant ID)</label></div><div class="c"><input id="n1" class="ul" type="text" placeholder="MS1234567"></div></div>
-            <div class="srow" style="opacity: .5"><div><label for="n2">Hash Key</label></div><div class="c"><input id="n2" class="ul" type="password"></div></div>
-            <div class="srow" style="opacity: .5"><div><label for="n3">Hash IV</label></div><div class="c"><input id="n3" class="ul" type="password"></div></div>
-            <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label>通知網址 (Notify URL)</label></div><div class="c"><span class="code" style="opacity:.6">/api/payment/newebpay/notify</span><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 15V4h11"/></svg>複製</button><button class="btn t s" type="button" disabled style="opacity: .5"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>連線測試</button></div></div>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 8px"><div><h2 class="d" style="font-size: 20px">藍新 NewebPay</h2><div style="color: #5F6470; font-size: 13px; margin-top: 2px">轉接器保留，目前不開放結帳。</div></div><span class="tg off" role="img" aria-label="已停用"></span></div>
+            <div class="srow" style="opacity: .5"><div><label for="n1">商店代號 (Merchant ID)</label></div><div class="c"><input id="n1" class="ul mono" type="text" value="MS1234567"></div></div>
+            <div class="srow" style="opacity: .5"><div><label for="n2">Hash Key</label><div class="h">清空：儲存後刪除，可按復原取消。</div></div><div class="c"><input id="n2" class="ul ro" type="text" placeholder="儲存後清空" readonly><button class="btn t s i" type="button" aria-label="取消清空"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button></div></div>
+            <div class="srow" style="opacity: .5"><div><label for="n3">Hash IV</label></div><div class="c"><input id="n3" class="ul" type="password" placeholder="未設定"></div></div>
+            <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label>連線測試</label><div class="h">10/21 14:05 · 尚未設定完整憑證</div></div><div class="c"><span class="chip bad" style="background:#FADEDA;color:#9C2318">檢查失敗</span><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>連線測試</button></div></div>
+            <div style="font-size: 12px; color: #9C2318; padding-top: 8px">要啟用藍新時，商店代號、Hash Key、Hash IV 都要有值；缺一個就不能儲存啟用。</div>
           </div>
           <div>
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 8px"><div><h2 class="d" style="font-size: 20px">銀行轉帳（人工確認）</h2><div style="color: #5F6470; font-size: 13px; margin-top: 2px">不經金流。顧客匯款後，你在訂單頁按「人工確認收款」。</div></div><span class="tg" role="img" aria-label="已啟用"></span></div>
@@ -114,42 +117,74 @@ textarea.ul{resize:vertical;line-height:1.6}
 玉山銀行（808） 0123-456-789-012
 戶名：榛果繽紛樂
 匯款後請回信附上帳號末五碼，我們確認後會出貨。</textarea></div></div>
-            <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label>保留時間</label><div class="h">逾期未確認會釋放庫存與折扣碼次數。</div></div><div class="c"><span class="chip">72 小時</span></div></div>
+            <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label>保留時間</label><div class="h">逾期未確認會釋放庫存與折扣碼次數；時間在「商店」分頁調整。</div></div><div class="c"><span class="chip">72 小時</span></div></div>
+          </div>
+          <div>
+            <h2 class="d" style="font-size: 20px">付款方式對應</h2>
+            <div style="color: #5F6470; font-size: 13px; margin: 2px 0 8px">每種付款方式交給哪個金流；選「不提供」就不在結帳頁出現。</div>
+            <div class="srow"><div><label for="m1">信用卡</label></div><div class="c"><select id="m1" class="ul"><option>綠界</option><option>不提供</option><option>藍新</option><option>測試金流</option></select></div></div>
+            <div class="srow"><div><label for="m2">ATM</label></div><div class="c"><select id="m2" class="ul"><option>綠界</option></select></div></div>
+            <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label for="m3">超商代碼</label></div><div class="c"><select id="m3" class="ul"><option>不提供</option></select></div></div>
           </div>
           <div>
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 8px"><div><h2 class="d" style="font-size: 20px">沙盒（測試用，正式環境不顯示）</h2><div style="color: #5F6470; font-size: 13px; margin-top: 2px">結帳頁多一個「測試付款」，可按成功、失敗或 ATM 待繳。只在非正式環境出現。</div></div><span class="tg" role="img" aria-label="已啟用"></span></div>
           </div>
+        </div>
+
+        <div class="lbl" style="display:flex;align-items:center;gap:8px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>切到「商店」分頁</div>
+        <div class="pane">
+          <div class="tab" role="tablist" aria-label="商店設定"><a href="Settings.dc.html" role="tab" class="on" aria-selected="true"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>商店</a><a href="Settings.dc.html" role="tab" aria-selected="false"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6"/><circle cx="7" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></svg>運送</a><a href="Settings.dc.html" role="tab" aria-selected="false"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18"/></svg>金流</a></div>
           <div>
-            <h2 class="d" style="font-size: 20px; padding-bottom: 8px">稅</h2>
-            <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label>稅</label><div class="h">商品售價就是顧客付的錢，收據上另列稅額。</div></div><div class="c"><div class="seg"><span class="on">含稅價</span><span>未稅加稅</span></div><span class="chip nd" style="background:#F3F3F5">收據列 5%</span></div></div>
+            <h2 class="d" style="font-size: 24px">商店</h2>
+            <div style="color: #5F6470; font-size: 13px; margin: 2px 0 8px">幣別、稅、聯絡方式與收據資料。</div>
+            <div class="srow"><div><label for="c1">幣別</label><div class="h">目前只支援新台幣。</div></div><div class="c"><select id="c1" class="ul" style="max-width: 200px"><option>TWD（NT$）</option></select></div></div>
+            <div class="srow"><div><label for="c2">稅</label><div class="h">含稅價：商品售價就是顧客付的錢，收據另列稅額。</div></div><div class="c"><span class="chip" style="background:#DDE7FF;color:#1C47B8">含稅價</span><input id="c2" class="ul mono" type="text" value="5" style="max-width: 64px; text-align: right"><span style="color: #5F6470">%</span></div></div>
+            <div class="srow"><div><label for="c3">客服信箱</label><div class="h">顯示在確認信與訂單頁。</div></div><div class="c"><input id="c3" class="ul" type="text" value="hello@example.com"></div></div>
+            <div class="srow" style="align-items: start"><div><label for="c4">收據賣方資料</label><div class="h">公司名稱、統一編號與地址，列印收據時使用。</div></div><div class="c"><textarea id="c4" class="ul" rows="3">榛果繽紛樂有限公司
+統一編號 12345678
+台中市西屯區文心路三段 100 號</textarea></div></div>
+            <div class="srow"><div><label for="c5">購物條款頁</label><div class="h">結帳頁「同意條款」連到這一頁。</div></div><div class="c"><select id="c5" class="ul"><option>購物須知與退換貨</option></select></div></div>
+            <div class="srow"><div><label for="c6">訂單編號前綴</label><div class="h">例如 JL → JL-2026-0001。</div></div><div class="c"><input id="c6" class="ul mono" type="text" value="JL" style="max-width: 120px"></div></div>
+            <div class="srow"><div><label for="c7">預設低庫存門檻</label><div class="h">新商品的低庫存門檻。</div></div><div class="c"><input id="c7" class="ul mono" type="text" value="5" style="max-width: 120px; text-align: right"></div></div>
+            <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label for="c8">鑑賞期（天）</label><div class="h">商品頁與確認信顯示的鑑賞天數。</div></div><div class="c"><input id="c8" class="ul mono" type="text" value="7" style="max-width: 120px; text-align: right"></div></div>
+          </div>
+          <div>
+            <h2 class="d" style="font-size: 20px">庫存保留</h2>
+            <div style="color: #5F6470; font-size: 13px; margin: 2px 0 8px">下單時保留庫存；逾期未付自動釋放庫存與折扣碼次數。</div>
+            <div class="srow"><div><label for="h1">信用卡</label></div><div class="c"><input id="h1" class="ul mono" type="text" value="30" style="max-width: 90px; text-align: right"><span style="color: #5F6470">分鐘</span></div></div>
+            <div class="srow"><div><label for="h2">ATM、超商代碼與轉帳</label></div><div class="c"><input id="h2" class="ul mono" type="text" value="72" style="max-width: 90px; text-align: right"><span style="color: #5F6470">小時</span></div></div>
+            <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label for="h3">付款失敗後保留</label></div><div class="c"><input id="h3" class="ul mono" type="text" value="24" style="max-width: 90px; text-align: right"><span style="color: #5F6470">小時</span></div></div>
           </div>
         </div>
+
         <div class="lbl" style="display:flex;align-items:center;gap:8px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6"/><circle cx="7" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></svg>切到「運送」分頁</div>
         <div class="pane">
-          <div class="tab" role="tablist" aria-label="商店設定"><a href="Settings.dc.html" role="tab"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18"/></svg>金流</a><a href="Settings.dc.html" class="on" role="tab" aria-selected="true"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6"/><circle cx="7" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></svg>運送</a></div>
+          <div class="tab" role="tablist" aria-label="商店設定"><a href="Settings.dc.html" role="tab" aria-selected="false"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>商店</a><a href="Settings.dc.html" role="tab" class="on" aria-selected="true"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6"/><circle cx="7" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></svg>運送</a><a href="Settings.dc.html" role="tab" aria-selected="false"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18"/></svg>金流</a></div>
           <div>
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 8px"><div><h2 class="d" style="font-size: 24px">運送方式</h2><div style="color: #5F6470; font-size: 13px; margin-top: 2px">結帳頁只列啟用的方式，順序照這裡。</div></div><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新增方式</button></div>
             <table>
-              <thead><tr><th>方式</th><th>運費</th><th>預計</th><th>說明</th><th class="a">啟用</th><th class="a"></th></tr></thead>
+              <thead><tr><th>方式</th><th class="a">運費 (NT$)</th><th class="a">預計天數</th><th>需填地址</th><th>啟用</th><th class="a"></th></tr></thead>
               <tbody>
-                <tr><td style="font-weight:700"><span style="display:inline-flex;align-items:center;gap:8px"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6"/><circle cx="7" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></svg>宅配</span></td><td class="mono">NT$80</td><td style="color:#5F6470">2 天</td><td style="color:#5F6470">需填地址 · 滿免運門檻免運</td><td class="a"><span class="tg" role="img" aria-label="已啟用"></span></td><td class="a"><button class="btn x s i" type="button" aria-label="編輯"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/></svg></button></td></tr>
-                <tr><td style="font-weight:700"><span style="display:inline-flex;align-items:center;gap:8px"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>自取</span></td><td class="mono">免運</td><td style="color:#5F6470">當天可取</td><td style="color:#5F6470">台中門市 · 不需填地址</td><td class="a"><span class="tg" role="img" aria-label="已啟用"></span></td><td class="a"><button class="btn x s i" type="button" aria-label="編輯"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/></svg></button></td></tr>
-                <tr style="opacity:.55"><td style="font-weight:700"><span style="display:inline-flex;align-items:center;gap:8px"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>超商取貨<span class="chip nd" style="margin-left:8px">稍後開放</span></span></td><td class="mono">NT$60</td><td style="color:#5F6470">3 天</td><td style="color:#5F6470">門市選擇器之後接</td><td class="a"><span class="tg off" role="img" aria-label="未啟用"></span></td><td class="a"><button class="btn x s i" type="button" aria-label="編輯" disabled style="opacity:.4"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/></svg></button></td></tr>
+                <tr><td><input class="ul" type="text" value="宅配" aria-label="方式名稱"></td><td><input class="ul mono" type="text" value="80" style="text-align: right" aria-label="宅配運費"></td><td><input class="ul mono" type="text" value="2" style="text-align: right; max-width: 64px" aria-label="宅配預計天數"></td><td><input type="checkbox" checked aria-label="宅配需填地址" style="accent-color:#E8285B;width:16px;height:16px"></td><td><span class="tg" role="img" aria-label="已啟用"></span></td><td></td></tr>
+                <tr><td><input class="ul" type="text" value="自取" aria-label="方式名稱"></td><td><input class="ul mono" type="text" value="0" style="text-align: right" aria-label="自取運費"></td><td><input class="ul mono" type="text" value="0" style="text-align: right; max-width: 64px" aria-label="自取預計天數"></td><td><input type="checkbox" aria-label="自取需填地址" style="accent-color:#E8285B;width:16px;height:16px"></td><td><span class="tg" role="img" aria-label="已啟用"></span></td><td></td></tr>
+                <tr style="opacity:.55"><td><span style="display:inline-flex;align-items:center;gap:8px;font-weight:700">超商取貨<span class="chip">稍後開放</span></span></td><td class="a mono">60</td><td class="a mono">3</td><td><input type="checkbox" disabled aria-label="超商取貨需填地址" style="width:16px;height:16px"></td><td><span class="tg off" role="img" aria-label="稍後開放，不能啟用"></span></td><td></td></tr>
+                <tr><td><input class="ul" type="text" value="冷藏宅配" aria-label="方式名稱"></td><td><input class="ul mono" type="text" value="160" style="text-align: right" aria-label="冷藏宅配運費"></td><td><input class="ul mono" type="text" value="2" style="text-align: right; max-width: 64px" aria-label="冷藏宅配預計天數"></td><td><input type="checkbox" checked aria-label="冷藏宅配需填地址" style="accent-color:#E8285B;width:16px;height:16px"></td><td><span class="tg off" role="img" aria-label="未啟用"></span></td><td class="a"><button class="btn x s i" type="button" aria-label="刪除冷藏宅配"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button></td></tr>
               </tbody>
             </table>
+            <div style="font-size: 12px; color: #5F6470; padding-top: 6px">運費以元輸入，系統以分儲存。宅配、自取與超商取貨是內建方式，不能刪除。</div>
           </div>
           <div>
-            <div class="srow"><div><label for="fs">免運門檻</label><div class="h">小計達門檻，宅配運費變 0。空白代表不設免運。</div></div><div class="c"><input id="fs" class="ul mono" type="text" value="NT$1,000" style="max-width: 160px; text-align: right"></div></div>
+            <div class="srow"><div><label for="fs">免運門檻 (NT$)</label><div class="h">小計達門檻，宅配運費變 0。留空或 0 代表不設免運。</div></div><div class="c"><input id="fs" class="ul mono" type="text" value="1000" style="max-width: 160px; text-align: right"></div></div>
             <div class="srow" style="align-items: start; border-bottom: 1px solid #EEEFF2"><div><label for="pk">自取說明</label><div class="h">顯示在結帳頁、確認信與訂單頁。</div></div><div class="c"><textarea id="pk" class="ul" rows="3" style="min-height: 70px">台中市西屯區文心路三段 100 號 1 樓。週二至週日 11:00–19:00，備貨完成會寄信通知，請帶訂單編號。</textarea></div></div>
           </div>
         </div>
-        <div style="background: #F5F5F7; border-radius: 0 14px 0 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; font-size: 13px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v4M12 17v1"/></svg><div>金鑰只存在伺服器端資料庫，後台只回傳遮罩值（****1234）。改動會寫進系統日誌。</div><a href="Settings.dc.html" style="margin-left: auto; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px">查看日誌<svg class="ic" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></div>
+        <div style="background: #F5F5F7; border-radius: 0 14px 0 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; font-size: 13px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v4M12 17v1"/></svg><div>金鑰只存在伺服器端資料庫，後台只回傳遮罩值（****1234）。載入設定只讀不寫；儲存只送有改動的欄位。儲存與重新讀取期間暫停編輯，可切換分頁查看；儲存成功但讀回失敗時保留輸入並提供重新讀取。</div><a href="Settings.dc.html" style="margin-left: auto; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px">查看日誌<svg class="ic" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></div>
       </section>
     </main>
   </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2060}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":3360}}'>
 class Component extends DCLogic {
   renderVals() { return {}; }
 }

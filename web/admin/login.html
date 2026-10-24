@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="{{.Lang}}">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
-    <title>登入 · Jelly CMS</title>
+    <title>{{if eq .Lang "en"}}Sign in · Jelly CMS{{else}}登入 · Jelly CMS{{end}}</title>
     <style>
         @font-face {
             font-family: "Noto Sans TC";
@@ -78,6 +78,16 @@
         .lede { color: var(--muted); margin-top: .35rem; }
         .notice { padding: .75rem 1rem; border-radius: var(--r-sm); background: color-mix(in srgb, var(--success) 12%, var(--surface)); color: color-mix(in srgb, var(--success) 80%, var(--ink)); font-weight: 500; }
         .notice[hidden] { display: none; }
+        .login-error { padding: .75rem 1rem; border-radius: var(--r-sm); background: color-mix(in srgb, var(--primary) 12%, var(--surface)); color: var(--primary); }
+        .login-error[hidden], #mfaStep[hidden] { display: none; }
+        .otp-label { display: block; margin-bottom: .4rem; font-weight: 600; font-size: .8125rem; color: var(--muted); }
+        .otp-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .5rem; }
+        .otp-digit { width: 100%; min-height: 3.5rem; padding: 0 !important; border: 0 !important; border-radius: 0 .6rem 0 .6rem; background: var(--surface-mid) !important; box-shadow: inset 0 0 0 1.5px transparent; font: 800 1.5rem var(--font-display) !important; text-align: center; }
+        .otp-digit:focus { background: var(--surface) !important; box-shadow: inset 0 0 0 2px var(--secondary) !important; }
+        #mfaRecoveryCode { letter-spacing: .06em; }
+        .login-actions { display: grid; gap: .6rem; }
+        .text-button { padding: .25rem; border: 0; background: transparent; color: var(--secondary); font: inherit; font-weight: 650; text-align: left; cursor: pointer; }
+        [hidden] { display: none !important; }
 
         .container > div:first-child::before { content: ""; display: block; width: 3.5rem; height: 3px; margin-bottom: 1rem; transform: skewX(-32deg); transform-origin: left bottom; background: linear-gradient(90deg, var(--primary) 0 52%, transparent 52% 60%, var(--secondary) 60% 82%, transparent 82% 88%, var(--accent) 88% 100%); }
         .icon { width: 1.1em; height: 1.1em; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: square; stroke-linejoin: miter; flex: 0 0 auto; display: inline-block; vertical-align: -.18em; }
@@ -123,39 +133,66 @@
     <aside class="art" aria-hidden="true">
         <i></i><i></i><i></i><i></i><i></i>
         <div class="art-brand"><img class="mark" src="/admin/assets/jelly-mark.svg" alt="" aria-hidden="true"><span>Jelly CMS</span></div>
-        <div class="art-note">比 WordPress 更快的內容管理系統。</div>
+        <div class="art-note">{{if eq .Lang "en"}}A faster content management system than WordPress.{{else}}比 WordPress 更快的內容管理系統。{{end}}</div>
     </aside>
 
     <main class="panel">
         <div class="container">
             <div>
-                <h1>登入</h1>
-                <p class="lede">請選擇登入方式</p>
+                <h1>{{if eq .Lang "en"}}Sign in{{else}}登入{{end}}</h1>
+                <p class="lede">{{if eq .Lang "en"}}Choose a sign-in method{{else}}請選擇登入方式{{end}}</p>
             </div>
             <p id="installedNotice" class="notice" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+            <p id="loginStatus" class="login-error" role="alert" aria-live="assertive" hidden></p>
 
             <!-- Local Login Form -->
             <form id="localLoginForm" data-redirect-url="{{.RedirectURL}}">
                 <div>
-                    <label for="loginUsername">用戶名或 Email</label>
-                    <input type="text" id="loginUsername" name="username" placeholder="admin" autocomplete="username" required>
+                    <label for="loginUsername">{{if eq .Lang "en"}}Username or email{{else}}用戶名或 Email{{end}}</label>
+                    <input type="text" id="loginUsername" name="username" placeholder="{{if eq .Lang "en"}}Username or email{{else}}admin{{end}}" autocomplete="username" required>
                 </div>
                 <div>
-                    <label for="loginPassword">密碼</label>
+                    <label for="loginPassword">{{if eq .Lang "en"}}Password{{else}}密碼{{end}}</label>
                     <input type="password" id="loginPassword" name="password" placeholder="••••••••••••" autocomplete="current-password" required>
                 </div>
-                <button type="submit" class="btn"><svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg>登入</button>
+                <button type="submit" class="btn"><svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg>{{if eq .Lang "en"}}Sign in{{else}}登入{{end}}</button>
             </form>
 
-            <div class="divider" id="oauthDivider" style="display: none;">或</div>
+            <section id="mfaStep" aria-labelledby="mfaTitle" hidden>
+                <div>
+                    <h1 id="mfaTitle">{{if eq .Lang "en"}}Two-step verification{{else}}兩步驟驗證{{end}}</h1>
+                    <p class="lede" id="mfaDescription">{{if eq .Lang "en"}}Enter a code from your authenticator app.{{else}}請輸入驗證器 App 的驗證碼。{{end}}</p>
+                </div>
+                <form id="mfaForm" novalidate>
+                    <div>
+                        <label class="otp-label" id="mfaCodeLabel">{{if eq .Lang "en"}}6-digit code{{else}}6 位數驗證碼{{end}}</label>
+                        <div class="otp-grid" id="mfaOTP" role="group" aria-labelledby="mfaCodeLabel" aria-describedby="loginStatus">
+                            <input class="otp-digit" data-otp-index="0" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="1" pattern="[0-9]" aria-label="{{if eq .Lang "en"}}Digit 1{{else}}第 1 碼{{end}}">
+                            <input class="otp-digit" data-otp-index="1" type="text" inputmode="numeric" autocomplete="off" maxlength="1" pattern="[0-9]" aria-label="{{if eq .Lang "en"}}Digit 2{{else}}第 2 碼{{end}}">
+                            <input class="otp-digit" data-otp-index="2" type="text" inputmode="numeric" autocomplete="off" maxlength="1" pattern="[0-9]" aria-label="{{if eq .Lang "en"}}Digit 3{{else}}第 3 碼{{end}}">
+                            <input class="otp-digit" data-otp-index="3" type="text" inputmode="numeric" autocomplete="off" maxlength="1" pattern="[0-9]" aria-label="{{if eq .Lang "en"}}Digit 4{{else}}第 4 碼{{end}}">
+                            <input class="otp-digit" data-otp-index="4" type="text" inputmode="numeric" autocomplete="off" maxlength="1" pattern="[0-9]" aria-label="{{if eq .Lang "en"}}Digit 5{{else}}第 5 碼{{end}}">
+                            <input class="otp-digit" data-otp-index="5" type="text" inputmode="numeric" autocomplete="off" maxlength="1" pattern="[0-9]" aria-label="{{if eq .Lang "en"}}Digit 6{{else}}第 6 碼{{end}}">
+                        </div>
+                        <input id="mfaRecoveryCode" type="text" inputmode="text" autocomplete="off" maxlength="64" aria-describedby="loginStatus" hidden>
+                    </div>
+                    <div class="login-actions">
+                        <button type="submit" class="btn" id="mfaSubmit">{{if eq .Lang "en"}}Verify and sign in{{else}}驗證並登入{{end}}</button>
+                        <button type="button" class="text-button" id="mfaRecovery">{{if eq .Lang "en"}}Use a recovery code{{else}}改用備用碼{{end}}</button>
+                        <button type="button" class="text-button" id="mfaBack">{{if eq .Lang "en"}}Back to sign in{{else}}返回登入{{end}}</button>
+                    </div>
+                </form>
+            </section>
+
+            <div class="divider" id="oauthDivider" style="display: none;">{{if eq .Lang "en"}}or{{else}}或{{end}}</div>
 
             <!-- OAuth Login -->
             <div id="oauthButtons" style="display: none;">
-                <a href="#" class="btn btn-tonal" id="googleBtn" style="display: none;" onclick="event.preventDefault(); window.location.href='/auth/google?redirect=' + encodeURIComponent(new URLSearchParams(window.location.search).get('redirect') || '/admin');"><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg>使用 Google 登入</a>
-                <a href="#" class="btn btn-tonal" id="githubBtn" style="display: none;" onclick="event.preventDefault(); window.location.href='/auth/github?redirect=' + encodeURIComponent(new URLSearchParams(window.location.search).get('redirect') || '/admin');"><svg class="icon" aria-hidden="true"><use href="#i-key"/></svg>使用 GitHub 登入</a>
-                <p class="oauth-note">OAuth 首次登入將自動創建帳號</p>
+                <a href="#" class="btn btn-tonal" id="googleBtn" style="display: none;" onclick="event.preventDefault(); window.location.href='/auth/google?redirect=' + encodeURIComponent(new URLSearchParams(window.location.search).get('redirect') || '/admin');"><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg>{{if eq .Lang "en"}}Sign in with Google{{else}}使用 Google 登入{{end}}</a>
+                <a href="#" class="btn btn-tonal" id="githubBtn" style="display: none;" onclick="event.preventDefault(); window.location.href='/auth/github?redirect=' + encodeURIComponent(new URLSearchParams(window.location.search).get('redirect') || '/admin');"><svg class="icon" aria-hidden="true"><use href="#i-key"/></svg>{{if eq .Lang "en"}}Sign in with GitHub{{else}}使用 GitHub 登入{{end}}</a>
+                <p class="oauth-note">{{if eq .Lang "en"}}An account is created automatically on your first OAuth sign-in.{{else}}OAuth 首次登入將自動創建帳號{{end}}</p>
             </div>
-            <p class="oauth-note"><a href="/account/recover?lang={{.Lang}}" lang="{{.Lang}}">{{.RecoverTitle}}</a></p>
+            <p class="oauth-note" id="recoverLink"><a href="/account/recover?lang={{.Lang}}" lang="{{.Lang}}">{{.RecoverTitle}}</a></p>
         </div>
     </main>
     <script>
@@ -189,11 +226,11 @@
 
         // Get redirect URL from query parameter
         const urlParams = new URLSearchParams(window.location.search);
-        const redirectURL = urlParams.get('redirect') || '/admin';
+        const redirectURL = document.getElementById('localLoginForm').dataset.redirectUrl || '/admin';
 
         if (urlParams.get('installed') === '1') {
             const notice = document.getElementById('installedNotice');
-            let preferredLanguage = 'zh-TW';
+            let preferredLanguage = document.documentElement.lang === 'en' ? 'en' : 'zh-TW';
             try {
                 if (localStorage.getItem('jellyCmsInstallLanguage') === 'en') preferredLanguage = 'en';
             } catch (err) { }
@@ -203,29 +240,149 @@
             notice.hidden = false;
         }
 
-        document.getElementById('localLoginForm').addEventListener('submit', async (e) => {
+        const en = document.documentElement.lang === 'en';
+        const localForm = document.getElementById('localLoginForm');
+        const mfaStep = document.getElementById('mfaStep');
+        const mfaForm = document.getElementById('mfaForm');
+        const otpGroup = document.getElementById('mfaOTP');
+        const otpDigits = Array.from(otpGroup.querySelectorAll('[data-otp-index]'));
+        const recoveryInput = document.getElementById('mfaRecoveryCode');
+        const loginStatus = document.getElementById('loginStatus');
+        let mfaToken = '';
+        let mfaBusy = false;
+        let recoveryMode = false;
+        function showLoginError(message) {
+            loginStatus.textContent = message || '';
+            loginStatus.hidden = !message;
+        }
+        function apiFailure(status, mfa) {
+            if (status === 429) return en ? 'Too many attempts. Wait 15 minutes before trying again.' : '嘗試次數過多，請等待 15 分鐘後再試。';
+            if (status === 401) return mfa
+                ? (en ? 'The code is invalid or expired. Try again.' : '驗證碼無效或已逾期，請重試。')
+                : (en ? 'Sign-in failed. Check your credentials and try again.' : '登入失敗，請檢查帳號密碼後重試。');
+            if (status === 403) return en ? 'Sign-in is not allowed for this account.' : '此帳號目前無法登入。';
+            return mfa
+                ? (en ? 'Could not verify the code. Please retry.' : '無法驗證，請重試。')
+                : (en ? 'Sign-in failed. Please retry.' : '登入失敗，請重試。');
+        }
+        function setMfaBusy(busy) {
+            mfaBusy = busy;
+            mfaForm.querySelectorAll('button,input').forEach((control) => { control.disabled = busy; });
+        }
+        localForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const formData = new FormData(e.target);
+            if (localForm.dataset.busy === '1') return;
+            localForm.dataset.busy = '1';
+            const submit = localForm.querySelector('button[type="submit"]');
+            submit.disabled = true;
+            showLoginError('');
+            const formData = new FormData(localForm);
             const data = Object.fromEntries(formData.entries());
 
             try {
                 const res = await fetch('/auth/login', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    credentials: 'same-origin',
+                    cache: 'no-store',
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded', 'X-Jelly-CSRF': '1' },
                     body: new URLSearchParams(data)
                 });
-
                 if (res.ok) {
-                    window.location.href = redirectURL;
+                    const payload = await res.json();
+                    if (payload && payload.mfa_required === true && typeof payload.mfa_token === 'string' && payload.mfa_token) {
+                        mfaToken = payload.mfa_token;
+                        localForm.hidden = true;
+                        document.getElementById('oauthButtons').hidden = true;
+                        document.getElementById('oauthDivider').hidden = true;
+                        document.getElementById('recoverLink').hidden = true;
+                        mfaStep.hidden = false;
+                        otpDigits[0].focus();
+                    } else {
+                        window.location.href = redirectURL;
+                    }
                 } else {
-                    const err = await res.json();
-                    alert('登入失敗: ' + (err.error || '未知錯誤'));
+                    showLoginError(apiFailure(res.status, false));
                 }
-            } catch (err) {
-                alert('登入失敗: ' + err.message);
-            }
+            } catch (err) { showLoginError(!navigator.onLine ? (en ? 'You are offline. Reconnect and retry.' : '目前離線，請連線後重試。') : (en ? 'Could not connect. Please retry.' : '連線失敗，請重試。')); }
+            finally { localForm.dataset.busy = '0'; submit.disabled = false; }
         });
 
+        document.getElementById('mfaRecovery').addEventListener('click', () => {
+            recoveryMode = !recoveryMode;
+            otpDigits.forEach((input) => { input.value = ''; });
+            recoveryInput.value = '';
+            otpGroup.hidden = recoveryMode;
+            recoveryInput.hidden = !recoveryMode;
+            document.getElementById('mfaCodeLabel').textContent = recoveryMode ? (en ? 'Recovery code' : '備用碼') : (en ? '6-digit code' : '6 位數驗證碼');
+            document.getElementById('mfaDescription').textContent = recoveryMode ? (en ? 'Enter one unused recovery code.' : '請輸入一組尚未使用的備用碼。') : (en ? 'Enter a code from your authenticator app.' : '請輸入驗證器 App 的驗證碼。');
+            document.getElementById('mfaRecovery').textContent = recoveryMode ? (en ? 'Use an authenticator code' : '改用驗證器驗證碼') : (en ? 'Use a recovery code' : '改用備用碼');
+            (recoveryMode ? recoveryInput : otpDigits[0]).focus();
+        });
+        function fillOTP(start, value) {
+            const digits = value.replace(/\D/g, '').slice(0, 6);
+            if (digits.length > 1) start = 0;
+            for (let i = 0; i < 6; i++) otpDigits[i].value = digits[i] || '';
+            const next = otpDigits[Math.min(start + Math.max(digits.length, 1), 5)];
+            if (next) next.focus();
+        }
+        otpDigits.forEach((input, index) => {
+            input.addEventListener('input', () => {
+                const value = input.value;
+                if (value.length > 1) { fillOTP(index, value); return; }
+                input.value = value.replace(/\D/g, '').slice(-1);
+                if (input.value && otpDigits[index + 1]) otpDigits[index + 1].focus();
+            });
+            input.addEventListener('keydown', (event) => {
+                if (event.key === 'Backspace' && !input.value && otpDigits[index - 1]) {
+                    otpDigits[index - 1].value = ''; otpDigits[index - 1].focus(); event.preventDefault();
+                } else if (event.key === 'ArrowLeft' && otpDigits[index - 1]) otpDigits[index - 1].focus();
+                else if (event.key === 'ArrowRight' && otpDigits[index + 1]) otpDigits[index + 1].focus();
+            });
+            input.addEventListener('paste', (event) => {
+                const value = event.clipboardData && event.clipboardData.getData('text');
+                if (value) { event.preventDefault(); fillOTP(index, value); }
+            });
+        });
+        mfaForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (mfaBusy || !mfaToken) return;
+            const code = recoveryMode ? recoveryInput.value.trim() : otpDigits.map((input) => input.value).join('');
+            if ((!recoveryMode && !/^\d{6}$/.test(code)) || (recoveryMode && (code.length < 8 || code.length > 64))) {
+                showLoginError(recoveryMode ? (en ? 'Enter a valid recovery code.' : '請輸入有效的備用碼。') : (en ? 'Enter all six digits.' : '請輸入完整 6 位數驗證碼。'));
+                return;
+            }
+            setMfaBusy(true); showLoginError('');
+            try {
+                const body = { mfa_token: mfaToken };
+                body[recoveryMode ? 'recovery_code' : 'code'] = code;
+                const response = await fetch('/auth/login/2fa', {
+                    method: 'POST', credentials: 'same-origin', cache: 'no-store',
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Jelly-CSRF': '1' },
+                    body: JSON.stringify(body)
+                });
+                if (!response.ok) {
+                    showLoginError(apiFailure(response.status, true));
+                    if (recoveryMode) { recoveryInput.value = ''; recoveryInput.focus(); }
+                    else { otpDigits.forEach((input) => { input.value = ''; }); otpDigits[0].focus(); }
+                    return;
+                }
+                mfaToken = '';
+                window.location.href = redirectURL;
+            } catch (_) { showLoginError(!navigator.onLine ? (en ? 'You are offline. Reconnect and retry.' : '目前離線，請連線後重試。') : (en ? 'Could not verify the code. Please retry.' : '無法驗證，請重試。')); }
+            finally { setMfaBusy(false); }
+        });
+        document.getElementById('mfaBack').addEventListener('click', () => {
+            mfaToken = ''; recoveryMode = false; mfaForm.reset(); showLoginError('');
+            otpGroup.hidden = false; recoveryInput.hidden = true; otpDigits.forEach((input) => { input.value = ''; });
+            document.getElementById('mfaCodeLabel').textContent = en ? '6-digit code' : '6 位數驗證碼';
+            document.getElementById('mfaDescription').textContent = en ? 'Enter a code from your authenticator app.' : '請輸入驗證器 App 的驗證碼。';
+            document.getElementById('mfaRecovery').textContent = en ? 'Use a recovery code' : '改用備用碼';
+            mfaStep.hidden = true; localForm.hidden = false;
+            document.getElementById('oauthButtons').hidden = false;
+            document.getElementById('oauthDivider').hidden = false;
+            document.getElementById('recoverLink').hidden = false;
+            document.getElementById('loginUsername').focus();
+        });
         loadOAuthSettings();
     </script>
 </body>

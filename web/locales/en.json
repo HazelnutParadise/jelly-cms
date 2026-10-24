@@ -481,5 +481,9 @@
     "rvNoId": "This item could not be found.",
     "rvToday": "Today",
     "rvYesterday": "Yesterday",
-    "rvUnknownUser": "Unknown"
+    "rvUnknownUser": "Unknown",
+    "users": "Users",
+    "inviteUser": "Invite user",
+    "account": "Account",
+    "notificationsTitle": "Notifications"
 }

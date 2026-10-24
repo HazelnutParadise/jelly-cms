@@ -1,2 +1,508 @@
 {{define "title"}}{{.T.orderDetail}}{{end}}
-{{define "content"}}{{/* ticket 07 placeholder: order detail */}}{{end}}
+{{define "styles"}}<link rel="stylesheet" href="/admin/assets/shop-admin.css">{{end}}
+{{define "content"}}
+<div class="sa-editor-bar">
+    <a href="/admin/orders" class="btn btn-secondary btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>{{.T.orders}}</a>
+    <h1 id="number" class="cell-mono" style="margin:0;font-size:1.375rem"></h1>
+    <span id="statusBadge"></span>
+    <span class="muted" id="meta"></span>
+    <span class="sa-grow"></span>
+    <button type="button" class="btn btn-secondary btn-sm" id="slipBtn" hidden><svg class="icon" aria-hidden="true"><use href="#i-file-text"/></svg><span></span></button>
+    <button type="button" class="btn btn-secondary btn-sm" id="receiptBtn" hidden><svg class="icon" aria-hidden="true"><use href="#i-file-text"/></svg><span></span></button>
+    <button type="button" class="btn btn-secondary btn-sm" id="refundOpen" hidden><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span></span></button>
+    <button type="button" class="btn btn-primary btn-sm" id="shipOpen" hidden><svg class="icon" aria-hidden="true"><use href="#i-truck"/></svg><span></span></button>
+</div>
+<div id="loadBox" aria-live="polite"></div>
+<div class="sa-layout" id="detail" hidden>
+    <div class="sa-main">
+        <ol class="sa-steps" id="steps"></ol>
+        <section class="sa-sec" aria-labelledby="hItems">
+            <h2 id="hItems"></h2>
+            <div class="table-wrapper"><table class="sa-table"><thead><tr id="itemsHead"></tr></thead><tbody id="items"></tbody></table></div>
+            <dl class="sa-totals" id="totals"></dl>
+        </section>
+        <section class="sa-sec" aria-labelledby="hTimeline">
+            <h2 id="hTimeline"></h2>
+            <ol class="sa-timeline" id="timeline"></ol>
+        </section>
+        <section class="sa-sec" aria-labelledby="hNotes">
+            <h2 id="hNotes"></h2>
+            <form class="sa-inline" id="noteForm" novalidate>
+                <div class="sa-field" data-field><textarea id="noteInput" rows="2" maxlength="2000" aria-labelledby="hNotes"></textarea></div>
+                <button type="submit" class="btn btn-secondary btn-sm" id="noteBtn"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span></span></button>
+            </form>
+        </section>
+    </div>
+    <aside class="sa-side">
+        <section class="sa-card" aria-labelledby="hCustomer">
+            <span class="label" id="hCustomer"></span>
+            <div id="customer"></div>
+        </section>
+        <section class="sa-card" aria-labelledby="hShipTo">
+            <span class="label" id="hShipTo"></span>
+            <div id="shipTo"></div>
+            <form id="addrForm" class="sa-grid two" novalidate hidden>
+                <div class="sa-field" data-field><label for="aName" data-t="aName"></label><input type="text" id="aName" maxlength="120" required></div>
+                <div class="sa-field" data-field><label for="aPhone" data-t="aPhone"></label><input type="text" id="aPhone" maxlength="40" inputmode="tel"></div>
+                <div class="sa-field" data-field><label for="aPostcode" data-t="aPostcode"></label><input type="text" id="aPostcode" maxlength="10" inputmode="numeric"></div>
+                <div class="sa-field" data-field><label for="aCity" data-t="aCity"></label><input type="text" id="aCity" maxlength="60"></div>
+                <div class="sa-field" data-field style="grid-column:1/-1"><label for="aAddress" data-t="aAddress"></label><input type="text" id="aAddress" maxlength="255"></div>
+                <div class="row" style="grid-column:1/-1"><button type="submit" class="btn btn-primary btn-sm" id="addrSave"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg><span data-t="save"></span></button><button type="button" class="btn btn-text btn-sm" id="addrCancel"><span data-t="cancel"></span></button></div>
+            </form>
+        </section>
+        <section class="sa-card" aria-labelledby="hPayment">
+            <span class="label" id="hPayment"></span>
+            <div id="payment"></div>
+        </section>
+        <section class="sa-card dark" aria-labelledby="hStatus" id="statusCard">
+            <span class="label" id="hStatus"></span>
+            <div class="sa-alert" id="refundRequestBanner" role="status" hidden></div>
+            <div id="statusActions" style="display:grid;gap:.4rem"></div>
+            <form id="shipForm" class="sa-grid two" novalidate hidden>
+                <div class="sa-field" data-field><label for="sCarrier" data-t="carrier"></label><input type="text" id="sCarrier" maxlength="40" list="carriers"></div>
+                <div class="sa-field" data-field><label for="sTracking" data-t="tracking"></label><input type="text" id="sTracking" maxlength="80" spellcheck="false"></div>
+                <div class="row" style="grid-column:1/-1"><button type="submit" class="btn" id="shipSave"><svg class="icon" aria-hidden="true"><use href="#i-truck"/></svg><span data-t="confirmShip"></span></button><button type="button" class="btn" id="shipCancel"><span data-t="cancel"></span></button></div>
+                <datalist id="carriers"><option value="黑貓宅急便"><option value="新竹物流"><option value="中華郵政"><option value="宅配通"></datalist>
+            </form>
+        </section>
+        <section class="sa-card outline" aria-labelledby="hRefund" id="refundCard" hidden>
+            <div class="sa-panel-head"><span class="stripes" aria-hidden="true"></span><b id="hRefund"></b><span class="badge badge-info" id="refundPaid" style="margin-left:auto"></span></div>
+            <form id="refundForm" novalidate style="display:grid;gap:.75rem">
+                <div class="sa-field"><span class="label" id="lRefundMode"></span>
+                    <div class="segmented" role="radiogroup" aria-labelledby="lRefundMode">
+                        <label><input type="radio" name="mode" value="full" checked><span data-t="full"></span></label>
+                        <label><input type="radio" name="mode" value="partial"><span data-t="partial"></span></label>
+                    </div>
+                </div>
+                <div class="sa-field" data-field><label for="rAmount" data-t="refundAmount"></label><input type="text" id="rAmount" inputmode="decimal"><small class="hint" id="rHint"></small></div>
+                <div class="sa-field" data-field><label for="rReason" data-t="reason"></label>
+                    <select id="rReason"><option value="customer_request" data-t="rsCustomer"></option><option value="defective" data-t="rsDefective"></option><option value="out_of_stock" data-t="rsStock"></option><option value="other" data-t="rsOther"></option></select>
+                </div>
+                <div class="sa-field" data-field id="rOtherBox" hidden><label for="rOther" data-t="reasonText"></label><input type="text" id="rOther" maxlength="200"></div>
+                <label class="sa-checks" style="display:flex;gap:.5rem;align-items:center"><input type="checkbox" id="rRestock"><span data-t="restock"></span></label>
+                <p class="hint" id="rOffline" hidden></p>
+                <div class="row"><button type="submit" class="btn btn-danger" id="refundBtn"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span id="refundBtnText"></span></button><button type="button" class="btn btn-secondary" id="refundCancel"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg><span data-t="cancel"></span></button></div>
+            </form>
+        </section>
+    </aside>
+</div>
+{{end}}
+{{define "scripts"}}
+<script src="/admin/assets/shop-admin.js"></script>
+<script>
+(function () {
+    'use strict';
+    const SA = window.ShopAdmin;
+    SA.extend({
+        zh: {
+            slip: '列印出貨單', receipt: '列印收據', refund: '退款', markShipped: '標記已出貨',
+            sCreated: '成立', sPaid: '付款', sShipped: '出貨', sCompleted: '完成',
+            items: '品項', colProduct: '商品', colSku: 'SKU', colUnit: '單價', colQty: '數量', colLine: '小計',
+            subtotal: '小計', discount: '折扣', shippingFee: '運費', tax: '稅額（內含）', rounding: '尾數調整', grand: '總計', refunded: '已退款', noPaymentRequired: '無需付款',
+            timeline: '時間軸', timelineEmpty: '還沒有紀錄。', notes: '備註', notePh: '只有後台看得到的備註…', addNote: '加入', noteAdded: '已加入備註', noteEmpty: '請先輸入備註內容',
+            customer: '顧客', history: '歷史 %s 筆', mail: '寄信', copyEmail: '複製 Email', guest: '訪客',
+            shipTo: '收件', editAddr: '修改地址', aName: '收件人', aPhone: '電話', aPostcode: '郵遞區號', aCity: '縣市', aAddress: '地址', addrSaved: '已更新收件地址', nameRequired: '請輸入收件人',
+            coldChain: '冷藏', normalTemp: '常溫', noAddress: '不需地址', carrierLine: '物流：%s，單號 %s',
+            payment: '付款', provider: '金流', method: '方式', tradeNo: '交易號', payStatus: '狀態', paidAt: '付款時間', noPayment: '還沒有付款紀錄。',
+            pay_pending: '等待付款', pay_paid: '已入帳', pay_failed: '失敗', pay_refunded: '已退款',
+            markPaid: '人工確認收款', markPaidHint: '只有銀行轉帳且尚未付款的訂單會出現這顆。按下後訂單變「已付款」，庫存保留轉為售出，時間軸記下是誰確認的。',
+            markPaidTitle: '確認已收到 %s 的轉帳？', markPaidBody: '請先核對帳戶入帳金額與末五碼。這個動作會寫進時間軸。', markPaidDone: '已確認收款',
+            status: '更改狀態', toShipped: '已出貨', toCompleted: '完成', toCancelled: '取消訂單', noMoves: '這筆訂單已是最終狀態，不能再變更。', refundHint: '退款請按上方「退款」。', refundRequestPending: '顧客已提出退款申請，請先處理退款，再進行出貨。',
+            carrier: '物流', tracking: '追蹤單號', confirmShip: '確認出貨', shippedDone: '已標記出貨', completedDone: '訂單已完成', cancelledDone: '訂單已取消',
+            cancelTitle: '取消訂單 %s？', cancelBody: '保留的庫存與折扣碼次數會釋放；已付款的訂單請另外辦理退款。', cancelOk: '取消訂單', keep: '保留訂單',
+            notAllowed: '目前狀態不能這樣改。可以改成：%s', notAllowedNone: '目前狀態不能再變更。',
+            refundTitle: '退款', paidAmount: '已付 %s', refundMode: '退款方式', full: '全額', partial: '部分退款', refundAmount: '退款金額 (NT$)', refundHintText: '最多可退 %s，已退 %s。金額以元輸入。',
+            reason: '原因', rsCustomer: '顧客要求', rsDefective: '商品瑕疵', rsStock: '缺貨', rsOther: '其他', reasonText: '說明', restock: '同時回補庫存',
+            refundOffline: '%s 付款無法原路退回，確認後請另外匯款給顧客；系統只記帳並寄通知。', confirmRefund: '確認退款 %s', refundDone: '已退款 %s', refundTooMuch: '退款金額不能超過 %s', refundZero: '退款金額要大於 0',
+            notFoundTitle: '找不到這筆訂單', loadFailedTitle: '訂單載入失敗', backList: '回訂單列表',
+            slipTitle: '出貨單', receiptTitle: '收據', orderNo: '訂單編號', orderedAt: '訂購時間', recipient: '收件人', phone: '電話', address: '地址', shipMethod: '運送方式', taxIncluded: '以上金額含稅', seller: '賣方'
+        },
+        en: {
+            slip: 'Print packing slip', receipt: 'Print receipt', refund: 'Refund', markShipped: 'Mark as shipped',
+            sCreated: 'Placed', sPaid: 'Paid', sShipped: 'Shipped', sCompleted: 'Completed',
+            items: 'Items', colProduct: 'Product', colSku: 'SKU', colUnit: 'Unit price', colQty: 'Qty', colLine: 'Line total',
+            subtotal: 'Subtotal', discount: 'Discount', shippingFee: 'Shipping', tax: 'Tax (included)', rounding: 'Rounding adjustment', grand: 'Total', refunded: 'Refunded', noPaymentRequired: 'No payment required',
+            timeline: 'Timeline', timelineEmpty: 'Nothing recorded yet.', notes: 'Notes', notePh: 'A note only staff can see…', addNote: 'Add', noteAdded: 'Note added', noteEmpty: 'Write the note first',
+            customer: 'Customer', history: '%s orders', mail: 'Email', copyEmail: 'Copy email', guest: 'Guest',
+            shipTo: 'Ship to', editAddr: 'Edit address', aName: 'Recipient', aPhone: 'Phone', aPostcode: 'Postcode', aCity: 'City', aAddress: 'Address', addrSaved: 'Address updated', nameRequired: 'Enter the recipient',
+            coldChain: 'Refrigerated', normalTemp: 'Room temperature', noAddress: 'No address needed', carrierLine: 'Carrier %s, tracking %s',
+            payment: 'Payment', provider: 'Provider', method: 'Method', tradeNo: 'Trade no.', payStatus: 'Status', paidAt: 'Paid at', noPayment: 'No payment recorded yet.',
+            pay_pending: 'Pending', pay_paid: 'Received', pay_failed: 'Failed', pay_refunded: 'Refunded',
+            markPaid: 'Confirm transfer received', markPaidHint: 'Shown only for unpaid bank-transfer orders. The order becomes Paid, reserved stock becomes sold, and the timeline records who confirmed it.',
+            markPaidTitle: 'Confirm the transfer of %s?', markPaidBody: 'Check the amount and the last five digits first. This is recorded on the timeline.', markPaidDone: 'Payment confirmed',
+            status: 'Change status', toShipped: 'Shipped', toCompleted: 'Completed', toCancelled: 'Cancel order', noMoves: 'This order is in a final state.', refundHint: 'Use “Refund” above for refunds.', refundRequestPending: 'The customer requested a refund. Resolve the request before shipping this order.',
+            carrier: 'Carrier', tracking: 'Tracking number', confirmShip: 'Confirm shipment', shippedDone: 'Marked as shipped', completedDone: 'Order completed', cancelledDone: 'Order cancelled',
+            cancelTitle: 'Cancel order %s?', cancelBody: 'Reserved stock and coupon uses are released. Refund paid orders separately.', cancelOk: 'Cancel order', keep: 'Keep order',
+            notAllowed: 'Not allowed from the current status. Allowed: %s', notAllowedNone: 'The current status cannot change.',
+            refundTitle: 'Refund', paidAmount: 'Paid %s', refundMode: 'Refund type', full: 'Full', partial: 'Partial', refundAmount: 'Refund amount (NT$)', refundHintText: 'Up to %s can be refunded; %s already refunded. Enter dollars.',
+            reason: 'Reason', rsCustomer: 'Customer request', rsDefective: 'Defective item', rsStock: 'Out of stock', rsOther: 'Other', reasonText: 'Details', restock: 'Return items to stock',
+            refundOffline: '%s payments cannot be returned automatically. Transfer the money yourself; the system only records it and notifies the customer.', confirmRefund: 'Refund %s', refundDone: 'Refunded %s', refundTooMuch: 'The refund cannot exceed %s', refundZero: 'The refund must be more than 0',
+            notFoundTitle: 'Order not found', loadFailedTitle: 'Could not load the order', backList: 'Back to orders',
+            slipTitle: 'Packing slip', receiptTitle: 'Receipt', orderNo: 'Order number', orderedAt: 'Ordered', recipient: 'Recipient', phone: 'Phone', address: 'Address', shipMethod: 'Shipping', taxIncluded: 'Prices include tax', seller: 'Seller'
+        }
+    });
+    const t = SA.t, esc = SA.esc;
+    const $ = (id) => document.getElementById(id);
+    const id = +location.pathname.split('/').pop();
+    const MOVES = { pending: ['paid', 'cancelled', 'expired'], paid: ['shipped', 'cancelled'], shipped: ['completed', 'refunded'], completed: ['refunded'] };
+    let o = null;
+    let refundKey = null;       // reused until a refund succeeds, so a retried request is not applied twice
+
+    document.querySelectorAll('[data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
+    [['hItems', 'items'], ['hTimeline', 'timeline'], ['hNotes', 'notes'], ['hCustomer', 'customer'], ['hShipTo', 'shipTo'], ['hPayment', 'payment'], ['hStatus', 'status'], ['hRefund', 'refundTitle'], ['lRefundMode', 'refundMode']].forEach(([el, k]) => { $(el).textContent = t(k); });
+    $('slipBtn').querySelector('span').textContent = t('slip');
+    $('receiptBtn').querySelector('span').textContent = t('receipt');
+    $('refundOpen').querySelector('span').textContent = t('refund');
+    $('shipOpen').querySelector('span').textContent = t('markShipped');
+    $('noteBtn').querySelector('span').textContent = t('addNote');
+    $('noteInput').placeholder = t('notePh');
+    $('itemsHead').innerHTML = '<th>' + esc(t('colProduct')) + '</th><th class="sa-hide-sm">' + esc(t('colSku')) + '</th><th class="sa-num sa-hide-sm">' + esc(t('colUnit')) + '</th><th class="sa-num">' + esc(t('colQty')) + '</th><th class="sa-num">' + esc(t('colLine')) + '</th>';
+
+    /* ---------- normalize ---------- */
+    function parseJSON(v) { if (typeof v === 'string') { try { return JSON.parse(v); } catch (e) { return null; } } return v; }
+    function normalize(data) {
+        const d = data && data.order ? Object.assign({}, data.order, data) : Object.assign({}, data);
+        d.shipping = parseJSON(d.shipping) || {};
+        d.items = Array.isArray(d.items) ? d.items : [];
+        d.timeline = Array.isArray(d.timeline) ? d.timeline : (Array.isArray(d.events) ? d.events : []);
+        d.total = d.total != null ? d.total : d.total_amount;
+        d.payment = d.payment && typeof d.payment === 'object' ? d.payment : null;
+        d.customer = d.customer && typeof d.customer === 'object' ? d.customer : {};
+        return d;
+    }
+    const qtyOf = (i) => +(i.qty != null ? i.qty : i.quantity) || 1;
+    const unitOf = (i) => i.unit_price != null ? i.unit_price : i.price;
+    const lineOf = (i) => i.line_total != null && i.line_total !== 0 ? i.line_total : (unitOf(i) || 0) * qtyOf(i);
+    const remaining = () => Math.max(0, (+o.total || 0) - (+o.refunded_total || 0));
+    const provider = () => (o.payment && o.payment.provider) || o.payment_provider || '';
+    const method = () => (o.payment && o.payment.method) || o.payment_method || '';
+    const isTransfer = () => provider() === 'manual_transfer' || method() === 'bank_transfer';
+    const allowed = () => Array.isArray(o.allowed) ? o.allowed : (MOVES[o.status] || []);
+    const canRefund = () => ['paid', 'shipped', 'completed'].includes(o.status) && remaining() > 0;
+    const recipient = (s) => s.name || s.recipient || '';
+
+    /* ---------- render ---------- */
+    function render() {
+        $('number').textContent = o.number || ('#' + o.id);
+        $('statusBadge').innerHTML = SA.badge('order', o.status);
+        $('meta').textContent = [SA.date(o.created_at, true), [SA.providerLabel(provider()), SA.methodLabel(method())].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+        document.title = (o.number || '#' + o.id) + ' · Jelly CMS';
+        $('slipBtn').hidden = false;
+        $('receiptBtn').hidden = !o.paid_at && !['paid', 'shipped', 'completed', 'refunded'].includes(o.status);
+        $('refundOpen').hidden = !canRefund();
+        $('refundRequestBanner').hidden = !(o.status === 'paid' && o.refund_requested);
+        $('refundRequestBanner').textContent = t('refundRequestPending');
+        $('shipOpen').hidden = !allowed().includes('shipped') || (o.status === 'paid' && o.refund_requested);
+        renderSteps(); renderItems(); renderTimeline(); renderCustomer(); renderShipTo(); renderPayment(); renderStatus();
+        if (!canRefund()) closeRefund();
+        else if (!$('refundCard').hidden) syncRefund();
+    }
+
+    function renderSteps() {
+        const s = o.status;
+        const noPayment = o.payment && o.payment.kind === 'none';
+        const paid = noPayment || !!o.paid_at || ['paid', 'shipped', 'completed', 'refunded'].includes(s);
+        const shipped = !!o.shipped_at || ['shipped', 'completed'].includes(s);
+        const done = s === 'completed' || !!o.completed_at;
+        const stopped = ['cancelled', 'expired', 'refunded'].includes(s);
+        const steps = [['sCreated', true], ['sPaid', paid], ['sShipped', shipped], ['sCompleted', done]];
+        const firstOpen = steps.findIndex(x => !x[1]);
+        $('steps').innerHTML = steps.map((x, i) => {
+            const cls = x[1] ? 'done' : (i === firstOpen ? (stopped ? 'stop' : 'on') : '');
+            const mark = x[1] ? '✓' : (i === firstOpen && stopped ? '×' : String(i + 1));
+            const label = i === firstOpen && stopped ? t('st_' + s) : (noPayment && x[0] === 'sPaid' ? t('noPaymentRequired') : t(x[0]));
+            return '<li class="' + cls + '"' + (i === firstOpen ? ' aria-current="step"' : '') + '><i aria-hidden="true">' + mark + '</i>' + esc(label) + '</li>';
+        }).join('');
+    }
+
+    function renderItems() {
+        $('items').innerHTML = o.items.map(i => {
+            const img = SA.safeUrl(i.image);
+            return '<tr><td><span class="sa-prod">' + (img ? '<img class="sa-thumb" src="' + esc(img) + '" alt="" loading="lazy">' : '<span class="sa-thumb" aria-hidden="true"></span>') +
+                '<span><b>' + esc(i.title || (i.product && i.product.title) || '—') + '</b>' + (i.variant_name ? '<span class="sa-sub">' + esc(i.variant_name) + '</span>' : '') + '</span></span></td>' +
+                '<td class="cell-mono sa-hide-sm">' + esc(i.sku || '—') + '</td><td class="sa-num sa-hide-sm">' + esc(SA.money(unitOf(i), o.currency)) + '</td>' +
+                '<td class="sa-num">' + qtyOf(i) + '</td><td class="sa-num">' + esc(SA.money(lineOf(i), o.currency)) + '</td></tr>';
+        }).join('');
+        const row = (label, value, cls) => '<dt>' + esc(label) + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(value) + '</dd>';
+        let html = row(t('subtotal'), SA.money(o.subtotal != null && o.subtotal !== 0 ? o.subtotal : o.items.reduce((n, i) => n + lineOf(i), 0), o.currency));
+        if (+o.discount_total) html += row(t('discount') + (o.coupon_code ? '（' + o.coupon_code + '）' : ''), '-' + SA.money(o.discount_total, o.currency));
+        html += row(t('shippingFee'), SA.money(o.shipping_total || 0, o.currency));
+        if (+o.tax_total) html += row(t('tax'), SA.money(o.tax_total, o.currency));
+        if (+o.rounding_adjustment) html += row(t('rounding'), (+o.rounding_adjustment > 0 ? '+' : '') + SA.money(o.rounding_adjustment, o.currency));
+        html += '<dt><b>' + esc(t('grand')) + '</b></dt><dd class="grand">' + esc(SA.money(o.total, o.currency)) + '</dd>';
+        if (+o.refunded_total) html += row(t('refunded'), '-' + SA.money(o.refunded_total, o.currency));
+        $('totals').innerHTML = html;
+    }
+
+    function renderTimeline() {
+        const list = o.timeline.slice().sort((a, b) => new Date(a.at || a.created_at) - new Date(b.at || b.created_at));
+        if (!list.length) { $('timeline').innerHTML = '<li><span class="muted">' + esc(t('timelineEmpty')) + '</span></li>'; return; }
+        $('timeline').innerHTML = list.map(e => {
+            const isNote = e.kind === 'note';
+            const text = e.message || (e.to_status ? '' : e.kind || '');
+            const actor = e.actor_name || (e.actor && (e.actor.display_name || e.actor.username)) || '';
+            return '<li><time datetime="' + esc(e.at || e.created_at || '') + '">' + esc(SA.date(e.at || e.created_at)) + '</time><span' + (isNote ? ' class="note"' : '') + '>' + esc(text) +
+                (e.to_status ? ' ' + SA.badge('order', e.to_status) : '') + (actor ? ' <span class="sa-sub" style="display:inline">· ' + esc(actor) + '</span>' : '') + '</span></li>';
+        }).join('');
+    }
+
+    function renderCustomer() {
+        const c = o.customer || {};
+        const email = c.email || o.email || '';
+        const name = c.name || c.display_name || (o.user && (o.user.display_name || o.user.username)) || recipient(o.shipping) || t('guest');
+        const hist = c.history_count != null ? +c.history_count : null;
+        $('customer').innerHTML = '<div class="sa-who"><span class="sa-avatar" aria-hidden="true">' + esc([...name][0] || '?') + '</span><span><b>' + esc(name) + '</b><span class="sa-sub">' + esc(email) + '</span>' + (o.phone ? '<span class="sa-sub">' + esc(o.phone) + '</span>' : '') + '</span></div>' +
+            '<div class="row" style="margin-top:.6rem">' + (email ? '<a class="btn btn-secondary btn-sm" href="mailto:' + esc(encodeURI(email)) + '">' + SA.svg('i-mail') + esc(t('mail')) + '</a><button type="button" class="btn btn-secondary btn-sm" id="copyEmail">' + SA.svg('i-copy') + esc(t('copyEmail')) + '</button>' : '') +
+            (hist != null && email ? '<a class="btn btn-text btn-sm" href="/admin/orders?q=' + encodeURIComponent(email) + '">' + esc(t('history', hist)) + SA.svg('i-arrow-right') + '</a>' : '') + '</div>';
+        const cp = $('copyEmail');
+        if (cp) cp.addEventListener('click', () => SA.copy(email));
+    }
+
+    function renderShipTo() {
+        const s = o.shipping;
+        const addr = [s.postcode, s.city, s.address].filter(Boolean).join(' ');
+        const method = s.method || o.shipping_method;
+        let html = '<p><b>' + esc(recipient(s) || '—') + '</b></p>' + (s.phone ? '<p>' + esc(s.phone) + '</p>' : '') + '<p>' + esc(addr || t('noAddress')) + '</p>' +
+            '<p class="muted" style="font-size:.8125rem">' + esc([SA.shipLabel(method), s.cold_chain || o.cold_chain ? t('coldChain') : ''].filter(Boolean).join(' · ') || '—') + '</p>';
+        if (o.carrier || o.tracking_no) html += '<p class="muted" style="font-size:.8125rem">' + esc(t('carrierLine', o.carrier || '—', o.tracking_no || '—')) + '</p>';
+        const editable = !['shipped', 'completed', 'cancelled', 'expired', 'refunded'].includes(o.status);
+        if (editable) html += '<div class="row"><button type="button" class="btn btn-secondary btn-sm" id="addrEdit">' + SA.svg('i-pencil') + esc(t('editAddr')) + '</button></div>';
+        $('shipTo').innerHTML = html;
+        $('shipTo').hidden = false;
+        $('addrForm').hidden = true;
+        const b = $('addrEdit');
+        if (b) b.addEventListener('click', openAddr);
+    }
+
+    function renderPayment() {
+        const p = o.payment;
+        const pv = provider(), m = method();
+        if (p && p.kind === 'none') {
+            $('payment').innerHTML = '<p>' + esc(t('noPaymentRequired')) + '</p>';
+            return;
+        }
+        let html = '<dl class="sa-kv"><dt>' + esc(t('provider')) + '</dt><dd>' + esc(SA.providerLabel(pv) || '—') + '</dd><dt>' + esc(t('method')) + '</dt><dd>' + esc(SA.methodLabel(m) || '—') + '</dd>';
+        if (p && p.merchant_trade_no) html += '<dt>' + esc(t('tradeNo')) + '</dt><dd class="mono">' + esc(p.merchant_trade_no) + '</dd>';
+        if (p && p.status) html += '<dt>' + esc(t('payStatus')) + '</dt><dd><span class="badge ' + ({ paid: 'badge-success', failed: 'badge-danger', pending: 'badge-warning' }[p.status] || '') + '">' + esc(SA.tOr('pay_' + p.status, p.status)) + '</span></dd>';
+        if (o.paid_at) html += '<dt>' + esc(t('paidAt')) + '</dt><dd>' + esc(SA.date(o.paid_at, true)) + '</dd>';
+        html += '</dl>';
+        if (!p && !pv) html += '<p class="muted">' + esc(t('noPayment')) + '</p>';
+        if (isTransfer() && o.status === 'pending') {
+            html += '<p class="hint">' + esc(t('markPaidHint')) + '</p><button type="button" class="btn btn-secondary" id="markPaid">' + SA.svg('i-check') + esc(t('markPaid')) + '</button>';
+        }
+        $('payment').innerHTML = html;
+        const mp = $('markPaid');
+        if (mp) mp.addEventListener('click', markPaid);
+    }
+
+    function renderStatus() {
+        const moves = allowed().filter(s => ['shipped', 'completed', 'cancelled'].includes(s) && !(s === 'shipped' && o.status === 'paid' && o.refund_requested));
+        const icon = { shipped: 'i-truck', completed: 'i-check', cancelled: 'i-x' };
+        const label = { shipped: 'toShipped', completed: 'toCompleted', cancelled: 'toCancelled' };
+        let html = moves.map(s => '<button type="button" class="btn' + (s === 'cancelled' ? ' sa-danger' : '') + '" data-to="' + s + '">' + SA.svg(icon[s]) + esc(t(label[s])) + '</button>').join('');
+        if (!moves.length) html = '<p style="font-size:.8125rem">' + esc(t('noMoves')) + '</p>';
+        if (canRefund()) html += '<p style="font-size:.75rem;color:var(--rail-muted)">' + esc(t('refundHint')) + '</p>';
+        $('statusActions').innerHTML = html;
+        $('statusActions').querySelectorAll('[data-to]').forEach(b => b.addEventListener('click', () => {
+            if (b.dataset.to === 'shipped') openShip(); else move(b.dataset.to, b);
+        }));
+        $('shipForm').hidden = true;
+    }
+
+    /* ---------- actions ---------- */
+    function conflictText(err) {
+        const a = err && err.data && Array.isArray(err.data.allowed) ? err.data.allowed : null;
+        if (!a) return SA.errText(err);
+        return a.length ? t('notAllowed', a.map(s => t('st_' + s)).join('、')) : t('notAllowedNone');
+    }
+
+    async function move(to, btn, extra) {
+        if (to === 'cancelled') {
+            const ok = await SA.confirm({ title: t('cancelTitle', o.number || ''), body: t('cancelBody'), ok: t('cancelOk'), cancel: t('keep'), danger: true });
+            if (!ok) return;
+        }
+        await SA.busy(btn, async () => {
+            try {
+                await SA.api('PUT', '/api/admin/orders/' + id, Object.assign({ status: to }, extra || {}));
+                SA.toast(t({ shipped: 'shippedDone', completed: 'completedDone', cancelled: 'cancelledDone' }[to] || 'saved'));
+                await load(true);
+            } catch (err) {
+                SA.toast(t('saveFailed'), 'error', { detail: err.status === 409 ? conflictText(err) : SA.errText(err) });
+                if (err.status === 409) load(true);
+            }
+        });
+    }
+
+    function openShip() {
+        $('shipForm').hidden = false;
+        $('sCarrier').value = $('sCarrier').value || o.carrier || '';
+        $('sTracking').value = $('sTracking').value || o.tracking_no || '';
+        $('statusCard').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        $('sCarrier').focus();
+    }
+    $('shipOpen').addEventListener('click', openShip);
+    $('shipCancel').addEventListener('click', () => { $('shipForm').hidden = true; });
+    $('shipForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        move('shipped', $('shipSave'), { carrier: $('sCarrier').value.trim(), tracking_no: $('sTracking').value.trim() });
+    });
+
+    function openAddr() {
+        const s = o.shipping;
+        $('aName').value = recipient(s); $('aPhone').value = s.phone || ''; $('aPostcode').value = s.postcode || ''; $('aCity').value = s.city || ''; $('aAddress').value = s.address || '';
+        $('shipTo').hidden = true; $('addrForm').hidden = false; $('aName').focus();
+    }
+    $('addrCancel').addEventListener('click', () => { $('addrForm').hidden = true; $('shipTo').hidden = false; const b = $('addrEdit'); if (b) b.focus(); });
+    $('addrForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = $('aName').value.trim();
+        if (!name) { SA.fieldError($('aName'), t('nameRequired')); $('aName').focus(); return; }
+        SA.fieldError($('aName'), '');
+        const body = { recipient: name, name, phone: $('aPhone').value.trim(), postcode: $('aPostcode').value.trim(), city: $('aCity').value.trim(), address: $('aAddress').value.trim() };
+        await SA.busy($('addrSave'), async () => {
+            try {
+                await SA.api('PATCH', '/api/admin/orders/' + id + '/address', body);
+                SA.toast(t('addrSaved'));
+                await load(true);
+            } catch (err) { SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) }); }
+        });
+    });
+
+    async function markPaid() {
+        const ok = await SA.confirm({ title: t('markPaidTitle', SA.money(o.total, o.currency)), body: t('markPaidBody'), ok: t('markPaid') });
+        if (!ok) return;
+        await SA.busy($('markPaid'), async () => {
+            try {
+                await SA.api('POST', '/api/admin/orders/' + id + '/mark-paid');
+                SA.toast(t('markPaidDone'));
+                await load(true);
+            } catch (err) { SA.toast(t('saveFailed'), 'error', { detail: err.status === 409 ? conflictText(err) : SA.errText(err) }); }
+        });
+    }
+
+    $('noteForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const body = $('noteInput').value.trim();
+        if (!body) { SA.fieldError($('noteInput'), t('noteEmpty')); $('noteInput').focus(); return; }
+        SA.fieldError($('noteInput'), '');
+        await SA.busy($('noteBtn'), async () => {
+            try {
+                await SA.api('POST', '/api/admin/orders/' + id + '/notes', { body, note: body });
+                $('noteInput').value = '';
+                SA.toast(t('noteAdded'));
+                await load(true);
+            } catch (err) { SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) }); }
+        });
+    });
+    $('noteInput').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); $('noteForm').requestSubmit(); } });
+
+    /* ---------- refund ---------- */
+    function refundMode() { return document.querySelector('#refundForm input[name="mode"]:checked').value; }
+    function refundAmount() {
+        if (refundMode() === 'full') return { ok: true, minor: remaining() };
+        const a = SA.parseAmount($('rAmount').value);
+        return a.ok && !a.empty ? a : { ok: false, empty: a.empty };
+    }
+    function syncRefund() {
+        const full = refundMode() === 'full';
+        $('rAmount').disabled = full;
+        if (full) $('rAmount').value = SA.toInput(remaining());
+        $('rHint').textContent = t('refundHintText', SA.money(remaining(), o.currency), SA.money(o.refunded_total || 0, o.currency));
+        $('refundPaid').textContent = t('paidAmount', SA.money(o.total, o.currency));
+        const a = refundAmount();
+        $('refundBtnText').textContent = t('confirmRefund', a.ok ? SA.money(a.minor, o.currency) : '');
+        $('rOtherBox').hidden = $('rReason').value !== 'other';
+        const offline = isTransfer() || method() === 'atm' || method() === 'cvs';
+        $('rOffline').hidden = !offline;
+        $('rOffline').textContent = t('refundOffline', SA.methodLabel(method()) || SA.providerLabel(provider()));
+    }
+    function openRefund() {
+        if (!refundKey) refundKey = SA.idemKey();
+        $('refundCard').hidden = false;
+        syncRefund();
+        $('refundCard').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        document.querySelector('#refundForm input[name="mode"]:checked').focus();
+    }
+    function closeRefund() { $('refundCard').hidden = true; }
+    $('refundOpen').addEventListener('click', openRefund);
+    $('refundCancel').addEventListener('click', () => { closeRefund(); $('refundOpen').focus(); });
+    $('refundForm').addEventListener('change', syncRefund);
+    $('rAmount').addEventListener('input', () => { SA.fieldError($('rAmount'), ''); syncRefund(); });
+    $('refundForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const a = refundAmount();
+        if (!a.ok) { SA.fieldError($('rAmount'), a.empty ? t('refundZero') : t('invalidAmount')); $('rAmount').focus(); return; }
+        if (a.minor <= 0) { SA.fieldError($('rAmount'), t('refundZero')); $('rAmount').focus(); return; }
+        if (a.minor > remaining()) { SA.fieldError($('rAmount'), t('refundTooMuch', SA.money(remaining(), o.currency))); $('rAmount').focus(); return; }
+        const reasonKey = $('rReason').value;
+        const reason = reasonKey === 'other' ? ($('rOther').value.trim() || t('rsOther')) : $('rReason').selectedOptions[0].textContent;
+        const body = { amount: a.minor, reason, reason_code: reasonKey, restock: $('rRestock').checked, idempotency_key: refundKey };
+        await SA.busy($('refundBtn'), async () => {
+            try {
+                await SA.api('POST', '/api/admin/orders/' + id + '/refund', body, { headers: { 'Idempotency-Key': refundKey } });
+                refundKey = null;
+                SA.toast(t('refundDone', SA.money(a.minor, o.currency)));
+                closeRefund();
+                $('rAmount').value = ''; $('rOther').value = ''; $('rRestock').checked = false;
+                await load(true);
+            } catch (err) {
+                // Network and timeout errors keep the same key, so pressing again cannot refund twice.
+                if (err.kind === 'http' && err.status < 500) refundKey = SA.idemKey();
+                SA.toast(t('saveFailed'), 'error', { detail: err.status === 409 ? conflictText(err) : SA.errText(err) });
+                if (err.kind === 'http') load(true);
+            }
+        });
+    });
+
+    /* ---------- print ---------- */
+    function printDoc(kind, seller) {
+        const s = o.shipping;
+        const rows = o.items.map(i => '<tr><td>' + esc(i.title || '—') + (i.variant_name ? '（' + esc(i.variant_name) + '）' : '') + '</td><td>' + esc(i.sku || '') + '</td><td class="r">' + qtyOf(i) + '</td>' +
+            (kind === 'receipt' ? '<td class="r">' + esc(SA.money(unitOf(i), o.currency)) + '</td><td class="r">' + esc(SA.money(lineOf(i), o.currency)) + '</td>' : '') + '</tr>').join('');
+        const sum = (label, v) => '<tr><td colspan="4" class="r">' + esc(label) + '</td><td class="r">' + esc(v) + '</td></tr>';
+        let foot = '';
+        if (kind === 'receipt') {
+            foot = sum(t('subtotal'), SA.money(o.subtotal || 0, o.currency)) + (+o.discount_total ? sum(t('discount'), '-' + SA.money(o.discount_total, o.currency)) : '') + sum(t('shippingFee'), SA.money(o.shipping_total || 0, o.currency)) +
+                (+o.tax_total ? sum(t('tax'), SA.money(o.tax_total, o.currency)) : '') + (+o.rounding_adjustment ? sum(t('rounding'), (+o.rounding_adjustment > 0 ? '+' : '') + SA.money(o.rounding_adjustment, o.currency)) : '') + '<tr class="total"><td colspan="4" class="r">' + esc(t('grand')) + '</td><td class="r">' + esc(SA.money(o.total, o.currency)) + '</td></tr>' +
+                (+o.refunded_total ? sum(t('refunded'), '-' + SA.money(o.refunded_total, o.currency)) : '');
+        }
+        const head = kind === 'receipt' ? '<th>' + esc(t('colProduct')) + '</th><th>SKU</th><th class="r">' + esc(t('colQty')) + '</th><th class="r">' + esc(t('colUnit')) + '</th><th class="r">' + esc(t('colLine')) + '</th>' : '<th>' + esc(t('colProduct')) + '</th><th>SKU</th><th class="r">' + esc(t('colQty')) + '</th>';
+        const html = '<div class="ph"><div><h1>' + esc(t(kind === 'receipt' ? 'receiptTitle' : 'slipTitle')) + '</h1><div>' + esc(t('orderNo')) + '：<b>' + esc(o.number || '#' + o.id) + '</b></div><div>' + esc(t('orderedAt')) + '：' + esc(SA.date(o.created_at, true)) + '</div></div>' +
+            '<div style="text-align:right"><div>' + esc(t('st_' + o.status)) + '</div><div>' + esc([SA.providerLabel(provider()), SA.methodLabel(method())].filter(Boolean).join(' ')) + '</div></div></div>' +
+            '<div class="cols"><div><b>' + esc(t('recipient')) + '</b><div>' + esc(recipient(s) || '—') + '</div><div>' + esc(s.phone || o.phone || '') + '</div><div>' + esc([s.postcode, s.city, s.address].filter(Boolean).join(' ')) + '</div></div>' +
+            '<div><b>' + esc(t('shipMethod')) + '</b><div>' + esc(SA.shipLabel(s.method || o.shipping_method) || '—') + '</div>' + (o.tracking_no ? '<div>' + esc(t('carrierLine', o.carrier || '—', o.tracking_no)) + '</div>' : '') + '</div></div>' +
+            '<table><thead><tr>' + head + '</tr></thead><tbody>' + rows + '</tbody>' + (foot ? '<tfoot>' + foot + '</tfoot>' : '') + '</table>' +
+            (kind === 'receipt' ? '<div class="foot">' + esc(t('taxIncluded')) + (seller ? '\n' + esc(t('seller')) + '：' + esc(seller) : '') + '</div>' : '');
+        SA.printHTML(html);
+    }
+    $('slipBtn').addEventListener('click', () => printDoc('slip'));
+    $('receiptBtn').addEventListener('click', () => SA.busy($('receiptBtn'), async () => {
+        let seller = '';
+        try {
+            const s = await SA.api('GET', '/api/admin/shop/settings', undefined, { timeout: 5000 });
+            const flat = s && (s.settings || s);
+            seller = flat && typeof flat.shop_invoice_seller === 'string' ? flat.shop_invoice_seller : '';
+        } catch (e) { /* the receipt still prints without the seller block */ }
+        printDoc('receipt', seller);
+    }));
+
+    /* ---------- load ---------- */
+    async function load(quiet) {
+        if (!quiet) { SA.state($('loadBox'), 'loading'); $('detail').hidden = true; }
+        try {
+            o = normalize(await SA.api('GET', '/api/admin/orders/' + id));
+            $('loadBox').innerHTML = '';
+            $('detail').hidden = false;
+            render();
+        } catch (err) {
+            if (quiet && o) { SA.toast(t('loadFailedTitle'), 'error', { detail: SA.errText(err) }); return; }
+            ['slipBtn', 'receiptBtn', 'refundOpen', 'shipOpen'].forEach(b => { $(b).hidden = true; });
+            if (err.status === 404) SA.state($('loadBox'), 'error', { title: t('notFoundTitle'), text: SA.errText(err), actions: [{ label: t('backList'), icon: 'i-arrow-left', href: '/admin/orders' }] });
+            else SA.state($('loadBox'), 'error', { title: t('loadFailedTitle'), text: SA.errText(err), retry: () => load() });
+        }
+    }
+    if (!id) SA.state($('loadBox'), 'error', { title: t('notFoundTitle'), actions: [{ label: t('backList'), icon: 'i-arrow-left', href: '/admin/orders' }] });
+    else load();
+})();
+</script>
+{{end}}

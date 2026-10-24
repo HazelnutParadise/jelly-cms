@@ -11,6 +11,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/config"
+	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/i18n"
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
@@ -88,8 +89,42 @@ func run(ctx context.Context) error {
 	server.RegisterRoutes(e, tm, pluginRuntime)
 
 	go runTrashPurge(ctx)
+	go runOrderExpiry(ctx)
 
 	return runHTTPServer(ctx, e, ":8080")
+}
+
+// runOrderExpiry releases stock and coupon holds for orders whose payment
+// window elapsed. Each sweep is bounded by the process context and timeout.
+func runOrderExpiry(ctx context.Context) {
+	sweep := func() {
+		if data.DB == nil {
+			return
+		}
+		sweepCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		count, err := core.ExpireUnpaidOrders(data.DB.WithContext(sweepCtx), time.Now().UTC())
+		if err != nil {
+			if ctx.Err() == nil {
+				log.Printf("Order expiry sweep failed: %v", err)
+			}
+			return
+		}
+		if count > 0 {
+			log.Printf("Order expiry sweep: expired %d pending orders", count)
+		}
+	}
+	sweep()
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			sweep()
+		}
+	}
 }
 
 // runTrashPurge removes expired recycle-bin rows at start and then every 24 hours

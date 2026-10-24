@@ -180,11 +180,28 @@ func TestResendLimitedThreePerHour(t *testing.T) {
 	h := newAccessHarness(t)
 	shopSetup(t, h)
 	order := shopSeedOrder(t, h, shopOrderSeed{number: fmt.Sprintf("JL-%d-0001", time.Now().Year()), email: "resend@example.test", status: "pending", total: 12000})
+	checkoutProof := "fixture-checkout-proof-for-resend-test-0123456789"
+	if err := h.db.Model(&core.Order{}).Where("id = ?", order.ID).Update("lookup_token_hash", shopSHA256Hex(checkoutProof)).Error; err != nil {
+		t.Fatalf("seed checkout proof hash: %v", err)
+	}
 
 	b := newShopBrowser(h)
 	path := "/api/orders/" + order.Number + "/resend"
-	for i := 1; i <= 3; i++ {
-		shopWantOK(t, b.send(http.MethodPost, path, map[string]any{"email": "resend@example.test"}), fmt.Sprintf("resend %d", i))
+	var deliveriesBefore int64
+	if err := h.db.Model(&core.NotificationDelivery{}).Where("kind = ? AND to_address = ?", "order.lookup_link", "resend@example.test").Count(&deliveriesBefore).Error; err != nil {
+		t.Fatalf("count lookup deliveries before unauthorized resend: %v", err)
 	}
-	shopWantCode(t, b.send(http.MethodPost, path, map[string]any{"email": "resend@example.test"}), "resend 4", http.StatusTooManyRequests)
+	unauthorized := b.send(http.MethodPost, path, map[string]any{"email": "resend@example.test"})
+	shopWantCode(t, unauthorized, "resend with matching email but without order proof", http.StatusNotFound)
+	var deliveriesAfterUnauthorized int64
+	if err := h.db.Model(&core.NotificationDelivery{}).Where("kind = ? AND to_address = ?", "order.lookup_link", "resend@example.test").Count(&deliveriesAfterUnauthorized).Error; err != nil {
+		t.Fatalf("count lookup deliveries after unauthorized resend: %v", err)
+	}
+	if deliveriesAfterUnauthorized != deliveriesBefore {
+		t.Errorf("unauthorized resend queued %d lookup deliveries, want none", deliveriesAfterUnauthorized-deliveriesBefore)
+	}
+	for i := 1; i <= 3; i++ {
+		shopWantOK(t, b.send(http.MethodPost, path, map[string]any{"email": "resend@example.test", "access": checkoutProof}), fmt.Sprintf("resend %d with checkout proof", i))
+	}
+	shopWantCode(t, b.send(http.MethodPost, path, map[string]any{"email": "resend@example.test", "access": checkoutProof}), "resend 4 with checkout proof", http.StatusTooManyRequests)
 }

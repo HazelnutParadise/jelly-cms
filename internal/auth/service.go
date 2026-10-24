@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/notify"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/sessions"
 	"github.com/labstack/echo/v4"
@@ -22,6 +24,8 @@ import (
 	"github.com/markbates/goth/providers/github"
 	"github.com/markbates/goth/providers/google"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -221,6 +225,9 @@ func ValidateJWT(tokenString string) (jwt.MapClaims, error) {
 	if !ok || !token.Valid {
 		return nil, fmt.Errorf("invalid token")
 	}
+	if claims["purpose"] != nil {
+		return nil, fmt.Errorf("purpose-bound tokens cannot authenticate requests")
+	}
 
 	rawUserID, ok := claims["user_id"]
 	if !ok {
@@ -268,8 +275,18 @@ func GetUserFromJWT(c echo.Context) (*core.User, error) {
 	return principal.User, nil
 }
 
+func sameNullableTime(left, right *time.Time) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return left.Equal(*right)
+}
+
 // issueLogin creates one login ID and issues the paired JWT and session.
 func issueLogin(c echo.Context, user core.User) (string, error) {
+	if data.DB == nil || user.ID == 0 || (user.Status != "" && user.Status != "active") {
+		return "", fmt.Errorf("account is not available for login")
+	}
 	loginID, err := newLoginID()
 	if err != nil {
 		return "", err
@@ -279,8 +296,62 @@ func issueLogin(c echo.Context, user core.User) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	issuedAt := time.Now().UTC()
+	expiresAt := issuedAt.Add(7 * 24 * time.Hour)
+	device := loginDeviceFromRequest(c.Request())
+	method := "oauth"
+	if user.Provider == "local" || user.Password != "" {
+		method = "password"
+	}
+	hash := hashLoginID(loginID)
+	err = data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+		var current core.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, user.ID).Error; err != nil {
+			return err
+		}
+		if current.Status != "" && current.Status != "active" {
+			return fmt.Errorf("account is not active")
+		}
+		if current.Password != user.Password || !sameNullableTime(current.PasswordChangedAt, user.PasswordChangedAt) {
+			return fmt.Errorf("account credentials changed before login")
+		}
+		lastSeen := issuedAt
+		session := core.LoginSession{
+			ID: hash, UserID: user.ID, Method: method, DeviceLabel: device.label,
+			UAHash: device.uaHash, IPMasked: device.ipMasked,
+			CreatedAt: issuedAt, LastSeenAt: lastSeen, ExpiresAt: expiresAt,
+		}
+		if err := tx.Create(&session).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&core.User{}).Where("id = ?", user.ID).Update("last_login_at", issuedAt).Error; err != nil {
+			return err
+		}
+		if device.label != "" {
+			var recent int64
+			if err := tx.Model(&core.LoginSession{}).Where("user_id = ? AND device_label = ? AND id <> ? AND created_at >= ?", user.ID, device.label, hash, issuedAt.Add(-90*24*time.Hour)).Count(&recent).Error; err != nil {
+				return err
+			}
+			if recent == 0 {
+				if err := notify.Emit(c.Request().Context(), tx, notify.Event{
+					Kind: notify.KindSecurityNewDevice, Category: notify.CategorySecurity,
+					Params:     map[string]any{"device_label": device.label, "ip_masked": device.ipMasked},
+					GroupKey:   "security.new_device:" + device.uaHash,
+					Recipients: notify.Recipients{UserIDs: []uint{user.ID}},
+				}); err != nil {
+					return err
+				}
+			}
+		}
+		user.LastLoginAt = &issuedAt
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
 
 	if err := setUserSessionWithLoginID(c, user.ID, loginID); err != nil {
+		_ = revokeLoginHashes(data.DB, []string{hash}, expiresAt)
 		return "", err
 	}
 
@@ -309,14 +380,30 @@ func HandleLocalLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
 	}
 
-	// Check if user is local user (has password)
-	if user.Provider != "local" || user.Password == "" {
+	// Any account with a password can use local sign-in, including an account
+	// that originally came from OAuth and later set a password.
+	if user.Password == "" {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "This account uses OAuth login. Please use OAuth to sign in."})
 	}
 
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
+	}
+	if user.Status != "" && user.Status != "active" {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "account_disabled"})
+	}
+	if enabled, err := TOTPEnabled(user.ID); err != nil {
+		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Authentication service unavailable"})
+	} else if enabled {
+		mfaToken, err := issueMFATokenForVerifiedUser(user)
+		if errors.Is(err, ErrMFAInvalid) {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
+		}
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to start two-step verification"})
+		}
+		return c.JSON(http.StatusOK, map[string]any{"mfa_required": true, "mfa_token": mfaToken})
 	}
 
 	// Issue the paired login credentials. Prepare the JWT before saving the
@@ -734,5 +821,6 @@ func GetCurrentUser(c echo.Context) (*core.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return principal.User, nil
+	c.Set("auth.principal", principal)
+	return projectedUser(principal), nil
 }

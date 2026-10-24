@@ -5,12 +5,10 @@ package money
 
 import (
 	"errors"
+	"math"
 	"strconv"
 	"strings"
 )
-
-// ErrNotImplemented marks the skeleton functions below (ticket 07, E1).
-var ErrNotImplemented = errors.New("money: not implemented")
 
 // Format renders minor units for display: "NT$120" for TWD 12000, thousands
 // separators ("NT$12,000"), and two decimals only when there is a fractional
@@ -21,7 +19,6 @@ func Format(minor int64, currency string) string {
 	prefix := currencyPrefix(currency)
 
 	negative := minor < 0
-	// Work on the magnitude as uint64 so the minimum int64 does not overflow.
 	magnitude := uint64(minor)
 	if negative {
 		magnitude = uint64(-(minor + 1)) + 1
@@ -75,19 +72,97 @@ func groupThousands(digits string) string {
 	return b.String()
 }
 
-// FromInput parses a whole-yuan amount typed by an administrator ("120") and
-// returns minor units (12000). Decimals, signs and separators are rejected.
-//
-// Skeleton: not implemented yet.
+// FromInput parses a non-negative amount with optional correctly grouped
+// thousands separators and up to two fractional digits into minor units.
 func FromInput(s string) (int64, error) {
-	return 0, ErrNotImplemented
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, errors.New("money: invalid amount")
+	}
+	if strings.HasPrefix(s, "-") || strings.HasPrefix(s, "+") {
+		return 0, errors.New("money: invalid amount")
+	}
+	parts := strings.Split(s, ".")
+	if len(parts) > 2 {
+		return 0, errors.New("money: invalid amount")
+	}
+	whole := parts[0]
+	if whole == "" || (len(parts) == 2 && parts[1] == "") {
+		return 0, errors.New("money: invalid amount")
+	}
+	integer := whole
+	if strings.Contains(whole, ",") {
+		groups := strings.Split(whole, ",")
+		if len(groups[0]) < 1 || len(groups[0]) > 3 {
+			return 0, errors.New("money: invalid amount")
+		}
+		for i := 1; i < len(groups); i++ {
+			if len(groups[i]) != 3 {
+				return 0, errors.New("money: invalid amount")
+			}
+		}
+		integer = strings.Join(groups, "")
+	}
+	for i := 0; i < len(integer); i++ {
+		if integer[i] < '0' || integer[i] > '9' {
+			return 0, errors.New("money: invalid amount")
+		}
+	}
+	var fraction int64
+	if len(parts) == 2 {
+		frac := parts[1]
+		if len(frac) > 2 {
+			return 0, errors.New("money: invalid amount")
+		}
+		for i := 0; i < len(frac); i++ {
+			if frac[i] < '0' || frac[i] > '9' {
+				return 0, errors.New("money: invalid amount")
+			}
+			fraction = fraction*10 + int64(frac[i]-'0')
+		}
+		if len(frac) == 1 {
+			fraction *= 10
+		}
+	}
+	wholeValue, err := strconv.ParseInt(integer, 10, 64)
+	if err != nil || wholeValue > math.MaxInt64/100 {
+		return 0, errors.New("money: amount overflows minor units")
+	}
+	minor := wholeValue * 100
+	if minor > math.MaxInt64-fraction {
+		return 0, errors.New("money: amount overflows minor units")
+	}
+	return minor + fraction, nil
 }
 
 // ToGateway converts minor units to the whole-yuan integer that ECPay and
 // NewebPay expect. It is the only conversion point; callers must not divide
 // by 100 themselves.
 //
-// Skeleton: not implemented yet.
+// It refuses negative amounts and fractional NT$ values.
 func ToGateway(minor int64) (int64, error) {
-	return 0, errors.New("money: ToGateway not implemented")
+	if minor < 0 {
+		return 0, errors.New("money: negative amount not allowed for gateway")
+	}
+	if minor%100 != 0 {
+		return 0, errors.New("money: fractional amount not allowed for gateway")
+	}
+	return minor / 100, nil
+}
+
+// RoundToWhole rounds non-negative minor units to the nearest whole unit,
+// with exact halves rounded up. It avoids adding a rounding bias before the
+// division so MaxInt64 remains safe.
+func RoundToWhole(minor int64) (int64, error) {
+	if minor < 0 {
+		return 0, errors.New("money: negative amount cannot be rounded")
+	}
+	whole, remainder := minor/100, minor%100
+	if remainder >= 50 {
+		whole++
+	}
+	if whole > math.MaxInt64/100 {
+		return 0, errors.New("money: rounded amount overflows minor units")
+	}
+	return whole * 100, nil
 }

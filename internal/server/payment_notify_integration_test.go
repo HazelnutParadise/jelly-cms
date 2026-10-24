@@ -216,6 +216,15 @@ func TestNotifyUnknownOrder404NoDetail(t *testing.T) {
 func TestNotifyFailureKeepsOrderRetryable(t *testing.T) {
 	h := newAccessHarness(t)
 	shopPaymentFixture(t, h)
+	var admin core.User
+	if err := h.db.Where("role = ?", "admin").First(&admin).Error; err != nil {
+		t.Fatalf("load order notification admin: %v", err)
+	}
+	if err := h.db.Create(&core.NotificationPref{
+		UserID: admin.ID, Event: "order.payment_failed", InApp: true, Email: true, Webhook: false,
+	}).Error; err != nil {
+		t.Fatalf("enable admin payment-failed email notification: %v", err)
+	}
 	placed := shopSeedPayableOrder(t, h, 4, "failed@example.test", 12000)
 
 	shopWantCode(t, shopNotify(newShopBrowser(h), shopSandboxNotice(t, placed.trade, "failed", placed.total, "TWD", "nonce-failed")),

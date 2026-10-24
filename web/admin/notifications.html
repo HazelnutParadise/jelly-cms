@@ -1,0 +1,355 @@
+{{define "title"}}{{.T.notificationsTitle}}{{end}}
+{{define "content"}}
+<style>
+.notification-page{min-width:0}
+.notification-page .notification-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.notification-page .notification-filters{display:flex;gap:.35rem;overflow-x:auto;padding:.25rem;background:var(--surface-low);border-radius:var(--r-sm);margin:.8rem 0}
+.notification-page .notification-filters button{min-height:2.4rem;padding:.35rem .8rem;border:0;border-radius:var(--r-sm);background:transparent;color:var(--muted);font:inherit;font-weight:700;white-space:nowrap;cursor:pointer}
+.notification-page .notification-filters button[aria-pressed=true]{background:var(--ink);color:var(--surface)}
+.notification-page .notification-filters b{margin-left:.25rem}
+.notification-page .notification-list{display:grid;gap:.65rem}
+.notification-page .notification-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.7rem 1rem;padding:1rem;background:var(--surface);border-radius:var(--r-md);box-shadow:inset 0 0 0 1px var(--outline)}
+.notification-page .notification-card.unread{box-shadow:inset 3px 0 0 var(--primary),inset 0 0 0 1px var(--outline)}
+.notification-page .notification-main{min-width:0}
+.notification-page .notification-title{font-weight:750;overflow-wrap:anywhere}
+.notification-page .notification-detail{margin:.2rem 0;color:var(--muted);overflow-wrap:anywhere}
+.notification-page .notification-meta{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:.8125rem}
+.notification-page .notification-actions{display:flex;justify-content:flex-end;align-items:center;gap:.4rem;flex-wrap:wrap}
+.notification-page .notification-status{min-height:1.5rem;margin:.5rem 0}
+.notification-page .notification-status.error{color:var(--error)}
+.notification-page .notification-empty{padding:2rem 1rem;text-align:center;color:var(--muted)}
+.notification-page .notification-footer{display:flex;justify-content:center;margin-top:1rem}
+@media(max-width:600px){
+ .notification-page .content{padding-inline:.8rem}
+ .notification-page .notification-card{grid-template-columns:minmax(0,1fr)}
+ .notification-page .notification-actions{justify-content:flex-start}
+ .notification-page .notification-actions .btn{flex:1 1 auto}
+}
+</style>
+<main class="notification-page" id="notificationPage" aria-busy="true">
+    <header class="page-header notification-head">
+        <div class="page-title-wrapper">
+            <h1>{{.T.notificationsTitle}}</h1>
+            <p class="page-description">{{if eq .Lang "en"}}Your recent account and site activity.{{else}}最近的帳號與網站動態。{{end}}</p>
+        </div>
+        <button class="btn btn-secondary" id="readAll" type="button" disabled>{{if eq .Lang "en"}}Mark filtered as read{{else}}將目前篩選全部標為已讀{{end}}</button>
+    </header>
+    <nav class="notification-filters" id="notificationFilters" aria-label="{{if eq .Lang "en"}}Notification filters{{else}}通知篩選{{end}}">
+        <button type="button" data-category="" aria-pressed="true">{{if eq .Lang "en"}}All{{else}}全部{{end}} <b data-count="all">—</b></button>
+        <button type="button" data-category="comments" aria-pressed="false">{{if eq .Lang "en"}}Comments{{else}}留言{{end}} <b data-count="comments">—</b></button>
+        <button type="button" data-category="orders" aria-pressed="false">{{if eq .Lang "en"}}Orders{{else}}訂單{{end}} <b data-count="orders">—</b></button>
+        <button type="button" data-category="system" aria-pressed="false">{{if eq .Lang "en"}}System{{else}}系統{{end}} <b data-count="system">—</b></button>
+        <button type="button" data-category="security" aria-pressed="false">{{if eq .Lang "en"}}Security{{else}}安全{{end}} <b data-count="security">—</b></button>
+        <button type="button" id="unreadOnly" aria-pressed="false">{{if eq .Lang "en"}}Unread{{else}}未讀{{end}} <b data-count="unread">—</b></button>
+    </nav>
+    <p class="notification-status" id="notificationStatus" role="status" aria-live="polite"></p>
+    <div class="alert alert-danger" id="notificationError" role="alert" hidden></div>
+    <div class="alert alert-danger" id="moderationPermissionError" role="alert" hidden><span id="moderationPermissionErrorText"></span> <button class="btn btn-secondary btn-sm" id="retryModerationPermission" type="button">{{if eq .Lang "en"}}Retry{{else}}重試{{end}}</button></div>
+    <div id="notificationLoading" class="loading-spinner"><span class="spinner" aria-hidden="true"><i></i></span><span>{{if eq .Lang "en"}}Loading notifications…{{else}}正在載入通知…{{end}}</span></div>
+    <div class="notification-list" id="notificationList" aria-live="polite"></div>
+    <div class="notification-empty empty-state" id="notificationEmpty" hidden>{{if eq .Lang "en"}}No notifications in this view.{{else}}目前篩選沒有通知。{{end}}</div>
+    <button class="btn btn-secondary" id="retryNotifications" type="button" hidden>{{if eq .Lang "en"}}Retry{{else}}重試{{end}}</button>
+    <div class="notification-footer"><button class="btn btn-secondary" id="loadMore" type="button" hidden>{{if eq .Lang "en"}}Load more{{else}}載入更多{{end}}</button></div>
+</main>
+{{end}}
+{{define "scripts"}}
+<script>
+(function () {
+    'use strict';
+    const en = document.documentElement.lang === 'en';
+    const $ = (id) => document.getElementById(id);
+    const root = $('notificationPage');
+    const state = { category: '', unread: false, before: '', busy: false, items: [], counts: {}, hasMore: false, canModerate: false };
+    const categoryNames = { comments: en ? 'Comments' : '留言', orders: en ? 'Orders' : '訂單', system: en ? 'System' : '系統', security: en ? 'Security' : '安全' };
+    const kinds = {
+        'comment.pending': en ? 'A comment is waiting for review' : '有留言等待審核',
+        'comment.reply': en ? 'A comment received a reply' : '留言收到回覆',
+        'order.new': en ? 'A new order was placed' : '收到新訂單',
+        'order.payment_failed': en ? 'An order payment failed' : '訂單付款失敗',
+        'security.new_device': en ? 'Sign-in from a new device' : '有新裝置登入',
+        'security.password_changed': en ? 'Your password was changed' : '密碼已變更',
+        'system.update_available': en ? 'An update is available' : '有可用更新',
+        'system.plugin_failed': en ? 'A plugin failed' : '外掛發生錯誤',
+        'user.invite_accepted': en ? 'An invitation was accepted' : '邀請已接受'
+    };
+    const actionLabels = {
+        'comments.review': en ? 'Review comments' : '審核留言',
+        'comments.open': en ? 'Open comments' : '查看留言',
+        'orders.open': en ? 'Open orders' : '查看訂單',
+        'account.security': en ? 'Review security' : '檢查安全設定',
+        'plugins.open': en ? 'Open plugins' : '查看外掛',
+        'users.open': en ? 'Open users' : '查看使用者',
+        'notifications.open': en ? 'Open' : '開啟'
+    };
+    const commentActionLabels = {
+        approve: en ? 'Approve pending comments for this post' : '核准此文章的待審留言',
+        spam: en ? 'Mark linked comment as spam' : '將此則留言標為垃圾留言'
+    };
+    function setStatus(text, error) {
+        const el = $('notificationStatus'); el.textContent = text || '';
+        el.classList.toggle('error', Boolean(error));
+    }
+    function errorText(response, error) {
+        if (error && error.name === 'AbortError') return en ? 'Request timed out. Retry.' : '連線逾時，請重試。';
+        if (!navigator.onLine) return en ? 'You are offline. Reconnect and retry.' : '目前離線，請連線後重試。';
+        if (response && response.status === 401) return en ? 'Your session expired. Sign in again.' : '登入已逾期，請重新登入。';
+        if (response && response.status === 403) return en ? 'You do not have permission to complete this action.' : '你沒有權限執行這項操作。';
+        if (response) return en ? 'The server could not complete the request.' : '伺服器無法完成這項要求。';
+        if (error instanceof TypeError) return en ? 'Could not connect. Please retry.' : '連線失敗，請重試。';
+        return error && error.message || (en ? 'Could not load notifications.' : '無法載入通知。');
+    }
+    async function request(path, options) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15000);
+        try {
+            const response = await fetch(path, Object.assign({
+                credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
+                headers: { 'Accept': 'application/json' }
+            }, options || {}));
+            let body = null;
+            try { body = await response.json(); } catch (_) {}
+            if (!response.ok) {
+                const err = new Error(errorText(response));
+                err.response = response;
+                throw err;
+            }
+            return body;
+        } finally { clearTimeout(timer); }
+    }
+    function safeActionURL(value) {
+        if (typeof value !== 'string') return null;
+        try {
+            const url = new URL(value, location.origin);
+            if (url.origin !== location.origin || !url.pathname.startsWith('/admin/')) return null;
+            return url.pathname + url.search + url.hash;
+        } catch (_) { return null; }
+    }
+    function titleFor(item) {
+        const known = kinds[item.kind] || '';
+        const params = item.params && typeof item.params === 'object' ? item.params : {};
+        const subject = params.name || params.title || params.email || params.device_label;
+        return known + (subject ? ': ' + subject : '');
+    }
+    function appendActions(card, item) {
+        const actions = document.createElement('div'); actions.className = 'notification-actions';
+        const list = Array.isArray(item.actions) ? item.actions : [];
+        list.forEach((action) => {
+            const target = safeActionURL(action && action.url);
+            if (!target) return;
+            const link = document.createElement('a');
+            link.className = 'btn btn-secondary btn-sm'; link.href = target;
+            link.textContent = actionLabels[action.label_key] || (en ? 'Open' : '開啟');
+            actions.appendChild(link);
+        });
+        const commentID = item.params && item.params.comment_id;
+        const postID = item.params && item.params.post_id;
+        if (state.canModerate && item.kind === 'comment.pending' && Number.isSafeInteger(Number(commentID)) && Number(commentID) > 0) {
+            ['approve', 'spam'].forEach((action) => {
+                if (action === 'approve' && (!Number.isSafeInteger(Number(postID)) || Number(postID) <= 0)) return;
+                const button = document.createElement('button');
+                button.type = 'button'; button.className = 'btn btn-secondary btn-sm';
+                button.textContent = commentActionLabels[action];
+                button.dataset.commentAction = action; button.dataset.commentId = String(commentID);
+                if (action === 'approve') button.dataset.postId = String(postID);
+                actions.appendChild(button);
+            });
+        }
+        if (!item.read_at) {
+            const button = document.createElement('button'); button.type = 'button'; button.className = 'btn btn-text btn-sm';
+            button.textContent = en ? 'Mark read' : '標為已讀'; button.dataset.markRead = String(item.id);
+            actions.appendChild(button);
+        }
+        if (actions.childElementCount) card.appendChild(actions);
+    }
+    function renderItems(items, append) {
+        const list = $('notificationList');
+        if (!append) list.replaceChildren();
+        items.forEach((item) => {
+            const card = document.createElement('article'); card.className = 'notification-card' + (item.read_at ? '' : ' unread');
+            card.dataset.id = String(item.id);
+            const main = document.createElement('div'); main.className = 'notification-main';
+            const title = document.createElement('div'); title.className = 'notification-title'; title.textContent = titleFor(item) || (en ? 'Notification' : '通知');
+            const detail = document.createElement('p'); detail.className = 'notification-detail';
+            const params = item.params && typeof item.params === 'object' ? item.params : {};
+            detail.textContent = params.message || params.body || '';
+            const meta = document.createElement('div'); meta.className = 'notification-meta';
+            const category = document.createElement('span'); category.className = 'badge'; category.textContent = categoryNames[item.category] || item.category || '';
+            const date = document.createElement('time'); date.dateTime = item.created_at || '';
+            const parsed = Date.parse(item.created_at || '');
+            date.textContent = Number.isFinite(parsed) ? new Intl.DateTimeFormat(en ? 'en' : 'zh-TW', { dateStyle: 'medium', timeStyle: 'short' }).format(parsed) : (item.created_at || '');
+            meta.append(category, date);
+            if (Number(item.count) > 1) {
+                const count = document.createElement('span'); count.className = 'badge'; count.textContent = (en ? '×' : '×') + item.count; meta.appendChild(count);
+            }
+            main.append(title, detail, meta); card.appendChild(main); appendActions(card, item); list.appendChild(card);
+        });
+        $('notificationEmpty').hidden = list.childElementCount > 0;
+        $('loadMore').hidden = !state.hasMore;
+    }
+    function renderCounts(counts) {
+        state.counts = counts || {};
+        root.querySelectorAll('[data-count]').forEach((el) => {
+            const key = el.dataset.count;
+            el.textContent = Number.isFinite(Number(state.counts[key])) ? String(state.counts[key]) : '0';
+        });
+        $('readAll').disabled = state.busy || Number(state.counts.unread || 0) === 0;
+    }
+    async function load(append) {
+        if (state.busy) return;
+        state.busy = true; root.setAttribute('aria-busy', 'true');
+        $('notificationLoading').hidden = append || state.items.length > 0;
+        $('notificationError').hidden = true; $('retryNotifications').hidden = true; setStatus('', false);
+        const query = new URLSearchParams({ limit: '20' });
+        if (state.category) query.set('category', state.category);
+        if (state.unread) query.set('unread', '1');
+        if (append && state.before) query.set('before', state.before);
+        try {
+            const result = await request('/api/account/notifications?' + query.toString());
+            if (!result || !Array.isArray(result.items) || !result.counts || typeof result.counts !== 'object') throw new Error(en ? 'Invalid notification response.' : '通知回應格式不正確。');
+            const newItems = result.items;
+            state.items = append ? state.items.concat(newItems) : newItems;
+            state.before = newItems.length ? String(newItems[newItems.length - 1].id) : '';
+            state.hasMore = newItems.length === 20;
+            renderCounts(result.counts); renderItems(newItems, append);
+        } catch (error) {
+            const message = errorText(error.response, error);
+            $('notificationError').textContent = message; $('notificationError').hidden = false; $('retryNotifications').hidden = false;
+            setStatus(message, true);
+        } finally {
+            state.busy = false; root.setAttribute('aria-busy', 'false'); $('notificationLoading').hidden = true;
+            $('readAll').disabled = Number(state.counts.unread || 0) === 0;
+        }
+    }
+    async function loadModerationPermission() {
+        $('moderationPermissionError').hidden = true;
+        $('retryModerationPermission').hidden = true;
+        try {
+            const profile = await request('/api/account/profile');
+            if (!profile || typeof profile.role !== 'string') throw new Error(en ? 'Invalid account response.' : '帳號回應格式不正確。');
+            state.canModerate = profile.role === 'admin' || profile.role === 'editor';
+            renderItems(state.items, false);
+        } catch (error) {
+            state.canModerate = false;
+            $('moderationPermissionErrorText').textContent = errorText(error.response, error);
+            $('moderationPermissionError').hidden = false;
+            $('retryModerationPermission').hidden = false;
+            renderItems(state.items, false);
+        }
+    }
+    $('notificationFilters').addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-category]');
+        if (!button || state.busy) return;
+        state.category = button.dataset.category;
+        root.querySelectorAll('button[data-category]').forEach((el) => el.setAttribute('aria-pressed', String(el === button)));
+        state.before = ''; state.items = []; load(false);
+    });
+    $('unreadOnly').addEventListener('click', () => {
+        if (state.busy) return;
+        state.unread = !state.unread;
+        $('unreadOnly').setAttribute('aria-pressed', String(state.unread)); state.before = ''; state.items = []; load(false);
+    });
+    async function pendingCommentIDs(postID) {
+        const perPage = 100;
+        const queryForPage = (page) => {
+            const query = new URLSearchParams({ status: 'pending', post_id: String(postID), per_page: String(perPage), page: String(page) });
+            return '/api/admin/comments?' + query.toString();
+        };
+        const first = await request(queryForPage(1));
+        if (!first || !Array.isArray(first.items) || !Number.isSafeInteger(Number(first.total)) || Number(first.total) < 0) throw new Error(en ? 'Invalid comments response.' : '留言清單回應格式不正確。');
+        const total = Number(first.total);
+        const ids = [];
+        const seen = new Set();
+        const collect = (items) => items.forEach((item) => {
+            const id = Number(item && item.id);
+            if (Number.isSafeInteger(id) && id > 0 && !seen.has(id)) { seen.add(id); ids.push(id); }
+        });
+        collect(first.items);
+        for (let page = 2; page <= Math.ceil(total / perPage); page++) {
+            const result = await request(queryForPage(page));
+            if (!result || !Array.isArray(result.items)) throw new Error(en ? 'Invalid comments response.' : '留言清單回應格式不正確。');
+            collect(result.items);
+        }
+        return ids.slice(0, total);
+    }
+    $('notificationList').addEventListener('click', async (event) => {
+        const moderation = event.target.closest('[data-comment-action]');
+        if (moderation && !state.busy) {
+            const commentID = moderation.dataset.commentId;
+            if (!/^[1-9]\d*$/.test(commentID)) return;
+            const action = moderation.dataset.commentAction;
+            const postID = moderation.dataset.postId;
+            if (action === 'approve' && !/^[1-9]\d*$/.test(postID || '')) return;
+            if (action === 'spam' && !window.confirm(en ? 'Mark this comment as spam?' : '確定將此留言標為垃圾留言？')) return;
+            state.busy = true; root.setAttribute('aria-busy', 'true'); moderation.disabled = true;
+            let updated = 0;
+            let moderationError = null;
+            try {
+                if (action === 'approve') {
+                    const ids = await pendingCommentIDs(postID);
+                    for (let offset = 0; offset < ids.length; offset += 500) {
+                        const batch = ids.slice(offset, offset + 500);
+                        const result = await request('/api/admin/comments/bulk', {
+                            method: 'POST',
+                            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Jelly-CSRF': '1' },
+                            body: JSON.stringify({ ids: batch, action: 'approve' })
+                        });
+                        if (!result || !Number.isSafeInteger(Number(result.updated)) || Number(result.updated) < 0) throw new Error(en ? 'Invalid moderation response.' : '留言審核回應格式不正確。');
+                        updated += Number(result.updated);
+                    }
+                } else {
+                    await request('/api/admin/comments/' + encodeURIComponent(commentID) + '/' + action, {
+                        method: 'POST', headers: { 'Accept': 'application/json', 'X-Jelly-CSRF': '1' }
+                    });
+                    updated = 1;
+                }
+            } catch (error) {
+                moderationError = errorText(error.response, error);
+            }
+            state.busy = false; root.setAttribute('aria-busy', 'false');
+            if (updated > 0) await load(false);
+            if (moderationError) setStatus((updated ? (en ? 'Approved ' + updated + ' comments before the error. ' : '錯誤前已核准 ' + updated + ' 則留言。') : '') + moderationError, true);
+            else if (updated === 0 && action === 'approve') setStatus(en ? 'There are no pending comments for this post.' : '此文章目前沒有待審留言。', false);
+            else if (!$('notificationError').hidden) setStatus(en ? 'Moderation was saved, but notifications could not be refreshed.' : '留言審核已儲存，但通知清單更新失敗。', true);
+            else setStatus(action === 'approve' ? (en ? 'Approved ' + updated + ' pending comments for this post.' : '已核准此文章的 ' + updated + ' 則待審留言。') : (en ? 'Comment moderation was saved.' : '留言審核結果已儲存。'), false);
+            return;
+        }
+        const button = event.target.closest('[data-mark-read]');
+        if (!button || state.busy) return;
+        const id = encodeURIComponent(button.dataset.markRead);
+        state.busy = true; root.setAttribute('aria-busy', 'true'); button.disabled = true;
+        try {
+            await request('/api/account/notifications/' + id + '/read', { method: 'POST', headers: { 'Accept': 'application/json', 'X-Jelly-CSRF': '1' } });
+            state.busy = false; root.setAttribute('aria-busy', 'false'); await load(false);
+        } catch (error) {
+            state.busy = false; root.setAttribute('aria-busy', 'false'); button.disabled = false;
+            setStatus(errorText(error.response, error), true);
+        }
+    });
+    $('readAll').addEventListener('click', async () => {
+        if (state.busy || Number(state.counts.unread || 0) === 0) return;
+        const query = state.category ? '?category=' + encodeURIComponent(state.category) : '';
+        state.busy = true; root.setAttribute('aria-busy', 'true'); $('readAll').disabled = true;
+        try {
+            const result = await request('/api/account/notifications/read-all' + query, { method: 'POST', headers: { 'Accept': 'application/json', 'X-Jelly-CSRF': '1' } });
+            state.busy = false; root.setAttribute('aria-busy', 'false');
+            await load(false);
+            if ($('notificationError').hidden) {
+                const updated = result && Number(result.updated);
+                setStatus(updated === 0
+                    ? (en ? 'There are no unread notifications in this view.' : '目前篩選沒有未讀通知。')
+                    : (en ? 'Notifications marked as read.' : '通知已標為已讀。'), false);
+            }
+        } catch (error) {
+            state.busy = false; root.setAttribute('aria-busy', 'false');
+            setStatus(errorText(error.response, error), true); $('readAll').disabled = false;
+        }
+    });
+    $('retryNotifications').addEventListener('click', () => load(false));
+    $('retryModerationPermission').addEventListener('click', loadModerationPermission);
+    $('loadMore').addEventListener('click', () => load(true));
+    window.addEventListener('online', () => { if ($('notificationError').hidden) return; load(false); });
+    window.addEventListener('offline', () => setStatus(en ? 'You are offline. Existing notifications remain available.' : '目前離線，已載入的通知仍可查看。', true));
+    load(false); loadModerationPermission();
+})();
+</script>
+{{end}}

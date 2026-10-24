@@ -181,18 +181,29 @@ func TestOrdersAdminRefundPartialFullOverAndIdempotent(t *testing.T) {
 		t.Errorf("refunded_total after over-refund attempt = %d, want 3000", got)
 	}
 
-	shopWantOK(t, adm.send(http.MethodPost, refundPath, map[string]any{"amount": 7000, "reason": "full", "restock": false}), "remaining refund 7000")
+	remainingRefund := map[string]any{"amount": 7000, "reason": "full", "restock": false, "idempotency_key": "remaining-refund"}
+	shopWantOK(t, adm.send(http.MethodPost, refundPath, remainingRefund), "remaining refund 7000")
 	full := shopOrderRow(t, h, order.Number)
 	if full.RefundedTotal != 10000 || full.Status != core.OrderStatusRefunded {
 		t.Errorf("after the full refund: refunded_total=%d status=%q, want 10000 and refunded", full.RefundedTotal, full.Status)
 	}
 
-	again := adm.send(http.MethodPost, refundPath, map[string]any{"amount": 7000, "reason": "full", "restock": false})
-	if again.code >= 200 && again.code < 300 {
-		t.Errorf("a second refund on a refunded order was accepted (%d)", again.code)
+	again := adm.send(http.MethodPost, refundPath, remainingRefund)
+	shopWantOK(t, again, "same-payload remaining refund replay")
+	if n := shopCount(t, h, "SELECT COUNT(*) FROM order_events WHERE order_id = ? AND kind = 'refund'", order.ID); n != 2 {
+		t.Errorf("refund order events after same-payload replay = %d, want 2", n)
+	}
+	if n := shopCount(t, h, "SELECT COUNT(*) FROM payment_events WHERE provider = 'admin-refund' AND dedupe_key = ?", "remaining-refund"); n != 1 {
+		t.Errorf("payment events for same-payload replay = %d, want 1", n)
+	}
+
+	newRefund := adm.send(http.MethodPost, refundPath, map[string]any{"amount": 100, "reason": "new refund after full refund", "restock": false, "idempotency_key": "new-terminal-refund"})
+	shopWantCode(t, newRefund, "new refund after full refund", http.StatusBadRequest)
+	if n := shopCount(t, h, "SELECT COUNT(*) FROM order_events WHERE order_id = ? AND kind = 'refund'", order.ID); n != 2 {
+		t.Errorf("refund order events after terminal refund = %d, want 2", n)
 	}
 	if got := shopOrderRow(t, h, order.Number).RefundedTotal; got != 10000 {
-		t.Errorf("refunded_total after repeat = %d, want 10000 (never more than the total)", got)
+		t.Errorf("refunded_total after replay and terminal attempt = %d, want 10000", got)
 	}
 }
 

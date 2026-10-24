@@ -1,17 +1,20 @@
 package server
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
+
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/labstack/echo/v4"
 )
 
-// Admin shop routes (docs/tickets/07-shop.md, 管理 API and 頁面). Skeleton: every
-// new API answers 501 through notImplemented. The existing GET and POST
-// handlers in handlers_ecommerce.go (/api/admin/products, /api/admin/orders)
-// stay as they are until the ticket-07 versions replace them, so this file
-// does not register those paths.
+// Admin shop routes (docs/tickets/07-shop.md, 管理 API and 頁面). Product list,
+// create, and update routes are registered by handlers_ecommerce.go; this file
+// registers the additional shop administration APIs and pages below.
 //
-// APIs (role admin; GET may later use 06's orders_read token scope):
+// APIs require the admin role unless their API documentation states otherwise.
 //
 //	POST   /api/admin/products/:id/duplicate
 //	GET    /api/admin/product-categories
@@ -44,15 +47,19 @@ import (
 
 // productInput is the typed body of POST and PUT /api/admin/products (ticket 07,
 // E2). It has no id or deleted_at field, so those values in a request are
-// ignored. Prices and stock are never negative; the database checks stock too.
-// Skeleton: the handlers that use it are not written yet.
+// ignored. A top-level price string is in major units; a non-negative JSON
+// integer is accepted as legacy minor units. Compare-at and variant prices
+// remain major-unit strings. Top-level SKU and stock are optional legacy fields.
 type productInput struct {
 	Title             string                `json:"title"`
 	Slug              string                `json:"slug"`
 	Description       string                `json:"description"`
+	Price             string                `json:"price"`
+	SKU               *string               `json:"sku"`
+	Stock             *int                  `json:"stock"`
 	Kind              string                `json:"kind"`   // physical, digital
 	Status            string                `json:"status"` // active, draft, archived
-	CompareAtPrice    int64                 `json:"compare_at_price"`
+	CompareAtPrice    string                `json:"compare_at_price"`
 	LowStockThreshold *int                  `json:"low_stock_threshold"`
 	RequiresShipping  *bool                 `json:"requires_shipping"`
 	ColdChain         bool                  `json:"cold_chain"`
@@ -65,12 +72,48 @@ type productInput struct {
 	SEODescription    string                `json:"seo_description"`
 }
 
+// UnmarshalJSON accepts legacy top-level integer prices as minor units while
+// keeping the parsed representation as the decimal string used by money.FromInput.
+func (in *productInput) UnmarshalJSON(data []byte) error {
+	type productInputAlias productInput
+	var decoded struct {
+		*productInputAlias
+		Price json.RawMessage `json:"price"`
+	}
+	decoded.productInputAlias = (*productInputAlias)(in)
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	if len(decoded.Price) == 0 || string(decoded.Price) == "null" {
+		in.Price = ""
+		return nil
+	}
+	if decoded.Price[0] == '"' {
+		return json.Unmarshal(decoded.Price, &in.Price)
+	}
+	// JSON numeric prices are deliberately limited to non-negative base-10
+	// integers. In particular, decimal and exponent notation is not accepted.
+	raw := string(decoded.Price)
+	for _, ch := range raw {
+		if ch < '0' || ch > '9' {
+			return errors.New("price number must be a non-negative decimal integer")
+		}
+	}
+	minor, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		return errors.New("price number is out of range")
+	}
+	in.Price = fmt.Sprintf("%d.%02d", minor/100, minor%100)
+	return nil
+}
+
 // productVariantInput is one variant of productInput.
 type productVariantInput struct {
+	ID             uint   `json:"id"`
 	Name           string `json:"name"`
 	SKU            string `json:"sku"`
-	Price          int64  `json:"price"`
-	CompareAtPrice int64  `json:"compare_at_price"`
+	Price          string `json:"price"`
+	CompareAtPrice string `json:"compare_at_price"`
 	Stock          int    `json:"stock"`
 	Position       int    `json:"position"`
 	Status         string `json:"status"`
@@ -80,31 +123,31 @@ type productVariantInput struct {
 func registerShopAdminRoutes(e *echo.Echo, renderAdmin func(c echo.Context, file, active string) error) {
 	api := e.Group("/api/admin", auth.RequireRole("admin"))
 
-	api.POST("/products/:id/duplicate", notImplemented)
+	api.POST("/products/:id/duplicate", adminProductsDuplicate)
 
-	api.GET("/product-categories", notImplemented)
-	api.POST("/product-categories", notImplemented)
-	api.PUT("/product-categories/:id", notImplemented)
-	api.DELETE("/product-categories/:id", notImplemented)
+	api.GET("/product-categories", adminProductCategoriesList)
+	api.POST("/product-categories", adminProductCategoriesCreate)
+	api.PUT("/product-categories/:id", adminProductCategoriesUpdate)
+	api.DELETE("/product-categories/:id", adminProductCategoriesDelete)
 
-	api.GET("/orders/:id", notImplemented)
-	api.PUT("/orders/:id", notImplemented)
-	api.POST("/orders/:id/notes", notImplemented)
-	api.PATCH("/orders/:id/address", notImplemented)
-	api.POST("/orders/:id/refund", notImplemented)
-	api.POST("/orders/:id/mark-paid", notImplemented)
+	api.GET("/orders/:id", adminOrderGet)
+	api.PUT("/orders/:id", adminOrderUpdateStatus)
+	api.POST("/orders/:id/notes", adminOrderAddNote)
+	api.PATCH("/orders/:id/address", adminOrderUpdateAddress)
+	api.POST("/orders/:id/refund", adminOrderRefund)
+	api.POST("/orders/:id/mark-paid", adminOrderMarkPaid)
 
-	api.GET("/coupons", notImplemented)
-	api.POST("/coupons", notImplemented)
-	api.GET("/coupons/:id", notImplemented)
-	api.PATCH("/coupons/:id", notImplemented)
-	api.DELETE("/coupons/:id", notImplemented)
-	api.POST("/coupons/generate", notImplemented)
-	api.POST("/coupons/preview", notImplemented)
+	api.GET("/coupons", adminCouponsList)
+	api.POST("/coupons", adminCouponCreate)
+	api.GET("/coupons/:id", adminCouponGet)
+	api.PATCH("/coupons/:id", adminCouponPatch)
+	api.DELETE("/coupons/:id", adminCouponDelete)
+	api.POST("/coupons/generate", adminCouponGenerate)
+	api.POST("/coupons/preview", adminCouponPreview)
 
-	api.GET("/shop/settings", notImplemented)
-	api.PUT("/shop/settings", notImplemented)
-	api.POST("/shop/payment/:gateway/test", notImplemented)
+	api.GET("/shop/settings", adminShopSettingsGet)
+	api.PUT("/shop/settings", adminShopSettingsPut)
+	api.POST("/shop/payment/:gateway/test", adminShopPaymentTest)
 
 	pages := e.Group("/admin", auth.RequireAuth)
 	pages.GET("/orders/:id", func(c echo.Context) error {

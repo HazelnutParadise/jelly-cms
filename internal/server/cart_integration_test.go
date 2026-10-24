@@ -607,7 +607,7 @@ func TestCartMergeOnLogin(t *testing.T) {
 	guest := newShopBrowser(h)
 	shopAddToCart(t, guest, vs[0].ID, 2)
 	shopAddToCart(t, guest, vs[1].ID, 1)
-	login := guest.send(http.MethodPost, "/auth/login", map[string]string{"username": member.Username, "password": "member-pass-1"})
+	login := guest.sendWith(http.MethodPost, "/auth/login", map[string]string{"username": member.Username, "password": "member-pass-1"}, map[string]string{"Accept": "application/json"})
 	shopWantCode(t, login, "POST /auth/login", http.StatusOK)
 
 	cart := shopCartGet(t, guest)

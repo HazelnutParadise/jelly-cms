@@ -1,1 +1,30 @@
-{{define "content"}}{{/* ticket 07 placeholder: account_notifications */}}{{end}}
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+<div class="shop" data-page="notifications" data-lang="{{if $en}}en{{else}}zh-TW{{end}}">
+    <div class="acct">
+        <aside class="shop-side acct-side" aria-label="{{if $en}}Account{{else}}會員中心{{end}}">
+            {{with .Member}}<div class="acct-who"><span class="av" aria-hidden="true">{{if .Name}}{{initial .Name}}{{else}}{{initial .Email}}{{end}}</span><div><b>{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}</b><small>{{.Email}}</small></div></div>{{end}}
+            <nav aria-label="{{if $en}}Account sections{{else}}會員中心分頁{{end}}">
+                <a href="/account/orders"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2 12h12l2-8H6"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg>{{if $en}}My orders{{else}}我的訂單{{end}}</span></a>
+                <a href="/account/addresses"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6h12v10H2zM14 10h4l4 4v2h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>{{if $en}}Addresses{{else}}收件地址{{end}}</span></a>
+                <a href="/account/invoices"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6h20v12H2zM2 10h20"/></svg>{{if $en}}Invoices{{else}}發票設定{{end}}</span></a>
+                <a href="/account/security"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{{if $en}}Account and password{{else}}帳號與密碼{{end}}</span></a>
+                <a href="/account/notifications" aria-current="page"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM3 5l9 7 9-7"/></svg>{{if $en}}Notifications{{else}}通知{{end}}</span></a>
+            </nav>
+            <form method="post" action="/auth/logout"><button class="btn x sm" type="submit">{{if $en}}Sign out{{else}}登出{{end}}</button></form>
+        </aside>
+        <section class="acct-main" aria-labelledby="acct-title">
+            <div class="shop-head">
+                <div><span class="shop-stripe"></span><h1 class="page-title" id="acct-title" style="font-size: clamp(2rem, 5vw, 2.75rem);">{{if $en}}Notifications{{else}}通知{{end}}</h1></div>
+                <button class="btn t sm" type="button" data-n-readall hidden>{{if $en}}Mark all as read{{else}}全部標為已讀{{end}}</button>
+            </div>
+            <p class="notice info small">{{if $en}}Order confirmations, payment and shipping updates are always emailed to you and cannot be turned off.{{else}}訂單確認、付款與出貨通知一律寄到你的 Email，無法關閉。{{end}}</p>
+            <div data-n-status hidden></div>
+            <div class="nlist" data-n-list aria-live="polite"><span class="sk"></span><span class="sk"></span></div>
+            <button class="btn t sm" type="button" data-n-more hidden style="align-self: center;">{{if $en}}Load more{{else}}載入更多{{end}}</button>
+        </section>
+    </div>
+</div>
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}

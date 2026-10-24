@@ -1,0 +1,869 @@
+{{define "title"}}{{if eq .Lang "en"}}Account{{else}}個人帳號{{end}}{{end}}
+{{define "content"}}
+<style>
+.account-profile{min-width:0}
+.account-profile .profile-tabs{display:flex;gap:.25rem;overflow-x:auto;padding:.2rem;background:var(--surface-low);border-radius:var(--r-sm);margin:.75rem 0 1rem}
+.account-profile .profile-tabs a{display:inline-flex;align-items:center;min-height:2.2rem;padding:.3rem .7rem;border-radius:var(--r-sm);font-weight:700;color:var(--muted);white-space:nowrap}
+.account-profile .profile-tabs a[aria-current=page]{background:var(--ink);color:var(--surface)}
+.account-profile .profile-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(15rem,19rem);gap:1rem;align-items:start}
+.account-profile .profile-main,.account-profile .profile-side{min-width:0}
+.account-profile .profile-card{padding:1.25rem;background:var(--surface);border-radius:var(--r-md);box-shadow:inset 0 0 0 1px var(--outline);margin-bottom:.8rem}
+.account-profile .profile-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(14rem,.9fr);gap:.5rem 1.25rem;align-items:center;padding:.8rem 0;border-top:1px solid var(--line)}
+.account-profile .profile-row>div:first-child strong{display:block}
+.account-profile .profile-row .hint{margin:0}
+.account-profile .profile-actions{display:flex;justify-content:flex-end;gap:.5rem;flex-wrap:wrap}
+.account-profile .profile-list{display:grid;gap:.6rem}
+.account-profile .profile-item{display:flex;align-items:flex-start;gap:.75rem;padding:.8rem .25rem;border-top:1px solid var(--line)}
+.account-profile .profile-item-main{flex:1;min-width:0}
+.account-profile .profile-item-actions{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:flex-end}
+.account-profile .avatar-preview{width:4.5rem;height:4.5rem;overflow:hidden}
+.account-profile .avatar-preview img{width:100%;height:100%;object-fit:cover}
+.account-profile .token-secret,.account-profile .recovery-codes{padding:1rem;background:var(--rail);color:#fff;border-radius:var(--r-sm);overflow-wrap:anywhere}
+.account-profile .recovery-codes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .75rem;font-family:var(--mono)}
+.account-profile .qr{width:9rem;height:9rem;object-fit:contain;background:#fff;border:1px solid var(--outline);padding:.4rem}
+.account-profile .profile-inline{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.account-profile .profile-feedback{min-height:1.5rem;margin:.5rem 0}
+.account-profile .profile-feedback.error{color:var(--error)}
+.account-profile .profile-feedback.success{color:var(--success)}
+.account-profile .pref-table-wrap{overflow:auto}
+.account-profile .pref-table{min-width:600px}
+.account-profile .pref-table th:not(:first-child),.account-profile .pref-table td:not(:first-child){text-align:center}
+.account-profile .identity-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;align-items:center;padding:.85rem 0;border-top:1px solid var(--line)}
+.account-profile .identity-actions{display:flex;justify-content:flex-end;gap:.5rem}
+.account-profile .danger-note{color:var(--error)}
+@media(max-width:850px){.account-profile .profile-columns{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){
+ .account-profile .content{padding-inline:.8rem}
+ .account-profile .profile-row{grid-template-columns:minmax(0,1fr)}
+ .account-profile .profile-actions{justify-content:flex-start}
+ .account-profile .profile-actions .btn{flex:1 1 auto}
+ .account-profile .identity-row{grid-template-columns:minmax(0,1fr)}
+ .account-profile .identity-actions{justify-content:flex-start}
+ .account-profile .profile-card{padding:.9rem}
+}
+</style>
+<div class="account-profile" id="accountProfile" aria-busy="true">
+    <div class="page-header">
+        <div class="page-title-wrapper"><h1>{{if eq .Lang "en"}}Account{{else}}個人帳號{{end}}</h1><p class="page-description">{{if eq .Lang "en"}}Manage your profile, notifications and account security.{{else}}管理個人資料、通知偏好與帳號安全。{{end}}</p></div>
+    </div>
+    <nav class="profile-tabs" aria-label="{{if eq .Lang "en"}}Account sections{{else}}帳號分頁{{end}}">
+        <a href="/admin/account?tab=profile" data-tab-link="profile">{{if eq .Lang "en"}}Profile{{else}}基本資料{{end}}</a>
+        <a href="/admin/account?tab=notifications" data-tab-link="notifications">{{if eq .Lang "en"}}Notifications{{else}}通知{{end}}</a>
+        <a href="/admin/account?tab=tokens" data-tab-link="tokens">{{if eq .Lang "en"}}API tokens{{else}}API 權杖{{end}}</a>
+        <a href="/admin/account?tab=security" data-tab-link="security">{{if eq .Lang "en"}}Password & security{{else}}密碼與安全{{end}}</a>
+        <a href="/admin/account?tab=devices" data-tab-link="devices">{{if eq .Lang "en"}}Devices{{else}}登入裝置{{end}}</a>
+        <a href="/admin/account?tab=identities" data-tab-link="identities">{{if eq .Lang "en"}}Connected accounts{{else}}第三方帳號{{end}}</a>
+    </nav>
+    <p class="profile-feedback" id="profileStatus" role="status" aria-live="polite"></p>
+    <div class="alert alert-danger" id="profileError" role="alert" hidden></div>
+    <div id="profileLoading" class="loading-spinner"><span class="spinner" aria-hidden="true"><i></i></span><span>{{if eq .Lang "en"}}Loading account…{{else}}正在載入帳號資料…{{end}}</span></div>
+
+    <section class="profile-columns" id="tab-profile" data-panel="profile" hidden>
+        <div class="profile-main">
+            <section class="profile-card">
+                <div class="section-head"><div><h2>{{if eq .Lang "en"}}Basic information{{else}}基本資料{{end}}</h2><p class="muted">{{if eq .Lang "en"}}Your public author name and interface preferences.{{else}}前台署名與介面偏好。{{end}}</p></div></div>
+                <div class="profile-inline" style="margin-bottom:1rem">
+                    <span class="avatar avatar-lg avatar-preview" id="profileAvatar" aria-label="{{if eq .Lang "en"}}Profile avatar{{else}}個人頭像{{end}}"></span>
+                    <div class="profile-inline"><label class="btn btn-secondary btn-sm" for="avatarFile">{{if eq .Lang "en"}}Upload avatar{{else}}上傳頭像{{end}}</label><input id="avatarFile" type="file" accept="image/png,image/jpeg,image/webp" hidden><button class="btn btn-text btn-sm" id="removeAvatar" type="button">{{if eq .Lang "en"}}Remove{{else}}移除{{end}}</button></div>
+                    <span class="hint">{{if eq .Lang "en"}}PNG, JPEG or WebP, up to 2 MB.{{else}}PNG、JPEG 或 WebP，最大 2 MB。{{end}}</span>
+                </div>
+                <form id="profileForm">
+                    <div class="profile-row"><div><strong>{{if eq .Lang "en"}}Display name{{else}}顯示名稱{{end}}</strong><span class="hint">{{if eq .Lang "en"}}Shown as your author name.{{else}}作為前台文章署名。{{end}}</span></div><div><input name="display_name" type="text" minlength="1" maxlength="120" required></div></div>
+                    <div class="profile-row"><div><strong>{{if eq .Lang "en"}}Biography{{else}}簡介{{end}}</strong><span class="hint">{{if eq .Lang "en"}}Shown on your author page.{{else}}顯示於作者頁。{{end}}</span></div><div><textarea name="bio" rows="3" maxlength="500"></textarea></div></div>
+                    <div class="profile-row"><div><strong>{{if eq .Lang "en"}}Interface language{{else}}介面語言{{end}}</strong></div><div><select name="locale"><option value="zh-TW">{{if eq .Lang "en"}}Traditional Chinese{{else}}繁體中文{{end}}</option><option value="en">English</option></select></div></div>
+                    <div class="profile-row"><div><strong>{{if eq .Lang "en"}}Appearance{{else}}外觀{{end}}</strong><span class="hint">{{if eq .Lang "en"}}Choose a theme for the admin interface.{{else}}選擇後台介面配色。{{end}}</span></div><div><select name="ui_theme"><option value="system">{{if eq .Lang "en"}}Follow system{{else}}跟隨系統{{end}}</option><option value="light">{{if eq .Lang "en"}}Light{{else}}淺色{{end}}</option><option value="dark">{{if eq .Lang "en"}}Dark{{else}}深色{{end}}</option></select></div></div>
+                    <div class="profile-actions form-actions"><button class="btn btn-primary" type="submit">{{if eq .Lang "en"}}Save profile{{else}}儲存基本資料{{end}}</button></div>
+                </form>
+            </section>
+            <section class="profile-card">
+                <div class="section-head"><div><h2>{{if eq .Lang "en"}}Email address{{else}}Email 信箱{{end}}</h2><p class="muted">{{if eq .Lang "en"}}Changing your email requires your password and confirmation from the new address.{{else}}變更 Email 需要輸入密碼，並由新信箱確認。{{end}}</p></div></div>
+                <p id="emailCurrent" class="hint"></p><p id="pendingEmail" class="hint" hidden></p>
+                <form id="emailForm" class="form-row">
+                    <div class="form-group"><label for="newEmail">{{if eq .Lang "en"}}New email{{else}}新 Email{{end}}</label><input id="newEmail" name="new_email" type="email" autocomplete="email" required></div>
+                    <div class="form-group"><label for="emailPassword">{{if eq .Lang "en"}}Current password{{else}}目前密碼{{end}}</label><input id="emailPassword" name="current_password" type="password" autocomplete="current-password" required></div>
+                    <div class="form-actions"><button class="btn btn-secondary" type="submit">{{if eq .Lang "en"}}Request email change{{else}}送出信箱變更{{end}}</button></div>
+                </form>
+            </section>
+        </div>
+        <aside class="profile-side">
+            <section class="profile-card"><h2>{{if eq .Lang "en"}}Account details{{else}}帳號資訊{{end}}</h2><dl id="profileDetails"></dl></section>
+            <section class="profile-card"><h2>{{if eq .Lang "en"}}Connected sign-in methods{{else}}登入方式{{end}}</h2><p class="hint">{{if eq .Lang "en"}}Link or remove an OAuth identity in the Connected accounts tab.{{else}}請到「第三方帳號」分頁連結或解除 OAuth 帳號。{{end}}</p><a class="btn btn-secondary btn-sm" href="/admin/account?tab=identities">{{if eq .Lang "en"}}Manage connected accounts{{else}}管理第三方帳號{{end}}</a></section>
+        </aside>
+    </section>
+
+    <section class="profile-card" id="tab-notifications" data-panel="notifications" hidden>
+        <div class="section-head"><div><h2>{{if eq .Lang "en"}}Notification preferences{{else}}通知偏好{{end}}</h2><p class="muted">{{if eq .Lang "en"}}Choose channels for each account event.{{else}}設定各種帳號事件的通知方式。{{end}}</p></div></div>
+        <div class="profile-feedback" data-panel-status></div>
+        <form id="preferencesForm">
+            <div class="pref-table-wrap"><table class="pref-table"><thead><tr><th>{{if eq .Lang "en"}}Event{{else}}事件{{end}}</th><th>{{if eq .Lang "en"}}In-app{{else}}站內{{end}}</th><th>{{if eq .Lang "en"}}Email{{else}}Email{{end}}</th><th>{{if eq .Lang "en"}}Webhook{{else}}Webhook{{end}}</th></tr></thead><tbody id="preferenceRows"></tbody></table></div>
+            <div class="form-group" style="margin-top:1rem"><label for="webhookURL">{{if eq .Lang "en"}}Webhook URL (HTTPS only){{else}}Webhook 網址（僅 HTTPS）{{end}}</label><input id="webhookURL" name="webhook_url" type="url" inputmode="url" autocomplete="url"><span class="hint">{{if eq .Lang "en"}}Private and loopback destinations are rejected by the server.{{else}}伺服器會拒絕內網與回送位址。{{end}}</span></div>
+            <fieldset class="form-group"><legend class="label">{{if eq .Lang "en"}}Quiet hours{{else}}勿擾時段{{end}}</legend>
+                <label class="inline"><input id="quietEnabled" type="checkbox">{{if eq .Lang "en"}}Enable quiet hours{{else}}啟用勿擾時段{{end}}</label>
+                <div class="form-row"><div><label for="quietStart">{{if eq .Lang "en"}}Start{{else}}開始{{end}}</label><input id="quietStart" type="time"></div><div><label for="quietEnd">{{if eq .Lang "en"}}End{{else}}結束{{end}}</label><input id="quietEnd" type="time"></div><div><label for="quietTZ">{{if eq .Lang "en"}}Time zone{{else}}時區{{end}}</label><input id="quietTZ" type="text" placeholder="Asia/Taipei" maxlength="64"></div></div>
+            </fieldset>
+            <div class="form-actions"><button class="btn btn-primary" type="submit">{{if eq .Lang "en"}}Save preferences{{else}}儲存通知偏好{{end}}</button></div>
+        </form>
+    </section>
+
+    <section class="profile-card" id="tab-tokens" data-panel="tokens" hidden>
+        <div class="section-head"><div><h2>{{if eq .Lang "en"}}API tokens{{else}}API 權杖{{end}}</h2><p class="muted">{{if eq .Lang "en"}}A new token is shown only once.{{else}}新權杖只會顯示一次。{{end}}</p></div><button class="btn btn-primary" type="button" id="newToken">{{if eq .Lang "en"}}Create token{{else}}建立權杖{{end}}</button></div>
+        <div id="newTokenBox" class="token-secret" hidden><p>{{if eq .Lang "en"}}Copy this token now. It will not be shown again.{{else}}請立即複製權杖，離開此頁後將無法再次查看。{{end}}</p><code id="newTokenValue"></code><div class="form-actions"><button class="btn btn-secondary btn-sm" id="copyToken" type="button">{{if eq .Lang "en"}}Copy token{{else}}複製權杖{{end}}</button><button class="btn btn-text btn-sm" id="ackToken" type="button">{{if eq .Lang "en"}}I saved it{{else}}我已安全保存{{end}}</button></div></div>
+        <p class="profile-feedback" data-panel-status></p>
+        <div class="table-wrapper"><table><thead><tr><th>{{if eq .Lang "en"}}Name{{else}}名稱{{end}}</th><th>{{if eq .Lang "en"}}Scopes{{else}}權限{{end}}</th><th>{{if eq .Lang "en"}}Expires{{else}}到期{{end}}</th><th>{{if eq .Lang "en"}}Last used{{else}}最後使用{{end}}</th><th>{{if eq .Lang "en"}}Status{{else}}狀態{{end}}</th><th class="actions">{{if eq .Lang "en"}}Actions{{else}}操作{{end}}</th></tr></thead><tbody id="tokenRows"></tbody></table></div>
+        <div id="tokenEmpty" class="empty-state" hidden><span class="empty-title">{{if eq .Lang "en"}}No API tokens{{else}}尚無 API 權杖{{end}}</span></div>
+        <div id="tokenError" class="alert alert-danger" hidden></div><button class="btn btn-secondary" type="button" id="retryTokens" hidden>{{if eq .Lang "en"}}Retry{{else}}重試{{end}}</button>
+    </section>
+
+    <section class="profile-columns" id="tab-security" data-panel="security" hidden>
+        <div class="profile-main">
+            <section class="profile-card"><h2>{{if eq .Lang "en"}}Change password{{else}}變更密碼{{end}}</h2><p class="hint">{{if eq .Lang "en"}}Other active sessions will be signed out.{{else}}變更後其他裝置將全部登出。{{end}}</p>
+                <form id="passwordForm">
+                    <div class="form-group"><label for="currentPassword">{{if eq .Lang "en"}}Current password (if set){{else}}目前密碼（若已設定）{{end}}</label><input id="currentPassword" name="current_password" type="password" autocomplete="current-password"></div>
+                    <div class="form-group"><label for="newPassword">{{if eq .Lang "en"}}New password{{else}}新密碼{{end}}</label><input id="newPassword" name="new_password" type="password" minlength="8" autocomplete="new-password" required></div>
+                    <div class="form-group"><label for="confirmPassword">{{if eq .Lang "en"}}Confirm new password{{else}}再次輸入新密碼{{end}}</label><input id="confirmPassword" type="password" minlength="8" autocomplete="new-password" required></div>
+                    <div class="form-actions"><button class="btn btn-primary" type="submit">{{if eq .Lang "en"}}Change password{{else}}變更密碼{{end}}</button></div>
+                </form><p class="profile-feedback" data-panel-status></p>
+            </section>
+            <section class="profile-card">
+                <div class="section-head"><div><h2>{{if eq .Lang "en"}}Two-step verification{{else}}兩步驟驗證{{end}}</h2><p class="muted">{{if eq .Lang "en"}}Use an authenticator app. OAuth sign-in remains trusted.{{else}}使用驗證器 App；OAuth 登入仍信任提供者。{{end}}</p></div></div>
+                <div id="totpStatus" class="profile-feedback" role="status"></div>
+                <div id="totpDisabled"><p>{{if eq .Lang "en"}}Two-step verification is off.{{else}}尚未啟用兩步驟驗證。{{end}}</p><button class="btn btn-primary" id="enrollTotp" type="button">{{if eq .Lang "en"}}Set up authenticator{{else}}設定驗證器{{end}}</button></div>
+                <form id="totpEnrollForm" hidden>
+                    <p>{{if eq .Lang "en"}}Scan this QR code or enter the secret manually, then verify a current code.{{else}}掃描 QR code 或手動輸入密鑰，再輸入目前驗證碼確認。{{end}}</p>
+                    <img class="qr" id="totpQR" alt="{{if eq .Lang "en"}}Authenticator setup QR code{{else}}驗證器設定 QR code{{end}}">
+                    <p><span class="label">{{if eq .Lang "en"}}Secret{{else}}密鑰{{end}}</span> <code id="totpSecret"></code></p>
+                    <div class="form-group"><label for="enrollCode">{{if eq .Lang "en"}}6-digit code{{else}}6 位數驗證碼{{end}}</label><input id="enrollCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required></div>
+                    <div class="form-actions"><button class="btn btn-primary" type="submit">{{if eq .Lang "en"}}Verify and enable{{else}}驗證並啟用{{end}}</button><button class="btn btn-text" id="cancelEnroll" type="button">{{if eq .Lang "en"}}Cancel{{else}}取消{{end}}</button></div>
+                </form>
+                <div id="totpEnabled" hidden>
+                    <p><span class="badge badge-success">{{if eq .Lang "en"}}Enabled{{else}}已啟用{{end}}</span> <span id="totpEnabledAt"></span></p>
+                    <p id="recoveryRemaining"></p>
+                    <form id="regenerateRecoveryForm">
+                        <div class="form-group"><label for="recoveryVerifyCode">{{if eq .Lang "en"}}Current authenticator code{{else}}目前驗證碼{{end}}</label><input id="recoveryVerifyCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></div>
+                        <button class="btn btn-secondary btn-sm" type="submit">{{if eq .Lang "en"}}Regenerate recovery codes{{else}}重新產生備用碼{{end}}</button>
+                    </form>
+                    <form id="disableTotpForm" class="section">
+                        <h3>{{if eq .Lang "en"}}Turn off two-step verification{{else}}關閉兩步驟驗證{{end}}</h3>
+                        <div class="form-group"><label for="disablePassword">{{if eq .Lang "en"}}Current password{{else}}目前密碼{{end}}</label><input id="disablePassword" type="password" autocomplete="current-password" required></div>
+                        <div class="form-group"><label for="disableCode">{{if eq .Lang "en"}}Authenticator or recovery code{{else}}驗證器或備用碼{{end}}</label><input id="disableCode" autocomplete="one-time-code" required></div>
+                        <button class="btn btn-danger btn-sm" type="submit">{{if eq .Lang "en"}}Turn off{{else}}關閉{{end}}</button>
+                    </form>
+                </div>
+                <div id="recoveryBox" class="section" hidden><h3>{{if eq .Lang "en"}}Recovery codes — shown once{{else}}備用碼 — 僅顯示一次{{end}}</h3><p>{{if eq .Lang "en"}}Save these codes somewhere safe. Closing this panel removes them from this page.{{else}}請妥善保存；關閉此面板後，畫面就不再保留。{{end}}</p><div class="recovery-codes" id="recoveryCodes"></div><div class="form-actions"><button class="btn btn-secondary btn-sm" id="copyRecoveryCodes" type="button">{{if eq .Lang "en"}}Copy codes{{else}}複製備用碼{{end}}</button><button class="btn btn-primary btn-sm" id="ackRecoveryCodes" type="button">{{if eq .Lang "en"}}I saved these codes{{else}}我已保存備用碼{{end}}</button></div></div>
+            </section>
+        </div>
+        <aside class="profile-side"><section class="profile-card"><h2>{{if eq .Lang "en"}}Security notes{{else}}安全提醒{{end}}</h2><ul><li>{{if eq .Lang "en"}}Recovery codes are single-use.{{else}}每組備用碼只能使用一次。{{end}}</li><li>{{if eq .Lang "en"}}A password change signs out other sessions.{{else}}變更密碼會登出其他登入裝置。{{end}}</li><li>{{if eq .Lang "en"}}Never share your authenticator secret or recovery codes.{{else}}不要分享驗證器密鑰或備用碼。{{end}}</li></ul></section></aside>
+    </section>
+
+    <section class="profile-card" id="tab-devices" data-panel="devices" hidden>
+        <div class="section-head"><div><h2>{{if eq .Lang "en"}}Signed-in devices{{else}}登入裝置{{end}}</h2><p class="muted">{{if eq .Lang "en"}}Only active sessions are listed. IP addresses are masked.{{else}}僅列出有效登入，IP 位址已遮罩。{{end}}</p></div><button class="btn btn-danger btn-sm" type="button" id="revokeOtherSessions">{{if eq .Lang "en"}}Sign out other devices{{else}}登出其他所有裝置{{end}}</button></div>
+        <div id="sessionRows" class="profile-list"></div><div id="sessionEmpty" class="empty-state" hidden><span class="empty-title">{{if eq .Lang "en"}}No other active sessions{{else}}沒有其他有效登入裝置{{end}}</span></div>
+        <div id="sessionError" class="alert alert-danger" hidden></div><button class="btn btn-secondary" id="retrySessions" type="button" hidden>{{if eq .Lang "en"}}Retry{{else}}重試{{end}}</button>
+    </section>
+
+    <section class="profile-card" id="tab-identities" data-panel="identities" hidden>
+        <div class="section-head"><div><h2>{{if eq .Lang "en"}}Connected accounts{{else}}第三方帳號{{end}}</h2><p class="muted">{{if eq .Lang "en"}}Linking does not replace or extend your current sign-in session.{{else}}連結帳號不會替換或延長目前登入。{{end}}</p></div></div>
+        <p id="identityMethods" class="hint"></p><div id="identityRows" class="profile-list"></div>
+        <div id="identityError" class="alert alert-danger" hidden></div><button class="btn btn-secondary" id="retryIdentities" type="button" hidden>{{if eq .Lang "en"}}Retry{{else}}重試{{end}}</button>
+    </section>
+</div>
+
+<div class="modal-overlay" id="tokenDialog" hidden>
+    <section class="modal-content" role="dialog" aria-modal="true" aria-labelledby="tokenDialogTitle">
+        <div class="modal-header"><h2 id="tokenDialogTitle">{{if eq .Lang "en"}}Create API token{{else}}建立 API 權杖{{end}}</h2></div>
+        <form id="tokenForm">
+            <div class="form-group"><label for="tokenName">{{if eq .Lang "en"}}Name{{else}}名稱{{end}}</label><input id="tokenName" name="name" maxlength="80" required></div>
+            <div class="form-group"><label for="tokenNote">{{if eq .Lang "en"}}Purpose (optional){{else}}用途（可選）{{end}}</label><input id="tokenNote" name="note" maxlength="500"></div>
+            <div class="form-group"><label for="tokenExpiry">{{if eq .Lang "en"}}Expires{{else}}到期{{end}}</label><select id="tokenExpiry" name="expires_in_days"><option value="7">{{if eq .Lang "en"}}7 days{{else}}7 天{{end}}</option><option value="30">{{if eq .Lang "en"}}30 days{{else}}30 天{{end}}</option><option value="90">{{if eq .Lang "en"}}90 days{{else}}90 天{{end}}</option><option value="365">{{if eq .Lang "en"}}1 year{{else}}1 年{{end}}</option><option value="null">{{if eq .Lang "en"}}Never{{else}}永不{{end}}</option></select></div>
+            <fieldset class="form-group"><legend class="label">{{if eq .Lang "en"}}Role templates (select any){{else}}角色範本（可多選）{{end}}</legend>
+                <label class="inline"><input type="checkbox" name="scopes" value="author"> {{if eq .Lang "en"}}Author{{else}}作者{{end}}</label>
+                <label class="inline"><input type="checkbox" name="scopes" value="content_read"> {{if eq .Lang "en"}}Content read-only{{else}}內容唯讀{{end}}</label>
+                <label class="inline"><input type="checkbox" name="scopes" value="orders_read"> {{if eq .Lang "en"}}Orders read-only{{else}}訂單唯讀{{end}}</label>
+                <label class="inline"><input type="checkbox" name="scopes" value="admin"> {{if eq .Lang "en"}}Administrator{{else}}管理員{{end}}</label>
+            </fieldset>
+            <p class="profile-feedback" id="tokenFormStatus" role="status"></p>
+            <div class="form-actions"><button class="btn btn-primary" type="submit">{{if eq .Lang "en"}}Create token{{else}}建立權杖{{end}}</button><button class="btn btn-text" type="button" id="cancelToken">{{if eq .Lang "en"}}Cancel{{else}}取消{{end}}</button></div>
+        </form>
+    </section>
+</div>
+<div class="modal-overlay" id="identityConfirm" hidden><section class="modal-content" role="dialog" aria-modal="true" aria-labelledby="identityConfirmTitle"><div class="modal-header"><h2 id="identityConfirmTitle">{{if eq .Lang "en"}}Disconnect account?{{else}}解除第三方帳號？{{end}}</h2></div><p id="identityConfirmText"></p><div class="form-actions"><button class="btn btn-danger" id="confirmUnlink" type="button">{{if eq .Lang "en"}}Disconnect{{else}}解除連結{{end}}</button><button class="btn btn-secondary" id="cancelUnlink" type="button">{{if eq .Lang "en"}}Cancel{{else}}取消{{end}}</button></div></section></div>
+{{end}}
+{{define "scripts"}}
+<script>
+(function () {
+    'use strict';
+    const en = document.documentElement.lang === 'en';
+    const copy = {
+        network: en ? 'Request failed. Check your connection and retry.' : '要求失敗，請檢查連線後重試。',
+        offline: en ? 'You are offline. Reconnect and retry.' : '目前離線，請連線後重試。',
+        timeout: en ? 'The request timed out. Retry when ready.' : '連線逾時，請稍後重試。',
+        unavailable: en ? 'Account API is not implemented yet (HTTP 501).' : '帳號 API 尚未實作（HTTP 501）。',
+        apiError: en ? 'The server could not complete the request.' : '伺服器無法完成這項要求。',
+        auth: en ? 'Your session expired. Sign in again.' : '登入已逾期，請重新登入。',
+        forbidden: en ? 'You do not have permission to do this.' : '你沒有權限執行這項操作。',
+        copy: en ? 'Copy' : '複製',
+        active: en ? 'Active' : '有效',
+        expired: en ? 'Expired' : '已過期',
+        revoked: en ? 'Revoked' : '已撤銷',
+        revoke: en ? 'Revoke' : '撤銷',
+        restore: en ? 'Restore' : '恢復',
+        remove: en ? 'Delete' : '刪除',
+        edit: en ? 'Edit' : '編輯',
+        cancel: en ? 'Cancel' : '取消',
+        save: en ? 'Save' : '儲存',
+        retry: en ? 'Retry' : '重試',
+        emailPending: en ? 'Confirmation is pending for ' : '等待確認：',
+        invalidResponse: en ? 'The server returned an invalid response.' : '伺服器回傳了無效資料。'
+    };
+    const root = document.getElementById('accountProfile');
+    const $ = (id) => document.getElementById(id);
+    const tab = root.dataset.tab || new URLSearchParams(location.search).get('tab') || 'profile';
+    const allowedTabs = ['profile', 'notifications', 'tokens', 'security', 'devices', 'identities'];
+    const activeTab = allowedTabs.includes(tab) ? tab : 'profile';
+    root.querySelectorAll('[data-tab-link]').forEach((link) => {
+        if (link.dataset.tabLink === activeTab) link.setAttribute('aria-current', 'page');
+    });
+    const panel = root.querySelector('[data-panel="' + activeTab + '"]');
+    if (panel) panel.hidden = false;
+    const state = { profile: null, prefs: null, twoFA: null, sessions: [], tokens: [], identities: null, newToken: '', recoveryCodes: [], unlinkProvider: '', unlinkTrigger: null, tokenDialogTrigger: null, busy: false, emailConfirmationURL: '' };
+    const scopeNames = { author: en ? 'Author' : '作者', content_read: en ? 'Content read-only' : '內容唯讀', orders_read: en ? 'Orders read-only' : '訂單唯讀', admin: en ? 'Administrator' : '管理員' };
+    const eventNames = {
+        'comment.pending': en ? 'New comment pending review' : '新留言待審',
+        'comment.reply': en ? 'Reply to my comment' : '有人回覆我的留言',
+        'order.new': en ? 'New order' : '新訂單',
+        'order.payment_failed': en ? 'Payment failure or refund' : '付款失敗或退款',
+        'security.new_device': en ? 'New device sign-in' : '新裝置登入',
+        'security.password_changed': en ? 'Password changed' : '密碼變更',
+        'system.update_available': en ? 'Update available' : '有可用更新',
+        'system.plugin_failed': en ? 'Plugin failure' : '外掛失敗'
+    };
+    function el(tag, cls, value) {
+        const item = document.createElement(tag);
+        if (cls) item.className = cls;
+        if (value !== undefined && value !== null) item.textContent = String(value);
+        return item;
+    }
+    function message(target, value, kind) {
+        target.textContent = value || '';
+        target.classList.toggle('error', kind === 'error');
+        target.classList.toggle('success', kind === 'success');
+    }
+    function openOverlay(target, focusTarget) {
+        target.hidden = false;
+        target.classList.add('open');
+        if (focusTarget) focusTarget.focus();
+    }
+    function closeOverlay(target, focusTarget) {
+        target.classList.remove('open');
+        target.hidden = true;
+        if (focusTarget && focusTarget.isConnected) focusTarget.focus();
+    }
+    function errorText(response, error) {
+        if (error && error.name === 'AbortError') return copy.timeout;
+        if (navigator.onLine === false) return copy.offline;
+        if (response && response.status === 401) return copy.auth;
+        if (response && response.status === 403) return copy.forbidden;
+        if (response && response.status === 501) return copy.unavailable;
+        if (response) return copy.apiError;
+        return error && error.message ? error.message : copy.network;
+    }
+    async function api(path, options) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 20000);
+        const opts = Object.assign({ mode: 'same-origin', credentials: 'same-origin', cache: 'no-store', signal: controller.signal }, options || {});
+        const method = (opts.method || 'GET').toUpperCase();
+        opts.headers = Object.assign({ Accept: 'application/json' }, opts.headers || {});
+        if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) opts.headers['X-Jelly-CSRF'] = '1';
+        try {
+            const response = await fetch(path, opts);
+            let body = null;
+            try { body = await response.json(); } catch (_) {}
+            return { response, body };
+        } catch (error) {
+            if (error && error.name === 'AbortError') throw new Error(copy.timeout);
+            if (navigator.onLine === false) throw new Error(copy.offline);
+            throw new Error(copy.network);
+        } finally { clearTimeout(timer); }
+    }
+    async function checked(path, options) {
+        const result = await api(path, options);
+        if (!result.response.ok) throw new Error(errorText(result.response));
+        return result.body;
+    }
+    function jsonOptions(method, body) {
+        return { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) };
+    }
+    function setBusy(value, form) {
+        state.busy = value;
+        root.setAttribute('aria-busy', String(value));
+        if (form) form.querySelectorAll('button,input,select,textarea').forEach((item) => { item.disabled = value; });
+    }
+    function formatDate(value) {
+        if (!value) return '—';
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat(en ? 'en' : 'zh-TW', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+    }
+    function activeStatus(target, error) {
+        $('profileLoading').hidden = true;
+        root.setAttribute('aria-busy', 'false');
+        $('profileError').textContent = error || '';
+        $('profileError').hidden = !error;
+        if (target) target.hidden = false;
+    }
+    function initials(profile) { return (profile.display_name || profile.username || profile.email || '?').trim().slice(0, 1).toUpperCase(); }
+    function localResourceURL(value) {
+        if (typeof value !== 'string' || !value) return null;
+        try {
+            const url = new URL(value, window.location.origin);
+            return url.origin === window.location.origin ? url.href : null;
+        } catch (_) { return null; }
+    }
+    function renderProfile(profile) {
+        if (!profile || typeof profile !== 'object') throw new Error(copy.invalidResponse);
+        state.profile = profile;
+        const avatarURL = localResourceURL(profile.avatar_url);
+        if (avatarURL) {
+            const image = document.createElement('img'); image.src = avatarURL; image.alt = '';
+            $('profileAvatar').replaceChildren(image);
+        } else $('profileAvatar').textContent = initials(profile);
+        const form = $('profileForm');
+        form.elements.display_name.value = profile.display_name || '';
+        form.elements.bio.value = profile.bio || '';
+        form.elements.locale.value = profile.locale === 'en' ? 'en' : 'zh-TW';
+        form.elements.ui_theme.value = ['system', 'light', 'dark'].includes(profile.ui_theme) ? profile.ui_theme : 'system';
+        $('emailCurrent').textContent = (en ? 'Current email: ' : '目前 Email：') + (profile.email || '—') + (profile.email_verified ? (en ? ' · verified' : ' · 已驗證') : (en ? ' · not verified' : ' · 尚未驗證'));
+        renderPendingEmail(profile.pending_email, state.emailConfirmationURL);
+        $('newEmail').value = profile.email || '';
+        const details = $('profileDetails'); details.replaceChildren();
+        [
+            [en ? 'Username' : '使用者名稱', profile.username],
+            [en ? 'Role' : '角色', profile.role],
+            [en ? 'Joined' : '加入時間', formatDate(profile.created_at)],
+            [en ? 'Published posts' : '已發布文章', profile.post_count]
+        ].forEach(([key, value]) => {
+            details.append(el('dt', 'label', key)); details.append(el('dd', '', value == null ? '—' : value));
+        });
+        activeStatus($('tab-profile'), '');
+    }
+    function renderPendingEmail(email, confirmationURL) {
+        const target = $('pendingEmail');
+        target.replaceChildren();
+        target.hidden = !email;
+        if (!email) return;
+        target.append(document.createTextNode(copy.emailPending + email));
+        if (!confirmationURL) return;
+        target.append(document.createTextNode(' '));
+        const link = document.createElement('a');
+        link.href = confirmationURL; link.textContent = confirmationURL; link.rel = 'noreferrer';
+        target.append(link, document.createTextNode(' '));
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'btn btn-text btn-sm'; button.dataset.copyEmailConfirmation = 'true';
+        button.textContent = en ? 'Copy confirmation link' : '複製確認連結';
+        target.append(button);
+    }
+    function safeEmailConfirmationURL(value) {
+        const safe = localResourceURL(value);
+        if (!safe) return null;
+        const url = new URL(safe);
+        return url.pathname === '/account/email/confirm' && Boolean(url.searchParams.get('token')) ? url.href : null;
+    }
+    async function loadProfile() {
+        try { renderProfile(await checked('/api/account/profile')); }
+        catch (error) { activeStatus($('tab-profile'), error.message); }
+    }
+    $('profileForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        if (!form.reportValidity() || state.busy) return;
+        const body = { display_name: form.elements.display_name.value.trim(), bio: form.elements.bio.value, locale: form.elements.locale.value, ui_theme: form.elements.ui_theme.value };
+        const previousLocale = state.profile && state.profile.locale;
+        const previousTheme = state.profile && state.profile.ui_theme;
+        setBusy(true, form); message($('profileStatus'), '', '');
+        try {
+            const updated = await checked('/api/account/profile', jsonOptions('PATCH', body));
+            renderProfile(updated);
+            message($('profileStatus'), en ? 'Profile saved.' : '基本資料已儲存。', 'success');
+            const localeChanged = updated.locale !== previousLocale;
+            const themeChanged = updated.ui_theme !== previousTheme;
+            if (localeChanged) {
+                document.cookie = 'lang=' + encodeURIComponent(updated.locale) + '; Path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
+            }
+            if (localeChanged || themeChanged) {
+                location.assign(location.pathname + '?tab=' + encodeURIComponent(activeTab) + '&lang=' + encodeURIComponent(updated.locale));
+            }
+        } catch (error) { message($('profileStatus'), error.message, 'error'); }
+        finally { setBusy(false, form); }
+    });
+    $('avatarFile').addEventListener('change', async (event) => {
+        const file = event.target.files && event.target.files[0];
+        event.target.value = '';
+        if (!file) return;
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+            message($('profileStatus'), en ? 'Choose a PNG, JPEG or WebP image no larger than 2 MB.' : '請選擇不超過 2 MB 的 PNG、JPEG 或 WebP 圖片。', 'error'); return;
+        }
+        const data = new FormData(); data.append('avatar', file);
+        setBusy(true); message($('profileStatus'), '', '');
+        try {
+            const result = await checked('/api/account/avatar', { method: 'POST', body: data });
+            if (!result || typeof result.avatar_url !== 'string') throw new Error(copy.invalidResponse);
+            const avatarURL = localResourceURL(result.avatar_url);
+            if (!avatarURL) throw new Error(copy.invalidResponse);
+            const img = document.createElement('img'); img.src = avatarURL; img.alt = '';
+            $('profileAvatar').replaceChildren(img); state.profile.avatar_url = result.avatar_url;
+            message($('profileStatus'), en ? 'Avatar updated.' : '頭像已更新。', 'success');
+        } catch (error) { message($('profileStatus'), error.message, 'error'); }
+        finally { setBusy(false); }
+    });
+    $('removeAvatar').addEventListener('click', async () => {
+        if (state.busy || !state.profile) return;
+        setBusy(true);
+        try {
+            await checked('/api/account/avatar', { method: 'DELETE' });
+            $('profileAvatar').textContent = initials(state.profile); state.profile.avatar_url = '';
+            message($('profileStatus'), en ? 'Avatar removed.' : '頭像已移除。', 'success');
+        } catch (error) { message($('profileStatus'), error.message, 'error'); }
+        finally { setBusy(false); }
+    });
+    $('emailForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        if (!form.reportValidity() || state.busy) return;
+        state.emailConfirmationURL = '';
+        renderPendingEmail(state.profile && state.profile.pending_email, '');
+        setBusy(true, form); message($('profileStatus'), '', '');
+        try {
+            const result = await checked('/api/account/email', jsonOptions('POST', { new_email: form.elements.new_email.value.trim(), current_password: form.elements.current_password.value }));
+            form.elements.current_password.value = '';
+            state.emailConfirmationURL = safeEmailConfirmationURL(result && result.confirm_url) || '';
+            if (!state.emailConfirmationURL) throw new Error(copy.invalidResponse);
+            const refreshed = await checked('/api/account/profile');
+            if (!refreshed || String(refreshed.pending_email || '').trim().toLowerCase() !== form.elements.new_email.value.trim().toLowerCase()) throw new Error(copy.invalidResponse);
+            renderProfile(refreshed);
+            renderPendingEmail(refreshed.pending_email, state.emailConfirmationURL);
+            message($('profileStatus'), en ? 'Email confirmation link is ready below. Copy it and open it to confirm the new address.' : '信箱確認連結已顯示在下方，請複製並開啟連結完成確認。', 'success');
+        } catch (error) { message($('profileStatus'), error.message, 'error'); }
+        finally { setBusy(false, form); }
+    });
+
+    $('pendingEmail').addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-copy-email-confirmation]');
+        if (!button || !state.emailConfirmationURL) return;
+        try { await navigator.clipboard.writeText(state.emailConfirmationURL); button.textContent = en ? 'Copied' : '已複製'; }
+        catch (_) { message($('profileStatus'), en ? 'Copy is unavailable. Select the link above.' : '無法使用剪貼簿，請選取上方連結複製。', 'error'); }
+    });
+    function renderPreferenceForm(data) {
+        state.prefs = data || {};
+        const events = data && data.events && typeof data.events === 'object' ? data.events : {};
+        const tbody = $('preferenceRows'); tbody.replaceChildren();
+        Object.keys(eventNames).forEach((eventKey) => {
+            const row = document.createElement('tr'); row.append(el('td', '', eventNames[eventKey]));
+            const pref = events[eventKey] || {};
+            ['in_app', 'email', 'webhook'].forEach((channel) => {
+                const cell = document.createElement('td');
+                const input = document.createElement('input'); input.type = 'checkbox'; input.checked = typeof pref[channel] === 'boolean' ? pref[channel] : channel === 'in_app';
+                input.dataset.event = eventKey; input.dataset.channel = channel;
+                input.setAttribute('aria-label', eventNames[eventKey] + ' · ' + channel);
+                cell.appendChild(input); row.appendChild(cell);
+            });
+            tbody.appendChild(row);
+        });
+        $('webhookURL').value = data && data.webhook_url || '';
+        const quiet = data && data.quiet || {};
+        $('quietEnabled').checked = Boolean(quiet.enabled);
+        $('quietStart').value = quiet.start || '';
+        $('quietEnd').value = quiet.end || '';
+        $('quietTZ').value = quiet.tz || '';
+    }
+    async function loadPreferences() {
+        const feedback = panel.querySelector('[data-panel-status]');
+        try {
+            const result = await checked('/api/account/notification-preferences');
+            if (!result || !result.events || typeof result.events !== 'object') throw new Error(copy.invalidResponse);
+            renderPreferenceForm(result); activeStatus(panel, '');
+        } catch (error) { activeStatus(panel, error.message); message(feedback, error.message, 'error'); }
+    }
+    $('preferencesForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (state.busy) return;
+        const form = event.currentTarget;
+        const webhook = $('webhookURL').value.trim();
+        const feedback = panel.querySelector('[data-panel-status]');
+        if (webhook && !/^https:\/\//i.test(webhook)) { message(feedback, en ? 'Webhook URL must use HTTPS.' : 'Webhook 網址必須使用 HTTPS。', 'error'); return; }
+        const events = {};
+        Object.keys(eventNames).forEach((eventKey) => {
+            events[eventKey] = {};
+            form.querySelectorAll('input[data-event="' + eventKey + '"]').forEach((input) => { events[eventKey][input.dataset.channel] = input.checked; });
+        });
+        const quietEnabled = $('quietEnabled').checked;
+        const body = { events, webhook_url: webhook, quiet: { enabled: quietEnabled, start: quietEnabled ? $('quietStart').value : '', end: quietEnabled ? $('quietEnd').value : '', tz: quietEnabled ? $('quietTZ').value.trim() : '' } };
+        setBusy(true, form); message(feedback, '', '');
+        try {
+            await checked('/api/account/notification-preferences', jsonOptions('PUT', body));
+            const saved = await checked('/api/account/notification-preferences');
+            if (!saved || !saved.events || typeof saved.events !== 'object') throw new Error(copy.invalidResponse);
+            renderPreferenceForm(saved);
+            message(feedback, en ? 'Notification preferences saved.' : '通知偏好已儲存。', 'success');
+        }
+        catch (error) { message(feedback, error.message, 'error'); }
+        finally { setBusy(false, form); }
+    });
+
+    function tokenStatus(token) {
+        if (token.status === 'revoked') return copy.revoked;
+        if (token.status === 'expired') return copy.expired;
+        return copy.active;
+    }
+    function tokenAction(label, action, id, className) {
+        const button = el('button', 'btn btn-secondary btn-sm', label);
+        button.type = 'button'; button.dataset.tokenAction = action; button.dataset.id = String(id);
+        if (className) button.classList.add(className);
+        return button;
+    }
+    function renderTokens(items) {
+        state.tokens = items;
+        const tbody = $('tokenRows'); tbody.replaceChildren();
+        items.forEach((token) => {
+            const row = document.createElement('tr');
+            const nameCell = el('td');
+            nameCell.append(el('strong', '', token.name || '—'));
+            if (token.note) nameCell.append(el('div', 'hint', token.note));
+            nameCell.append(el('div', 'cell-mono cell-muted', 'jly_••••' + (token.last4 || '')));
+            row.append(nameCell);
+            row.append(el('td', '', (Array.isArray(token.scopes) ? token.scopes : []).map((scope) => scopeNames[scope] || scope).join(', ') || '—'));
+            row.append(el('td', '', token.expires_at ? formatDate(token.expires_at) : (en ? 'Never' : '永不')));
+            const used = token.last_used_at ? formatDate(token.last_used_at) + (token.last_used_ip_masked ? ' · ' + token.last_used_ip_masked : '') : (en ? 'Never' : '從未使用');
+            row.append(el('td', '', used));
+            row.append(el('td', '', tokenStatus(token)));
+            const actions = el('td', 'actions');
+            if (token.status === 'revoked') {
+                actions.append(tokenAction(copy.restore, 'restore', token.id), tokenAction(copy.remove, 'delete', token.id, 'btn-danger'));
+            } else {
+                actions.append(tokenAction(copy.edit, 'edit', token.id), tokenAction(copy.revoke, 'revoke', token.id));
+            }
+            row.append(actions); tbody.append(row);
+        });
+        $('tokenEmpty').hidden = items.length > 0;
+    }
+    async function loadTokens() {
+        $('tokenError').hidden = true; $('retryTokens').hidden = true;
+        try {
+            const result = await checked('/api/account/tokens');
+            if (!Array.isArray(result)) throw new Error(copy.invalidResponse);
+            renderTokens(result); activeStatus($('tab-tokens'), '');
+        } catch (error) {
+            $('tokenError').textContent = error.message; $('tokenError').hidden = false; $('retryTokens').hidden = false; activeStatus($('tab-tokens'), error.message);
+        }
+    }
+    $('newToken').addEventListener('click', () => { state.tokenDialogTrigger = document.activeElement; openOverlay($('tokenDialog'), $('tokenName')); });
+    function closeTokenDialog() {
+        closeOverlay($('tokenDialog'), state.tokenDialogTrigger || $('newToken'));
+        state.tokenDialogTrigger = null;
+        $('tokenForm').reset();
+    }
+    $('cancelToken').addEventListener('click', closeTokenDialog);
+    $('tokenDialog').addEventListener('click', (event) => { if (event.target === $('tokenDialog')) closeTokenDialog(); });
+    $('tokenForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        if (!form.reportValidity() || state.busy) return;
+        const expiresValue = form.elements.expires_in_days.value;
+        const body = { name: form.elements.name.value.trim(), note: form.elements.note.value.trim(), expires_in_days: expiresValue === 'null' ? null : Number(expiresValue), scopes: Array.from(form.querySelectorAll('[name=scopes]:checked')).map((input) => input.value) };
+        setBusy(true, form); message($('tokenFormStatus'), '', '');
+        try {
+            const created = await checked('/api/account/tokens', jsonOptions('POST', body));
+            if (!created || typeof created.token !== 'string' || !created.token) throw new Error(copy.invalidResponse);
+            state.newToken = created.token; $('newTokenValue').textContent = state.newToken; $('newTokenBox').hidden = false;
+            closeTokenDialog(); await loadTokens();
+        } catch (error) { message($('tokenFormStatus'), error.message, 'error'); }
+        finally { setBusy(false, form); }
+    });
+    $('copyToken').addEventListener('click', async () => {
+        if (!state.newToken) return;
+        try { await navigator.clipboard.writeText(state.newToken); message(panel.querySelector('[data-panel-status]'), en ? 'Token copied.' : '權杖已複製。', 'success'); }
+        catch (_) { message(panel.querySelector('[data-panel-status]'), en ? 'Clipboard unavailable. Select and copy the token.' : '無法使用剪貼簿，請選取權杖複製。', 'error'); }
+    });
+    $('ackToken').addEventListener('click', () => { state.newToken = ''; $('newTokenValue').textContent = ''; $('newTokenBox').hidden = true; });
+    $('tokenRows').addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-token-action]');
+        if (!button || state.busy) return;
+        const item = state.tokens.find((token) => String(token.id) === button.dataset.id);
+        if (!item) return;
+        const action = button.dataset.tokenAction;
+        try {
+            if (action === 'edit') {
+                const name = window.prompt(en ? 'Token name' : '權杖名稱', item.name || '');
+                if (name === null) return;
+                const note = window.prompt(en ? 'Purpose (optional)' : '用途（可選）', item.note || '');
+                if (note === null) return;
+                await checked('/api/account/tokens/' + encodeURIComponent(item.id), jsonOptions('PATCH', { name: name.trim(), note: note.trim() }));
+            } else if (action === 'revoke' || action === 'restore') {
+                await checked('/api/account/tokens/' + encodeURIComponent(item.id) + '/' + action, jsonOptions('POST'));
+            } else if (action === 'delete') {
+                if (!window.confirm(en ? 'Delete this revoked token?' : '確定刪除此已撤銷權杖？')) return;
+                await checked('/api/account/tokens/' + encodeURIComponent(item.id), { method: 'DELETE' });
+            }
+            await loadTokens();
+        } catch (error) { message(panel.querySelector('[data-panel-status]'), error.message, 'error'); }
+    });
+    $('retryTokens').addEventListener('click', loadTokens);
+
+    async function loadTotp() {
+        try {
+            const data = await checked('/api/account/2fa');
+            if (!data || typeof data.enabled !== 'boolean') throw new Error(copy.invalidResponse);
+            state.twoFA = data;
+            $('totpDisabled').hidden = data.enabled;
+            $('totpEnabled').hidden = !data.enabled;
+            $('totpEnabledAt').textContent = data.enabled_at ? formatDate(data.enabled_at) : '';
+            $('recoveryRemaining').textContent = (en ? 'Recovery codes remaining: ' : '剩餘備用碼：') + (data.recovery_remaining == null ? '—' : data.recovery_remaining);
+            activeStatus($('tab-security'), '');
+        } catch (error) { activeStatus($('tab-security'), error.message); message($('totpStatus'), error.message, 'error'); }
+    }
+    function safeQR(svgText) {
+        if (typeof svgText !== 'string' || svgText.length > 200000) throw new Error(copy.invalidResponse);
+        const parsed = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+        const rootSVG = parsed.documentElement;
+        if (!rootSVG || rootSVG.localName !== 'svg' || parsed.querySelector('parsererror')) throw new Error(copy.invalidResponse);
+        const allowedTags = new Set(['svg', 'g', 'path', 'rect', 'circle', 'line', 'polyline', 'polygon']);
+        const allowedAttrs = new Set(['xmlns', 'viewBox', 'width', 'height', 'd', 'x', 'y', 'cx', 'cy', 'r', 'points', 'fill', 'stroke', 'stroke-width', 'transform']);
+        function clean(source) {
+            if (!allowedTags.has(source.localName)) return null;
+            const target = document.createElementNS('http://www.w3.org/2000/svg', source.localName);
+            Array.from(source.attributes).forEach((attr) => {
+                if (!allowedAttrs.has(attr.name) || /url\s*\(|javascript:|[<>]/i.test(attr.value)) return;
+                target.setAttribute(attr.name, attr.value);
+            });
+            Array.from(source.children).forEach((child) => { const safe = clean(child); if (safe) target.appendChild(safe); });
+            return target;
+        }
+        const safe = clean(rootSVG);
+        if (!safe) throw new Error(copy.invalidResponse);
+        return new XMLSerializer().serializeToString(safe);
+    }
+    $('enrollTotp').addEventListener('click', async () => {
+        if (state.busy) return;
+        setBusy(true);
+        try {
+            const result = await checked('/api/account/2fa/enroll', jsonOptions('POST'));
+            if (!result || typeof result.secret !== 'string' || typeof result.qr_svg !== 'string') throw new Error(copy.invalidResponse);
+            const safe = safeQR(result.qr_svg);
+            $('totpQR').src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(safe);
+            $('totpSecret').textContent = result.secret;
+            $('totpEnrollForm').hidden = false; $('totpDisabled').hidden = true; $('enrollCode').focus();
+            message($('totpStatus'), '', '');
+        } catch (error) { message($('totpStatus'), error.message, 'error'); }
+        finally { setBusy(false); }
+    });
+    $('cancelEnroll').addEventListener('click', () => { $('totpEnrollForm').reset(); $('totpEnrollForm').hidden = true; $('totpDisabled').hidden = false; $('totpQR').removeAttribute('src'); $('totpSecret').textContent = ''; });
+    function showRecoveryCodes(codes) {
+        if (!Array.isArray(codes) || codes.length !== 10 || codes.some((code) => typeof code !== 'string')) throw new Error(copy.invalidResponse);
+        state.recoveryCodes = codes.slice();
+        const container = $('recoveryCodes'); container.replaceChildren(...codes.map((code) => el('code', '', code)));
+        $('recoveryBox').hidden = false;
+        $('recoveryBox').scrollIntoView({ block: 'nearest' });
+    }
+    $('totpEnrollForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        if (!form.reportValidity() || state.busy) return;
+        setBusy(true, form);
+        try {
+            const result = await checked('/api/account/2fa/verify', jsonOptions('POST', { code: $('enrollCode').value.trim() }));
+            showRecoveryCodes(result && result.recovery_codes); $('totpEnrollForm').hidden = true; $('totpEnabled').hidden = false; $('totpDisabled').hidden = true;
+            $('totpQR').removeAttribute('src'); $('totpSecret').textContent = ''; $('enrollCode').value = '';
+            await loadTotp();
+            message($('totpStatus'), en ? 'Two-step verification enabled.' : '兩步驟驗證已啟用。', 'success');
+        } catch (error) { message($('totpStatus'), error.message, 'error'); }
+        finally { setBusy(false, form); }
+    });
+    $('regenerateRecoveryForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const code = $('recoveryVerifyCode').value.trim();
+        if (!code || state.busy) return;
+        setBusy(true, form);
+        try {
+            const result = await checked('/api/account/2fa/recovery-codes', jsonOptions('POST', { code }));
+            showRecoveryCodes(result && result.recovery_codes); form.reset();
+            await loadTotp();
+        } catch (error) { message($('totpStatus'), error.message, 'error'); }
+        finally { setBusy(false, form); }
+    });
+    $('disableTotpForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const code = $('disableCode').value.trim();
+        if (!code || state.busy) return;
+        setBusy(true, form);
+        try {
+            const body = { current_password: $('disablePassword').value };
+            if (/^\d{6}$/.test(code)) body.code = code;
+            else body.recovery_code = code;
+            await checked('/api/account/2fa/disable', jsonOptions('POST', body));
+            form.reset(); $('recoveryBox').hidden = true; state.recoveryCodes = [];
+            await loadTotp(); message($('totpStatus'), en ? 'Two-step verification turned off.' : '兩步驟驗證已關閉。', 'success');
+        } catch (error) { message($('totpStatus'), error.message, 'error'); }
+        finally { setBusy(false, form); }
+    });
+    $('copyRecoveryCodes').addEventListener('click', async () => {
+        if (!state.recoveryCodes.length) return;
+        try { await navigator.clipboard.writeText(state.recoveryCodes.join('\n')); message($('totpStatus'), en ? 'Recovery codes copied.' : '備用碼已複製。', 'success'); }
+        catch (_) { message($('totpStatus'), en ? 'Clipboard unavailable. Select and copy the codes.' : '無法使用剪貼簿，請選取備用碼複製。', 'error'); }
+    });
+    $('ackRecoveryCodes').addEventListener('click', () => { $('recoveryCodes').replaceChildren(); $('recoveryBox').hidden = true; state.recoveryCodes = []; });
+    $('passwordForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        if (!form.reportValidity() || state.busy) return;
+        const password = $('newPassword').value;
+        if (password !== $('confirmPassword').value) { message(panel.querySelector('[data-panel-status]'), en ? 'Passwords do not match.' : '兩次輸入的密碼不一致。', 'error'); return; }
+        setBusy(true, form);
+        try {
+            await checked('/api/account/password', jsonOptions('POST', { current_password: $('currentPassword').value, new_password: password }));
+            form.reset(); message(form.parentElement.querySelector('[data-panel-status]') || panel.querySelector('[data-panel-status]'), en ? 'Password changed. Other sessions were signed out.' : '密碼已變更，其他裝置已登出。', 'success');
+        } catch (error) { message(panel.querySelector('[data-panel-status]'), error.message, 'error'); }
+        finally { setBusy(false, form); }
+    });
+
+    function renderSessions(items) {
+        state.sessions = items;
+        const list = $('sessionRows'); list.replaceChildren();
+        items.forEach((item) => {
+            const row = el('article', 'profile-item');
+            const detail = el('div', 'profile-item-main');
+            const title = el('strong', '', item.device_label || (en ? 'Device' : '裝置'));
+            if (item.current) title.append(' ', el('span', 'badge badge-success', en ? 'This device' : '這台'));
+            if (item.new_device) title.append(' ', el('span', 'badge badge-warning', en ? 'New device' : '新裝置'));
+            detail.append(title);
+            detail.append(el('div', 'hint', (item.ip_masked || '—') + ' · ' + (en ? 'Signed in ' : '登入於 ') + formatDate(item.created_at)));
+            detail.append(el('div', 'hint', (en ? 'Last active ' : '最近活動 ') + formatDate(item.last_seen_at)));
+            row.append(detail);
+            if (!item.current) {
+                const button = el('button', 'btn btn-text btn-sm danger-note', en ? 'Sign out' : '登出裝置');
+                button.type = 'button'; button.dataset.revokeSession = String(item.id);
+                row.append(button);
+            }
+            list.append(row);
+        });
+        $('sessionEmpty').hidden = items.length > 0;
+    }
+    async function loadSessions() {
+        $('sessionError').hidden = true; $('retrySessions').hidden = true;
+        try {
+            const result = await checked('/api/account/sessions');
+            if (!Array.isArray(result)) throw new Error(copy.invalidResponse);
+            renderSessions(result); activeStatus($('tab-devices'), '');
+        } catch (error) {
+            $('sessionError').textContent = error.message; $('sessionError').hidden = false; $('retrySessions').hidden = false; activeStatus($('tab-devices'), error.message);
+        }
+    }
+    $('sessionRows').addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-revoke-session]');
+        if (!button || state.busy) return;
+        setBusy(true);
+        try {
+            await checked('/api/account/sessions/' + encodeURIComponent(button.dataset.revokeSession), { method: 'DELETE' });
+            await loadSessions();
+        } catch (error) { $('sessionError').textContent = error.message; $('sessionError').hidden = false; }
+        finally { setBusy(false); }
+    });
+    $('revokeOtherSessions').addEventListener('click', async () => {
+        if (state.busy || !window.confirm(en ? 'Sign out all other active devices?' : '確定要登出其他所有有效裝置？')) return;
+        setBusy(true);
+        try { await checked('/api/account/sessions/revoke-others', jsonOptions('POST')); await loadSessions(); message($('profileStatus'), en ? 'Other sessions were signed out.' : '其他裝置已登出。', 'success'); }
+        catch (error) { $('sessionError').textContent = error.message; $('sessionError').hidden = false; }
+        finally { setBusy(false); }
+    });
+    $('retrySessions').addEventListener('click', loadSessions);
+
+    function safeAuthURL(value) {
+        if (typeof value !== 'string' || !value.trim() || value.trim() !== value) return null;
+        try {
+            const url = new URL(value);
+            return ['https:', 'http:'].includes(url.protocol) && url.hostname && !url.username && !url.password ? url.href : null;
+        } catch (_) { return null; }
+    }
+    function renderIdentities(data) {
+        state.identities = data;
+        if (!data || typeof data.local_login !== 'boolean' || !Array.isArray(data.providers)) throw new Error(copy.invalidResponse);
+        $('identityMethods').textContent = (en ? 'Local password sign-in: ' : '本機密碼登入：') + (data.local_login ? (en ? 'available' : '可用') : (en ? 'not set' : '尚未設定'));
+        const list = $('identityRows'); list.replaceChildren();
+        ['google', 'github'].forEach((name) => {
+            const provider = data.providers.find((item) => item && item.provider === name);
+            if (!provider || typeof provider.enabled !== 'boolean' || typeof provider.linked !== 'boolean') return;
+            const row = el('article', 'identity-row');
+            const info = el('div');
+            info.append(el('strong', '', name === 'google' ? 'Google' : 'GitHub'));
+            info.append(el('div', 'hint', (provider.enabled ? (en ? 'Available' : '已啟用') : (en ? 'Not configured' : '未設定')) + ' · ' + (provider.linked ? (en ? 'Connected' : '已連結') : (en ? 'Not connected' : '未連結'))));
+            row.append(info);
+            const actions = el('div', 'identity-actions');
+            const button = el('button', provider.linked ? 'btn btn-danger btn-sm' : 'btn btn-secondary btn-sm', provider.linked ? (en ? 'Disconnect' : '解除連結') : (en ? 'Connect' : '連結'));
+            button.type = 'button'; button.dataset.provider = name; button.dataset.identityAction = provider.linked ? 'confirm' : 'connect';
+            button.disabled = !provider.linked && !provider.enabled;
+            actions.append(button); row.append(actions); list.append(row);
+        });
+        activeStatus($('tab-identities'), '');
+    }
+    async function loadIdentities() {
+        $('identityError').hidden = true; $('retryIdentities').hidden = true;
+        try { renderIdentities(await checked('/api/auth/identities')); }
+        catch (error) { $('identityError').textContent = error.message; $('identityError').hidden = false; $('retryIdentities').hidden = false; activeStatus($('tab-identities'), error.message); }
+    }
+    $('identityRows').addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-identity-action]');
+        if (!button || state.busy || !state.identities) return;
+        const provider = state.identities.providers.find((item) => item.provider === button.dataset.provider);
+        if (!provider) return;
+        if (button.dataset.identityAction === 'confirm') {
+            state.unlinkProvider = provider.provider;
+            state.unlinkTrigger = button;
+            $('identityConfirmText').textContent = (en ? 'Disconnect ' : '解除 ') + (provider.provider === 'google' ? 'Google' : 'GitHub') + (en ? ' from this account?' : ' 與此帳號的連結？');
+            openOverlay($('identityConfirm'), $('confirmUnlink')); return;
+        }
+        if (button.dataset.identityAction === 'connect') {
+            setBusy(true);
+            try {
+                const result = await checked('/api/auth/identities/' + encodeURIComponent(provider.provider) + '/start', jsonOptions('POST'));
+                const url = safeAuthURL(result && result.auth_url);
+                if (!url) throw new Error(copy.invalidResponse);
+                location.assign(url);
+            } catch (error) { $('identityError').textContent = error.message; $('identityError').hidden = false; setBusy(false); }
+        }
+    });
+    $('confirmUnlink').addEventListener('click', async () => {
+        if (!state.unlinkProvider || state.busy) return;
+        const provider = state.unlinkProvider;
+        setBusy(true);
+        try {
+            await checked('/api/auth/identities/' + encodeURIComponent(provider), { method: 'DELETE' });
+            closeOverlay($('identityConfirm'), state.unlinkTrigger); state.unlinkProvider = ''; state.unlinkTrigger = null; await loadIdentities();
+        } catch (error) { $('identityError').textContent = error.message; $('identityError').hidden = false; }
+        finally { setBusy(false); }
+    });
+    function closeIdentityConfirm() {
+        closeOverlay($('identityConfirm'), state.unlinkTrigger);
+        state.unlinkProvider = ''; state.unlinkTrigger = null;
+    }
+    $('cancelUnlink').addEventListener('click', closeIdentityConfirm);
+    $('identityConfirm').addEventListener('click', (event) => { if (event.target === $('identityConfirm')) closeIdentityConfirm(); });
+    $('retryIdentities').addEventListener('click', loadIdentities);
+
+    $('profileError').hidden = true;
+    root.setAttribute('aria-busy', 'true');
+    switch (activeTab) {
+        case 'profile': loadProfile(); break;
+        case 'notifications': loadPreferences(); break;
+        case 'tokens': loadTokens(); break;
+        case 'security':
+            $('profileLoading').hidden = true; $('tab-security').hidden = false; loadTotp(); break;
+        case 'devices': loadSessions(); break;
+        case 'identities': loadIdentities(); break;
+    }
+    $('retrySessions').hidden = true;
+    $('retryTokens').hidden = true;
+    $('retryIdentities').hidden = true;
+    $('tokenDialog').addEventListener('keydown', (event) => { if (event.key === 'Escape') closeTokenDialog(); });
+    $('identityConfirm').addEventListener('keydown', (event) => { if (event.key === 'Escape') closeIdentityConfirm(); });
+})();
+</script>
+{{end}}

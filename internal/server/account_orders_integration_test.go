@@ -81,8 +81,38 @@ func TestAccountOrderCancelOnlyBeforeShipping(t *testing.T) {
 	other := h.user("customer", "bystander")
 	aid := a.ID
 	year := time.Now().Year()
-	pending := shopSeedOrder(t, h, shopOrderSeed{number: fmt.Sprintf("JL-%d-0001", year), email: a.Email, status: "pending", total: 12000, userID: &aid})
-	paid := shopSeedOrder(t, h, shopOrderSeed{number: fmt.Sprintf("JL-%d-0002", year), email: a.Email, status: "paid", total: 12000, userID: &aid})
+	pendingProduct := shopSeedProduct(t, h, "member-cancel-pending", 6000, 5)
+	pendingVariant := shopVariantRows(t, h, pendingProduct.ID)[0]
+	pending := shopSeedOrder(t, h, shopOrderSeed{
+		number: fmt.Sprintf("JL-%d-0001", year), email: a.Email, status: "pending", total: 12000, userID: &aid,
+		items: []shopItemSeed{{variantID: &pendingVariant.ID, productID: &pendingVariant.ProductID, title: pendingProduct.Title, qty: 1, unitPrice: 6000}},
+	})
+	if err := h.db.Create(&core.StockMovement{VariantID: pendingVariant.ID, OrderID: &pending.ID, Delta: -1, Reason: "reserve"}).Error; err != nil {
+		t.Fatalf("seed pending order reservation: %v", err)
+	}
+	if err := h.db.Model(&core.ProductVariant{}).Where("id = ?", pendingVariant.ID).Update("stock", 4).Error; err != nil {
+		t.Fatalf("set pending reserved variant stock: %v", err)
+	}
+	product := shopSeedProduct(t, h, "member-cancel-paid", 6000, 7)
+	variant := shopVariantRows(t, h, product.ID)[0]
+	coupon := shopSeedCoupon(t, h, core.Coupon{Code: "CANCEL10", Kind: "fixed", Value: 1000, UsedCount: 1})
+	paid := shopSeedOrder(t, h, shopOrderSeed{
+		number: fmt.Sprintf("JL-%d-0002", year), email: a.Email, status: "paid", provider: "manual_transfer", method: "bank_transfer", total: 12000,
+		userID: &aid, couponID: &coupon.ID, couponCode: coupon.Code,
+		items: []shopItemSeed{{variantID: &variant.ID, productID: &variant.ProductID, title: product.Title, qty: 2, unitPrice: 6000}},
+	})
+	paidSandbox := shopSeedOrder(t, h, shopOrderSeed{
+		number: fmt.Sprintf("JL-%d-0005", year), email: a.Email, status: "paid", provider: "sandbox", method: "credit_card", total: 12000, userID: &aid,
+	})
+	if err := h.db.Create(&core.StockMovement{VariantID: variant.ID, OrderID: &paid.ID, Delta: -2, Reason: "reserve"}).Error; err != nil {
+		t.Fatalf("seed paid order reservation: %v", err)
+	}
+	if err := h.db.Model(&core.ProductVariant{}).Where("id = ?", variant.ID).Update("stock", 5).Error; err != nil {
+		t.Fatalf("set reserved variant stock: %v", err)
+	}
+	if err := h.db.Create(&core.CouponRedemption{CouponID: coupon.ID, OrderID: paid.ID, UserID: &aid, Email: a.Email}).Error; err != nil {
+		t.Fatalf("seed paid order coupon redemption: %v", err)
+	}
 	shipped := shopSeedOrder(t, h, shopOrderSeed{number: fmt.Sprintf("JL-%d-0003", year), email: a.Email, status: "shipped", total: 12000, userID: &aid})
 	second := shopSeedOrder(t, h, shopOrderSeed{number: fmt.Sprintf("JL-%d-0004", year), email: a.Email, status: "pending", total: 12000, userID: &aid})
 
@@ -94,13 +124,58 @@ func TestAccountOrderCancelOnlyBeforeShipping(t *testing.T) {
 	if got := shopOrderRow(t, h, pending.Number).Status; got != core.OrderStatusCancelled {
 		t.Errorf("pending order status after cancel = %q, want cancelled", got)
 	}
+	var pendingStock int
+	if err := h.db.Model(&core.ProductVariant{}).Select("stock").Where("id = ?", pendingVariant.ID).Scan(&pendingStock).Error; err != nil {
+		t.Fatalf("read pending stock after cancellation: %v", err)
+	}
+	if pendingStock != 5 || shopCount(t, h, "SELECT COUNT(*) FROM stock_movements WHERE order_id = ? AND reason = ?", pending.ID, "release") != 1 {
+		t.Errorf("pending cancellation did not release its reservation: stock=%d, want 5 and one release movement", pendingStock)
+	}
 
 	shopWantOK(t, member.send(http.MethodPost, cancel(paid.Number), nil), "cancel paid unshipped order")
-	if got := shopOrderRow(t, h, paid.Number).Status; got != core.OrderStatusCancelled {
-		t.Errorf("paid order status after cancel = %q, want cancelled", got)
+	if got := shopOrderRow(t, h, paid.Number); got.Status != core.OrderStatusPaid || got.RefundedTotal != 0 {
+		t.Errorf("paid order after customer refund request = status %q refunded_total %d, want paid/0", got.Status, got.RefundedTotal)
 	}
-	if n := shopCount(t, h, "SELECT COUNT(*) FROM order_events WHERE order_id = ? AND kind LIKE ?", paid.ID, "%refund%"); n < 1 {
-		t.Errorf("cancelling a paid order started no refund workflow (no refund order_events)")
+	if n := shopCount(t, h, "SELECT COUNT(*) FROM order_events WHERE order_id = ? AND kind = ? AND from_status = ? AND to_status = ?", paid.ID, "refund_requested", core.OrderStatusPaid, core.OrderStatusPaid); n != 1 {
+		t.Errorf("refund_requested events = %d, want one idempotent request that leaves the order paid", n)
+	}
+	var stock int
+	if err := h.db.Model(&core.ProductVariant{}).Select("stock").Where("id = ?", variant.ID).Scan(&stock).Error; err != nil {
+		t.Fatalf("read reserved stock after customer request: %v", err)
+	}
+	if stock != 5 {
+		t.Errorf("customer refund request changed reserved stock to %d, want 5", stock)
+	}
+	var released int64
+	if err := h.db.Model(&core.CouponRedemption{}).Where("order_id = ? AND released_at IS NOT NULL", paid.ID).Count(&released).Error; err != nil {
+		t.Fatalf("count released paid-order redemptions: %v", err)
+	}
+	var storedCoupon core.Coupon
+	if err := h.db.First(&storedCoupon, coupon.ID).Error; err != nil {
+		t.Fatalf("reload paid-order coupon: %v", err)
+	}
+	if released != 0 || storedCoupon.UsedCount != 1 {
+		t.Errorf("customer refund request released %d redemptions and coupon used_count is %d, want 0/1", released, storedCoupon.UsedCount)
+	}
+	shopWantOK(t, member.send(http.MethodPost, cancel(paid.Number), nil), "retry paid-order refund request")
+	if n := shopCount(t, h, "SELECT COUNT(*) FROM order_events WHERE order_id = ? AND kind = ?", paid.ID, "refund_requested"); n != 1 {
+		t.Errorf("repeated cancellation recorded %d refund requests, want one", n)
+	}
+	shopWantOK(t, member.send(http.MethodPost, cancel(paidSandbox.Number), nil), "cancel paid sandbox order")
+	if got := shopOrderRow(t, h, paidSandbox.Number); got.Status != core.OrderStatusPaid || got.RefundedTotal != 0 {
+		t.Errorf("paid sandbox order after customer refund request = status %q refunded_total %d, want paid/0", got.Status, got.RefundedTotal)
+	}
+	if n := shopCount(t, h, "SELECT COUNT(*) FROM order_events WHERE order_id = ? AND kind = ? AND from_status = ? AND to_status = ?", paidSandbox.ID, "refund_requested", core.OrderStatusPaid, core.OrderStatusPaid); n != 1 {
+		t.Errorf("paid sandbox refund_requested events = %d, want one pending actual refund", n)
+	}
+	admin := newShopBrowser(h)
+	admin.token = h.token(h.user("admin", "refund-reviewer"))
+	shopWantOK(t, admin.send(http.MethodPost, fmt.Sprintf("/api/admin/orders/%d/refund", paid.ID), map[string]any{
+		"reason": "customer cancellation request", "restock": false,
+		"idempotency_key": "member-cancel-admin-refund",
+	}), "admin actual refund after customer request")
+	if got := shopOrderRow(t, h, paid.Number); got.RefundedTotal != got.TotalAmount {
+		t.Errorf("admin refund total = %d, want full order amount %d", got.RefundedTotal, got.TotalAmount)
 	}
 
 	shopWantCode(t, member.send(http.MethodPost, cancel(shipped.Number), nil), "cancel shipped order", http.StatusConflict)

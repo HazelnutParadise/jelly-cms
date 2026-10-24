@@ -1,2 +1,568 @@
 {{define "title"}}{{.T.coupons}}{{end}}
-{{define "content"}}{{/* ticket 07 placeholder: coupons */}}{{end}}
+{{define "styles"}}<link rel="stylesheet" href="/admin/assets/shop-admin.css">{{end}}
+{{define "content"}}
+<div class="sa-head">
+    <h1>{{.T.coupons}}</h1>
+    <span class="sa-grow"></span>
+    <button type="button" class="btn btn-secondary" id="batchOpen"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg><span></span></button>
+    <button type="button" class="btn btn-primary" id="newBtn"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span>{{.T.newCoupon}}</span></button>
+</div>
+<div class="sa-split">
+    <section class="sa-main" aria-label="{{.T.coupons}}">
+        <div class="sa-head" style="margin-bottom:.75rem">
+            <div class="sa-seg" id="segs" role="group"></div>
+            <span class="sa-grow"></span>
+            <label class="sa-search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="q" autocomplete="off" enterkeyhint="search"></label>
+        </div>
+        <div id="list" aria-live="polite" aria-busy="true"></div>
+        <div class="sa-tiles" id="impact"></div>
+    </section>
+
+    <aside class="sa-card outline sa-panel" id="panel" aria-labelledby="panelTitle">
+        <div class="sa-panel-head"><span class="stripes" aria-hidden="true"></span><b id="panelTitle"></b><span id="panelBadge"></span><button type="button" class="btn btn-text btn-sm btn-icon sa-close" id="panelClose" aria-label="{{.T.close}}"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+        <form id="cf" novalidate autocomplete="off" style="display:grid;gap:.9rem">
+            <div class="sa-field" data-field><label for="fCode" data-t="code"></label>
+                <div class="sa-inline"><input type="text" id="fCode" maxlength="64" spellcheck="false" style="font-family:var(--mono);text-transform:uppercase" required><button type="button" class="btn btn-secondary btn-sm" id="randomCode"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg><span data-t="random"></span></button></div>
+            </div>
+            <div class="sa-field" data-field><label for="fLabel" data-t="label"></label><input type="text" id="fLabel" maxlength="120"></div>
+            <div class="sa-field"><span class="label" id="lKind" data-t="kind"></span>
+                <div class="segmented" role="radiogroup" aria-labelledby="lKind" style="flex-wrap:wrap">
+                    <label><input type="radio" name="kind" value="percent" checked><span data-t="k_percent"></span></label>
+                    <label><input type="radio" name="kind" value="fixed"><span data-t="k_fixed"></span></label>
+                    <label><input type="radio" name="kind" value="free_shipping"><span data-t="k_free_shipping"></span></label>
+                    <label><input type="radio" name="kind" value="bogo"><span data-t="k_bogo"></span></label>
+                </div>
+            </div>
+            <div class="sa-grid two">
+                <div class="sa-field" data-field data-kind="percent"><label for="fPercent" data-t="percentOff"></label><div class="sa-suffix"><input type="text" id="fPercent" inputmode="numeric"><span>%</span></div></div>
+                <div class="sa-field" data-field data-kind="fixed"><label for="fFixed" data-t="fixedOff"></label><input type="text" id="fFixed" inputmode="decimal"></div>
+                <div class="sa-field" data-field><label for="fMin" data-t="minSubtotal"></label><input type="text" id="fMin" inputmode="decimal"></div>
+            </div>
+            <div class="sa-box" data-kind="bogo">
+                <span class="badge badge-info" data-t="k_bogo"></span>
+                <div class="sa-grid two">
+                    <div class="sa-field" data-field><label for="fBuy" data-t="buyQty"></label><input type="text" id="fBuy" inputmode="numeric"></div>
+                    <div class="sa-field" data-field><label for="fGet" data-t="getQty"></label><input type="text" id="fGet" inputmode="numeric"></div>
+                </div>
+                <small class="hint" data-t="bogoHint"></small>
+            </div>
+            <div class="sa-field"><span class="label" id="lScope" data-t="scope"></span>
+                <div class="segmented" role="radiogroup" aria-labelledby="lScope">
+                    <label><input type="radio" name="scope" value="all" checked><span data-t="sc_all"></span></label>
+                    <label><input type="radio" name="scope" value="category"><span data-t="sc_category"></span></label>
+                    <label><input type="radio" name="scope" value="product"><span data-t="sc_product"></span></label>
+                </div>
+                <div id="targets" style="margin-top:.5rem"></div>
+            </div>
+            <div class="sa-grid two">
+                <div class="sa-field" data-field><label for="fLimit" data-t="usageLimit"></label><input type="text" id="fLimit" inputmode="numeric"></div>
+                <div class="sa-field" data-field><label for="fPerUser" data-t="perUser"></label><input type="text" id="fPerUser" inputmode="numeric"></div>
+                <div class="sa-field" data-field><label for="fStart" data-t="startsAt"></label><input type="datetime-local" id="fStart"></div>
+                <div class="sa-field" data-field><label for="fEnd" data-t="endsAt"></label><input type="datetime-local" id="fEnd"></div>
+            </div>
+            <div class="sa-field" data-field><label for="fEmail" data-t="boundEmail"></label><input type="email" id="fEmail" maxlength="255" spellcheck="false"></div>
+            <label class="sa-toggle toggle-switch"><span data-t="stackable"></span><input type="checkbox" id="fStack"><span class="slider" aria-hidden="true"></span></label>
+            <label class="sa-toggle toggle-switch"><span data-t="membersOnly"></span><input type="checkbox" id="fMembers"><span class="slider" aria-hidden="true"></span></label>
+            <label class="sa-toggle toggle-switch"><span><span data-t="enabled"></span><small data-t="enabledHint"></small></span><input type="checkbox" id="fEnabled" checked><span class="slider" aria-hidden="true"></span></label>
+            <div class="row" style="display:flex;gap:.5rem;flex-wrap:wrap">
+                <button type="submit" class="btn btn-primary" id="saveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg><span id="saveText"></span></button>
+                <button type="button" class="btn btn-secondary" id="previewOpen"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg><span data-t="preview"></span></button>
+            </div>
+            <div class="sa-box" id="previewBox" hidden>
+                <div class="sa-grid two">
+                    <div class="sa-field" data-field><label for="pSubtotal" data-t="pSubtotal"></label><input type="text" id="pSubtotal" inputmode="decimal" value="1000"></div>
+                    <div class="sa-field" data-field><label for="pQty" data-t="pQty"></label><input type="text" id="pQty" inputmode="numeric" value="1"></div>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" id="previewBtn"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg><span data-t="previewRun"></span></button>
+                <div class="sa-preview-out" id="previewOut" role="status" aria-live="polite" hidden></div>
+            </div>
+        </form>
+    </aside>
+</div>
+<div class="sa-backdrop" id="backdrop"></div>
+
+<div class="modal-overlay" id="batchSheet" aria-hidden="true">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="batchTitle">
+        <div class="modal-header"><h2 id="batchTitle"></h2></div>
+        <form id="bf" novalidate style="display:grid;gap:.9rem">
+            <p class="hint" id="batchHint"></p>
+            <div class="sa-grid two">
+                <div class="sa-field" data-field><label for="bPrefix" data-t="prefix"></label><input type="text" id="bPrefix" maxlength="20" style="text-transform:uppercase" spellcheck="false"></div>
+                <div class="sa-field" data-field><label for="bSize" data-t="size"></label><input type="text" id="bSize" inputmode="numeric" value="10"></div>
+            </div>
+            <div class="sa-field" data-field><label for="bEmail" data-t="boundEmail"></label><input type="email" id="bEmail" maxlength="255"></div>
+            <div class="sa-preview-out" id="batchOut" role="status" aria-live="polite" hidden></div>
+            <div class="modal-footer"><button type="submit" class="btn btn-primary" id="batchBtn"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg><span data-t="generate"></span></button><a class="btn btn-secondary" id="batchDownload" hidden download="coupons.csv"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-t="download"></span></a><button type="button" class="btn btn-secondary" id="batchClose"><span data-t="close"></span></button></div>
+        </form>
+    </div>
+</div>
+{{end}}
+{{define "scripts"}}
+<script src="/admin/assets/shop-admin.js"></script>
+<script>
+(function () {
+    'use strict';
+    const SA = window.ShopAdmin;
+    SA.extend({
+        zh: {
+            searchPh: '找代碼', colCode: '代碼', colOffer: '優惠', colCond: '條件', colUsage: '用量', colPeriod: '期間', colActions: '操作',
+            emptyActive: '沒有進行中的折扣碼', emptyScheduled: '沒有排程中的折扣碼', emptyEnded: '沒有已結束的折扣碼', emptyText: '建立折扣碼後，顧客在購物車輸入就能使用。', noMatch: '沒有符合的折扣碼',
+            offPercent: '%s 折', offPercentEn: '', offFixed: '折 %s', freeShip: '免運費', bogo: '買 %s 送 %s', unlimited: '不限', longTerm: '長期', until: '到 %s', from: '%s 起',
+            minSub: '滿 %s', membersOnly: '只給會員', perUserN: '每人 %s 次', boundTo: '限 %s', sc_all: '全店', sc_category: '分類', sc_product: '指定商品', targetsN: '%s 項',
+            impactTitle: '本月折扣帶來', impactNote: '%s 筆訂單 · 讓利 %s', impactUnknown: '本月還沒有使用折扣碼的訂單',
+            newCoupon: '新增折扣碼', editCoupon: '編輯：%s', code: '代碼', random: '隨機', label: '名稱（只在後台）', kind: '類型', k_percent: '百分比', k_fixed: '固定金額', k_free_shipping: '免運', k_bogo: '買 X 送 Y',
+            percentOff: '折扣', fixedOff: '折抵金額 (NT$)', minSubtotal: '最低消費 (NT$)', buyQty: '買幾件', getQty: '送幾件', bogoHint: '同一適用範圍的商品，每買足件數就送最便宜的件數；贈品不另算運費。',
+            scope: '適用', pickCats: '選擇分類', pickProducts: '搜尋商品加入', noCats: '還沒有商品分類', targetsRequired: '請至少選一個適用項目', removeTarget: '移除 %s',
+            usageLimit: '總次數上限', perUser: '每人次數', startsAt: '開始', endsAt: '結束', boundEmail: '只限這個 Email（選填）', stackable: '可與免運碼疊加', enabled: '啟用', enabledHint: '停用後顧客無法套用，已用過的紀錄保留。',
+            limitPh: '不限', create: '建立', saveEdit: '儲存', preview: '在結帳頁預覽', pSubtotal: '試算小計 (NT$)', pQty: '件數', previewRun: '試算', previewResult: '折抵 %s，結帳金額 %s', previewFree: '，免運', previewFreeUnits: '，送 %s 件', previewNeedCode: '先輸入代碼',
+            created: '已建立折扣碼', saved: '已儲存折扣碼', codeRequired: '請輸入代碼', badCode: '代碼只能用英數字、- 與 _', badPercent: '請輸入 1 到 100 的整數', valueRequired: '請輸入折抵金額', badBogo: '請輸入大於 0 的整數', badRange: '結束時間要晚於開始時間', badEmail: 'Email 格式不正確',
+            delTitle: '刪除「%s」？', delBody: '只有沒用過的折扣碼可以刪除。', usedCantDelete: '這個折扣碼已經用過，只能停用。', disableNow: '改為停用', disabled: '已停用折扣碼',
+            batch: '批次產生', batchTitle: '批次產生一人一碼', batchHint: '用右側表單目前的類型、折扣、條件與期間當範本，每個代碼限用一次。', prefix: '前綴', size: '數量（1–1000）', generate: '產生', download: '下載代碼 CSV',
+            batchDone: '已產生 %s 個代碼', badSize: '請輸入 1 到 1000 的數量', fixForm: '請先修正右側表單'
+        },
+        en: {
+            searchPh: 'Find a code', colCode: 'Code', colOffer: 'Offer', colCond: 'Conditions', colUsage: 'Usage', colPeriod: 'Period', colActions: 'Actions',
+            emptyActive: 'No active coupons', emptyScheduled: 'No scheduled coupons', emptyEnded: 'No ended coupons', emptyText: 'Create a coupon and shoppers can apply it in the cart.', noMatch: 'No coupons match',
+            offPercent: '%s off', offFixed: '%s off', freeShip: 'Free shipping', bogo: 'Buy %s get %s', unlimited: 'Unlimited', longTerm: 'No end', until: 'Until %s', from: 'From %s',
+            minSub: 'Min. %s', membersOnly: 'Members only', perUserN: '%s per person', boundTo: 'Only %s', sc_all: 'Whole shop', sc_category: 'Categories', sc_product: 'Products', targetsN: '%s selected',
+            impactTitle: 'Coupon revenue this month', impactNote: '%s orders · %s discounted', impactUnknown: 'No orders used a coupon this month',
+            newCoupon: 'New coupon', editCoupon: 'Edit: %s', code: 'Code', random: 'Random', label: 'Name (admin only)', kind: 'Type', k_percent: 'Percent', k_fixed: 'Fixed amount', k_free_shipping: 'Free shipping', k_bogo: 'Buy X get Y',
+            percentOff: 'Discount', fixedOff: 'Amount off (NT$)', minSubtotal: 'Minimum spend (NT$)', buyQty: 'Buy', getQty: 'Get free', bogoHint: 'For eligible items, every full set gives the cheapest units free. Free units add no shipping.',
+            scope: 'Applies to', pickCats: 'Choose categories', pickProducts: 'Search products to add', noCats: 'No product categories yet', targetsRequired: 'Choose at least one item', removeTarget: 'Remove %s',
+            usageLimit: 'Total uses', perUser: 'Uses per person', startsAt: 'Starts', endsAt: 'Ends', boundEmail: 'Only this email (optional)', stackable: 'Stacks with free-shipping codes', enabled: 'Enabled', enabledHint: 'Disabled codes cannot be applied; past uses are kept.',
+            limitPh: 'Unlimited', create: 'Create', saveEdit: 'Save', preview: 'Preview at checkout', pSubtotal: 'Test subtotal (NT$)', pQty: 'Items', previewRun: 'Calculate', previewResult: '%s off, checkout total %s', previewFree: ', free shipping', previewFreeUnits: ', %s free', previewNeedCode: 'Enter a code first',
+            created: 'Coupon created', saved: 'Coupon saved', codeRequired: 'Enter a code', badCode: 'Use letters, digits, - and _ only', badPercent: 'Enter a whole number from 1 to 100', valueRequired: 'Enter the amount off', badBogo: 'Enter a whole number above 0', badRange: 'The end must be after the start', badEmail: 'Enter a valid email',
+            delTitle: 'Delete “%s”?', delBody: 'Only unused coupons can be deleted.', usedCantDelete: 'This coupon has been used and can only be disabled.', disableNow: 'Disable it', disabled: 'Coupon disabled',
+            batch: 'Generate batch', batchTitle: 'Generate one-per-person codes', batchHint: 'Uses the type, discount, conditions and period in the form as the template. Each code works once.', prefix: 'Prefix', size: 'Count (1–1000)', generate: 'Generate', download: 'Download codes (CSV)',
+            batchDone: '%s codes generated', badSize: 'Enter a count from 1 to 1000', fixForm: 'Fix the coupon form first'
+        }
+    });
+    const t = SA.t, esc = SA.esc;
+    const $ = (id) => document.getElementById(id);
+    const SEGS = ['active', 'scheduled', 'ended'];
+    const f = $('cf');
+    let st = { status: SEGS.includes(new URLSearchParams(location.search).get('status')) ? new URLSearchParams(location.search).get('status') : 'active', q: '' };
+    let items = [];
+    let counts = {};
+    let editing = null;           // coupon being edited, null = new
+    let targets = { category: new Map(), product: new Map() };   // id -> name
+    let catList = null;
+    let opener = null;
+    let seq = 0;
+
+    document.querySelectorAll('[data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
+    $('q').placeholder = t('searchPh');
+    $('q').setAttribute('aria-label', t('searchPh'));
+    $('batchOpen').querySelector('span').textContent = t('batch');
+    $('batchTitle').textContent = t('batchTitle');
+    $('batchHint').textContent = t('batchHint');
+    $('segs').setAttribute('aria-label', t('colPeriod'));
+    ['fLimit', 'fPerUser'].forEach(i => { $(i).placeholder = t('limitPh'); });
+
+    /* ---------- list ---------- */
+    function offer(c) {
+        if (c.kind === 'percent') return SA.lang === 'en' ? t('offPercent', (+c.value) + '%') : t('offPercent', percentToZhe(+c.value));
+        if (c.kind === 'fixed') return t('offFixed', SA.money(c.value));
+        if (c.kind === 'free_shipping') return t('freeShip');
+        if (c.kind === 'bogo') return t('bogo', +c.buy_qty || 0, +c.get_qty || 0);
+        return c.kind || '—';
+    }
+    // 打 85 折 = 15% off；整數折數去掉尾端 0（9 折）
+    function percentToZhe(p) { const z = 100 - p; return z % 10 === 0 ? String(z / 10) : String(z); }
+    function conditions(c) {
+        const out = [];
+        const tg = Array.isArray(c.targets) ? c.targets : [];
+        if (c.scope && c.scope !== 'all') out.push(t('sc_' + c.scope) + (tg.length ? '（' + t('targetsN', tg.length) + '）' : ''));
+        else out.push(t('sc_all'));
+        if (+c.min_subtotal) out.push(t('minSub', SA.money(c.min_subtotal)));
+        if (c.per_user_limit) out.push(t('perUserN', c.per_user_limit));
+        if (c.members_only) out.push(t('membersOnly'));
+        if (c.bound_email) out.push(t('boundTo', c.bound_email));
+        return out.join(' · ');
+    }
+    function period(c) {
+        if (!c.starts_at && !c.ends_at) return t('longTerm');
+        if (c.starts_at && c.ends_at) return SA.day(c.starts_at) + '–' + SA.day(c.ends_at);
+        return c.ends_at ? t('until', SA.day(c.ends_at)) : t('from', SA.day(c.starts_at));
+    }
+    function renderSegs() {
+        $('segs').innerHTML = SEGS.map(s => '<button type="button" data-s="' + s + '" aria-pressed="' + (!st.q && st.status === s) + '">' + esc(t('cs_' + s)) + (counts[s] != null ? ' <b>' + (+counts[s]) + '</b>' : '') + '</button>').join('');
+        $('segs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { st.status = b.dataset.s; st.q = ''; $('q').value = ''; load(); }));
+    }
+    function renderList() {
+        const box = $('list');
+        box.setAttribute('aria-busy', 'false');
+        if (!items.length) {
+            if (st.q) SA.state(box, 'empty', { title: t('noMatch') });
+            else SA.state(box, 'empty', { title: t({ active: 'emptyActive', scheduled: 'emptyScheduled', ended: 'emptyEnded' }[st.status]), text: t('emptyText'), actions: [{ label: t('newCoupon'), primary: true, icon: 'i-plus', onClick: (e) => openPanel(null, e.currentTarget) }] });
+            return;
+        }
+        let html = '<div class="table-wrapper"><table class="sa-table"><thead><tr><th>' + esc(t('colCode')) + '</th><th>' + esc(t('colOffer')) + '</th><th class="sa-hide-sm sa-hide-md">' + esc(t('colCond')) + '</th><th>' + esc(t('colUsage')) + '</th><th class="sa-hide-sm">' + esc(t('colPeriod')) + '</th><th class="actions">' + esc(t('colActions')) + '</th></tr></thead><tbody>';
+        items.forEach(c => {
+            const used = +c.used_count || 0, limit = c.usage_limit;
+            const pct = limit ? Math.min(100, used / limit * 100) : 0;
+            const disabledRow = c.status === 'disabled';
+            html += '<tr' + (disabledRow ? ' style="opacity:.6"' : '') + '><td class="sa-nowrap"><button type="button" class="sa-link" style="background:none;border:0;padding:0;cursor:pointer;font-family:var(--mono)" data-edit="' + (+c.id) + '">' + esc(c.code) + '</button><span class="sa-sub">' + esc(c.label || '') + (disabledRow ? ' · ' + esc(t('cs_disabled')) : '') + '</span></td>' +
+                '<td class="sa-nowrap">' + esc(offer(c)) + '</td><td class="cell-muted sa-hide-sm sa-hide-md">' + esc(conditions(c)) + '</td>' +
+                '<td><span class="sa-usage"><span><b>' + used + '</b> / ' + esc(limit ? String(limit) : t('unlimited')) + '</span>' + (limit ? '<span class="sa-meter" aria-hidden="true"><i style="width:' + pct.toFixed(0) + '%"></i></span>' : '') + '</span></td>' +
+                '<td class="cell-muted sa-hide-sm">' + esc(period(c)) + '</td>' +
+                '<td class="actions"><button type="button" class="btn btn-text btn-sm btn-icon" data-edit="' + (+c.id) + '" aria-label="' + esc(t('edit') + ' ' + c.code) + '" title="' + esc(t('edit')) + '">' + SA.svg('i-pencil') + '</button>' +
+                '<button type="button" class="btn btn-text btn-sm btn-icon" data-dup="' + (+c.id) + '" aria-label="' + esc(t('duplicate') + ' ' + c.code) + '" title="' + esc(t('duplicate')) + '">' + SA.svg('i-copy') + '</button>' +
+                '<button type="button" class="btn btn-text btn-sm btn-icon" data-del="' + (+c.id) + '" aria-label="' + esc(t('delete') + ' ' + c.code) + '" title="' + esc(t('delete')) + '">' + SA.svg('i-trash') + '</button></td></tr>';
+        });
+        box.innerHTML = html + '</tbody></table></div>';
+        const byId = new Map(items.map(c => [c.id, c]));
+        box.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openPanel(byId.get(+b.dataset.edit), b)));
+        box.querySelectorAll('[data-dup]').forEach(b => b.addEventListener('click', () => { const c = byId.get(+b.dataset.dup); openPanel(Object.assign({}, c, { id: null, code: '', used_count: 0 }), b); }));
+        box.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => remove(byId.get(+b.dataset.del), b)));
+    }
+    function renderImpact(imp) {
+        if (!imp) { $('impact').innerHTML = ''; return; }
+        const orders = +imp.orders || 0;
+        $('impact').innerHTML = '<div class="sa-kpi"><span class="label">' + esc(t('impactTitle')) + '</span><b>' + esc(SA.money(imp.revenue || 0)) + '</b><small>' + esc(orders ? t('impactNote', orders, SA.money(imp.discount_total || 0)) : t('impactUnknown')) + '</small></div>';
+    }
+    async function load() {
+        const my = ++seq;
+        SA.setQuery({ status: st.status === 'active' ? '' : st.status });
+        renderSegs();
+        SA.state($('list'), 'loading');
+        // 搜尋時跨分段找，避免代碼在別的分段就找不到
+        const qs = new URLSearchParams();
+        if (st.q) qs.set('q', st.q); else qs.set('status', st.status);
+        try {
+            const data = await SA.api('GET', '/api/admin/coupons?' + qs);
+            if (my !== seq) return;
+            items = Array.isArray(data) ? data : (data && data.items) || [];
+            counts = (data && data.counts) || {};
+            renderSegs();
+            renderList();
+            renderImpact(data && data.impact);
+        } catch (err) {
+            if (my !== seq || err.kind === 'aborted') return;
+            SA.state($('list'), 'error', { text: SA.errText(err), retry: load });
+        }
+    }
+
+    /* ---------- panel ---------- */
+    const isNarrow = () => window.matchMedia('(max-width: 1100px)').matches;
+    const kind = () => f.querySelector('input[name="kind"]:checked').value;
+    const scope = () => f.querySelector('input[name="scope"]:checked').value;
+    function syncKind() {
+        const k = kind();
+        f.querySelectorAll('[data-kind]').forEach(el => { el.hidden = el.dataset.kind !== k; });
+    }
+    function clearErrors() { document.querySelectorAll('#cf [aria-invalid="true"], #bf [aria-invalid="true"]').forEach(el => SA.fieldError(el, '')); }
+
+    function fillPanel(c) {
+        editing = c && c.id ? c : null;
+        clearErrors();
+        const v = c || {};
+        $('fCode').value = v.code || '';
+        $('fCode').readOnly = !!(editing && +editing.used_count > 0);
+        $('fLabel').value = v.label || '';
+        (f.querySelector('input[name="kind"][value="' + (v.kind || 'percent') + '"]') || f.querySelector('input[name="kind"]')).checked = true;
+        $('fPercent').value = v.kind === 'percent' && v.value ? String(v.value) : '';
+        $('fFixed').value = v.kind === 'fixed' && v.value ? SA.toInput(v.value) : '';
+        $('fMin').value = v.min_subtotal ? SA.toInput(v.min_subtotal) : '';
+        $('fBuy').value = v.buy_qty ? String(v.buy_qty) : '';
+        $('fGet').value = v.get_qty ? String(v.get_qty) : '';
+        (f.querySelector('input[name="scope"][value="' + (v.scope || 'all') + '"]') || f.querySelector('input[name="scope"]')).checked = true;
+        targets = { category: new Map(), product: new Map() };
+        (Array.isArray(v.targets) ? v.targets : []).forEach(x => {
+            const type = x.target_type === 'category' ? 'category' : 'product';
+            targets[type].set(+x.target_id, x.name || x.title || ('#' + x.target_id));
+        });
+        $('fLimit').value = v.usage_limit != null ? String(v.usage_limit) : '';
+        $('fPerUser').value = v.per_user_limit != null ? String(v.per_user_limit) : '';
+        $('fStart').value = SA.toLocalInput(v.starts_at);
+        $('fEnd').value = SA.toLocalInput(v.ends_at);
+        $('fEmail').value = v.bound_email || '';
+        $('fStack').checked = !!v.stackable_with_free_shipping;
+        $('fMembers').checked = !!v.members_only;
+        $('fEnabled').checked = v.status !== 'disabled';
+        $('panelTitle').textContent = editing ? t('editCoupon', editing.code) : t('newCoupon');
+        $('panelBadge').innerHTML = editing ? SA.badge('coupon', editing.status === 'disabled' ? 'disabled' : st.status) : '';
+        $('saveText').textContent = editing ? t('saveEdit') : t('create');
+        $('previewBox').hidden = true;
+        $('previewOut').hidden = true;
+        syncKind();
+        renderTargets();
+    }
+
+    async function renderTargets() {
+        const box = $('targets');
+        const s = scope();
+        if (s === 'all') { box.innerHTML = ''; return; }
+        if (s === 'category') {
+            if (!catList) {
+                box.innerHTML = '<span class="muted" style="font-size:.8125rem">' + esc(t('loading')) + '</span>';
+                try {
+                    const data = await SA.api('GET', '/api/admin/product-categories');
+                    const flat = [];
+                    (function walk(nodes, d) { (nodes || []).forEach(n => { flat.push({ id: +n.id, name: n.name, depth: d }); walk(n.children, d + 1); }); })(Array.isArray(data) ? data : (data && data.items) || [], 0);
+                    catList = flat;
+                } catch (err) {
+                    box.innerHTML = '';
+                    const p = document.createElement('p'); p.className = 'sa-note'; p.textContent = SA.errText(err);
+                    const r = document.createElement('button'); r.type = 'button'; r.className = 'btn btn-text btn-sm'; r.textContent = t('retry');
+                    r.addEventListener('click', renderTargets);
+                    box.append(p, r);
+                    return;
+                }
+            }
+            if (scope() !== 'category') return;
+            if (!catList.length) { box.innerHTML = '<span class="muted" style="font-size:.8125rem">' + esc(t('noCats')) + '</span>'; return; }
+            box.innerHTML = '<div class="sa-picker" role="group" aria-label="' + esc(t('pickCats')) + '">' + catList.map(c => '<label style="padding-left:' + (c.depth * 1.25) + 'rem"><input type="checkbox" value="' + c.id + '"' + (targets.category.has(c.id) ? ' checked' : '') + '>' + esc(c.name) + '</label>').join('') + '</div>';
+            box.querySelectorAll('input').forEach(i => i.addEventListener('change', () => {
+                const c = catList.find(x => x.id === +i.value);
+                i.checked ? targets.category.set(c.id, c.name) : targets.category.delete(c.id);
+            }));
+            return;
+        }
+        box.innerHTML = '<div class="sa-chips" id="prodChips"></div><label class="sa-search" style="width:100%;margin-top:.4rem"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="prodSearch" autocomplete="off"></label><div class="sa-picker" id="prodResults" style="margin-top:.3rem"></div>';
+        $('prodSearch').placeholder = t('pickProducts');
+        $('prodSearch').setAttribute('aria-label', t('pickProducts'));
+        renderChips();
+        let timer = null, pseq = 0;
+        $('prodSearch').addEventListener('input', () => {
+            clearTimeout(timer);
+            timer = setTimeout(async () => {
+                const q = $('prodSearch').value.trim();
+                const my = ++pseq;
+                if (!q) { $('prodResults').innerHTML = ''; return; }
+                try {
+                    const data = await SA.api('GET', '/api/admin/products?per_page=10&q=' + encodeURIComponent(q));
+                    if (my !== pseq) return;
+                    const list = Array.isArray(data) ? data : (data && data.items) || [];
+                    $('prodResults').innerHTML = list.map(p => '<label><input type="checkbox" value="' + (+p.id) + '" data-name="' + esc(p.title) + '"' + (targets.product.has(+p.id) ? ' checked' : '') + '>' + esc(p.title) + '</label>').join('') || '<span class="muted" style="font-size:.8125rem">—</span>';
+                    $('prodResults').querySelectorAll('input').forEach(i => i.addEventListener('change', () => { i.checked ? targets.product.set(+i.value, i.dataset.name) : targets.product.delete(+i.value); renderChips(); }));
+                } catch (err) { if (my === pseq) $('prodResults').textContent = SA.errText(err); }
+            }, 250);
+        });
+    }
+    function renderChips() {
+        const box = $('prodChips');
+        if (!box) return;
+        box.innerHTML = [...targets.product].map(([id, name]) => '<span class="sa-chip">' + esc(name) + '<button type="button" data-id="' + id + '" aria-label="' + esc(t('removeTarget', name)) + '">' + SA.svg('i-x') + '</button></span>').join('');
+        box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+            targets.product.delete(+b.dataset.id);
+            const cb = document.querySelector('#prodResults input[value="' + (+b.dataset.id) + '"]');
+            if (cb) cb.checked = false;
+            renderChips();
+            $('prodSearch').focus();
+        }));
+    }
+
+    function openPanel(c, from) {
+        fillPanel(c);
+        if (isNarrow()) {
+            opener = from || document.activeElement;
+            $('panel').classList.add('open'); $('backdrop').classList.add('open');
+            $('panel').setAttribute('role', 'dialog'); $('panel').setAttribute('aria-modal', 'true');
+        }
+        setTimeout(() => $('fCode').focus(), 30);
+    }
+    function closePanel() {
+        const wasOpen = $('panel').classList.contains('open');
+        $('panel').classList.remove('open'); $('backdrop').classList.remove('open');
+        $('panel').removeAttribute('role'); $('panel').removeAttribute('aria-modal');
+        if (wasOpen && opener && document.contains(opener)) opener.focus();
+        opener = null;
+    }
+
+    /** Validates the form and returns the coupon body, or null after marking the errors. */
+    function collect(forTemplate) {
+        clearErrors();
+        const bad = [];
+        const fail = (el, msg) => { SA.fieldError(el, msg); bad.push(el); };
+        const code = $('fCode').value.trim().toUpperCase();
+        if (!forTemplate) {
+            if (!code) fail($('fCode'), t('codeRequired'));
+            else if (!/^[A-Z0-9_-]+$/.test(code)) fail($('fCode'), t('badCode'));
+        }
+        const k = kind();
+        const body = { label: $('fLabel').value.trim(), kind: k, value: 0, buy_qty: 0, get_qty: 0, scope: scope() };
+        if (!forTemplate) body.code = code;
+        if (k === 'percent') {
+            const p = SA.parseInt($('fPercent').value);
+            if (!p.ok || p.empty || p.value < 1 || p.value > 100) fail($('fPercent'), t('badPercent')); else body.value = p.value;
+        } else if (k === 'fixed') {
+            const a = SA.parseAmount($('fFixed').value);
+            if (!a.ok) fail($('fFixed'), t('invalidAmount')); else if (a.empty || a.minor <= 0) fail($('fFixed'), t('valueRequired')); else body.value = a.minor;
+        } else if (k === 'bogo') {
+            const b = SA.parseInt($('fBuy').value), g = SA.parseInt($('fGet').value);
+            if (!b.ok || b.empty || b.value < 1) fail($('fBuy'), t('badBogo')); else body.buy_qty = b.value;
+            if (!g.ok || g.empty || g.value < 1) fail($('fGet'), t('badBogo')); else body.get_qty = g.value;
+        }
+        const min = SA.parseAmount($('fMin').value);
+        if (!min.ok) fail($('fMin'), t('invalidAmount')); else body.min_subtotal = min.minor;
+        const lim = SA.parseInt($('fLimit').value), per = SA.parseInt($('fPerUser').value);
+        if (!lim.ok) fail($('fLimit'), t('invalidInt')); else body.usage_limit = lim.empty ? null : lim.value;
+        if (!per.ok) fail($('fPerUser'), t('invalidInt')); else body.per_user_limit = per.empty ? null : per.value;
+        body.starts_at = SA.fromLocalInput($('fStart').value);
+        body.ends_at = SA.fromLocalInput($('fEnd').value);
+        if (body.starts_at && body.ends_at && body.ends_at <= body.starts_at) fail($('fEnd'), t('badRange'));
+        const email = $('fEmail').value.trim();
+        if (email && !$('fEmail').checkValidity()) fail($('fEmail'), t('badEmail'));
+        body.bound_email = email.toLowerCase();
+        body.stackable_with_free_shipping = $('fStack').checked;
+        body.members_only = $('fMembers').checked;
+        body.status = $('fEnabled').checked ? 'active' : 'disabled';
+        const s = scope();
+        const chosen = s === 'category' ? targets.category : s === 'product' ? targets.product : null;
+        body.targets = chosen ? [...chosen.keys()].map(id => ({ target_type: s, target_id: id })) : [];
+        if (chosen && !chosen.size) { const anchor = f.querySelector('input[name="scope"]:checked'); fail(anchor, t('targetsRequired')); }
+        if (bad.length) { bad[0].focus(); return null; }
+        return body;
+    }
+
+    f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const body = collect(false);
+        if (!body) return;
+        if (editing && +editing.used_count > 0) delete body.code;
+        await SA.busy($('saveBtn'), async () => {
+            try {
+                const saved = await SA.api(editing ? 'PATCH' : 'POST', editing ? '/api/admin/coupons/' + editing.id : '/api/admin/coupons', body);
+                SA.toast(editing ? t('saved') : t('created'));
+                await load();
+                const fresh = saved && saved.id ? (items.find(x => x.id === saved.id) || saved) : null;
+                if (isNarrow()) { closePanel(); fillPanel(null); } else fillPanel(fresh);
+            } catch (err) {
+                const fields = SA.fieldErrors(err);
+                const map = { code: 'fCode', value: kind() === 'fixed' ? 'fFixed' : 'fPercent', min_subtotal: 'fMin', usage_limit: 'fLimit', per_user_limit: 'fPerUser', ends_at: 'fEnd', bound_email: 'fEmail', buy_qty: 'fBuy', get_qty: 'fGet' };
+                Object.keys(fields).forEach(k => { if (map[k]) SA.fieldError($(map[k]), String(fields[k])); });
+                SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) });
+            }
+        });
+    });
+
+    async function remove(c, btn) {
+        if (!c) return;
+        if (+c.used_count > 0) { return offerDisable(c, btn); }
+        const ok = await SA.confirm({ title: t('delTitle', c.code), body: t('delBody'), ok: t('delete'), danger: true });
+        if (!ok) return;
+        await SA.busy(btn, async () => {
+            try {
+                await SA.api('DELETE', '/api/admin/coupons/' + c.id);
+                SA.toast(t('deleted'));
+                if (editing && editing.id === c.id) fillPanel(null);
+                load();
+            } catch (err) {
+                if (err.status === 409) return offerDisable(c, btn);
+                SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) });
+            }
+        });
+    }
+    async function offerDisable(c, btn) {
+        if (c.status === 'disabled') { SA.toast(t('usedCantDelete'), 'info'); return; }
+        const ok = await SA.confirm({ title: t('usedCantDelete'), ok: t('disableNow') });
+        if (!ok) return;
+        await SA.busy(btn, async () => {
+            try {
+                await SA.api('PATCH', '/api/admin/coupons/' + c.id, { status: 'disabled' });
+                SA.toast(t('disabled'));
+                load();
+            } catch (err) { SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) }); }
+        });
+    }
+
+    /* ---------- preview ---------- */
+    $('previewOpen').addEventListener('click', () => { $('previewBox').hidden = !$('previewBox').hidden; if (!$('previewBox').hidden) $('pSubtotal').focus(); });
+    $('previewBtn').addEventListener('click', () => SA.busy($('previewBtn'), async () => {
+        clearErrors();
+        const code = $('fCode').value.trim().toUpperCase();
+        if (!code) { SA.fieldError($('fCode'), t('previewNeedCode')); $('fCode').focus(); return; }
+        const sub = SA.parseAmount($('pSubtotal').value), qty = SA.parseInt($('pQty').value);
+        if (!sub.ok || sub.empty) { SA.fieldError($('pSubtotal'), t('invalidAmount')); return; }
+        if (!qty.ok || qty.empty || qty.value < 1) { SA.fieldError($('pQty'), t('badBogo')); return; }
+        const out = $('previewOut');
+        try {
+            const r = await SA.api('POST', '/api/admin/coupons/preview', { code, cart: { subtotal: sub.minor, qty: qty.value } });
+            const d = (r && (r.discount && typeof r.discount === 'object' ? r.discount : r)) || {};
+            const amount = +(d.amount != null ? d.amount : d.discount) || 0;
+            const totalAfter = r && r.total != null ? +r.total : Math.max(0, sub.minor - amount);
+            out.textContent = t('previewResult', SA.money(amount), SA.money(totalAfter)) + (d.free_shipping ? t('previewFree') : '') + (d.free_units ? t('previewFreeUnits', +d.free_units) : '');
+        } catch (err) { out.textContent = SA.errText(err); }
+        out.hidden = false;
+    }));
+
+    /* ---------- batch ---------- */
+    let batchOpener = null, csvUrl = null;
+    function openBatch() {
+        batchOpener = document.activeElement;
+        $('batchSheet').classList.add('open'); $('batchSheet').setAttribute('aria-hidden', 'false');
+        $('batchOut').hidden = true; $('batchDownload').hidden = true;
+        $('bPrefix').focus();
+    }
+    function closeBatch() {
+        $('batchSheet').classList.remove('open'); $('batchSheet').setAttribute('aria-hidden', 'true');
+        if (batchOpener && document.contains(batchOpener)) batchOpener.focus();
+    }
+    $('batchOpen').addEventListener('click', openBatch);
+    $('batchClose').addEventListener('click', closeBatch);
+    $('batchSheet').addEventListener('click', (e) => { if (e.target === $('batchSheet')) closeBatch(); });
+    $('bf').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const prefix = $('bPrefix').value.trim().toUpperCase();
+        if (prefix && !/^[A-Z0-9_-]+$/.test(prefix)) { SA.fieldError($('bPrefix'), t('badCode')); $('bPrefix').focus(); return; }
+        SA.fieldError($('bPrefix'), '');
+        const size = SA.parseInt($('bSize').value);
+        if (!size.ok || size.empty || size.value < 1 || size.value > 1000) { SA.fieldError($('bSize'), t('badSize')); $('bSize').focus(); return; }
+        SA.fieldError($('bSize'), '');
+        const email = $('bEmail').value.trim();
+        if (email && !$('bEmail').checkValidity()) { SA.fieldError($('bEmail'), t('badEmail')); $('bEmail').focus(); return; }
+        SA.fieldError($('bEmail'), '');
+        const template = collect(true);
+        if (!template) { SA.toast(t('fixForm'), 'error'); closeBatch(); return; }
+        template.usage_limit = 1;
+        template.per_user_limit = 1;
+        if (email) template.bound_email = email.toLowerCase();
+        await SA.busy($('batchBtn'), async () => {
+            try {
+                const r = await SA.api('POST', '/api/admin/coupons/generate', { prefix, size: size.value, template });
+                const codes = r && Array.isArray(r.codes) ? r.codes : (r && Array.isArray(r.items) ? r.items.map(x => x.code) : []);
+                $('batchOut').textContent = t('batchDone', codes.length || size.value);
+                $('batchOut').hidden = false;
+                if (codes.length) {
+                    if (csvUrl) URL.revokeObjectURL(csvUrl);
+                    const csv = 'code\n' + codes.map(c => /^[=+\-@]/.test(c) ? "'" + c : c).join('\n') + '\n';
+                    csvUrl = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+                    $('batchDownload').href = csvUrl;
+                    $('batchDownload').download = (prefix || 'coupons') + '-' + new Date().toISOString().slice(0, 10) + '.csv';
+                    $('batchDownload').hidden = false;
+                }
+                load();
+            } catch (err) { SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) }); }
+        });
+    });
+
+    /* ---------- events ---------- */
+    f.addEventListener('change', (e) => {
+        if (e.target.name === 'kind') syncKind();
+        if (e.target.name === 'scope') { SA.fieldError(e.target, ''); renderTargets(); }
+    });
+    f.addEventListener('input', (e) => { if (e.target.getAttribute('aria-invalid')) SA.fieldError(e.target, ''); });
+    $('randomCode').addEventListener('click', () => {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        const a = new Uint8Array(8); crypto.getRandomValues(a);
+        $('fCode').value = Array.from(a, b => chars[b % chars.length]).join('');
+        SA.fieldError($('fCode'), '');
+    });
+    $('newBtn').addEventListener('click', () => openPanel(null, $('newBtn')));
+    $('panelClose').addEventListener('click', closePanel);
+    $('backdrop').addEventListener('click', closePanel);
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape' || e.defaultPrevented) return;
+        if ($('batchSheet').classList.contains('open')) { e.preventDefault(); closeBatch(); }
+        else if ($('panel').classList.contains('open')) { e.preventDefault(); closePanel(); }
+    });
+    let timer = null;
+    $('q').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { st.q = $('q').value.trim(); load(); }, 300); });
+
+    fillPanel(null);
+    load();
+    if (location.hash === '#new') openPanel(null, $('newBtn'));
+})();
+</script>
+{{end}}

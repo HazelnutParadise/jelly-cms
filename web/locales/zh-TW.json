@@ -481,5 +481,9 @@
     "rvNoId": "找不到這篇內容。",
     "rvToday": "今天",
     "rvYesterday": "昨天",
-    "rvUnknownUser": "未知"
+    "rvUnknownUser": "未知",
+    "users": "使用者",
+    "inviteUser": "邀請使用者",
+    "account": "帳號",
+    "notificationsTitle": "通知中心"
 }

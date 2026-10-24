@@ -2,28 +2,28 @@
 
 Epic：商店
 User Story：訪客能瀏覽商店與分類、看商品、加入購物車、用折扣碼、填寫收件與發票資料、以信用卡／ATM／超商代碼或轉帳付款，付款後收到確認並能查詢訂單；會員能在會員中心看訂單進度、取消未出貨訂單、管理地址與發票設定；站長能管折扣碼、處理訂單（出貨、退款、備註）並在設定裡設運送、金流與稅。
-Blocked by：04 的分類與留言模式（已合併）、06 的 `internal/notify`、`user_invites`、`RequirePermission`（草稿 PR #24；本工作單在同一條分支上接續時以該契約為準）。
-Status：draft（本工作單只交付設計板補齊、契約、骨架與失敗的驗收測試；實作由另一批代理依本文件完成）
+Blocked by：04 的分類與留言模式（已合併）、06 的 `internal/notify`、`user_invites`、`RequirePermission`（PR #24 已合併；本工作單沿用 main 的帳號與權限契約）。
+Status：implemented（E0–E8 實作與商店瀏覽器流程完成；完整測試、必要 CI 與合併結果見 PR #25）
 設計稿：`design/project/Shop、ShopCategory、Product、Cart、Checkout、OrderDone、Account、OrderLookup、Coupons、OrderDetail、Products、ProductEditor、Orders、Settings.dc.html`；本工作單先補：商品分類管理（`Taxonomy` 板加「商品分類」分段）、`Settings` 板的「運送」分頁與金流遮罩／連線測試／通知網址、`Coupons` 板的買 X 送 Y 欄位與側欄「折扣碼」入口、`OrderDetail` 板的庫存時間軸改成「下單時保留」、訂單編號統一為 `JL-YYYY-NNNN`、`ProductEditor` 板的規格、原價、低庫存門檻、分類、運送旗標、SEO。
 
 ## 流程與驗收
 
-- [ ] 訪客在 `/shop` 與 `/shop/c/<slug>` 看到商品卡（圖、名稱、售價、原價劃線、「加入」「售完」「剩 N」）、分類與數量、價格區間／只看有貨／排序篩選、每頁 12 件、超出頁數 404；分類頁有麵包屑、子分類 chip、特性篩選與作用中篩選摘要。
-- [ ] 訪客在 `/shop/p/<slug>` 看到規格選擇、庫存狀態、售價與原價、短描述、三行信任資訊（配送／付款／鑑賞期）、Markdown 長描述、成分、一起買；草稿、下架、回收桶商品 404；頁面輸出 JSON-LD Product。
-- [ ] 訪客的購物車存在伺服器，以 HttpOnly Cookie 的隨機權杖識別（只存雜湊）；每次讀取重新計價；數量夾在庫存內並回報 `issues`；售完的項目保留在列表但不計入總額；登入時合併訪客購物車。
-- [ ] 訪客能套用與移除折扣碼：百分比、固定金額、免運、買 X 送 Y；範圍（全店／分類／商品）、最低消費、起訖、總次數、每人次數、只給會員、可否與免運碼疊加；總額不為負、折扣不超過小計。
-- [ ] 訪客在 `/checkout` 填聯絡資料（Email、手機、是否建立帳號）、運送方式（宅配、自取；超商取貨顯示「稍後開放」）、收件人與地址、付款方式（信用卡／ATM／超商代碼走 ECPay、銀行轉帳人工確認；沙盒只在非正式環境）、發票（手機條碼、統編、捐贈，格式驗證）、同意條款；送出後建立訂單並導向付款或顯示轉帳說明；金額全部由伺服器計算，請求裡的任何價格欄位一律忽略；同一 `idempotency_key` 回同一筆訂單。
-- [ ] 下單時保留庫存（信用卡 30 分鐘、ATM／超商代碼 72 小時、轉帳 72 小時）；逾期未付自動釋放並釋放折扣碼次數；兩個人同時買最後一件只有一個成功、庫存不為負；庫存異動都進帳本。
-- [ ] 付款通知只接受簽章正確、金額與幣別相符的請求；重複通知只認一次；回傳頁只顯示狀態、不改訂單；付款失敗保留訂單可重試或換付款方式，不直接取消。
-- [ ] 訪客在 `/checkout/done/<number>` 看到成功（編號、付款方式、預計到貨、品項、總額、下載收據、重寄確認信）或失敗（重新付款、換付款方式、保留期限）狀態。
-- [ ] 訪客在 `/orders/lookup` 輸入訂單編號與 Email，不論是否符合都回同一個訊息；符合時寄 15 分鐘有效的查詢連結，連結只存雜湊；查詢與重寄都有速率限制。
-- [ ] 下單的 Email 會成為 `customer` 角色的帳號（沒勾建立帳號時是未啟用的休眠帳號，只用來串訂單）；勾了建立帳號會收到設定密碼的邀請連結；`customer` 進不了 `/admin`。
-- [ ] 會員在 `/account/orders` 看到訂單分段計數、時間軸（已付款、備貨中、已出貨＋物流、已送達）、下載收據、聯絡客服、取消（只限未出貨）、再買一次；`/account/addresses`、`/account/invoices` 能管理地址與發票設定；員工進 `/account` 會被導向後台個人帳號。
-- [ ] 站長在 `/admin/orders` 看到 KPI 列（30 天營收、訂單數、待處理、平均客單）、分段與搜尋；在 `/admin/orders/<id>` 看到明細、時間軸、內部備註、顧客卡、付款面板，能標記已出貨（物流與單號）、完成、取消、退款（全額或部分、是否回補庫存）、人工確認收款、修改地址、列印出貨單；狀態只能照狀態機走。
-- [ ] 站長在 `/admin/coupons` 看到進行中／排程／已結束分段、搜尋、本月影響；能建立、編輯、停用、刪除（未使用才能刪）、批次產生一人一碼、在結帳頁預覽。
-- [ ] 站長在商品編輯頁管理規格、原價、低庫存門檻、商品分類、運送旗標（需要運送、冷藏）、SEO；商品列表有搜尋、狀態分段、SKU、低庫存標示、分頁；價格顯示正確（NT$120 不再顯示成 12,000）。
-- [ ] 站長在設定的「商店」看到幣別、稅、運送方式與免運門檻、付款方式對應、金流金鑰（遮罩顯示、連線測試、通知網址）、收據賣方資料、轉帳說明。
-- [ ] 所有前台商店頁面與後台頁面照設計板，手機 390px 可用，不從外部網址載入任何資源。
+- [x] 訪客在 `/shop` 與 `/shop/c/<slug>` 看到商品卡（圖、名稱、售價、原價劃線、「加入」「售完」「剩 N」）、分類與數量、價格區間／只看有貨／排序篩選、每頁 12 件、超出頁數 404；分類頁有麵包屑、子分類 chip、特性篩選與作用中篩選摘要。
+- [x] 訪客在 `/shop/p/<slug>` 看到規格選擇、庫存狀態、售價與原價、短描述、三行信任資訊（配送／付款／鑑賞期）、Markdown 長描述、成分、一起買；草稿、下架、回收桶商品 404；頁面輸出 JSON-LD Product。
+- [x] 訪客的購物車存在伺服器，以 HttpOnly Cookie 的隨機權杖識別（只存雜湊）；每次讀取重新計價；數量夾在庫存內並回報 `issues`；售完的項目保留在列表但不計入總額；登入時合併訪客購物車。
+- [x] 訪客能套用與移除折扣碼：百分比、固定金額、免運、買 X 送 Y；範圍（全店／分類／商品）、最低消費、起訖、總次數、每人次數、只給會員、可否與免運碼疊加；總額不為負、折扣不超過小計。
+- [x] 訪客在 `/checkout` 填聯絡資料（Email、手機、是否建立帳號）、運送方式（宅配、自取；超商取貨顯示「稍後開放」）、收件人與地址、付款方式（信用卡／ATM／超商代碼走 ECPay、銀行轉帳人工確認；沙盒只在非正式環境）、發票（手機條碼、統編、捐贈，格式驗證）、同意條款；送出後建立訂單並導向付款或顯示轉帳說明；金額全部由伺服器計算，請求裡的任何價格欄位一律忽略；同一 `idempotency_key` 回同一筆訂單。
+- [x] 下單時保留庫存（信用卡 30 分鐘、ATM／超商代碼 72 小時、轉帳 72 小時）；逾期未付自動釋放並釋放折扣碼次數；兩個人同時買最後一件只有一個成功、庫存不為負；庫存異動都進帳本。
+- [x] 付款通知只接受簽章正確、金額與幣別相符的請求；重複通知只認一次；回傳頁只顯示狀態、不改訂單；付款失敗保留訂單可重試或換付款方式，不直接取消。
+- [x] 訪客在 `/checkout/done/<number>` 看到成功（編號、付款方式、預計到貨、品項、總額、下載收據、重寄確認信）或失敗（重新付款、換付款方式、保留期限）狀態。
+- [x] 訪客在 `/orders/lookup` 輸入訂單編號與 Email，不論是否符合都回同一個訊息；符合時寄 15 分鐘有效的查詢連結，連結只存雜湊；查詢與重寄都有速率限制。
+- [x] 下單的 Email 會成為 `customer` 角色的帳號（沒勾建立帳號時是未啟用的休眠帳號，只用來串訂單）；勾了建立帳號會收到設定密碼的邀請連結；`customer` 進不了 `/admin`。
+- [x] 會員在 `/account/orders` 看到訂單分段計數、時間軸（已付款、備貨中、已出貨＋物流、已送達）、下載收據、聯絡客服、取消（只限未出貨）、再買一次；`/account/addresses`、`/account/invoices` 能管理地址與發票設定；員工進 `/account` 會被導向後台個人帳號。
+- [x] 站長在 `/admin/orders` 看到 KPI 列（30 天營收、訂單數、待處理、平均客單）、分段與搜尋；在 `/admin/orders/<id>` 看到明細、時間軸、內部備註、顧客卡、付款面板，能標記已出貨（物流與單號）、完成、取消、退款（全額或部分、是否回補庫存）、人工確認收款、修改地址、列印出貨單；狀態只能照狀態機走。
+- [x] 站長在 `/admin/coupons` 看到進行中／排程／已結束分段、搜尋、本月影響；能建立、編輯、停用、刪除（未使用才能刪）、批次產生一人一碼、在結帳頁預覽。
+- [x] 站長在商品編輯頁管理規格、原價、低庫存門檻、商品分類、運送旗標（需要運送、冷藏）、SEO；商品列表有搜尋、狀態分段、SKU、低庫存標示、分頁；價格顯示正確（NT$120 不再顯示成 12,000）。
+- [x] 站長在設定的「商店」看到幣別、稅、運送方式與免運門檻、付款方式對應、金流金鑰（遮罩顯示、連線測試、通知網址）、收據賣方資料、轉帳說明。
+- [x] 所有前台商店頁面與後台頁面照設計板，手機 390px 可用，不從外部網址載入任何資源。
 
 ## 錯誤與邊界
 
@@ -31,7 +31,7 @@ Status：draft（本工作單只交付設計板補齊、契約、骨架與失敗
 
 ## 契約（骨架與測試共同依據）
 
-### 資料（`internal/data/migrations/0008` 起，與 06 同一個執行器）
+### 資料（`internal/data/migrations/0009` 至 `0017`，與 06 同一個執行器）
 
 | 表 | 主要欄位 |
 |---|---|
@@ -70,7 +70,7 @@ Status：draft（本工作單只交付設計板補齊、契約、骨架與失敗
 | `GET /cart`、`GET /checkout`（空車 302 `/cart`）、`GET /checkout/done/:number`（需本人 session 或 `?t=` 權杖）、`GET /checkout/sandbox/:trade_no` | `cart.html`、`checkout.html`、`order_done.html`、`sandbox_pay.html` |
 | `GET /orders/lookup`、`GET /orders/view?t=`（換成 30 分鐘、限該訂單的 Cookie 後 302 `/orders/view/:number`） | `order_lookup.html`、`order_view.html` |
 | `GET /account`（customer → `/account/orders`；員工 → `/admin/account?tab=identities`）、`/account/orders`、`/account/orders/:number`、`/account/addresses`、`/account/invoices`、`/account/security`、`/account/notifications` | `account_*.html`（帳號與密碼、通知分頁套 06 的 `/api/account/*`） |
-| `GET /api/cart` | `{items:[{variant_id, product_id, title, variant_name, image, unit_price, qty, line_total, available, max_qty}], issues:[{variant_id, code}], subtotal, discount, shipping, shipping_gap_to_free, total, currency, coupon, count}` |
+| `GET /api/cart` | `{items:[{variant_id, product_id, title, variant_name, image, unit_price, qty, line_total, available, max_qty}], issues:[{variant_id, code}], subtotal, discount, shipping, shipping_gap_to_free, free_shipping_over, requires_shipping, total, currency, coupon, count}`；`free_shipping_over` 為全店免運門檻（分），0 表示停用；`requires_shipping` 只計入有貨且需配送的商品；空車回傳 `false`／`0`。 |
 | `POST /api/cart/items {variant_id, qty}`、`PATCH /api/cart/items/:variant_id {qty}`、`DELETE /api/cart/items/:variant_id`、`POST /api/cart/coupon {code}`、`DELETE /api/cart/coupon` | 回完整購物車；qty 1–99 並夾在庫存內 |
 | `GET /api/shop/shipping-methods`、`GET /api/shop/payment-methods` | 只列啟用的 |
 | `POST /api/checkout` | 請求 `{email, phone, create_account, shipping:{method, name, postcode, city, address}, payment:{method}, invoice:{kind, carrier_code, tax_id, company_name, donation_code}, coupon_code, accept_terms, idempotency_key, website}`；201 `{order:{number, status, total, currency}, redirect_url, payment:{provider, method, kind:"redirect|offline|none", instructions}, access_token}` |
@@ -82,7 +82,7 @@ Status：draft（本工作單只交付設計板補齊、契約、骨架與失敗
 
 | 路由 | 規則 |
 |---|---|
-| `GET /api/admin/products?status=&q=&page=&per_page=`、`POST|PUT` 以型別化輸入（`variants[]`、`categories[]`、`images[]`、`compare_at_price`…，忽略 `id`、`deleted_at`，價格庫存不可為負）、`POST /api/admin/products/:id/duplicate`、`/api/admin/product-categories` CRUD | |
+| `GET /api/admin/products?status=&q=&page=&per_page=`、`POST|PUT` 以型別化輸入（`variants[]`、`categories[]`、`images[]`、`compare_at_price`…，忽略 `id`、`deleted_at`，價格庫存不可為負）；`POST /api/admin/products` 成功回 200。頂層 `price` 字串以元輸入，非負十進位整數以分輸入；小數或指數格式的 JSON 數字拒絕，`null` 沿用空值語意。頂層 `sku`、`stock` 是相容欄位，`variants[]` 提供時以規格值為準；建立時省略 `variants[]` 會建立一筆空名稱預設規格並套用這些欄位。更新時省略 `variants[]` 僅能對單一空名稱預設規格更新已提供欄位，保留未提供欄位與規格 ID，庫存差額寫入 `stock_movements`；多規格或非預設規格收到頂層 `sku`／`stock` 回 409。僅更新多規格商品的頂層 `price` 保持既有聚合行為。`POST /api/admin/products/:id/duplicate`、`/api/admin/product-categories` CRUD | |
 | `GET /api/admin/orders?status=&q=&from=&to=&page=` → `{items, total, counts, kpi:{revenue_30d, orders_30d, pending, avg_order}}`、`GET /api/admin/orders/:id`（含 items、timeline、payment、customer.history_count）、`PUT /api/admin/orders/:id {status, carrier, tracking_no, note}`（狀態機，非法 409 `{allowed}`）、`POST .../notes`、`PATCH .../address`、`POST .../refund {amount?, reason, restock}`（可部分、冪等）、`POST .../mark-paid`（只限轉帳） | |
 | `GET /api/admin/coupons?status=active|scheduled|ended&q=` → `{items, counts, impact:{orders, discount_total, revenue}}`、`POST`、`GET|PATCH|DELETE /:id`（用過的只能停用）、`POST /generate {prefix, size, template}`、`POST /preview {code, cart}` | |
 | `GET|PUT /api/admin/shop/settings`（金鑰遮罩 `****1234`，部分金鑰不能啟用）、`POST /api/admin/shop/payment/:gateway/test` | GET 永不寫入 |
@@ -99,13 +99,14 @@ Status：draft（本工作單只交付設計板補齊、契約、骨架與失敗
 
 ## 我先決定了這些
 
-- 金額以「分」儲存，顯示與金流換算集中在 `internal/money`；含稅價，收據列 5%。
+- 金額以「分」儲存，顯示與金流換算集中在 `internal/money`。應付總額依使用者確認四捨五入至整數元，例如 NT$105 打九折為 NT$94.50，實收 NT$95；所有付款方式、購物車預估、結帳與收據採相同規則，尾數調整另存訂單快照。稅率依商店設定，預設含稅 5%。
+- 四捨五入後為零元時直接成立已付款訂單，付款方式為無需付款，不建立金流交易或付款期限；純數位訂單不要求配送地址，零元實體訂單仍要求配送。
 - 金流先 ECPay＋銀行轉帳（人工確認）＋測試用沙盒；NewebPay 轉接器保留但本工作單只做到不會回假成功；LINE Pay 之後。
 - 電子發票先只收資料、出可列印收據；`invoices` 表先建不接 API。
 - 商品分類獨立於文章分類，管理介面放在分類與標籤頁的「商品分類」分段。
 - 運送先做宅配與自取；超商取貨在畫面上顯示稍後開放，門市選擇器之後接。
 - 庫存在下單時保留，依付款方式設定保留時間；OrderDetail 板的時間軸文案一併改。
-- 沒勾建立帳號的訪客仍建立休眠的 `customer` 帳號串訂單；站長可在使用者頁刪除，訂單以快照保留、`user_id` 設空。
+- 沒勾建立帳號的訪客仍建立休眠的 `customer` 帳號串訂單；沿用 main 的刪除保護，有訂單的帳號回 409 並保留買家關聯，不因本工作單放寬刪除。
 - 訪客的每人折扣次數只以小寫 Email 比對，不處理 Gmail 的點與加號。
 - CSV 匯入匯出、數位下載、到貨通知、訂閱制留待後續。
 
@@ -113,7 +114,7 @@ Status：draft（本工作單只交付設計板補齊、契約、骨架與失敗
 
 每段先由測試代理照本文件建立失敗案例（已隨本工作單交付），實作代理依契約實作，主代理審查後以真實伺服器（沙盒金流）與 Playwright 驗收。
 
-1. E0 設計板：商品分類分段、設定的運送分頁與金流遮罩、折扣碼的買 X 送 Y 與側欄入口、OrderDetail 時間軸與訂單編號、ProductEditor 補欄位；canvas 發佈。
+1. E0 設計板：商品分類分段、設定的運送分頁與金流遮罩、折扣碼的買 X 送 Y 與側欄入口、OrderDetail 時間軸與訂單編號、ProductEditor 補欄位；本機板隨實作提交，推送後在 PR 標記 @claude 同步既有線上畫布。
 2. E1 金額、遷移、`customer` 角色、`EnsureCustomer`、`/admin` 員工閘（與 06 共用）。測試：`internal/money`、`internal/core/order_state_test.go`、`internal/data` 遷移重跑。
 3. E2 後台型錄：商品型別化輸入、規格、分類、列表與編輯頁。測試檔 `products_admin_integration_test.go`。
 4. E3 前台型錄：`/shop`、分類頁、商品頁、JSON-LD。測試檔 `shop_catalog_integration_test.go`。

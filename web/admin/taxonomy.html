@@ -69,6 +69,8 @@
     .tx-actions .tx-del { margin-left: auto; color: color-mix(in srgb, var(--error) 80%, var(--ink)); }
     .tx-backdrop { display: none; }
     .tx-confirm p { color: var(--muted); }
+    .tx-pnote { margin-top: 1rem; padding: .9rem 1rem; background: var(--surface-low); border-radius: var(--r-md); font-size: .8125rem; color: var(--ink); }
+    .tx-pnote b { font-size: .84375rem; }
 
     @media (max-width: 1100px) {
         .tx-layout { grid-template-columns: minmax(0, 1fr); }
@@ -85,6 +87,7 @@
     @media (max-width: 700px) {
         .tx-c-slug { display: none; }
         .tx-table td { padding: .6rem .4rem; }
+        .tx-seg { flex-wrap: wrap; max-width: 100%; box-sizing: border-box; }
     }
 </style>
 {{end}}
@@ -104,6 +107,7 @@
             <div class="tx-seg" role="tablist" aria-label="{{.T.taxonomy}}">
                 <button type="button" role="tab" id="tabCategories" aria-selected="true" aria-controls="txList" data-tab="categories"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg>{{.T.txCategories}} <b id="countCategories">-</b></button>
                 <button type="button" role="tab" id="tabTags" aria-selected="false" aria-controls="txList" data-tab="tags" tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>{{.T.txTags}} <b id="countTags">-</b></button>
+                <button type="button" role="tab" id="tabProducts" aria-selected="false" aria-controls="txList" data-tab="products" tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-box"/></svg><span id="tabProductsText"></span> <b id="countProducts">-</b></button>
             </div>
             <label class="tx-filter"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="filter" placeholder="{{.T.txFilter}}" aria-label="{{.T.txFilter}}" autocomplete="off"></label>
             <button type="button" class="btn btn-secondary btn-sm tx-sortbtn" id="sortBtn" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-drag"/></svg><span id="sortBtnText">{{.T.txReorder}}</span></button>
@@ -111,6 +115,7 @@
 
         <div id="txList" role="tabpanel" aria-live="polite" aria-busy="true">{{template "state-loading" dict "text" .T.loading "skeleton" true}}</div>
         <p class="tx-note" id="txNote" hidden><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><span id="txNoteText"></span></p>
+        <div class="tx-note tx-pnote" id="txProductNote" hidden><svg class="icon" aria-hidden="true"><use href="#i-box"/></svg><span><b id="txProductNoteTitle"></b><br><span id="txProductNoteText"></span></span></div>
         <div class="tx-chips" id="txChips" hidden>
             <span class="label">{{.T.txTopTags}}</span>
             <div class="tx-chiplist" id="txChipList"></div>
@@ -134,11 +139,11 @@
                 <div class="tx-slug"><span id="slugPrefix">/c/</span><input type="text" id="fSlug" name="slug" maxlength="160" aria-describedby="slugHint"></div>
                 <small class="hint" id="slugHint">{{.T.txSlugAuto}}</small>
             </div>
-            <div class="tx-field" data-for="category">
+            <div class="tx-field" data-for="category pcat">
                 <label class="label" for="fParent">{{.T.txParent}}</label>
                 <select id="fParent" name="parent_id"></select>
             </div>
-            <div class="tx-field">
+            <div class="tx-field" data-for="category tag">
                 <span class="label" id="colorLabel">{{.T.txColor}}</span>
                 <div class="tx-swatches" id="swatches" role="group" aria-labelledby="colorLabel"></div>
             </div>
@@ -146,10 +151,14 @@
                 <label class="label" for="fDesc">{{.T.txDescription}}</label>
                 <textarea id="fDesc" name="description" rows="3"></textarea>
             </div>
-            <div class="tx-field" data-for="category">
+            <div class="tx-field" data-for="category pcat">
                 <label class="label" for="fCover">{{.T.txCover}}</label>
                 <input type="text" id="fCover" name="cover" inputmode="url" placeholder="/uploads/cover.jpg">
             </div>
+            <label class="tx-toggle toggle-switch" data-for="pcat">
+                <span><span id="pHiddenLabel"></span><small id="pHiddenHint"></small></span>
+                <input type="checkbox" id="fPHidden" name="pcat_hidden"><span class="slider" aria-hidden="true"></span>
+            </label>
             <label class="tx-toggle toggle-switch" data-for="category">
                 <span>{{.T.txHideFromList}}<small>{{.T.txHideFromListHint}}</small></span>
                 <input type="checkbox" id="fHide" name="hide_from_list"><span class="slider" aria-hidden="true"></span>
@@ -171,6 +180,7 @@
 <template id="tplLoading">{{template "state-loading" dict "text" .T.loading "skeleton" true}}</template>
 <template id="tplError">{{template "state-error" dict "title" .T.txLoadFailedTitle "text" .T.txLoadFailedText "actions" (safeHTML (printf "<button class='btn btn-secondary' type='button' data-retry>%s</button>" .T.retry))}}</template>
 <template id="tplEmptyCategories">{{template "state-empty" dict "title" .T.txEmptyCategoriesTitle "text" .T.txEmptyCategoriesText "actions" (safeHTML (printf "<button class='btn btn-primary' type='button' data-new>%s</button>" .T.createCategory))}}</template>
+<template id="tplEmptyProducts">{{template "state-empty" dict "title" "-" "actions" (safeHTML "<button class='btn btn-primary' type='button' data-new>-</button>")}}</template>
 <template id="tplEmptyTags">{{template "state-empty" dict "title" .T.txEmptyTagsTitle "text" .T.txEmptyTagsText "actions" (safeHTML (printf "<button class='btn btn-primary' type='button' data-new>%s</button>" .T.txNewTag))}}</template>
 {{end}}
 {{define "scripts"}}
@@ -193,6 +203,26 @@
         "colors" (dict "primary" .T.txColorPrimary "secondary" .T.txColorSecondary "accent" .T.txColorAccent "warning" .T.txColorWarning "ink" .T.txColorInk)
     )}};
 
+    // 商品分類分段的文字（還沒有對應的 locale 鍵）
+    const TP = {{if eq .Lang "en"}}{
+        tab: 'Product categories', create: 'New product category', edit: 'Edit: %s', products: 'Products',
+        deleteNote: 'Move all products and child categories out before deleting a product category.',
+        twoTreesTitle: 'Product categories and post categories are separate trees.',
+        twoTreesText: 'Post categories never appear in the shop and product categories never appear on posts. Both may share a name; posts live under /c/ and products under /shop/c/.',
+        emptyTitle: 'No product categories yet', emptyText: 'Group products so shoppers can browse the shop by category.',
+        hidden: 'Hide in the shop', hiddenHint: 'The URL still works.', created: 'Product category created', saved: 'Product category saved', deleted: 'Product category deleted',
+        deleteTitle: 'Delete product category “%s”?', deleteBody: 'Move all products and child categories out before deleting this category.',
+        loadFailed: 'Could not load product categories'
+    }{{else}}{
+        tab: '商品分類', create: '新增商品分類', edit: '編輯：%s', products: '商品',
+        deleteNote: '分類內還有商品或子分類時無法刪除，請先移出再刪除。',
+        twoTreesTitle: '商品分類跟文章分類是兩棵樹。',
+        twoTreesText: '文章的分類不會出現在商店，商品的分類也不會出現在文章。兩邊可以有同名分類，網址各自獨立：文章在 /c/，商品在 /shop/c/。',
+        emptyTitle: '還沒有商品分類', emptyText: '把商品分組，顧客就能在商店依分類瀏覽。',
+        hidden: '在商店隱藏', hiddenHint: '網址仍可進入。', created: '已建立商品分類', saved: '已儲存商品分類', deleted: '已刪除商品分類',
+        deleteTitle: '刪除商品分類「%s」？', deleteBody: '刪除前請先移出所有子分類與商品。',
+        loadFailed: '商品分類載入失敗'
+    }{{end}};
     const $ = (id) => document.getElementById(id);
     const COLORS = ['secondary', 'primary', 'accent', 'warning', 'ink'];
     const INDENT = 28;      // px per level while dragging
@@ -223,6 +253,8 @@
     /* ---------- state ---------- */
     let cats = [];            // flat, as the API returns it
     let tags = [];
+    let pcats = [];           // product categories, flattened from the API tree
+    let pLoadError = false;
     let tab = 'categories';
     let sortMode = false;
     let loadError = false;
@@ -232,10 +264,11 @@
     let opener = null;
 
     /* ---------- category tree ---------- */
-    function catRows() {
+    function catRows(list) {
+        list = list || cats;
         const byParent = new Map();
-        const ids = new Set(cats.map(c => c.id));
-        cats.forEach(c => {
+        const ids = new Set(list.map(c => c.id));
+        list.forEach(c => {
             const p = c.parent_id && ids.has(c.parent_id) ? c.parent_id : 0;
             if (!byParent.has(p)) byParent.set(p, []);
             byParent.get(p).push(c);
@@ -253,12 +286,13 @@
         })(0, 0);
         return rows;
     }
-    function descendantsOf(id) {
+    function descendantsOf(id, list) {
+        list = list || cats;
         const out = new Set([id]);
         let grew = true;
         while (grew) {
             grew = false;
-            cats.forEach(c => { if (c.parent_id && out.has(c.parent_id) && !out.has(c.id)) { out.add(c.id); grew = true; } });
+            list.forEach(c => { if (c.parent_id && out.has(c.parent_id) && !out.has(c.id)) { out.add(c.id); grew = true; } });
         }
         return out;
     }
@@ -286,12 +320,13 @@
     function draw() {
         $('countCategories').textContent = loadError ? '-' : cats.length;
         $('countTags').textContent = loadError ? '-' : tags.length;
+        $('countProducts').textContent = pLoadError ? '-' : pcats.length;
         document.querySelectorAll('.tx-seg button').forEach(b => {
             const on = b.dataset.tab === tab;
             b.setAttribute('aria-selected', on ? 'true' : 'false');
             b.tabIndex = on ? 0 : -1;
         });
-        $('newBtnText').textContent = tab === 'categories' ? T.createCategory : T.newTag;
+        $('newBtnText').textContent = tab === 'categories' ? T.createCategory : tab === 'products' ? TP.create : T.newTag;
         const filtering = $('filter').value.trim() !== '';
         const sortBtn = $('sortBtn');
         sortBtn.hidden = tab !== 'categories';
@@ -299,14 +334,15 @@
         sortBtn.setAttribute('aria-pressed', sortMode ? 'true' : 'false');
         $('sortBtnText').textContent = sortMode ? T.reorderDone : T.reorder;
         setBusy(false);
-        if (loadError) { showTemplate('tplError'); $('txNote').hidden = true; $('txChips').hidden = true; return; }
-        if (tab === 'categories') renderCategories(filtering); else renderTags();
+        $('txProductNote').hidden = tab !== 'products';
+        if (tab === 'products' ? pLoadError : loadError) { showTemplate('tplError'); $('txNote').hidden = true; $('txChips').hidden = true; return; }
+        if (tab === 'categories') renderCategories(filtering); else if (tab === 'products') renderProducts(); else renderTags();
         renderChips();
         renderPanelHeader();
     }
 
     function actionButtons(kind, id, slug) {
-        const href = (kind === 'category' ? '/c/' : '/t/') + encodeURIComponent(slug);
+        const href = (kind === 'category' ? '/c/' : kind === 'pcat' ? '/shop/c/' : '/t/') + encodeURIComponent(slug);
         return '<button type="button" class="btn btn-text btn-sm btn-icon" data-act="edit" data-id="' + id + '" title="' + esc(T.edit) + '" aria-label="' + esc(T.edit) + '">' + svg('i-pencil') + '</button>' +
             '<a class="btn btn-text btn-sm btn-icon" href="' + href + '" target="_blank" rel="noopener" title="' + esc(T.view) + '" aria-label="' + esc(T.view) + '">' + svg('i-external') + '</a>' +
             '<button type="button" class="btn btn-text btn-sm btn-icon" data-act="delete" data-id="' + id + '" title="' + esc(T.delete) + '" aria-label="' + esc(T.delete) + '">' + svg('i-trash') + '</button>';
@@ -343,9 +379,36 @@
         bindHandles(rows);
     }
 
-    function headRow(withHandle) {
+    function headRow(withHandle, countLabel) {
         const th = (s, cls) => '<th' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(s) + '</th>';
-        return '<thead><tr>' + (withHandle ? '<th class="tx-c-handle" aria-hidden="true"></th>' : '') + th(T.nameCol) + th(T.slugCol, 'tx-c-slug') + th(T.posts) + '<th class="actions"></th></tr></thead>';
+        return '<thead><tr>' + (withHandle ? '<th class="tx-c-handle" aria-hidden="true"></th>' : '') + th(T.nameCol) + th(T.slugCol, 'tx-c-slug') + th(countLabel || T.posts) + '<th class="actions"></th></tr></thead>';
+    }
+
+    function renderProducts() {
+        const note = $('txNote');
+        $('txNoteText').textContent = TP.deleteNote;
+        note.hidden = false;
+        if (!pcats.length) { showTemplate('tplEmptyProducts'); note.hidden = true; return; }
+        let rows = catRows(pcats);
+        const q = $('filter').value.trim().toLowerCase();
+        if (q) {
+            rows = rows.filter(r => r.cat.name.toLowerCase().includes(q) || r.cat.slug.toLowerCase().includes(q)).map(r => ({ ...r, depth: 0 }));
+            if (!rows.length) { $('txList').innerHTML = '<p class="table-empty">' + esc(T.noMatch) + '</p>'; return; }
+        }
+        let html = '<div class="table-wrapper"><table class="tx-table">' + headRow(false, TP.products) + '<tbody>';
+        rows.forEach(r => {
+            const c = r.cat;
+            const count = c.product_count != null ? c.product_count : c.count;
+            html += '<tr data-row data-id="' + c.id + '"' + (sel.kind === 'pcat' && sel.id === c.id ? ' class="tx-row-sel"' : '') + '>' +
+                '<td><button type="button" class="tx-name" data-act="edit" data-id="' + c.id + '" style="padding-left:' + (r.depth * INDENT) + 'px">' +
+                (r.depth > 0 ? '<span class="tx-branch" aria-hidden="true">└</span>' : '') + '<span class="t">' + esc(c.name) + '</span>' + (c.hidden ? ' <span class="badge">' + esc(TP.hidden) + '</span>' : '') + '</button></td>' +
+                '<td class="cell-muted tx-c-slug">/shop/c/' + esc(c.slug) + '</td>' +
+                '<td class="tx-num">' + (count == null ? '—' : (+count || 0)) + '</td>' +
+                '<td class="actions">' + actionButtons('pcat', c.id, c.slug) + '</td></tr>';
+        });
+        const box = $('txList');
+        box.innerHTML = html + '</tbody></table></div>';
+        bindRows(box);
     }
 
     function renderTags() {
@@ -391,12 +454,14 @@
     function bindRows(box) {
         box.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
             const id = +b.dataset.id;
-            if (b.dataset.act === 'edit') openPanel({ kind: tab === 'tags' ? 'tag' : 'category', id }, b);
-            else askDelete(tab === 'tags' ? 'tag' : 'category', id, b);
+            if (b.dataset.act === 'edit') openPanel({ kind: tabKind(), id }, b);
+            else askDelete(tabKind(), id, b);
         }));
     }
 
     /* ---------- edit panel ---------- */
+    const tabKind = () => tab === 'tags' ? 'tag' : tab === 'products' ? 'pcat' : 'category';
+    const listOf = (kind) => kind === 'category' ? cats : kind === 'pcat' ? pcats : tags;
     const isNarrow = () => window.matchMedia('(max-width: 1100px)').matches;
 
     function renderSwatches(current) {
@@ -409,10 +474,10 @@
     }
     const currentColor = () => { const b = $('swatches').querySelector('[aria-pressed="true"]'); return b ? b.dataset.color : ''; };
 
-    function fillParents(selfId, parentId) {
-        const banned = selfId ? descendantsOf(selfId) : new Set();
+    function fillParents(selfId, parentId, list) {
+        const banned = selfId ? descendantsOf(selfId, list) : new Set();
         let html = '<option value="">' + esc(T.parentNone) + '</option>';
-        catRows().forEach(r => {
+        catRows(list).forEach(r => {
             if (banned.has(r.id)) return;
             html += '<option value="' + r.id + '"' + (parentId === r.id ? ' selected' : '') + '>' + esc('  '.repeat(r.depth) + (r.depth ? '└ ' : '') + r.cat.name) + '</option>';
         });
@@ -421,19 +486,22 @@
 
     function renderPanelHeader() {
         const editing = sel.id != null;
-        const isCat = sel.kind === 'category';
-        const item = editing ? (isCat ? cats : tags).find(x => x.id === sel.id) : null;
-        $('panelTitle').textContent = !editing ? (isCat ? T.createCategory : T.newTag) : fmt(isCat ? T.editCategory : T.editTag, item ? item.name : '');
+        const isCat = sel.kind === 'category' || sel.kind === 'pcat';
+        const list = listOf(sel.kind);
+        const item = editing ? list.find(x => x.id === sel.id) : null;
+        const titles = sel.kind === 'pcat' ? [TP.create, TP.edit] : isCat ? [T.createCategory, T.editCategory] : [T.newTag, T.editTag];
+        $('panelTitle').textContent = !editing ? titles[0] : fmt(titles[1], item ? item.name : '');
         const badge = $('panelBadge');
-        const parent = isCat && item && item.parent_id ? cats.find(c => c.id === item.parent_id) : null;
+        const parent = isCat && item && item.parent_id ? list.find(c => c.id === item.parent_id) : null;
         badge.hidden = !parent;
         if (parent) badge.textContent = fmt(T.childOf, parent.name);
     }
 
     function fillPanel(target) {
-        sel = target ? { kind: target.kind, id: target.id } : { kind: tab === 'tags' ? 'tag' : 'category', id: null };
+        sel = target ? { kind: target.kind, id: target.id } : { kind: tabKind(), id: null };
         const isCat = sel.kind === 'category';
-        const item = sel.id != null ? (isCat ? cats : tags).find(x => x.id === sel.id) : null;
+        const isP = sel.kind === 'pcat';
+        const item = sel.id != null ? listOf(sel.kind).find(x => x.id === sel.id) : null;
         if (sel.id != null && !item) sel.id = null;
         const f = $('form');
         slugTouched = !!item;
@@ -441,16 +509,18 @@
         f.name.removeAttribute('aria-invalid');
         f.slug.value = item ? item.slug : '';
         f.description.value = item ? (item.description || '') : '';
-        f.cover.value = item && isCat ? (item.cover || '') : '';
+        f.cover.value = item && (isCat || isP) ? (item.cover || '') : '';
         f.hide_from_list.checked = !!(item && item.hide_from_list);
         f.no_cascade.checked = !!(item && item.no_cascade);
-        f.querySelectorAll('[data-for="category"]').forEach(n => { n.hidden = !isCat; });
-        $('slugPrefix').textContent = isCat ? '/c/' : '/t/';
+        f.pcat_hidden.checked = !!(item && isP && item.hidden);
+        f.querySelectorAll('[data-for]').forEach(n => { n.hidden = !n.dataset.for.split(' ').includes(sel.kind); });
+        const prefix = isCat ? '/c/' : isP ? '/shop/c/' : '/t/';
+        $('slugPrefix').textContent = prefix;
         renderSwatches(item ? item.color : '');
-        if (isCat) fillParents(item ? item.id : 0, item ? item.parent_id : null);
+        if (isCat || isP) fillParents(item ? item.id : 0, item ? item.parent_id : null, listOf(sel.kind));
         const view = $('viewBtn');
         view.hidden = !item;
-        if (item) view.href = (isCat ? '/c/' : '/t/') + encodeURIComponent(item.slug);
+        if (item) view.href = prefix + encodeURIComponent(item.slug);
         $('delBtn').hidden = !item;
         renderPanelHeader();
         document.querySelectorAll('tr.tx-row-sel').forEach(r => r.classList.remove('tx-row-sel'));
@@ -485,7 +555,7 @@
         tab = next;
         sortMode = false;
         $('filter').value = '';
-        if (sel.id == null || sel.kind !== (next === 'tags' ? 'tag' : 'category')) fillPanel(null);
+        if (sel.id == null || sel.kind !== tabKind()) fillPanel(null);
         render();
     }
 
@@ -504,21 +574,24 @@
         if (!name) { f.name.focus(); f.name.setAttribute('aria-invalid', 'true'); toast(T.namePlaceholder, 'error'); return; }
         f.name.removeAttribute('aria-invalid');
         const isCat = sel.kind === 'category';
-        const body = { name, slug: f.slug.value.trim() || slugify(name), color: currentColor(), description: f.description.value.trim() };
+        const isP = sel.kind === 'pcat';
+        const body = isP
+            ? { name, slug: f.slug.value.trim() || slugify(name), description: f.description.value.trim(), parent_id: f.parent_id.value ? +f.parent_id.value : null, cover: f.cover.value.trim(), hidden: f.pcat_hidden.checked }
+            : { name, slug: f.slug.value.trim() || slugify(name), color: currentColor(), description: f.description.value.trim() };
         if (isCat) {
             body.parent_id = f.parent_id.value ? +f.parent_id.value : null;
             body.cover = f.cover.value.trim();
             body.hide_from_list = f.hide_from_list.checked;
             body.no_cascade = f.no_cascade.checked;
         }
-        const base = isCat ? '/api/admin/categories' : '/api/admin/tags';
+        const base = isCat ? '/api/admin/categories' : isP ? '/api/admin/product-categories' : '/api/admin/tags';
         const creating = sel.id == null;
         const btn = $('saveBtn');
         btn.disabled = true;
         try {
             const saved = await api(creating ? 'POST' : 'PUT', creating ? base : base + '/' + sel.id, body);
             await load(true);
-            toast(isCat ? (creating ? T.categoryCreated : T.categorySaved) : (creating ? T.tagCreated : T.tagSaved));
+            toast(isP ? (creating ? TP.created : TP.saved) : isCat ? (creating ? T.categoryCreated : T.categorySaved) : (creating ? T.tagCreated : T.tagSaved));
             if (isNarrow()) closePanel();
             else fillPanel({ kind: sel.kind, id: saved && saved.id ? saved.id : sel.id });
         } catch (err) {
@@ -535,8 +608,9 @@
         b.addEventListener('click', () => setTab(b.dataset.tab));
         b.addEventListener('keydown', (e) => {
             if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-            const next = b.dataset.tab === 'categories' ? 'tags' : 'categories';
-            setTab(next); $(next === 'tags' ? 'tabTags' : 'tabCategories').focus();
+            const order = ['categories', 'tags', 'products'];
+            const next = order[(order.indexOf(b.dataset.tab) + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length];
+            setTab(next); $({ categories: 'tabCategories', tags: 'tabTags', products: 'tabProducts' }[next]).focus();
         });
     });
     $('filter').addEventListener('input', () => { if ($('filter').value.trim() && sortMode) sortMode = false; render(); });
@@ -573,16 +647,17 @@
 
     async function askDelete(kind, id, from) {
         const isCat = kind === 'category';
-        const item = (isCat ? cats : tags).find(x => x.id === id);
+        const isP = kind === 'pcat';
+        const item = listOf(kind).find(x => x.id === id);
         if (!item) return;
         const ok = await confirmSheet(
-            fmt(isCat ? T.deleteCategoryTitle : T.deleteTagTitle, item.name),
-            isCat ? T.deleteCategoryBody : fmt(T.deleteTagBody, item.post_count || 0),
+            fmt(isP ? TP.deleteTitle : isCat ? T.deleteCategoryTitle : T.deleteTagTitle, item.name),
+            isP ? TP.deleteBody : isCat ? T.deleteCategoryBody : fmt(T.deleteTagBody, item.post_count || 0),
             T.delete);
         if (!ok) return;
         try {
-            await api('DELETE', (isCat ? '/api/admin/categories/' : '/api/admin/tags/') + id);
-            toast(isCat ? T.categoryDeleted : T.tagDeleted);
+            await api('DELETE', (isCat ? '/api/admin/categories/' : isP ? '/api/admin/product-categories/' : '/api/admin/tags/') + id);
+            toast(isP ? TP.deleted : isCat ? T.categoryDeleted : T.tagDeleted);
             if (sel.kind === kind && sel.id === id) sel = { kind, id: null };
             await load(true);
             if (isNarrow()) closePanel(); else fillPanel(sel.id == null ? null : sel);
@@ -754,7 +829,27 @@
     }
 
     /* ---------- load ---------- */
+    // The product-category API may answer a nested tree; the page works on a flat list.
+    function flattenTree(nodes, parent, out) {
+        (nodes || []).forEach((n, i) => {
+            out.push(Object.assign({}, n, { parent_id: n.parent_id != null ? n.parent_id : parent, position: n.position != null ? n.position : i, children: undefined }));
+            flattenTree(n.children, n.id, out);
+        });
+        return out;
+    }
+    async function loadProducts(quiet) {
+        try {
+            const data = await api('GET', '/api/admin/product-categories');
+            pcats = flattenTree(Array.isArray(data) ? data : (data && (data.items || data.tree)) || [], null, []);
+            pLoadError = false;
+        } catch (err) {
+            if (quiet) { toast(TP.loadFailed, 'error', err.message); return; }
+            pLoadError = true;
+        }
+    }
+
     async function load(quiet) {
+        const products = loadProducts(quiet);
         try {
             const [c, t] = await Promise.all([api('GET', '/api/admin/categories'), api('GET', '/api/admin/tags')]);
             cats = Array.isArray(c) ? c : [];
@@ -762,9 +857,10 @@
             markSnapshot();
             loadError = false;
         } catch (err) {
-            if (quiet) { toast(T.requestFailed, 'error', err.message); return; }
+            if (quiet) { toast(T.requestFailed, 'error', err.message); await products; return; }
             loadError = true;
         }
+        await products;
         render();
     }
 
@@ -775,6 +871,19 @@
         }
     });
 
+    $('tabProductsText').textContent = TP.tab;
+    $('txProductNoteTitle').textContent = TP.twoTreesTitle;
+    $('txProductNoteText').textContent = TP.twoTreesText;
+    $('pHiddenLabel').textContent = TP.hidden;
+    $('pHiddenHint').textContent = TP.hiddenHint;
+    (function () {
+        const tpl = $('tplEmptyProducts').content;
+        tpl.querySelector('h2').textContent = TP.emptyTitle;
+        const p = document.createElement('p'); p.className = 'state-text'; p.textContent = TP.emptyText;
+        tpl.querySelector('h2').after(p);
+        tpl.querySelector('[data-new]').textContent = TP.create;
+    })();
+    if (location.hash === '#products') tab = 'products';
     fillPanel(null);
     showLoading();
     load();

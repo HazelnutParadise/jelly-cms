@@ -4,10 +4,12 @@
 {{- $sidebar := themeLayout .ThemeLayout "sidebar" false -}}
 {{- $sidebarPosition := themeLayout .ThemeLayout "sidebar_position" "right" -}}
 {{- $footer := themeLayout .ThemeLayout "footer" true -}}
-{{- $tagline := themeLayout .ThemeCustom "tagline" "寫下來，才算數。" -}}
+{{- $en := eq (print .Lang) "en" -}}
+{{- $defaultTagline := "寫下來，才算數。" -}}{{- if $en}}{{$defaultTagline = "Write it down to make it count."}}{{end -}}
+{{- $tagline := themeLayout .ThemeCustom "tagline" $defaultTagline -}}
 {{- $footerNote := themeLayout .ThemeCustom "footer_note" "" -}}
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="{{if $en}}en{{else}}zh-TW{{end}}">
 
 <head>
     <meta charset="UTF-8">
@@ -518,7 +520,7 @@
 <body>
     <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol><symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol><symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 20V4M6 10l6-6 6 6"/></symbol>
         <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></symbol><symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8 11l8-5M8 13l8 5"/></symbol><symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M19 14v6H4V5h6"/></symbol></svg>
-    <a class="skip-link" href="#main">跳到主要內容</a>
+    <a class="skip-link" href="#main">{{if $en}}Skip to main content{{else}}跳到主要內容{{end}}</a>
 
     <header class="masthead">
         <div class="masthead-inner">
@@ -527,23 +529,23 @@
                 <span>{{.SiteTitle}}</span>
             </a>
             <div class="masthead-controls">
-                <button class="masthead-toggle" id="search-toggle" type="button" aria-label="搜尋" aria-expanded="false" aria-controls="masthead-search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
-                <button class="masthead-toggle" id="menu-toggle" type="button" aria-label="選單" aria-expanded="false" aria-controls="primary-menu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+                <button class="masthead-toggle" id="search-toggle" type="button" aria-label="{{if $en}}Search{{else}}搜尋{{end}}" aria-expanded="false" aria-controls="masthead-search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
+                <button class="masthead-toggle" id="menu-toggle" type="button" aria-label="{{if $en}}Menu{{else}}選單{{end}}" aria-expanded="false" aria-controls="primary-menu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
             </div>
-            <nav class="menu" id="primary-menu" aria-label="主選單">
+            <nav class="menu" id="primary-menu" aria-label="{{if $en}}Main menu{{else}}主選單{{end}}">
                 {{- $headerMenu := menu "header" -}}
                 {{if $headerMenu}}<ul class="menu-list">{{range $headerMenu}}
                 <li class="menu-item{{if .Children}} has-sub{{end}}"><a href="{{.URL}}"{{if .NewTab}} target="_blank" rel="noopener"{{end}}{{if or .Active (eq .URL $.CurrentPath)}} aria-current="page"{{end}}{{if .CSSClass}} class="{{.CSSClass}}"{{end}}>{{.Label}}</a>
                     {{if .Children}}<ul class="sub-menu">{{range .Children}}<li><a href="{{.URL}}"{{if .NewTab}} target="_blank" rel="noopener"{{end}}{{if or .Active (eq .URL $.CurrentPath)}} aria-current="page"{{end}}{{if .CSSClass}} class="{{.CSSClass}}"{{end}}>{{.Label}}</a></li>{{end}}</ul>{{end}}
                 </li>{{end}}</ul>
-                {{else}}<a href="/" {{if or .IsHome (eq .CurrentPath "/")}}aria-current="page"{{end}}>首頁</a>
-                <a href="/posts" {{if or .IsPosts (eq .CurrentPath "/posts")}}aria-current="page"{{end}}>文章</a>
-                <a href="/about" {{if eq .CurrentPath "/about"}}aria-current="page"{{end}}>關於</a>{{end}}
+                {{else}}<a href="/{{if $en}}?lang=en{{end}}" {{if or .IsHome (eq .CurrentPath "/")}}aria-current="page"{{end}}>{{if $en}}Home{{else}}首頁{{end}}</a>
+                <a href="/posts{{if $en}}?lang=en{{end}}" {{if or .IsPosts (eq .CurrentPath "/posts")}}aria-current="page"{{end}}>{{if $en}}Posts{{else}}文章{{end}}</a>
+                <a href="/about{{if $en}}?lang=en{{end}}" {{if eq .CurrentPath "/about"}}aria-current="page"{{end}}>{{if $en}}About{{else}}關於{{end}}</a>{{end}}
             </nav>
             <form class="search-form" id="masthead-search" role="search" action="/search" method="GET">
-                <label class="visually-hidden" for="masthead-q">搜尋</label>
-                <input class="field" id="masthead-q" type="search" name="q" placeholder="搜尋" {{with .Query}}value="{{.}}"{{end}}>
-                <button class="button button-tonal button-icon" type="submit" aria-label="搜尋" title="搜尋"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
+                <label class="visually-hidden" for="masthead-q">{{if $en}}Search{{else}}搜尋{{end}}</label>
+                <input class="field" id="masthead-q" type="search" name="q" placeholder="{{if $en}}Search{{else}}搜尋{{end}}" {{with .Query}}value="{{.}}"{{end}}>{{if $en}}<input type="hidden" name="lang" value="en">{{end}}
+                <button class="button button-tonal button-icon" type="submit" aria-label="{{if $en}}Search{{else}}搜尋{{end}}" title="{{if $en}}Search{{else}}搜尋{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
             </form>
         </div>
     </header>
@@ -567,19 +569,19 @@
                 <p>{{$tagline}}</p>
             </div>
             <div>
-                <div class="label">導覽</div>
-                <nav class="rail-nav" aria-label="頁尾選單">
+                <div class="label">{{if $en}}Navigate{{else}}導覽{{end}}</div>
+                <nav class="rail-nav" aria-label="{{if $en}}Footer menu{{else}}頁尾選單{{end}}">
                     {{- $footerMenu := menu "footer" -}}
                     {{if $footerMenu}}{{template "menu_rail_items" $footerMenu}}
-                    {{else}}<a href="/">首頁</a>
-                    <a href="/posts">文章</a>
-                    <a href="/about">關於</a>
-                    <a href="/search">搜尋</a>{{end}}
+                    {{else}}<a href="/{{if $en}}?lang=en{{end}}">{{if $en}}Home{{else}}首頁{{end}}</a>
+                    <a href="/posts{{if $en}}?lang=en{{end}}">{{if $en}}Posts{{else}}文章{{end}}</a>
+                    <a href="/about{{if $en}}?lang=en{{end}}">{{if $en}}About{{else}}關於{{end}}</a>
+                    <a href="/search{{if $en}}?lang=en{{end}}">{{if $en}}Search{{else}}搜尋{{end}}</a>{{end}}
                 </nav>
             </div>
             <div>
-                <div class="label">說明</div>
-                <p>{{if $footerNote}}{{$footerNote}}{{else}}這個網站由 Jelly CMS 驅動。{{end}}</p>
+                <div class="label">{{if $en}}About{{else}}說明{{end}}</div>
+                <p>{{if $footerNote}}{{$footerNote}}{{else}}{{if $en}}This site runs on Jelly CMS.{{else}}這個網站由 Jelly CMS 驅動。{{end}}{{end}}</p>
             </div>
         </div>
         <div class="colophon-base">
@@ -636,7 +638,7 @@
         });
     })();
     </script>
-    <button class="to-top" id="to-top" type="button" aria-label="回到頂部" title="回到頂部">
+    <button class="to-top" id="to-top" type="button" aria-label="{{if $en}}Back to top{{else}}回到頂部{{end}}" title="{{if $en}}Back to top{{else}}回到頂部{{end}}">
         <svg class="icon" aria-hidden="true"><use href="#i-arrow-up"></use></svg>
     </button>
     <script>
@@ -689,25 +691,26 @@
 {{end}}{{end}}
 
 {{define "rail"}}
-<aside class="rail" aria-label="側欄">
+{{- $en := eq (print .Lang) "en" -}}
+<aside class="rail" aria-label="{{if $en}}Sidebar{{else}}側欄{{end}}">
     <div class="rail-block">
-        <h2>搜尋</h2>
+        <h2>{{if $en}}Search{{else}}搜尋{{end}}</h2>
         <form class="search-form" role="search" action="/search" method="GET">
-            <input class="field" type="search" name="q" placeholder="關鍵字" aria-label="搜尋關鍵字">
-            <button class="button button-tonal button-icon" type="submit" aria-label="搜尋" title="搜尋"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
+            <input class="field" type="search" name="q" placeholder="{{if $en}}Keywords{{else}}關鍵字{{end}}" aria-label="{{if $en}}Search keywords{{else}}搜尋關鍵字{{end}}">{{if $en}}<input type="hidden" name="lang" value="en">{{end}}
+            <button class="button button-tonal button-icon" type="submit" aria-label="{{if $en}}Search{{else}}搜尋{{end}}" title="{{if $en}}Search{{else}}搜尋{{end}}"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
         </form>
     </div>
     <div class="rail-block">
-        <h2>導覽</h2>
+        <h2>{{if $en}}Navigate{{else}}導覽{{end}}</h2>
         <nav class="rail-nav">
-            <a href="/">首頁</a>
-            <a href="/posts">文章</a>
-            <a href="/about">關於</a>
+            <a href="/{{if $en}}?lang=en{{end}}">{{if $en}}Home{{else}}首頁{{end}}</a>
+            <a href="/posts{{if $en}}?lang=en{{end}}">{{if $en}}Posts{{else}}文章{{end}}</a>
+            <a href="/about{{if $en}}?lang=en{{end}}">{{if $en}}About{{else}}關於{{end}}</a>
         </nav>
     </div>
     <div class="rail-block">
-        <h2>關於本站</h2>
-        <p>{{themeLayout .ThemeCustom "tagline" "寫下來，才算數。"}}</p>
+        <h2>{{if $en}}About this site{{else}}關於本站{{end}}</h2>
+        <p>{{themeLayout .ThemeCustom "tagline" (or (and $en "Write it down to make it count.") "寫下來，才算數。")}}</p>
     </div>
 </aside>
 {{end}}

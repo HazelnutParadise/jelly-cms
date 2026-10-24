@@ -1,8 +1,13 @@
 package server
 
 import (
+	"errors"
 	"net/http"
+	"net/url"
+	"os"
 	"strconv"
+	"strings"
+	"sync"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
@@ -12,186 +17,222 @@ import (
 	"gorm.io/gorm"
 )
 
-var paymentService *payment.Service
+var (
+	paymentService   *payment.Service
+	paymentServiceMu sync.Mutex
+)
 
 func InitPaymentService(db *gorm.DB) {
+	paymentServiceMu.Lock()
 	paymentService = payment.NewService(db)
+	paymentServiceMu.Unlock()
 }
 
-// RegisterPaymentRoutes registers payment-related routes
+// RegisterPaymentRoutes registers provider callbacks and the legacy payment
+// routes. Callback state changes are POST-only and committed with Finalize.
 func RegisterPaymentRoutes(e *echo.Echo) {
-	// Public payment routes (no auth required). Providers notify on POST
-	// /notify (ticket 07). /callback is kept as a POST-only alias so existing
-	// provider settings keep working.
 	e.POST("/api/payment/:gateway/notify", HandlePaymentCallback)
 	e.POST("/api/payment/:gateway/callback", HandlePaymentCallback)
 	e.GET("/api/payment/:gateway/return", HandlePaymentReturn)
 
-	// Protected payment routes
 	api := e.Group("/api/payment", auth.RequireAuth)
-	api.POST("/create", HandleCreatePayment)
+	api.POST("/create", auth.ProtectBrowserWrites(HandleCreatePayment))
 	api.GET("/order/:id/status", HandleGetOrderStatus)
 }
 
-// HandleCreatePayment creates a payment order
+// HandleCreatePayment keeps the old route for compatibility, but ignores all
+// client-supplied prices and snapshots. It is limited to the actual order owner.
 func HandleCreatePayment(c echo.Context) error {
 	var req struct {
-		OrderID       string              `json:"order_id"`
-		Gateway       string              `json:"gateway"`
-		Amount        int64               `json:"amount"`
-		Currency      string              `json:"currency"`
-		Description   string              `json:"description"`
-		CustomerName  string              `json:"customer_name"`
-		CustomerEmail string              `json:"customer_email"`
-		Items         []payment.OrderItem `json:"items"`
+		OrderID string `json:"order_id"`
+		Gateway string `json:"gateway"`
+		Method  string `json:"method"`
 	}
-
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
-
-	// Validate order exists
+	if data.DB == nil {
+		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+	}
+	user, ok := auth.GetUserFromContext(c)
+	if !ok || user == nil {
+		return c.NoContent(http.StatusNotFound)
+	}
 	var order core.Order
-	if err := data.DB.Preload("Items").Preload("Items.Product").First(&order, "id = ?", req.OrderID).Error; err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Order not found"})
+	query := data.DB.WithContext(c.Request().Context()).Preload("Items").Where("number = ?", req.OrderID).First(&order)
+	if errors.Is(query.Error, gorm.ErrRecordNotFound) {
+		if id, err := strconv.ParseUint(req.OrderID, 10, 64); err == nil && id > 0 {
+			query = data.DB.WithContext(c.Request().Context()).Preload("Items").First(&order, uint(id))
+		}
 	}
-
-	// Build payment request
-	paymentReq := payment.CreateOrderRequest{
-		OrderID:       req.OrderID,
-		Amount:        req.Amount,
-		Currency:      req.Currency,
-		Description:   req.Description,
-		CustomerName:  req.CustomerName,
-		CustomerEmail: req.CustomerEmail,
-		ReturnURL:     c.Scheme() + "://" + c.Request().Host + "/api/payment/" + req.Gateway + "/return",
-		NotifyURL:     c.Scheme() + "://" + c.Request().Host + "/api/payment/" + req.Gateway + "/callback",
-		Items:         req.Items,
+	if query.Error != nil || order.UserID == nil || *order.UserID != user.ID {
+		return c.NoContent(http.StatusNotFound)
 	}
-
-	// Create payment
-	resp, err := paymentService.CreatePayment(c.Request().Context(), req.Gateway, paymentReq)
+	if req.Gateway == "" || req.Method == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Payment method is required"})
+	}
+	baseURL, err := paymentRequestBaseURL(c)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid application URL"})
 	}
-
-	return c.JSON(http.StatusOK, resp)
+	var attempt core.Payment
+	var redirectURL, instructions string
+	if err := data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+		var createErr error
+		attempt, redirectURL, instructions, createErr = payment.CreateAttempt(tx, &order, req.Method, req.Gateway, baseURL, "")
+		return createErr
+	}); err != nil {
+		return c.JSON(http.StatusConflict, map[string]string{"error": "Payment attempt cannot be created"})
+	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"payment":      map[string]interface{}{"provider": attempt.Provider, "method": attempt.Method, "status": attempt.Status},
+		"redirect_url": redirectURL,
+		"instructions": instructions,
+	})
 }
 
-// HandlePaymentCallback handles payment gateway notifications. Only POST is
-// accepted: a notification that changes an order must not be triggered by a
-// GET link or a browser prefetch.
+// HandlePaymentCallback verifies a provider POST and atomically records its
+// event, payment status, order transition, and staff notification.
 func HandlePaymentCallback(c echo.Context) error {
 	if c.Request().Method != http.MethodPost {
 		return c.NoContent(http.StatusMethodNotAllowed)
 	}
-	gatewayName := c.Param("gateway")
-
-	// Get callback data (form or JSON)
-	var callbackData map[string]interface{}
-	if err := c.Bind(&callbackData); err != nil {
-		// Try form data
-		form, _ := c.FormParams()
-		callbackData = make(map[string]interface{})
-		for k, v := range form {
-			if len(v) > 0 {
-				callbackData[k] = v[0]
-			}
+	if data.DB == nil {
+		return c.NoContent(http.StatusServiceUnavailable)
+	}
+	gatewayName := strings.ToLower(strings.TrimSpace(c.Param("gateway")))
+	callbackData, err := paymentCallbackFields(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid notification"})
+	}
+	service := payment.NewService(data.DB.WithContext(c.Request().Context()))
+	callback, err := service.HandleCallback(c.Request().Context(), gatewayName, callbackData)
+	if err != nil || callback == nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid notification"})
+	}
+	tradeNo := callback.MerchantTradeNo
+	if tradeNo == "" {
+		tradeNo = callback.OrderID
+	}
+	if tradeNo == "" || callback.DedupeKey == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid notification"})
+	}
+	verified := payment.VerifiedCallback{
+		Provider: gatewayName, MerchantTradeNo: tradeNo,
+		ProviderTradeNo: callback.GatewayOrderID, Method: callback.Method,
+		Status: callback.Status, Amount: callback.Amount, Currency: callback.Currency,
+		DedupeKey: callback.DedupeKey, Payload: callback.RawData,
+	}
+	if !callback.PaidAt.IsZero() {
+		paidAt := callback.PaidAt
+		verified.PaidAt = &paidAt
+	}
+	err = data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+		return payment.Finalize(tx, gatewayName, verified)
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, payment.ErrCallbackNotFound):
+			return c.NoContent(http.StatusNotFound)
+		case errors.Is(err, payment.ErrCallbackMismatch):
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid notification"})
+		default:
+			return c.NoContent(http.StatusInternalServerError)
 		}
 	}
-
-	// Verify callback
-	if paymentService == nil {
-		paymentService = payment.NewService(data.DB)
-	}
-	callback, err := paymentService.HandleCallback(c.Request().Context(), gatewayName, callbackData)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
-	}
-
-	// Update order status
-	var order core.Order
-	if err := data.DB.First(&order, "id = ?", callback.OrderID).Error; err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Order not found"})
-	}
-
-	// Update order status based on payment status
-	if callback.Status == payment.PaymentStatusPaid {
-		order.Status = "paid"
-		order.PaymentMethod = gatewayName
-		data.DB.Save(&order)
-	} else if callback.Status == payment.PaymentStatusFailed {
-		order.Status = "cancelled"
-		data.DB.Save(&order)
-	}
-
-	// Return response based on gateway
 	if gatewayName == "ecpay" {
 		return c.String(http.StatusOK, "1|OK")
 	}
-
 	return c.JSON(http.StatusOK, map[string]string{"status": "success"})
 }
 
-// HandlePaymentReturn handles payment return URL
+// HandlePaymentReturn only looks up the order to redirect the browser. It does
+// not validate a payment notification or change any database state.
 func HandlePaymentReturn(c echo.Context) error {
-	gatewayName := c.Param("gateway")
-
-	// Get return data
-	returnData := make(map[string]interface{})
-	for k, v := range c.QueryParams() {
-		if len(v) > 0 {
-			returnData[k] = v[0]
-		}
+	if data.DB == nil {
+		return c.NoContent(http.StatusServiceUnavailable)
 	}
-
-	// Verify and process return
-	if paymentService == nil {
-		paymentService = payment.NewService(data.DB)
+	tradeNo := firstQuery(c, "MerchantTradeNo", "merchant_trade_no", "trade_no")
+	if tradeNo == "" {
+		return c.NoContent(http.StatusNotFound)
 	}
-	callback, err := paymentService.HandleCallback(c.Request().Context(), gatewayName, returnData)
-	if err != nil {
-		return c.Redirect(http.StatusFound, "/?payment=error")
+	var attempt core.Payment
+	if err := data.DB.WithContext(c.Request().Context()).Where("merchant_trade_no = ?", tradeNo).First(&attempt).Error; err != nil {
+		return c.NoContent(http.StatusNotFound)
 	}
-
-	// Redirect to order page or success page
-	return c.Redirect(http.StatusFound, "/orders/"+callback.OrderID+"?payment=success")
+	var order core.Order
+	if err := data.DB.WithContext(c.Request().Context()).Select("id", "number").First(&order, attempt.OrderID).Error; err != nil || order.Number == "" {
+		return c.NoContent(http.StatusNotFound)
+	}
+	return c.Redirect(http.StatusFound, "/checkout/done/"+url.PathEscape(order.Number))
 }
 
-// HandleGetOrderStatus gets the payment status of an order
+// HandleGetOrderStatus is a legacy owner-only read route. Current order state
+// comes from Jelly; the provider is never queried from a browser request.
 func HandleGetOrderStatus(c echo.Context) error {
-	orderID := c.Param("id")
-
-	// Get order
+	if data.DB == nil {
+		return c.NoContent(http.StatusServiceUnavailable)
+	}
+	user, ok := auth.GetUserFromContext(c)
+	if !ok || user == nil {
+		return c.NoContent(http.StatusNotFound)
+	}
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil || id == 0 {
+		return c.NoContent(http.StatusNotFound)
+	}
 	var order core.Order
-	if err := data.DB.First(&order, "id = ?", orderID).Error; err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": "Order not found"})
+	if err := data.DB.WithContext(c.Request().Context()).Select("id", "user_id", "status", "total_amount", "currency").First(&order, uint(id)).Error; err != nil || order.UserID == nil || *order.UserID != user.ID {
+		return c.NoContent(http.StatusNotFound)
 	}
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"order_id": order.ID, "status": order.Status, "amount": order.TotalAmount, "currency": order.Currency,
+	})
+}
 
-	// Query gateway for latest status
-	gatewayName := order.PaymentMethod
-	if gatewayName == "" {
-		gatewayName = "ecpay" // Default
+func paymentCallbackFields(c echo.Context) (map[string]interface{}, error) {
+	values := make(map[string]interface{})
+	if strings.Contains(strings.ToLower(c.Request().Header.Get(echo.HeaderContentType)), echo.MIMEApplicationJSON) {
+		if err := c.Bind(&values); err != nil {
+			return nil, err
+		}
+		return values, nil
 	}
-
-	if paymentService == nil {
-		paymentService = payment.NewService(data.DB)
-	}
-	gateway, err := paymentService.GetGateway(gatewayName)
+	form, err := c.FormParams()
 	if err != nil {
-		return c.JSON(http.StatusOK, map[string]interface{}{
-			"order_id": orderID,
-			"status":   order.Status,
-		})
+		return nil, err
 	}
-
-	status, err := gateway.QueryOrder(c.Request().Context(), strconv.Itoa(int(order.ID)))
-	if err != nil {
-		return c.JSON(http.StatusOK, map[string]interface{}{
-			"order_id": orderID,
-			"status":   order.Status,
-		})
+	for key, items := range form {
+		if len(items) > 0 {
+			values[key] = items[0]
+		}
 	}
+	return values, nil
+}
 
-	return c.JSON(http.StatusOK, status)
+func paymentRequestBaseURL(c echo.Context) (string, error) {
+	if configured := strings.TrimSpace(os.Getenv("APP_URL")); configured != "" {
+		parsed, err := url.Parse(configured)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.Path != "" && parsed.Path != "/" || parsed.RawQuery != "" || parsed.Fragment != "" {
+			return "", errors.New("invalid APP_URL")
+		}
+		return parsed.Scheme + "://" + parsed.Host, nil
+	}
+	scheme := c.Scheme()
+	if scheme != "http" && scheme != "https" {
+		return "", errors.New("invalid request scheme")
+	}
+	if strings.TrimSpace(c.Request().Host) != c.Request().Host || strings.ContainsAny(c.Request().Host, "/?#@\\%") {
+		return "", errors.New("invalid request host")
+	}
+	return scheme + "://" + c.Request().Host, nil
+}
+
+func firstQuery(c echo.Context, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(c.QueryParam(key)); value != "" {
+			return value
+		}
+	}
+	return ""
 }

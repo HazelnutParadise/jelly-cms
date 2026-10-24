@@ -1,1 +1,45 @@
-{{define "content"}}{{/* ticket 07 placeholder: cart */}}{{end}}
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+<div class="shop" data-page="cart" data-lang="{{if $en}}en{{else}}zh-TW{{end}}" data-currency="{{.Currency}}">
+    <div class="shop-head">
+        <div><span class="shop-stripe"></span><h1 class="page-title">{{if $en}}Cart{{else}}購物車{{end}}</h1></div>
+        <ol class="steps" aria-label="{{if $en}}Checkout steps{{else}}結帳步驟{{end}}">
+            <li class="step" aria-current="step"><i>1</i><span>{{if $en}}Cart{{else}}購物車{{end}}</span></li>
+            <li class="step"><i>2</i><span>{{if $en}}Checkout{{else}}結帳{{end}}</span></li>
+            <li class="step"><i>3</i><span>{{if $en}}Payment{{else}}付款{{end}}</span></li>
+            <li class="step"><i>4</i><span>{{if $en}}Done{{else}}完成{{end}}</span></li>
+        </ol>
+    </div>
+
+    <div data-cart-status hidden></div>
+
+    <div class="two-col">
+        <section aria-label="{{if $en}}Items{{else}}購物車商品{{end}}">
+            <div class="cart-head" data-cart-head hidden><span></span><span>{{if $en}}Item{{else}}商品{{end}}</span><span>{{if $en}}Quantity{{else}}數量{{end}}</span><span style="text-align: right;">{{if $en}}Total{{else}}小計{{end}}</span><span></span></div>
+            <div class="loading" data-cart-loading aria-label="{{if $en}}Loading{{else}}載入中{{end}}"><span class="sk tall"></span><span class="sk tall"></span></div>
+            <div data-cart-items aria-live="polite"></div>
+            <a class="btn t" href="/shop" style="margin-top: 1.5rem;">← {{if $en}}Keep shopping{{else}}繼續逛{{end}}</a>
+        </section>
+
+        <aside class="summary" data-cart-summary hidden aria-label="{{if $en}}Order summary{{else}}訂單摘要{{end}}">
+            <div class="shop-lbl">{{if $en}}Order summary{{else}}訂單摘要{{end}}</div>
+            <div class="sumgrid" data-sum-grid></div>
+            <form class="coupon-form" data-coupon novalidate>
+                <label class="visually-hidden" for="coupon-code">{{if $en}}Discount code{{else}}折扣碼{{end}}</label>
+                <input class="field" id="coupon-code" name="code" type="text" autocomplete="off" autocapitalize="characters" placeholder="{{if $en}}Discount code{{else}}折扣碼{{end}}">
+                <button class="btn t" type="submit">{{if $en}}Apply{{else}}套用{{end}}</button>
+            </form>
+            <div class="coupon-on" data-coupon-on hidden>
+                <span>{{if $en}}Code{{else}}已套用{{end}} <b data-coupon-code></b></span>
+                <button class="btn x sm" type="button" data-coupon-remove>{{if $en}}Remove{{else}}移除{{end}}</button>
+            </div>
+            <div data-coupon-msg hidden></div>
+            <div class="total"><span>{{if $en}}Total{{else}}總計{{end}}</span><span class="d" data-total></span></div>
+            <a class="btn p lg" href="/checkout" data-checkout>{{if $en}}Check out{{else}}前往結帳{{end}} →</a>
+            <p class="small muted">{{if $en}}Card payments are completed on the payment provider's page; this site never sees your card number.{{else}}信用卡在金流服務商的付款頁完成，本站不會經手你的卡號。{{end}}</p>
+        </aside>
+    </div>
+</div>
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}

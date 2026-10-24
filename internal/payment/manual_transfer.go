@@ -5,8 +5,6 @@ import "context"
 // ManualTransferGateway is the offline bank-transfer provider (ticket 07). The
 // customer pays by bank transfer and an administrator confirms the money with
 // mark-paid. Instructions come from the option shop_manual_transfer_note.
-//
-// Skeleton: CreateOrder is not implemented yet. Everything else is final.
 type ManualTransferGateway struct {
 	instructions string
 }
@@ -27,9 +25,15 @@ func (g *ManualTransferGateway) Capabilities() Capabilities {
 	return Capabilities{Methods: []string{"bank_transfer"}, Offline: true}
 }
 
-// CreateOrder returns the instructions in ExtraData. Not implemented yet.
+// CreateOrder returns the configured bank-transfer instructions in ExtraData.
 func (g *ManualTransferGateway) CreateOrder(ctx context.Context, req CreateOrderRequest) (*CreateOrderResponse, error) {
-	return nil, ErrNotImplemented
+	if g == nil {
+		return nil, ErrNotSupported
+	}
+	return &CreateOrderResponse{
+		OrderID:   req.OrderID,
+		ExtraData: map[string]string{"instructions": g.instructions},
+	}, nil
 }
 
 // VerifyCallback is not applicable: there is no provider notification. The

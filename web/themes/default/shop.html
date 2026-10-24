@@ -1,1 +1,119 @@
-{{define "content"}}{{/* ticket 07 placeholder: shop */}}{{end}}
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+<div class="shop" data-page="list" data-lang="{{if $en}}en{{else}}zh-TW{{end}}" data-currency="{{.Currency}}">
+    <section class="shop-hero">
+        <div>
+            <span class="shop-stripe stripe-ink"></span>
+            <div class="shop-lbl">{{if $en}}Shop · {{.Total}} products{{else}}商店 · {{.Total}} 件商品{{end}}</div>
+            <h1 class="shop-hero-title">{{if $en}}Everything you like,<br>in one place.{{else}}喜歡的，<br>都在這裡。{{end}}</h1>
+        </div>
+        <p class="shop-hero-desc">
+            {{- with .FreeShippingOver}}{{if gt . 0}}{{if $en}}Free shipping over {{money .}}. {{else}}滿 {{money .}} 免運。{{end}}{{end}}{{end -}}
+            {{if $en}}No account needed to check out, and you can look up any order by email.{{else}}不用註冊也能結帳，訂單隨時可以用 Email 查詢。{{end}}
+        </p>
+    </section>
+
+    <div class="shop-layout">
+        <aside class="shop-side" aria-label="{{if $en}}Categories and filters{{else}}商品分類與篩選{{end}}">
+            <div>
+                <div class="shop-lbl" style="margin-bottom: .5rem;">{{if $en}}Categories{{else}}分類{{end}}</div>
+                <nav aria-label="{{if $en}}Categories{{else}}分類{{end}}">
+                    <a href="/shop" aria-current="page"><span>{{if $en}}All{{else}}全部{{end}}</span><span>{{.Total}}</span></a>
+                    {{range .Categories}}{{if not .Hidden}}
+                    <a href="/shop/c/{{.Slug}}"{{if .ParentID}} class="sub"{{end}}><span>{{.Name}}</span><span>{{.Count}}</span></a>
+                    {{end}}{{end}}
+                </nav>
+            </div>
+            <form id="shop-filters" data-filters method="get" action="/shop">
+                <fieldset>
+                    <legend class="shop-lbl" style="margin-bottom: .5rem;">{{if $en}}Price{{else}}價格{{end}}</legend>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <label class="chip{{if not .Filters.Price}} on{{end}}"><input type="radio" name="price" value=""{{if not .Filters.Price}} checked{{end}}>{{if $en}}Any{{else}}不限{{end}}</label>
+                        <label class="chip{{if eq .Filters.Price "lt300"}} on{{end}}"><input type="radio" name="price" value="lt300"{{if eq .Filters.Price "lt300"}} checked{{end}}>{{if $en}}Under {{money 30000}}{{else}}{{money 30000}} 以下{{end}}</label>
+                        <label class="chip{{if eq .Filters.Price "300-800"}} on{{end}}"><input type="radio" name="price" value="300-800"{{if eq .Filters.Price "300-800"}} checked{{end}}>{{money 30000}}–{{money 80000}}</label>
+                        <label class="chip{{if eq .Filters.Price "gt800"}} on{{end}}"><input type="radio" name="price" value="gt800"{{if eq .Filters.Price "gt800"}} checked{{end}}>{{if $en}}Over {{money 80000}}{{else}}{{money 80000}} 以上{{end}}</label>
+                    </div>
+                </fieldset>
+                <fieldset style="margin-top: 1.5rem;">
+                    <legend class="shop-lbl" style="margin-bottom: .5rem;">{{if $en}}Availability{{else}}狀態{{end}}</legend>
+                    <label class="check"><input type="checkbox" name="instock" value="1"{{if .Filters.InStock}} checked{{end}}>{{if $en}}In stock only{{else}}只看有貨{{end}}</label>
+                </fieldset>
+                <button class="btn t sm no-js-apply" type="submit">{{if $en}}Apply{{else}}套用篩選{{end}}</button>
+            </form>
+            {{if or .Filters.Price .Filters.InStock .Filters.Sort}}
+            <a href="/shop" class="small">{{if $en}}Clear filters{{else}}清除篩選{{end}}</a>
+            {{end}}
+        </aside>
+
+        <section style="display: flex; flex-direction: column; gap: 1rem; min-width: 0;" aria-label="{{if $en}}Products{{else}}商品{{end}}">
+            <div class="filter-bar">
+                <div class="active-filters">
+                    <span>{{if $en}}Showing {{len .Products}} of {{.Total}}{{else}}顯示 {{len .Products}} 件，共 {{.Total}} 件{{end}}</span>
+                    {{if eq .Filters.Price "lt300"}}<span class="chip">{{if $en}}Under {{money 30000}}{{else}}{{money 30000}} 以下{{end}}</span>{{end}}
+                    {{if eq .Filters.Price "300-800"}}<span class="chip">{{money 30000}}–{{money 80000}}</span>{{end}}
+                    {{if eq .Filters.Price "gt800"}}<span class="chip">{{if $en}}Over {{money 80000}}{{else}}{{money 80000}} 以上{{end}}</span>{{end}}
+                    {{if .Filters.InStock}}<span class="chip">{{if $en}}In stock{{else}}有貨{{end}}</span>{{end}}
+                </div>
+                <div style="display: inline-flex; align-items: center; gap: 8px;">
+                    <label for="sort-select">{{if $en}}Sort{{else}}排序{{end}}</label>
+                    <select id="sort-select" class="field" name="sort" form="shop-filters">
+                        <option value="new"{{if or (eq .Filters.Sort "new") (not .Filters.Sort)}} selected{{end}}>{{if $en}}Newest{{else}}最新上架{{end}}</option>
+                        <option value="popular"{{if eq .Filters.Sort "popular"}} selected{{end}}>{{if $en}}Popular{{else}}人氣推薦{{end}}</option>
+                        <option value="price_asc"{{if eq .Filters.Sort "price_asc"}} selected{{end}}>{{if $en}}Price: low to high{{else}}價格低到高{{end}}</option>
+                        <option value="price_desc"{{if eq .Filters.Sort "price_desc"}} selected{{end}}>{{if $en}}Price: high to low{{else}}價格高到低{{end}}</option>
+                    </select>
+                </div>
+            </div>
+
+            {{if .Products}}
+            <div class="pc-grid">
+                {{range .Products}}
+                <article class="pc">
+                    <a class="img" href="/shop/p/{{.Slug}}" tabindex="-1" aria-hidden="true">
+                        {{if .Image}}<img src="{{.Image}}" alt="" loading="lazy">{{else}}<span>{{.Title}}</span>{{end}}
+                        {{if le .Stock 0}}<span class="chip sold">{{if $en}}Sold out{{else}}售完{{end}}</span>
+                        {{else if and (gt .LowStockThreshold 0) (le .Stock .LowStockThreshold)}}<span class="chip warn">{{if $en}}{{.Stock}} left{{else}}剩 {{.Stock}}{{end}}</span>
+                        {{else}}<span class="chip ok">{{if $en}}In stock{{else}}有貨{{end}}</span>{{end}}
+                    </a>
+                    <div class="b">
+                        <h3><a href="/shop/p/{{.Slug}}">{{.Title}}</a></h3>
+                        <div class="foot">
+                            <div>
+                                <span class="price">{{money .Price}}</span>
+                                {{if gt .CompareAtPrice .Price}}<span class="visually-hidden">{{if $en}}Was{{else}}原價{{end}}</span><s class="price-old">{{money .CompareAtPrice}}</s>{{end}}
+                            </div>
+                            {{if le .Stock 0}}
+                            <button class="btn t sm" type="button" disabled>{{if $en}}Sold out{{else}}售完{{end}}</button>
+                            {{else if gt .VariantCount 1}}
+                            <a class="btn sm" href="/shop/p/{{.Slug}}" aria-label="{{if $en}}Choose options for {{.Title}}{{else}}選擇 {{.Title}} 的規格{{end}}">{{if $en}}Options{{else}}選規格{{end}}</a>
+                            {{else if gt .DefaultVariantID 0}}
+                            <button class="btn sm" type="button" data-add-variant="{{.DefaultVariantID}}" aria-label="{{if $en}}Add {{.Title}} to cart{{else}}加入 {{.Title}} 到購物車{{end}}">{{if $en}}Add{{else}}加入{{end}}</button>
+                            {{else}}
+                            <a class="btn sm" href="/shop/p/{{.Slug}}" aria-label="{{if $en}}Add {{.Title}} to cart{{else}}加入 {{.Title}} 到購物車{{end}}">{{if $en}}Add{{else}}加入{{end}}</a>
+                            {{end}}
+                        </div>
+                    </div>
+                </article>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="empty">
+                <b>{{if $en}}No products match these filters{{else}}目前沒有符合條件的商品{{end}}</b>
+                <p class="muted">{{if $en}}Try another price range or include sold-out items.{{else}}試試其他價格區間，或取消「只看有貨」。{{end}}</p>
+                {{if or .Filters.Price .Filters.InStock}}<a class="btn t sm" href="/shop">{{if $en}}Reset filters{{else}}重設篩選{{end}}</a>{{end}}
+            </div>
+            {{end}}
+
+            {{if gt .TotalPages 1}}
+            <nav class="pager" aria-label="{{if $en}}Pages{{else}}分頁{{end}}">
+                {{if gt .Page 1}}<a class="btn t sm" rel="prev" href="/shop?page={{sub .Page 1}}{{with .Filters.Sort}}&sort={{.}}{{end}}{{with .Filters.Price}}&price={{.}}{{end}}{{if .Filters.InStock}}&instock=1{{end}}">{{if $en}}Previous{{else}}上一頁{{end}}</a>{{end}}
+                <span>{{.Page}} / {{.TotalPages}}</span>
+                {{if lt .Page .TotalPages}}<a class="btn t sm" rel="next" href="/shop?page={{add .Page 1}}{{with .Filters.Sort}}&sort={{.}}{{end}}{{with .Filters.Price}}&price={{.}}{{end}}{{if .Filters.InStock}}&instock=1{{end}}">{{if $en}}Next{{else}}下一頁{{end}}</a>{{end}}
+            </nav>
+            {{end}}
+        </section>
+    </div>
+</div>
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}

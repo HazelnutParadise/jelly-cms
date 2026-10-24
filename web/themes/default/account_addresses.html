@@ -1,1 +1,42 @@
-{{define "content"}}{{/* ticket 07 placeholder: account_addresses */}}{{end}}
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+<div class="shop" data-page="addresses" data-lang="{{if $en}}en{{else}}zh-TW{{end}}">
+    <div class="acct">
+        <aside class="shop-side acct-side" aria-label="{{if $en}}Account{{else}}會員中心{{end}}">
+            {{with .Member}}<div class="acct-who"><span class="av" aria-hidden="true">{{if .Name}}{{initial .Name}}{{else}}{{initial .Email}}{{end}}</span><div><b>{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}</b><small>{{.Email}}</small></div></div>{{end}}
+            <nav aria-label="{{if $en}}Account sections{{else}}會員中心分頁{{end}}">
+                <a href="/account/orders"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2 12h12l2-8H6"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg>{{if $en}}My orders{{else}}我的訂單{{end}}</span></a>
+                <a href="/account/addresses" aria-current="page"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6h12v10H2zM14 10h4l4 4v2h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>{{if $en}}Addresses{{else}}收件地址{{end}}</span></a>
+                <a href="/account/invoices"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6h20v12H2zM2 10h20"/></svg>{{if $en}}Invoices{{else}}發票設定{{end}}</span></a>
+                <a href="/account/security"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{{if $en}}Account and password{{else}}帳號與密碼{{end}}</span></a>
+                <a href="/account/notifications"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM3 5l9 7 9-7"/></svg>{{if $en}}Notifications{{else}}通知{{end}}</span></a>
+            </nav>
+            <form method="post" action="/auth/logout"><button class="btn x sm" type="submit">{{if $en}}Sign out{{else}}登出{{end}}</button></form>
+        </aside>
+        <section class="acct-main" aria-labelledby="acct-title">
+            <div class="shop-head">
+                <div><span class="shop-stripe"></span><h1 class="page-title" id="acct-title" style="font-size: clamp(2rem, 5vw, 2.75rem);">{{if $en}}Addresses{{else}}收件地址{{end}}</h1></div>
+                <button class="btn p sm" type="button" data-new>+ {{if $en}}Add address{{else}}新增地址{{end}}</button>
+            </div>
+            <p class="muted small">{{if $en}}The default address is filled in for you at checkout.{{else}}結帳時會自動帶入預設地址。{{end}}</p>
+            <div data-list-status hidden></div>
+            <form class="box" data-editor novalidate hidden aria-labelledby="addr-editor-title">
+                <h2 class="d" id="addr-editor-title" data-editor-title data-new="{{if $en}}New address{{else}}新增地址{{end}}" data-edit="{{if $en}}Edit address{{else}}編輯地址{{end}}" style="font-size: 1.25rem;"></h2>
+                <div class="grid2">
+                    <div><label class="flbl" for="ad-label">{{if $en}}Label (optional){{else}}名稱（可選）{{end}}</label><input class="field" id="ad-label" name="label" type="text" maxlength="60" placeholder="{{if $en}}Home, Office…{{else}}家、公司…{{end}}" data-field="label"><div class="ferr" data-err="label" hidden></div></div>
+                    <div><label class="flbl" for="ad-recipient">{{if $en}}Recipient{{else}}收件人{{end}}</label><input class="field" id="ad-recipient" name="recipient" type="text" autocomplete="name" maxlength="120" required data-field="recipient"><div class="ferr" data-err="recipient" hidden></div></div>
+                    <div><label class="flbl" for="ad-phone">{{if $en}}Phone{{else}}電話{{end}}</label><input class="field" id="ad-phone" name="phone" type="tel" autocomplete="tel" maxlength="40" required data-field="phone"><div class="ferr" data-err="phone" hidden></div></div>
+                    <div><label class="flbl" for="ad-postcode">{{if $en}}Postcode{{else}}郵遞區號{{end}}</label><input class="field" id="ad-postcode" name="postcode" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="10" data-field="postcode"><div class="ferr" data-err="postcode" hidden></div></div>
+                    <div><label class="flbl" for="ad-city">{{if $en}}City / county{{else}}縣市{{end}}</label><input class="field" id="ad-city" name="city" type="text" autocomplete="address-level1" maxlength="60" required data-field="city"><div class="ferr" data-err="city" hidden></div></div>
+                    <div><label class="flbl" for="ad-address">{{if $en}}Address{{else}}地址{{end}}</label><input class="field" id="ad-address" name="address" type="text" autocomplete="street-address" maxlength="255" required data-field="address"><div class="ferr" data-err="address" hidden></div></div>
+                </div>
+                <label class="check"><input type="checkbox" name="is_default" value="1">{{if $en}}Use as my default address{{else}}設為預設地址{{end}}</label>
+                <div class="acts"><button class="btn p sm" type="submit">{{if $en}}Save{{else}}儲存{{end}}</button><button class="btn x sm" type="button" data-editor-cancel>{{if $en}}Cancel{{else}}取消{{end}}</button></div>
+            </form>
+            <div class="card-list" data-list aria-live="polite"><span class="sk tall"></span><span class="sk tall"></span></div>
+        </section>
+    </div>
+</div>
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}

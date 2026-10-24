@@ -94,7 +94,7 @@ func TestAdminNavRoleVisibility(t *testing.T) {
 				"content":    {"dashboard", "posts", "pages", "taxonomy", "comments", "media", "trash"},
 				"shop":       {"products", "orders", "coupons"},
 				"appearance": {"themes", "menus", "plugins"},
-				"system":     {"settings"},
+				"system":     {"users", "settings"},
 			},
 		},
 		{

@@ -1,1 +1,49 @@
-{{define "content"}}{{/* ticket 07 placeholder: account_invoices */}}{{end}}
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+<div class="shop" data-page="invoices" data-lang="{{if $en}}en{{else}}zh-TW{{end}}">
+    <div class="acct">
+        <aside class="shop-side acct-side" aria-label="{{if $en}}Account{{else}}會員中心{{end}}">
+            {{with .Member}}<div class="acct-who"><span class="av" aria-hidden="true">{{if .Name}}{{initial .Name}}{{else}}{{initial .Email}}{{end}}</span><div><b>{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}</b><small>{{.Email}}</small></div></div>{{end}}
+            <nav aria-label="{{if $en}}Account sections{{else}}會員中心分頁{{end}}">
+                <a href="/account/orders"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2 12h12l2-8H6"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg>{{if $en}}My orders{{else}}我的訂單{{end}}</span></a>
+                <a href="/account/addresses"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6h12v10H2zM14 10h4l4 4v2h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>{{if $en}}Addresses{{else}}收件地址{{end}}</span></a>
+                <a href="/account/invoices" aria-current="page"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6h20v12H2zM2 10h20"/></svg>{{if $en}}Invoices{{else}}發票設定{{end}}</span></a>
+                <a href="/account/security"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{{if $en}}Account and password{{else}}帳號與密碼{{end}}</span></a>
+                <a href="/account/notifications"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM3 5l9 7 9-7"/></svg>{{if $en}}Notifications{{else}}通知{{end}}</span></a>
+            </nav>
+            <form method="post" action="/auth/logout"><button class="btn x sm" type="submit">{{if $en}}Sign out{{else}}登出{{end}}</button></form>
+        </aside>
+        <section class="acct-main" aria-labelledby="acct-title">
+            <div class="shop-head">
+                <div><span class="shop-stripe"></span><h1 class="page-title" id="acct-title" style="font-size: clamp(2rem, 5vw, 2.75rem);">{{if $en}}Invoice settings{{else}}發票設定{{end}}</h1></div>
+                <button class="btn p sm" type="button" data-new>+ {{if $en}}Add setting{{else}}新增設定{{end}}</button>
+            </div>
+            <p class="muted small">{{if $en}}Save a mobile barcode, a company tax ID or a donation code; the default one is filled in at checkout.{{else}}儲存手機條碼、公司統編或捐贈碼，結帳時會帶入預設的那一組。{{end}}</p>
+            <div data-list-status hidden></div>
+            <form class="box" data-editor novalidate hidden aria-labelledby="inv-editor-title">
+                <h2 class="d" id="inv-editor-title" data-editor-title data-new="{{if $en}}New invoice setting{{else}}新增發票設定{{end}}" data-edit="{{if $en}}Edit invoice setting{{else}}編輯發票設定{{end}}" style="font-size: 1.25rem;"></h2>
+                <div class="grid2">
+                    <div><label class="flbl" for="iv-kind">{{if $en}}Type{{else}}類型{{end}}</label>
+                        <select class="field" id="iv-kind" name="kind" data-field="kind">
+                            <option value="personal_carrier">{{if $en}}Mobile barcode carrier{{else}}手機條碼載具{{end}}</option>
+                            <option value="tax_id">{{if $en}}Company tax ID{{else}}公司統編{{end}}</option>
+                            <option value="donation">{{if $en}}Donation{{else}}捐贈{{end}}</option>
+                            <option value="none">{{if $en}}Personal (email receipt){{else}}個人（Email 收據）{{end}}</option>
+                        </select><div class="ferr" data-err="kind" hidden></div></div>
+                    <div data-inv="personal_carrier"><label class="flbl" for="iv-carrier">{{if $en}}Mobile barcode{{else}}手機條碼{{end}}</label><input class="field" id="iv-carrier" name="carrier_code" type="text" autocapitalize="characters" maxlength="8" placeholder="/ABC1234" data-field="carrier_code"><div class="ferr" data-err="carrier_code" hidden></div></div>
+                    <div data-inv="donation" hidden><label class="flbl" for="iv-donation">{{if $en}}Donation code{{else}}捐贈碼{{end}}</label><input class="field" id="iv-donation" name="donation_code" type="text" inputmode="numeric" maxlength="7" data-field="donation_code"><div class="ferr" data-err="donation_code" hidden></div></div>
+                </div>
+                <div class="grid2" data-inv="tax_id" hidden>
+                    <div><label class="flbl" for="iv-taxid">{{if $en}}Tax ID{{else}}統一編號{{end}}</label><input class="field" id="iv-taxid" name="tax_id" type="text" inputmode="numeric" maxlength="8" data-field="tax_id"><div class="ferr" data-err="tax_id" hidden></div></div>
+                    <div><label class="flbl" for="iv-company">{{if $en}}Company name{{else}}公司抬頭{{end}}</label><input class="field" id="iv-company" name="company_name" type="text" autocomplete="organization" maxlength="120" data-field="company_name"><div class="ferr" data-err="company_name" hidden></div></div>
+                </div>
+                <label class="check"><input type="checkbox" name="is_default" value="1">{{if $en}}Use as default at checkout{{else}}結帳時預設使用{{end}}</label>
+                <div class="acts"><button class="btn p sm" type="submit">{{if $en}}Save{{else}}儲存{{end}}</button><button class="btn x sm" type="button" data-editor-cancel>{{if $en}}Cancel{{else}}取消{{end}}</button></div>
+            </form>
+            <div class="card-list" data-list aria-live="polite"><span class="sk tall"></span><span class="sk tall"></span></div>
+        </section>
+    </div>
+</div>
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}
