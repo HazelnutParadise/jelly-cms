@@ -502,6 +502,48 @@ func TestWidgetVersionGuardsAndActorAuditSnapshots(t *testing.T) {
 	}
 }
 
+func TestWidgetForeignKeyColumnsHaveLeadingIndexes(t *testing.T) {
+	h := newAccessHarness(t)
+	var missing []struct {
+		TableName      string
+		ConstraintName string
+		ColumnName     string
+	}
+	query := `
+WITH foreign_key_columns AS (
+  SELECT c.conrelid, c.conname, a.attnum, a.attname
+  FROM pg_constraint c
+  CROSS JOIN LATERAL unnest(c.conkey) AS fk(attnum)
+  JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = fk.attnum
+  WHERE c.contype = 'f'
+    AND c.conrelid = ANY (ARRAY[
+      'public.widgets'::regclass,
+      'public.widget_versions'::regclass,
+      'public.widget_audit_log'::regclass,
+      'public.widget_version_audit_log'::regclass
+    ])
+)
+SELECT fk.conrelid::regclass::text AS table_name,
+       fk.conname AS constraint_name,
+       fk.attname AS column_name
+FROM foreign_key_columns fk
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM pg_index i
+  CROSS JOIN LATERAL unnest(i.indkey) WITH ORDINALITY AS indexed(attnum, position)
+  WHERE i.indrelid = fk.conrelid
+    AND i.indisready AND i.indisvalid AND i.indpred IS NULL
+    AND indexed.position = 1 AND indexed.attnum = fk.attnum
+)
+ORDER BY table_name, constraint_name, column_name`
+	if err := h.db.Raw(query).Scan(&missing).Error; err != nil {
+		t.Fatalf("inspect widget foreign-key indexes: %v", err)
+	}
+	if len(missing) != 0 {
+		t.Errorf("widget foreign-key columns lack a leading index column: %+v", missing)
+	}
+}
+
 func TestInvalidWidgetDeleteDoesNotDeleteAnyWidgets(t *testing.T) {
 	h := newAccessHarness(t)
 	token := h.token(h.user("admin", "editor-regression-widget-delete"))
