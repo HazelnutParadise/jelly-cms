@@ -4,11 +4,8 @@
 // callouts, the ::: container and :: directive syntax, math, YAML tables,
 // LaTeX and HTML blocks, and the sanitizer policies that every output passes
 // through. Front-end code never parses Markdown. This file holds the public
-// types only; the behaviour is in render.go, policy.go and katex.go.
-//
-// Every function in this package is a skeleton: it compiles and keeps the
-// existing pages working, but it does not yet implement the 契約 in
-// docs/tickets/09-editor.md.
+// types only; behavior is split by concern across parser, policy, math, table,
+// and rendering files.
 package markup
 
 // Trust levels accepted by Options.Trust and Policy.
@@ -32,6 +29,8 @@ type Options struct {
 	SourceMap bool
 	// Format is "md" for legacy Markdown or "jmd" for Jelly MD.
 	Format string
+	// Widgets contains the published custom widgets available to this render.
+	Widgets map[string]WidgetSpec
 }
 
 // Result is the output of Render.
@@ -91,10 +90,27 @@ type Block struct {
 
 // DynamicData carries the rows that Expand puts into dynamic blocks. The
 // server fills it from the database at request time; markup never queries.
-// The fields are placeholders until ticket 09 G0 settles the row shape.
+// ItemsByKey carries query-specific rows keyed with DynamicItemsKey. When it is
+// non-nil, missing keys intentionally expand to empty lists.
 type DynamicData struct {
-	Products []DynamicItem
-	Posts    []DynamicItem
+	Products   []DynamicItem
+	Posts      []DynamicItem
+	ItemsByKey map[string][]DynamicItem
+}
+
+// WidgetSpec describes an immutable published widget version and its declared parameters.
+type WidgetSpec struct {
+	Version int
+	Params  map[string]WidgetParamSpec
+}
+
+// WidgetParamSpec constrains one widget query parameter.
+type WidgetParamSpec struct {
+	Type      string
+	Required  bool
+	Default   any
+	Values    []string
+	MaxLength int
 }
 
 // DynamicItem is one row of a dynamic list.

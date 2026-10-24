@@ -13,17 +13,19 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/markup"
 	"github.com/goccy/go-json"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
 
-// Ticket 09 G0 (docs/tickets/09-editor.md): these handlers still store the
-// request's content as sent. G0 changes them to render source through
-// markup.Render, ignore content when source is present, sanitize content-only
-// writes with the policy from renderTrustFor (editor_routes.go), and return
-// diagnostics. Until then a content-only write from an author can store
-// script; that is the G0 security fix.
+var errPostConflict = errors.New("post changed")
+var errRenderDiagnostics = errors.New("render diagnostics")
+
+// Ticket 09 G0 (docs/tickets/09-editor.md): source writes are rendered and
+// sanitized on the server, while legacy content-only writes keep the HTML path
+// and are sanitized under the caller's trust policy. Both paths return render
+// diagnostics, and content-only writes clear stale source state.
 func registerPostRoutes(api, reads *echo.Group) {
 	reads.GET("/posts", listPosts, requirePostReadPermission)
 	api.POST("/posts", createPost)
@@ -105,6 +107,13 @@ func createPost(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
+	diagnostics, err := preparePostContent(c, &post, input, user)
+	if err != nil {
+		if errors.Is(err, errRenderDiagnostics) {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error(), "diagnostics": diagnostics})
+		}
+		return renderInputError(c, err)
+	}
 	if _, explicit := input["published_at"]; !explicit && post.Status == "published" && post.PublishedAt == nil {
 		now := time.Now()
 		post.PublishedAt = &now
@@ -130,7 +139,7 @@ func createPost(c echo.Context) error {
 	if err := data.DB.Preload("Categories").Preload("Tags").First(&created, post.ID).Error; err != nil {
 		return postQueryError(c, err)
 	}
-	return c.JSON(http.StatusOK, created)
+	return postResponse(c, created, diagnostics)
 }
 
 func getPost(c echo.Context) error {
@@ -149,6 +158,14 @@ func getPost(c echo.Context) error {
 	var post core.Post
 	if err := query.First(&post).Error; err != nil {
 		return postQueryError(c, err)
+	}
+	var latest core.Revision
+	if err := data.DB.Where("post_id = ? AND kind = ?", post.ID, "autosave").Order("id DESC").First(&latest).Error; err == nil && latest.CreatedAt.After(post.UpdatedAt) {
+		b, _ := json.Marshal(post)
+		var body map[string]any
+		_ = json.Unmarshal(b, &body)
+		body["autosave"] = map[string]any{"id": latest.ID, "title": latest.Title, "source": latest.Source, "excerpt": latest.Excerpt, "created_at": latest.CreatedAt}
+		return c.JSON(http.StatusOK, body)
 	}
 	return c.JSON(http.StatusOK, post)
 }
@@ -178,6 +195,42 @@ func updatePost(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
+	if raw, hasFormat := input["format"]; hasFormat {
+		_, hasSource := input["source"]
+		_, hasContent := input["content"]
+		var requested string
+		if json.Unmarshal(raw, &requested) != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid format"})
+		}
+		if !hasSource && !hasContent && requested != existing.Format {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Format changes require source or content"})
+		}
+	}
+	var baseUpdatedAt *time.Time
+	if raw, ok := input["base_updated_at"]; ok {
+		var base time.Time
+		if json.Unmarshal(raw, &base) != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid base_updated_at"})
+		}
+		baseUpdatedAt = &base
+		if !base.Equal(existing.UpdatedAt) {
+			return c.JSON(http.StatusConflict, map[string]any{"error": "Post changed", "updated_at": existing.UpdatedAt})
+		}
+	}
+	nextForRender := existing
+	if _, err := applyPostInput(&nextForRender, input); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+	}
+	diagnostics, err := preparePostContent(c, &nextForRender, input, user)
+	if err != nil {
+		if errors.Is(err, errRenderDiagnostics) {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error(), "diagnostics": diagnostics})
+		}
+		return renderInputError(c, err)
+	}
+	for _, key := range []string{"content", "source", "format", "render_version", "render_trust", "meta"} {
+		updates[key] = fieldValue(nextForRender, key)
+	}
 	if nextType, ok := updates["type"].(string); ok && user.Role == "author" && nextType != "post" {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
 	}
@@ -192,20 +245,24 @@ func updatePost(c echo.Context) error {
 		if user.Role == "author" {
 			write = write.Where("author_id = ? AND type = ?", user.ID, "post")
 		}
+		if baseUpdatedAt != nil {
+			write = write.Where("updated_at = ?", *baseUpdatedAt)
+		}
 		result := write.Updates(updates)
 		if result.Error != nil {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
+			if baseUpdatedAt != nil {
+				return errPostConflict
+			}
 			return gorm.ErrRecordNotFound
 		}
 		if err := applyPostTerms(tx, &existing, input); err != nil {
 			return err
 		}
 		next := existing
-		if _, err := applyPostInput(&next, input); err != nil {
-			return err
-		}
+		next = nextForRender
 		if stamped, ok := updates["published_at"].(time.Time); ok && next.PublishedAt == nil {
 			next.PublishedAt = &stamped
 		}
@@ -219,6 +276,9 @@ func updatePost(c echo.Context) error {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
 	}
+	if errors.Is(err, errPostConflict) {
+		return c.JSON(http.StatusConflict, map[string]string{"error": "Post changed"})
+	}
 	if err != nil {
 		return termWriteError(c, err, "Unable to update post")
 	}
@@ -230,7 +290,123 @@ func updatePost(c echo.Context) error {
 	if err := read.First(&updated).Error; err != nil {
 		return postQueryError(c, err)
 	}
-	return c.JSON(http.StatusOK, updated)
+	return postResponse(c, updated, diagnostics)
+}
+
+func postResponse(c echo.Context, post core.Post, diagnostics []markup.Diagnostic) error {
+	b, _ := json.Marshal(post)
+	var result map[string]any
+	_ = json.Unmarshal(b, &result)
+	result["diagnostics"] = diagnostics
+	return c.JSON(http.StatusOK, result)
+}
+
+func fieldValue(p core.Post, key string) any {
+	switch key {
+	case "content":
+		return p.Content
+	case "source":
+		return p.Source
+	case "format":
+		return p.Format
+	case "render_version":
+		return p.RenderVersion
+	case "render_trust":
+		return p.RenderTrust
+	case "meta":
+		return p.Meta
+	}
+	return nil
+}
+
+func preparePostContent(c echo.Context, post *core.Post, input map[string]json.RawMessage, user *core.User) ([]markup.Diagnostic, error) {
+	if raw, supplied := input["format"]; supplied {
+		var format string
+		if err := json.Unmarshal(raw, &format); err != nil || (format != "jmd" && format != "md" && format != "html") {
+			return nil, errors.New("invalid format")
+		}
+	}
+	if raw, supplied := input["source"]; supplied {
+		if err := json.Unmarshal(raw, &post.Source); err != nil {
+			return nil, err
+		}
+		format := "jmd"
+		if v, ok := input["format"]; ok && json.Unmarshal(v, &format) != nil {
+			return nil, errors.New("invalid format")
+		}
+		if format != "jmd" && format != "md" {
+			return nil, errors.New("invalid format")
+		}
+		post.Format = format
+		trust := renderTrustFor(user)
+		widgets, err := publishedWidgetSpecs(data.DB.WithContext(c.Request().Context()))
+		if err != nil {
+			return nil, err
+		}
+		result, err := markup.Render(c.Request().Context(), post.Source, markup.Options{Trust: trust, Format: format, Widgets: widgets})
+		if err != nil {
+			return nil, err
+		}
+		for _, diagnostic := range result.Diagnostics {
+			if diagnostic.Severity == "error" {
+				return result.Diagnostics, errRenderDiagnostics
+			}
+		}
+		post.Content, post.RenderTrust, post.RenderVersion = result.HTML, trust, 1
+		post.Meta = writeLegacyMarkdown(post.Meta, post.Source)
+		return result.Diagnostics, nil
+	}
+	if raw, exists := input["content"]; exists {
+		var content string
+		if err := json.Unmarshal(raw, &content); err != nil {
+			return nil, err
+		}
+		post.Content = markup.Policy(renderTrustFor(user)).Sanitize(content)
+		post.Source = ""
+		post.Format = "html"
+		post.RenderTrust = renderTrustFor(user)
+		post.RenderVersion = 1
+		var suppliedMarkdown bool
+		if metaRaw, ok := input["meta"]; ok {
+			var metaFields map[string]json.RawMessage
+			if json.Unmarshal(metaRaw, &metaFields) == nil {
+				_, suppliedMarkdown = metaFields["markdown"]
+			}
+		}
+		if !suppliedMarkdown {
+			post.Meta = clearLegacyMarkdown(post.Meta)
+		}
+	}
+	return []markup.Diagnostic{}, nil
+}
+
+func writeLegacyMarkdown(meta json.RawMessage, source string) json.RawMessage {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(meta, &fields) != nil || fields == nil {
+		fields = make(map[string]json.RawMessage)
+	}
+	raw, _ := json.Marshal(source)
+	fields["markdown"] = raw
+	out, _ := json.Marshal(fields)
+	return out
+}
+
+func clearLegacyMarkdown(meta json.RawMessage) json.RawMessage {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(meta, &fields) != nil || fields == nil {
+		fields = make(map[string]json.RawMessage)
+	}
+	delete(fields, "markdown")
+	out, _ := json.Marshal(fields)
+	return out
+}
+
+func renderInputError(c echo.Context, err error) error {
+	status := http.StatusBadRequest
+	if errors.Is(err, markup.ErrSourceTooLarge) {
+		status = http.StatusRequestEntityTooLarge
+	}
+	return c.JSON(status, map[string]any{"error": err.Error(), "diagnostics": []markup.Diagnostic{}})
 }
 
 func deletePost(c echo.Context) error {
@@ -286,6 +462,7 @@ func postUpdates(input map[string]json.RawMessage) (map[string]interface{}, erro
 	updates := make(map[string]interface{})
 	for key := range map[string]struct{}{
 		"title": {}, "slug": {}, "content": {}, "type": {}, "status": {},
+		"source": {}, "format": {},
 		"template": {}, "meta": {}, "published_at": {},
 		"excerpt": {}, "cover": {}, "visibility": {}, "allow_comments": {}, "pinned": {},
 	} {
@@ -294,7 +471,7 @@ func postUpdates(input map[string]json.RawMessage) (map[string]interface{}, erro
 			continue
 		}
 		switch key {
-		case "title", "slug", "content", "type", "status", "template", "excerpt", "cover", "visibility":
+		case "title", "slug", "content", "source", "format", "type", "status", "template", "excerpt", "cover", "visibility":
 			var value string
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
@@ -346,6 +523,10 @@ func applyPostInput(post *core.Post, input map[string]json.RawMessage) (map[stri
 			post.Slug = value.(string)
 		case "content":
 			post.Content = value.(string)
+		case "source":
+			post.Source = value.(string)
+		case "format":
+			post.Format = value.(string)
 		case "type":
 			post.Type = value.(string)
 		case "status":

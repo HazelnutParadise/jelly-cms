@@ -3,7 +3,7 @@
 Epic：編輯與發布
 User Story：作者在一個比 WordPress 好用的編輯器裡寫 Markdown：有大綱、斜線選單、即時預覽、專心模式、自動儲存與版本；能用 `:::` 版面區塊排出多欄與英雄區、用屬性加上動效、插入內建互動元件；能寫 GFM、腳註、待辦、警示框、YAML 表格、KaTeX 數學、LaTeX 文件、HTML 區塊；能把單篇匯出成 Jelly MD、純 MD、HTML、PDF。伺服器是唯一的渲染器，所有輸出經淨化。
 Blocked by：05 前台主題的 `content.css` 抽出與字型自帶（草稿 PR #23；`layout.html` 重寫後再動主題側）、04 的版本（已合併）。07 只影響 `:::products` 區塊。
-Status：draft（本工作單只交付設計板補齊、契約、骨架與失敗的驗收測試；實作由另一批代理依本文件完成）
+Status：實作中（渲染與後端局部回歸已通過；前端編輯器、內容樣式、真實瀏覽器、最終完整測試及 CI 尚未驗收，完成證據見 STATUS.md）
 設計稿：`design/project/Editor、EditorFull、EditorFocus、EditorFocus2、EditorLayout、EditorMotion、EditorExport、Widgets、Revisions、Post.dc.html`；本工作單先補：手機版編輯器（單欄）、斜線選單的三種狀態（開啟、篩選、空）、診斷列（YAML 錯誤、未知屬性）、`Widgets` 板的 `::tabs` 改成 `:::tabs`。
 
 ## 先修的安全問題（G0 第一件事）

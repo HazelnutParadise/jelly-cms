@@ -307,7 +307,7 @@ func TestWidgetFrameHeadersAndProps(t *testing.T) {
 }
 
 func TestWidgetDraftNotRenderedPublicly(t *testing.T) {
-	h := newAccessHarness(t)
+	h := archivesHarness(t)
 	token := h.token(h.user("admin", "wgt-draft-admin"))
 	wgtCreate(t, h, token, "draft-only", wgtParams(), wgtSafeSource)
 

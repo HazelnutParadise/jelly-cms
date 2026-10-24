@@ -92,3 +92,24 @@ users [既有帳號]
 連結與解除共用目標 User 的資料列鎖。連結的簽章意圖包含本人與實際已驗證的登入 ID，不能獨立讀取另一份 Session 代替。回呼取得第三方身分後、寫入前再次驗證該登入尚未到期或撤銷。互動連結要求瀏覽器可攜帶的登入 Cookie。正常登入入口不接受查詢參數切換成連結。連結成功不重發登入或延長期限。可用提供者狀態與真正已載入的設定一致，解除不得移除最後一種可用登入方式。
 
 測試使用公開 HTTP 路由、現有 Goth 替身與專用 PostgreSQL。遷移另透過公開 MigrateDB 加 SQL 驗證資料完整性、軟刪唯一鍵、外鍵、時間 trigger、稽核及重跑相容性。完整連結、解除、舊帳號復原與畫面驗收仍屬同一功能，不能只完成新帳號解析就宣稱交付。
+
+## 編輯器渲染與隔離元件
+
+元件資料關係如下，元件名稱是全歷史唯一鍵，版本以 `(widget_id, version)` 唯一識別。名稱與元件 ID 各自決定元件目前標題及編輯狀態，版本鍵決定原始碼、參數與發布狀態，已發布原始碼不原地覆寫。
+
+```text
+widgets [id PK, name UNIQUE, title, version, status, timestamps, deleted_at]
+  1 ---- 1..N widget_versions [id PK, widget_id FK RESTRICT, version, source, params, published, timestamps, deleted_at]
+                 1 ---- 0..N widget_version_audit_log [version identity, states, actor snapshots]
+  1 ---- 0..N widget_audit_log [widget_id, name snapshot, action, states, actor snapshots]
+users [existing id PK]
+  0..1 ---- 0..N widget_audit_log [actor_id FK SET NULL, actor_email, actor_name]
+```
+
+元件登錄採軟刪除，保留版本歷史與已發布頁面的版本網址。已發布版本由資料庫 trigger 拒絕改寫原始碼、參數、版本識別、撤回發布與刪除；兩層資料變更各自保存操作者 ID、當時信箱與名稱快照，紀錄保留 90 天，不記錄原始碼或參數預設值。資料表沿用後端擁有者存取、RLS 與禁止 PUBLIC 權限，不提供瀏覽器直接讀取。遷移透過既有 `MigrateDB` 入口套用新增 SQL，不改動已提交遷移。只對專用測試資料庫驗證，部署另行授權。
+
+內建 `::compare` 由渲染器產生圖片與滑桿 HTML，交給自帶的 `jelly-components.js` 操作。`::widget{name=compare}` 命中已發布自訂元件時使用其版本 iframe，自訂框的 CSP 不因內建圖片功能放寬。
+
+工作單 09 沿用伺服器統一渲染與淨化。已發布元件的型別宣告經 `markup.Options.Widgets` 傳入渲染器，參數由共用驗證函式轉為字串、有限數值、布林或日期時間。動態商品與文章依種類、分類與數量建立獨立查詢鍵，由 HTTP 層提供公開資料，渲染器不存取資料庫。
+
+KaTeX 採工作單允許的前台備援。G0 以自帶 KaTeX 與既有 qjs／Wazero 跑過 CGO 關閉的實際探針，取消執行時重現 `QJS_Eval` 與 `JS_FreeValue` 因 context deadline 關閉模組而 panic，無法作為安全的請求內引擎。`RenderMath` 回 `ErrNoEngine`，伺服器輸出跳脫後的 TeX 與 `jc-math[data-tex]`，瀏覽器使用自帶 KaTeX 且關閉 trust。這項選擇不等同前端已驗收完成。

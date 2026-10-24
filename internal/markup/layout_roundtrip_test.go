@@ -254,12 +254,34 @@ func TestSpliceMoveBlockIsLossless(t *testing.T) {
 // opener line and changes nothing else on that line or on any other line.
 func lrtSetOpenerAttr(source string, b Block, key, value string) string {
 	braces := regexp.MustCompile(`\{[^}]*\}`)
-	attr := regexp.MustCompile(`(^|\s)` + regexp.QuoteMeta(key) + `=[^\s}]*`)
+	// The first attribute follows `{` without whitespace; later attributes normally follow a space.
+	attr := regexp.MustCompile(`([\{\s])` + regexp.QuoteMeta(key) + `=(?:"[^"]*"|'[^']*'|[^\s}]+)`)
 	lines := strings.Split(source, "\n")
 	lines[b.StartLine-1] = braces.ReplaceAllStringFunc(lines[b.StartLine-1], func(group string) string {
 		return attr.ReplaceAllString(group, "${1}"+key+"="+value)
 	})
 	return strings.Join(lines, "\n")
+}
+
+func TestInspectorAttrHelperRewritesFirstAndLaterAttributes(t *testing.T) {
+	cases := []struct {
+		name, key, value, want string
+	}{
+		{"first attribute", "bg", "accent", `:::hero {bg=accent colour=blue} <!-- note -->`},
+		{"later attribute", "colour", "raspberry", `:::hero {bg=mint colour=raspberry} <!-- note -->`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := lrtSetOpenerAttr(lrtOpenerDoc, Block{StartLine: 1}, tc.key, tc.value)
+			lines := strings.Split(got, "\n")
+			if lines[0] != tc.want {
+				t.Fatalf("opener = %q, want %q", lines[0], tc.want)
+			}
+			if len(lines) != len(strings.Split(lrtOpenerDoc, "\n")) || lines[1] != "歡迎" || lines[2] != ":::" {
+				t.Fatalf("helper changed other source lines: %q", got)
+			}
+		})
+	}
 }
 
 func TestInspectorEditsOnlyOpenerLine(t *testing.T) {

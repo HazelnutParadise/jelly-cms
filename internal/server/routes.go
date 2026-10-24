@@ -109,6 +109,10 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 		return renderAdmin(c, "plugins.html", "plugins")
 	})
 
+	adminPages.GET("/widgets", func(c echo.Context) error {
+		return renderAdmin(c, "widgets.html", "widgets")
+	})
+
 	adminPages.GET("/settings", func(c echo.Context) error {
 		return renderAdmin(c, "settings.html", "settings")
 	})

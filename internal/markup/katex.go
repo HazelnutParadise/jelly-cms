@@ -7,15 +7,11 @@ import "errors"
 // KaTeX auto-render instead.
 var ErrNoEngine = errors.New("markup: no math engine available")
 
-// RenderMath renders one TeX expression to KaTeX markup on the server (run by
-// QuickJS). display selects the block form. The output is placed inside the
-// jc-math element that Render emits, and it is sanitized by the same policy.
-//
-// Contract: the server engine is verified in G0. If the QuickJS check fails,
-// the front-end auto-render path replaces it and this function keeps returning
-// ErrNoEngine. The jc-math markup does not change.
-//
-// Stub: always returns ErrNoEngine.
+// RenderMath is the server-side renderer seam. This build deliberately has no
+// in-process JavaScript engine: the checked QuickJS binding cannot safely
+// honor request cancellation, so evaluating KaTeX here could outlive the
+// caller's render deadline. Return ErrNoEngine and let the existing front-end
+// KaTeX auto-render path handle the unchanged jc-math source.
 func RenderMath(tex string, display bool) (string, error) {
 	_ = tex
 	_ = display

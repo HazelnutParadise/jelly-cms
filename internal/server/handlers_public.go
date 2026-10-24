@@ -1,16 +1,20 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"html/template"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	datapkg "github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/markup"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -212,7 +216,9 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		if db == nil {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
 		}
-		db = db.WithContext(c.Request().Context())
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 2*time.Second)
+		defer cancel()
+		db = db.WithContext(ctx)
 		post, err := publicPostBySlug(db, c.Param("slug"))
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.ErrNotFound
@@ -220,7 +226,10 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		if err != nil {
 			return err
 		}
-
+		post.Content, err = publicPostContent(ctx, db, post)
+		if err != nil {
+			return err
+		}
 		content, toc := theme.HeadingIDs(post.Content)
 		post.Content = content
 		prev, next, err := prevNextPosts(db, post)
@@ -330,7 +339,9 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		if db == nil {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
 		}
-		db = db.WithContext(c.Request().Context())
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 2*time.Second)
+		defer cancel()
+		db = db.WithContext(ctx)
 		var page core.Post
 		err := publicPostVisibility(db).Where("posts.type = ? AND posts.slug = ?", "page", slug).
 			Preload("Author").
@@ -341,12 +352,103 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		if err != nil {
 			return err
 		}
+		page.Content, err = publicPostContent(ctx, db, page)
+		if err != nil {
+			return err
+		}
 		return publicRender(c, tm, db, "page.html", page.Title, map[string]interface{}{
 			"IsPage":  true,
 			"Page":    page,
 			"Content": template.HTML(page.Content),
 		})
 	})
+}
+
+func publicPostContent(ctx context.Context, db *gorm.DB, post core.Post) (string, error) {
+	content := post.Content
+	if post.RenderVersion < 1 {
+		content = markup.Policy(markup.TrustStrict).Sanitize(content)
+	}
+	return expandPublicBlocks(ctx, db, content)
+}
+
+var publicDynamicRE = regexp.MustCompile(`<div class="jc-dyn(?: jc-[A-Za-z0-9_-]+)*"[^>]*data-kind="(products|posts)"[^>]*data-args="([^"]*)"[^>]*></div>`)
+
+func dynamicAttrs(raw string) map[string]string {
+	attrs := map[string]string{}
+	for _, line := range strings.Split(raw, "\n") {
+		parts := strings.SplitN(strings.TrimSpace(line), "=", 2)
+		if len(parts) == 2 {
+			attrs[parts[0]] = parts[1]
+		}
+	}
+	return attrs
+}
+
+func queryDynamicItems(db *gorm.DB, kind string, attrs map[string]string) ([]markup.DynamicItem, error) {
+	category := strings.TrimSpace(attrs["category"])
+	limit := 20
+	if raw := attrs["limit"]; raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n >= 1 && n <= 100 {
+			limit = n
+		}
+	}
+	items := []markup.DynamicItem{}
+	switch kind {
+	case "products":
+		q := db.Model(&core.Product{}).Where("products.status = ? AND products.deleted_at IS NULL", "active")
+		if category != "" {
+			q = q.Joins("JOIN product_category_links pcl ON pcl.product_id = products.id").Joins("JOIN product_categories pc ON pc.id = pcl.category_id").Where("pc.slug = ? AND pc.hidden = false", category)
+		}
+		var rows []core.Product
+		if err := q.Order("products.created_at DESC").Limit(limit).Find(&rows).Error; err != nil {
+			return nil, err
+		}
+		for _, p := range rows {
+			items = append(items, markup.DynamicItem{Title: p.Title, URL: "/shop/p/" + p.Slug})
+		}
+	case "posts":
+		q := publicPostVisibility(db).Where("posts.type = ?", "post")
+		if category != "" {
+			q = q.Joins("JOIN post_categories pc ON pc.post_id=posts.id").Joins("JOIN categories c ON c.id=pc.category_id").Where("c.slug = ? AND c.hide_from_list = false", category)
+		}
+		var rows []core.Post
+		if err := q.Order("posts.published_at DESC NULLS LAST, posts.id DESC").Limit(limit).Find(&rows).Error; err != nil {
+			return nil, err
+		}
+		for _, p := range rows {
+			items = append(items, markup.DynamicItem{Title: p.Title, URL: "/post/" + p.Slug})
+		}
+	}
+	return items, nil
+}
+
+func dynamicDataForContent(db *gorm.DB, content string) (markup.DynamicData, error) {
+	data := markup.DynamicData{ItemsByKey: map[string][]markup.DynamicItem{}}
+	for _, m := range publicDynamicRE.FindAllStringSubmatch(content, -1) {
+		kind, attrs := m[1], dynamicAttrs(m[2])
+		key := markup.DynamicItemsKey(kind, attrs)
+		if _, ok := data.ItemsByKey[key]; ok {
+			continue
+		}
+		items, err := queryDynamicItems(db, kind, attrs)
+		if err != nil {
+			return data, err
+		}
+		data.ItemsByKey[key] = items
+	}
+	return data, nil
+}
+
+func expandPublicBlocks(ctx context.Context, db *gorm.DB, content string) (string, error) {
+	if !strings.Contains(content, "jc-dyn") {
+		return content, nil
+	}
+	data, err := dynamicDataForContent(db, content)
+	if err != nil {
+		return "", err
+	}
+	return markup.Expand(ctx, content, data)
 }
 
 func publicPageParam(c echo.Context) int {
