@@ -65,7 +65,8 @@ func userError(c echo.Context, err error, operation string) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "not found"})
 	case errors.Is(err, errUserSelfChange), errors.Is(err, errUserSelfDelete),
 		errors.Is(err, errUserLastAdmin), errors.Is(err, errUserEmailTaken),
-		errors.Is(err, errUserNotInvited), errors.Is(err, errUserInviteNeedsAccept):
+		errors.Is(err, errUserNotInvited), errors.Is(err, errUserInviteNeedsAccept),
+		errors.Is(err, errUserHasOrders):
 		return c.JSON(http.StatusConflict, map[string]string{"error": err.Error()})
 	case errors.Is(err, errUserRoleInvalid), errors.Is(err, errUserReassignInvalid),
 		errors.Is(err, errUserPasswordInvalid), errors.Is(err, errUserNameTaken):

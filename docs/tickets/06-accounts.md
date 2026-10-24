@@ -80,7 +80,7 @@ Status：implemented（本機實作、PostgreSQL 競態測試與 357 項瀏覽�
 | A4 | PATCH `/api/admin/users/:id` | 只接受 `{role, status: active／disabled, display_name}`；最後一位啟用管理員不能降級或停用；不能改自己 → 409 |
 | A5 | POST `/api/admin/users/:id/reset-password` | 1 小時連結 `{reset_url, emailed}`；使用時撤銷該帳號全部登入 |
 | A6 | POST `/api/admin/users/:id/revoke-sessions` | 撤銷全部 |
-| A7 | DELETE `/api/admin/users/:id?reassign_to=` | 有文章／頁面／留言而沒給對象 → 409 `{posts, pages, comments}`；對象必須啟用且可寫作；同一交易內轉移、刪 OAuth 身分（帶操作者寫稽核）、撤銷登入；不能刪自己或最後一位管理員 |
+| A7 | DELETE `/api/admin/users/:id?reassign_to=` | 有文章／頁面／留言而沒給對象 → 409 `{posts, pages, comments}`；對象必須啟用且可寫作；同一交易內轉移、刪 OAuth 身分（帶操作者寫稽核）、撤銷登入；保留歷史版本內容並將已刪除的版本製作者關聯設為 NULL；有訂單的帳號回 409，保留訂單與買家關聯並提示先停用；不能刪自己或最後一位管理員 |
 | A8 | POST `/api/admin/users/bulk` | `{ids ≤ 100, action: disable／enable／set_role／delete}`，逐列套同樣規則，回 `{updated, skipped:[{id, reason}]}` |
 | A9 | GET `/api/admin/roles` | 權限矩陣（唯讀，給設計板的表格） |
 | A10 | 公開 `GET /invite/:token`、`POST /api/invites/accept {token, username?, password, display_name?}`、`GET /password-reset/:token`、`POST /api/password-reset {token, password}` | token 單次；過期或已用 410；接受後 `status=active`、`email_verified_at` 設定 |

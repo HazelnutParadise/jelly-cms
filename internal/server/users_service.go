@@ -35,6 +35,7 @@ var (
 	errUserInviteNeedsAccept = errors.New("invited users must accept their invitation")
 	errUserReassignInvalid   = errors.New("reassignment target must be an active writer")
 	errUserReassignRequired  = errors.New("content must be reassigned before deleting this user")
+	errUserHasOrders         = errors.New("this account has orders; disable it to preserve order history")
 )
 
 var userRoles = []string{"admin", "editor", "author", "customer"}
@@ -288,6 +289,12 @@ func deleteUserLocked(tx *gorm.DB, activeAdmins []core.User, actorID uint, user 
 	if user.Role == "admin" && user.Status == "active" && len(activeAdmins) <= 1 {
 		return errUserLastAdmin
 	}
+	var order core.Order
+	if err := tx.Select("id").Where("user_id = ?", user.ID).Limit(1).Take(&order).Error; err == nil {
+		return errUserHasOrders
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
 	found, err := countUserContent(tx, user.ID)
 	if err != nil {
 		return err
@@ -329,6 +336,9 @@ func deleteUserLocked(tx *gorm.DB, activeAdmins []core.User, actorID uint, user 
 		return err
 	}
 	if err := tx.Unscoped().Where("user_id = ?", user.ID).Delete(&core.OAuthIdentity{}).Error; err != nil {
+		return err
+	}
+	if err := tx.Model(&core.Revision{}).Where("user_id = ?", user.ID).Update("user_id", nil).Error; err != nil {
 		return err
 	}
 	return tx.Delete(&core.User{}, user.ID).Error
@@ -384,7 +394,8 @@ func bulkUpdateUsers(db *gorm.DB, actorID uint, ids []uint, action, role string)
 			continue
 		}
 		if errors.Is(err, errUserNotFound) || errors.Is(err, errUserSelfChange) || errors.Is(err, errUserSelfDelete) ||
-			errors.Is(err, errUserLastAdmin) || errors.Is(err, errUserReassignRequired) || errors.Is(err, errUserInviteNeedsAccept) {
+			errors.Is(err, errUserLastAdmin) || errors.Is(err, errUserReassignRequired) || errors.Is(err, errUserInviteNeedsAccept) ||
+			errors.Is(err, errUserHasOrders) {
 			result.Skipped = append(result.Skipped, bulkUserSkipped{ID: id, Reason: err.Error()})
 			continue
 		}

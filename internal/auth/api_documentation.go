@@ -314,7 +314,7 @@ func accountDocumentationOperations() []authDocumentedOperation {
 		{"PATCH", "/api/admin/users/{id}", "更新使用者角色或狀態", "admin-interactive", "管理員且互動式登入限定；只接受 role、active/disabled status、display_name；不能修改自己的角色或狀態，最後一位啟用管理員不可降級或停用。", true, "200", []string{"400", "401", "403", "404", "409", "500"}},
 		{"POST", "/api/admin/users/{id}/reset-password", "建立密碼重設連結", "admin-interactive", "管理員且互動式登入限定；重設連結一小時有效，成功後撤銷該使用者所有登入。", false, "200", []string{"400", "401", "403", "404", "500"}},
 		{"POST", "/api/admin/users/{id}/revoke-sessions", "撤銷使用者所有登入", "admin-interactive", "管理員且互動式登入限定。", false, "200", []string{"400", "401", "403", "404", "500"}},
-		{"DELETE", "/api/admin/users/{id}", "刪除使用者", "admin-interactive", "管理員且互動式登入限定；可用 reassign_to 指定內容移交對象；不能刪自己或最後一位管理員。", false, "200", []string{"400", "401", "403", "404", "409", "500"}},
+		{"DELETE", "/api/admin/users/{id}", "刪除使用者", "admin-interactive", "管理員且互動式登入限定；可用 reassign_to 指定內容移交對象；有訂單的帳號不可刪除，請停用以保留訂單與買家關聯；不能刪自己或最後一位管理員。", false, "200", []string{"400", "401", "403", "404", "409", "500"}},
 		{"POST", "/api/admin/users/bulk", "批次管理使用者", "admin-interactive", "管理員且互動式登入限定；最多 100 個 ID，逐列套用最後管理員、不能改自己等保護。", true, "200", []string{"400", "401", "403", "500"}},
 		{"GET", "/api/admin/roles", "讀取角色權限矩陣", "admin", "管理員限定，唯讀。", false, "200", []string{"401", "403", "500"}},
 		{"GET", "/invite/{token}", "查看邀請頁", "public", "公開 HTML 頁面；無效或過期 token 回 410 並顯示失效狀態。", false, "200", []string{"410", "500"}},
@@ -591,7 +591,12 @@ func accountParameters(method, path string) []any {
 
 func accountOperationErrorResponse(status, method, path string) map[string]any {
 	if status == "409" && method == "DELETE" && path == "/api/admin/users/{id}" {
-		return authJSONResponse("使用者仍有內容，需提供 reassign_to。", map[string]any{"$ref": "#/components/schemas/UserContentReassignCounts"}, map[string]any{"posts": 1, "pages": 0, "comments": 2})
+		return authJSONResponse("使用者仍有內容，需提供 reassign_to；或帳號仍有訂單，必須停用以保留訂單與買家關聯。", map[string]any{
+			"oneOf": []any{
+				map[string]any{"$ref": "#/components/schemas/UserContentReassignCounts"},
+				map[string]any{"$ref": "#/components/schemas/Error"},
+			},
+		}, map[string]any{"posts": 1, "pages": 0, "comments": 2})
 	}
 	response := authErrorResponse(accountErrorDescription(status, path))
 	if status == "429" {
