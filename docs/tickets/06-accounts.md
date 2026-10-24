@@ -3,7 +3,7 @@
 Epic：帳號與存取
 User Story：站長能邀請與管理成員、停用帳號、重設密碼、刪除時把內容轉給別人；每個成員能改自己的資料、密碼、語言，管理 API 權杖與登入裝置，開啟兩步驟驗證，在通知中心看到待審留言與安全事件。
 Blocked by：03 的角色與 OAuth 身分（已合併）、04 的留言待審掛鉤 `OnCommentPending`（已合併）。
-Status：implemented（本機實作、PostgreSQL 競態測試與 357 項瀏覽器檢查通過；交付與 CI 結果見 PR #24，線上畫布已留言協調、尚待完成回報）
+Status：implemented（本機實作、PostgreSQL 競態測試與 357 項瀏覽器檢查通過；交付與 CI 結果見 PR #24，線上帳號板已同步第 37 版，主代理已核對線上版本）
 設計稿：`design/project/Users、Profile、Tokens、Notifications、Login.dc.html`；本工作單先補：登入的驗證碼步驟（`Login2FA`）、接受邀請（`InviteAccept`）、重設密碼（`PasswordReset`）、個人帳號的兩步驟驗證啟用區與備用碼、使用者刪除時的內容轉移面板；並把 `Profile` 板的分頁改成和 `Tokens`、`Notifications` 相同的六個分頁（基本資料、通知、API 權杖、密碼與安全、登入裝置、第三方帳號），語言只留繁中與 English。
 
 驗收依據：主代理完整差異審查與競態全套、獨立複審、真實伺服器 D7 完整流程；詳細紀錄見 [STATUS.md](../../STATUS.md)。
