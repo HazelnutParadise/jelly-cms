@@ -1081,3 +1081,72 @@ func TestEditorHeadingTextPunctuationDoesNotHideTrailingAttributes(t *testing.T)
 		})
 	}
 }
+
+func TestFlattenPreservesMultilineInlineCodeContainingJellySyntax(t *testing.T) {
+	code := "`\n::counter{to=7}\nend\n`"
+	source := "before " + code + " trailing"
+	rendered := erRender(t, source, "jmd")
+	if !strings.Contains(rendered.HTML, "<code>::counter{to=7} end</code>") {
+		t.Fatalf("fixture did not produce an actual multiline inline-code span: %s", rendered.HTML)
+	}
+	got, err := Flatten(source)
+	if err != nil {
+		t.Fatalf("Flatten: %v", err)
+	}
+	if got != source {
+		t.Errorf("Flatten changed a valid multiline inline-code span: got %q; want %q", got, source)
+	}
+
+	withOutside := "::counter{to=1}\nbefore " + code + " trailing\n::counter{to=3}"
+	outsideRender := erRender(t, withOutside, "jmd")
+	if strings.Count(outsideRender.HTML, `class="jc-counter"`) != 2 || !strings.Contains(outsideRender.HTML, "<code>::counter{to=7} end</code>") {
+		t.Fatalf("fixture must render two active outer counters and a literal inner code span: %s", outsideRender.HTML)
+	}
+	flat, err := Flatten(withOutside)
+	if err != nil {
+		t.Fatalf("Flatten outer-counter fixture: %v", err)
+	}
+	if !strings.Contains(flat, code) || strings.Contains(flat, "::counter{to=1}") || strings.Contains(flat, "::counter{to=3}") {
+		t.Errorf("Flatten must preserve code bytes while flattening active outer counters: %q", flat)
+	}
+}
+
+func TestFlattenContainerEndIgnoresCodeSpanCloser(t *testing.T) {
+	code := "`before\n:::\nafter`"
+	source := ":::hero\n" + code + "\n:::\n"
+	rendered := erRender(t, source, "jmd")
+	if !strings.Contains(rendered.HTML, "<code>before ::: after</code>") || !strings.Contains(rendered.HTML, "<section class=\"jc-hero\"") {
+		t.Fatalf("fixture must have a real hero containing a code span with a literal closer: %s", rendered.HTML)
+	}
+	flat, err := Flatten(source)
+	if err != nil {
+		t.Fatalf("Flatten: %v", err)
+	}
+	if !strings.Contains(flat, code) {
+		t.Errorf("Flatten changed code-span bytes while finding the real container end: %q", flat)
+	}
+}
+
+func TestFlattenStripsAttributesOnlyFromActualMarkdownLinks(t *testing.T) {
+	source := "[Go](/go \"Title\"){.btn reveal=fade-up}\n\n" +
+		`[Brace](/brace){unknown="brace {inside}" escaped="quote\"inside"}` + "\n\n" +
+		"`[Code](/code){.btn}`\n\n" +
+		"![Image](/image.png){.btn}\n\n" +
+		`<a href="/html">HTML</a>{.btn}` + "\n\n" +
+		"ordinary {.btn} text\n\n" +
+		"[Malformed](/bad){.btn\n"
+	got, err := Flatten(source)
+	if err != nil {
+		t.Fatalf("Flatten: %v", err)
+	}
+	for _, want := range []string{`[Go](/go "Title")`, `[Brace](/brace)`, "`[Code](/code){.btn}`", "![Image](/image.png){.btn}", `<a href="/html">HTML</a>{.btn}`, "ordinary {.btn} text", "[Malformed](/bad){.btn"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("Flatten lost or changed protected Markdown source %q: %q", want, got)
+		}
+	}
+	for _, removed := range []string{"reveal=fade-up", `unknown="brace {inside}"`, `escaped="quote\"inside"`} {
+		if strings.Contains(got, removed) {
+			t.Errorf("Flatten retained link attributes %q: %q", removed, got)
+		}
+	}
+}

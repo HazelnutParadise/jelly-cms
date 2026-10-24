@@ -241,6 +241,41 @@ func TestPostContentOnlyWritesPreserveNonObjectJSONMetadata(t *testing.T) {
 	}
 }
 
+func TestLegacyMarkdownExportReturnsStoredSourceVerbatim(t *testing.T) {
+	h := newAccessHarness(t)
+	author := h.user("author", "editor-regression-legacy-md-export")
+	token := h.token(author)
+	source := "::counter{to=7}\n\n" +
+		":::columns\n::: col\nleft\n:::\n::: col\nright\n:::\n:::\n\n" +
+		"[Go](/go){.btn reveal=fade-up}\n\n" +
+		"```html\n<strong>literal</strong>\n```\n"
+	id, _ := edtCreate(t, h, token, map[string]any{"title": "Legacy Markdown export", "source": source})
+	if err := h.db.Model(&core.Post{}).Where("id = ?", id).Update("format", "md").Error; err != nil {
+		t.Fatalf("mark fixture as legacy Markdown: %v", err)
+	}
+
+	legacy := edtExport(h, token, id, "format=md")
+	h.mustNoPanic(legacy, "export legacy Markdown")
+	if legacy.code != http.StatusOK {
+		t.Fatalf("export legacy Markdown returned %d body=%q", legacy.code, legacy.body)
+	}
+	if legacy.body != source {
+		t.Errorf("legacy Markdown export must return stored source byte-for-byte\n got: %q\nwant: %q", legacy.body, source)
+	}
+	jelly := edtExport(h, token, id, "format=jmd")
+	h.mustNoPanic(jelly, "export legacy source as Jelly Markdown")
+	if jelly.code != http.StatusOK || jelly.body != source {
+		t.Errorf("Jelly Markdown export must remain source-verbatim: status=%d body=%q", jelly.code, jelly.body)
+	}
+
+	jmdID, _ := edtCreate(t, h, token, map[string]any{"title": "Jelly Markdown export", "source": "::counter{to=7}\n"})
+	flattened := edtExport(h, token, jmdID, "format=md")
+	h.mustNoPanic(flattened, "flatten Jelly Markdown")
+	if flattened.code != http.StatusOK || strings.Contains(flattened.body, "::counter") || !strings.Contains(flattened.body, "7") {
+		t.Errorf("Jelly Markdown export as md must continue flattening active directives: status=%d body=%q", flattened.code, flattened.body)
+	}
+}
+
 func TestSoftDeletedWidgetKeepsPublishedFrameAddressable(t *testing.T) {
 	h := newAccessHarness(t)
 	token := h.token(h.user("admin", "editor-regression-widget-soft-delete"))
