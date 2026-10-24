@@ -106,8 +106,9 @@ func TestAdminTemplatesLoadNoExternalAssets(t *testing.T) {
 
 func TestVendoredFontsPresent(t *testing.T) {
 	root := repoRoot(t)
+	// Ticket 10 (issue #28 item 10): the fonts live in one place only, web/admin/assets/fonts. The deleted
+	// theme copy is checked by TestThemeFontsKeepOnlyTheAdminCopy.
 	for _, dir := range []string{
-		filepath.Join(root, "web", "themes", "default", "assets", "fonts"),
 		filepath.Join(root, "web", "admin", "assets", "fonts"),
 	} {
 		rel, err := filepath.Rel(root, dir)
