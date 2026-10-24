@@ -9,15 +9,17 @@ import (
 
 // User represents a registered user.
 type User struct {
-	ID        uint      `json:"id" gorm:"primaryKey"`
-	Username  string    `json:"username" gorm:"uniqueIndex;size:50"`
-	Email     string    `json:"email" gorm:"uniqueIndex;size:255"`
-	Password  string    `json:"-"` // Hash
-	AvatarURL string    `json:"avatar_url"`
-	Role      string    `json:"role" gorm:"default:editor"` // admin, editor, author
-	Provider  string    `json:"provider"`                   // local, google, github
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          uint      `json:"id" gorm:"primaryKey"`
+	Username    string    `json:"username" gorm:"uniqueIndex;size:50"`
+	Email       string    `json:"email" gorm:"uniqueIndex;size:255"`
+	Password    string    `json:"-"` // Hash
+	AvatarURL   string    `json:"avatar_url"`
+	DisplayName string    `json:"display_name" gorm:"size:120"`
+	Bio         string    `json:"bio" gorm:"type:text"`
+	Role        string    `json:"role" gorm:"default:editor"` // admin, editor, author
+	Provider    string    `json:"provider"`                   // local, google, github
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // Post represents a content page or blog post.

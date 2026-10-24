@@ -269,15 +269,15 @@ B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", 
   </main>'''))
 
 # ---------- 前台 · 維護模式 ----------
-B["Maintenance"] = ("前台 · 維護模式", FRONT_CSS, 1440, 900, f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#15161A;color:#fff;position:relative;overflow:hidden">
+B["Maintenance"] = ("前台 · 維護模式", FRONT_CSS + ".maintenance-art{position:absolute;inset:0;overflow:clip;pointer-events:none}@media(max-width:700px){.maintenance-art>div{left:auto!important;right:0;top:auto!important;bottom:5rem;transform:scale(.36);transform-origin:bottom right;opacity:.22!important}}", 1440, 900, f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#15161A;color:#F2F3F7;position:relative;overflow:hidden">
   <div class="topline"></div>
-  {cubes(2.6, 900, 160, .95)}
+  <div class="maintenance-art">{cubes(2.6, 900, 160, .95)}</div>
   <main style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 80px;max-width:720px;gap:20px;position:relative">
     <span class="stripe"></span>
     <div class="lbl" style="color:#9A9FAB">503 · 維護中</div>
-    <h1 class="d" style="font-size:72px;letter-spacing:-.04em;line-height:1">我們在升級，<br>大概 10 分鐘。</h1>
-    <p style="margin:0;font-size:18px;color:#C9CBD3;line-height:1.7;max-width:26em">榛果繽紛樂 正在更新到新版本。資料都還在，等一下重新整理就好。</p>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn" type="button" style="background:#2A2B31">{I("refresh")}重新整理</button><a class="btn t" href="Login.dc.html">{I("lock")}管理員登入</a><span style="font-size:13px;color:#9A9FAB">開始於 03:00 · 已過 4 分鐘</span></div>
+    <h1 class="d" style="font-size:72px;letter-spacing:-.04em;line-height:1">網站暫時維護中</h1>
+    <p style="margin:0;font-size:18px;color:#C9CBD3;line-height:1.7;max-width:26em">網站正在維護，完成後會立即恢復。資料都還在，請稍後再試。</p>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn" type="button" style="background:#2A2B31">{I("refresh")}重新整理</button><a class="btn t" href="Login.dc.html">{I("lock")}管理員登入</a><span style="font-size:13px;color:#9A9FAB">維護開始於 03:00 · 已過 4 分鐘</span></div>
   </main>
   <footer style="padding:24px 80px;font-size:13px;color:#5F6470;position:relative">搜尋引擎會收到 503 與 Retry-After，不會影響排名 · Powered by Jelly CMS</footer>
 </div>''')

@@ -12,12 +12,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
     <title>{{if .Title}}{{.Title}} · {{end}}{{.SiteTitle}}</title>
     <meta name="description" content="{{$tagline}}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
     <style>
+        @font-face {
+            font-family: "Noto Sans TC";
+            src: url("/admin/assets/fonts/noto-sans-tc.woff2") format("woff2");
+            font-style: normal;
+            font-weight: 100 900;
+            font-display: swap;
+        }
+        @font-face {
+            font-family: "Bricolage Grotesque";
+            src: url("/admin/assets/fonts/bricolage-grotesque.woff2") format("woff2");
+            font-style: normal;
+            font-weight: 100 900;
+            font-display: swap;
+        }
         /* ------------------------------------------------------------
            Jelly 預設主題
            白底墨字。灰階由墨色調出，顏色只用在小面積。
@@ -45,7 +57,7 @@
             --surface-high: color-mix(in srgb, var(--ink) 12%, var(--surface));
             --primary-container: color-mix(in srgb, var(--primary) 14%, var(--surface));
             --on-primary-container: color-mix(in srgb, var(--primary) 75%, var(--ink));
-            --on-dark: color-mix(in srgb, var(--surface) 92%, var(--dark));
+            --on-dark: #F2F3F7;
 
             --font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
             --font-display: "Bricolage Grotesque", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
@@ -60,10 +72,25 @@
             --measure: 40em;
             --container: {{if eq $containerWidth "full"}}100%{{else if eq $containerWidth "narrow"}}46rem{{else}}74rem{{end}};
         }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                color-scheme: dark;
+                --surface: #141519;
+                --ink: #ECEDF1;
+                --muted: #9A9FAB;
+                --outline: color-mix(in srgb, var(--ink) 18%, var(--surface));
+                --surface-low: color-mix(in srgb, var(--ink) 5%, var(--surface));
+                --surface-mid: color-mix(in srgb, var(--ink) 9%, var(--surface));
+                --surface-high: color-mix(in srgb, var(--ink) 15%, var(--surface));
+                --dark: #0C0D10;
+                --link: color-mix(in srgb, {{themeColor .ThemeColors "link" "#2F6BFF"}} 72%, white);
+                --link-hover: color-mix(in srgb, {{themeColor .ThemeColors "link_hover" "#E8285B"}} 72%, white);
+            }
+        }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        html { scroll-padding-top: 5rem; overflow-x: clip; }
+        html { scroll-padding-top: var(--masthead-scroll-padding, 0px); overflow-x: clip; }
         /* 全幅裝飾（hero 拼盤、頁尾大字）刻意延伸到視窗邊緣，裁掉超出的部分，避免橫向捲動 */
         body { overflow-x: clip; }
 
@@ -204,6 +231,9 @@
         .brand { display: inline-flex; align-items: center; gap: .75rem; color: var(--ink); font-family: var(--font-display); font-weight: 800; font-size: 1.25rem; letter-spacing: -.01em; margin-right: auto; }
         .brand:hover { color: var(--ink); }
         .menu { display: flex; align-items: center; gap: .25rem; }
+        .masthead-controls { display: none; }
+        .masthead-toggle { display: inline-grid; place-items: center; width: 2.75rem; height: 2.75rem; padding: 0; color: var(--ink); background: var(--surface-mid); border: 0; border-radius: var(--r-sm); cursor: pointer; }
+        .masthead-toggle:hover { background: var(--ink); color: var(--surface); }
         .menu a { color: var(--ink); font-weight: 600; font-size: .9375rem; padding: .5rem .9rem; min-height: 2.75rem; display: inline-flex; align-items: center; border-radius: var(--r-sm); }
         .menu a:hover { background: var(--surface-mid); color: var(--ink); }
         .menu a[aria-current="page"] { background: var(--ink); color: var(--surface); }
@@ -271,6 +301,29 @@
         .hero-art i:nth-child(4) { width: 18%; left: 12%; top: 66%; background: var(--warning); opacity: .95; }
         .hero-art i:nth-child(5) { width: 14%; left: 72%; top: 18%; background: var(--ink); opacity: .9; }
 
+        .home-hero { width: 100vw; margin: 0 calc(50% - 50vw) clamp(2.5rem, 6vw, 5rem); display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); color: var(--on-dark); background: var(--dark); overflow: hidden; }
+        .home-hero-copy { width: min(100%, 42rem); justify-self: end; padding: clamp(2.5rem, 7vw, 6rem) var(--gutter); display: grid; gap: 1.25rem; align-content: center; }
+        .home-hero .label { color: color-mix(in srgb, var(--on-dark) 70%, transparent); }
+        .home-hero .display { font-size: clamp(3.25rem, 8vw, 6.5rem); overflow-wrap: anywhere; }
+        .home-tagline { color: color-mix(in srgb, var(--on-dark) 78%, transparent); font-size: clamp(1.125rem, 2vw, 1.375rem); line-height: 1.55; }
+        .home-hero .search-form { max-width: 30rem; }
+        .home-hero .field { background: color-mix(in srgb, var(--on-dark) 12%, var(--dark)); color: var(--on-dark); }
+        .home-hero .field::placeholder { color: color-mix(in srgb, var(--on-dark) 65%, transparent); }
+        .home-hero .hero-art { min-height: 100%; aspect-ratio: auto; margin: 0; border-radius: 0; background: color-mix(in srgb, var(--dark) 78%, var(--on-dark)); }
+        .home-hero .hero-art::before, .home-hero .hero-art::after { background: var(--on-dark); }
+        .home-hero .hero-art i { animation: none; }
+        .home-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; margin-bottom: clamp(2.5rem, 6vw, 4rem); }
+        .home-stats > div { min-width: 0; min-height: 5.5rem; display: flex; align-items: baseline; gap: .75rem; padding: 1rem 1.25rem; border-radius: var(--r-md); background: var(--secondary); color: #fff; }
+        .home-stats > div:nth-child(2) { background: var(--accent); color: color-mix(in srgb, var(--accent) 35%, var(--dark)); }
+        .home-stats > div:nth-child(3) { background: var(--warning); color: color-mix(in srgb, var(--warning) 35%, var(--dark)); }
+        .home-stats strong { font: 800 clamp(1.5rem, 4vw, 2.5rem)/1 var(--font-display); letter-spacing: -.04em; overflow-wrap: anywhere; }
+        .home-stats span { font-size: .875rem; font-weight: 700; }
+        .home-latest { margin-bottom: clamp(3rem, 7vw, 5rem); }
+        .home-entries { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+        .home-intro { width: 100vw; margin: 0 calc(50% - 50vw) clamp(2.5rem, 6vw, 4rem); padding: clamp(2.5rem, 6vw, 4rem) var(--gutter); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 2rem; color: color-mix(in srgb, var(--accent) 35%, var(--dark)); background: var(--accent); border-radius: 0 clamp(3rem, 12vw, 13rem) 0 0; }
+        .home-intro .display { font-size: clamp(2.25rem, 5vw, 4rem); }
+        .home-intro p { max-width: 34em; line-height: 1.7; }
+
         /* ---------- 文章列表 ---------- */
         .section-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
         .section-head h2 { font-size: clamp(1.5rem, 3vw, 2rem); }
@@ -318,7 +371,7 @@
         @media (max-width: 720px) { .entries.layout-grid .entry.is-featured { grid-column: span 1; min-height: 18rem; } }
 
         .entries.layout-list { display: grid; gap: 0; }
-        .entries.layout-list .entry { display: grid; grid-template-columns: 6rem minmax(0, 1fr); gap: .35rem 1.5rem; padding: 1.75rem 1.25rem 1.75rem 0; background: transparent; box-shadow: none; border-radius: 0; border-top: 1px solid var(--outline); }
+        .entries.layout-list .entry { display: grid; grid-template-columns: 6rem minmax(0, 1fr) minmax(8rem, 12rem); gap: .35rem 1.5rem; padding: 1.75rem 1.25rem 1.75rem 0; background: transparent; box-shadow: none; border-radius: 0; border-top: 1px solid var(--outline); }
         .entries.layout-list .entry:last-child { border-bottom: 1px solid var(--outline); }
         .entries.layout-list .entry:hover { box-shadow: none; background: var(--surface-low); border-radius: 0 var(--r-md); padding-left: 1.25rem; }
         .entries.layout-list .entry > * { grid-column: 2; }
@@ -406,16 +459,25 @@
             .hero-art i:nth-child(3) { left: 52%; top: 44%; }
             .hero-art i:nth-child(4) { width: 11%; left: 30%; top: 62%; }
             .hero-art i:nth-child(5) { width: 8%; left: 70%; top: 14%; }
+            .home-hero { grid-template-columns: 1fr; }
+            .home-hero-copy { justify-self: stretch; width: 100%; }
+            .home-hero .hero-art { aspect-ratio: 2 / 1; }
+            .home-entries { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
         }
         @media (max-width: 720px) {
             body { font-size: 1rem; }
-            .masthead-inner { gap: .5rem 1rem; }
-            .masthead .search-form { flex-basis: 100%; }
+            .masthead-inner { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem; }
+            .masthead-controls { display: contents; }
+            .masthead .menu { display: none; grid-column: 1 / -1; align-items: stretch; }
+            .masthead.is-menu-open .menu { display: flex; }
+            .masthead .menu-list { flex-direction: column; align-items: stretch; width: 100%; }
+            .masthead .menu-item > a { width: 100%; }
+            .masthead .sub-menu { position: static; visibility: visible; opacity: 1; transform: none; box-shadow: none; padding: 0 .5rem; min-width: 0; display: flex; flex-wrap: wrap; gap: .1rem; border-radius: 0; background: transparent; }
+            .masthead .search-form { display: none; grid-column: 1 / -1; width: 100%; }
+            .masthead.is-search-open .search-form { display: flex; }
             .masthead .search-form .field { width: auto; }
             .menu a { padding-inline: .65rem; }
             .menu-list { gap: .15rem; }
-            .menu-item.has-sub { display: flex; flex-wrap: wrap; align-items: center; }
-            .sub-menu { position: static; visibility: visible; opacity: 1; transform: none; box-shadow: none; padding: 0; min-width: 0; display: flex; flex-wrap: wrap; gap: .1rem; border-radius: 0; background: transparent; }
             .sub-menu a { font-weight: 500; }
             .hero-copy .search-form { flex-wrap: wrap; }
             .hero-copy .search-form .field { flex-basis: 100%; }
@@ -428,6 +490,19 @@
             .entry-date { display: none !important; }
             .hero-copy { margin-right: 0; }
             .article-foot { flex-direction: column; align-items: stretch; }
+            .home-hero { margin-bottom: 1.5rem; }
+            .home-hero-copy { gap: 1rem; padding-block: 2rem; }
+            .home-hero .display { font-size: clamp(2.75rem, 13vw, 3.5rem); }
+            .home-hero .hero-art { aspect-ratio: 2.2 / 1; }
+            .home-hero .search-form { flex-wrap: nowrap; }
+            .home-hero .search-form .field { flex-basis: 0; }
+            .home-hero .search-form .button { width: auto; }
+            .home-stats { gap: .375rem; margin-bottom: 2rem; }
+            .home-stats > div { min-height: 4.25rem; display: grid; gap: .2rem; padding: .65rem .6rem; }
+            .home-stats strong { font-size: 1.3rem; }
+            .home-stats span { font-size: .6875rem; }
+            .home-entries { grid-template-columns: 1fr !important; }
+            .home-intro { grid-template-columns: 1fr; gap: 1rem; margin-bottom: 2rem; }
         }
         .to-top { position: fixed; right: clamp(1rem, 3vw, 2rem); bottom: clamp(1rem, 3vw, 2rem); z-index: 110; width: 3rem; height: 3rem; display: inline-grid; place-items: center; border: 0; cursor: pointer; background: var(--ink); color: var(--surface); border-radius: var(--r-md); box-shadow: 0 10px 28px color-mix(in srgb, var(--ink) 22%, transparent); opacity: 0; transform: translateY(.75rem) scale(.9); pointer-events: none; transition: opacity .25s ease, transform .35s cubic-bezier(.2, .9, .3, 1.3), border-radius .25s ease, background-color .15s ease; }
         .to-top.is-visible { opacity: 1; transform: none; pointer-events: auto; }
@@ -441,7 +516,7 @@
 </head>
 
 <body>
-    <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol><symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol><symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 20V4M6 10l6-6 6 6"/></symbol>
+    <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol><symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol><symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol><symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 20V4M6 10l6-6 6 6"/></symbol>
         <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></symbol><symbol id="i-copy" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></symbol><symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8 11l8-5M8 13l8 5"/></symbol><symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M19 14v6H4V5h6"/></symbol></svg>
     <a class="skip-link" href="#main">跳到主要內容</a>
 
@@ -451,14 +526,21 @@
                 <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
                 <span>{{.SiteTitle}}</span>
             </a>
-            <nav class="menu" aria-label="主選單">
+            <div class="masthead-controls">
+                <button class="masthead-toggle" id="search-toggle" type="button" aria-label="搜尋" aria-expanded="false" aria-controls="masthead-search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
+                <button class="masthead-toggle" id="menu-toggle" type="button" aria-label="選單" aria-expanded="false" aria-controls="primary-menu"><svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg></button>
+            </div>
+            <nav class="menu" id="primary-menu" aria-label="主選單">
                 {{- $headerMenu := menu "header" -}}
-                {{if $headerMenu}}<ul class="menu-list">{{template "menu_items" $headerMenu}}</ul>
-                {{else}}<a href="/" {{if .IsHome}}aria-current="page"{{end}}>首頁</a>
-                <a href="/posts" {{if .IsPosts}}aria-current="page"{{end}}>文章</a>
-                <a href="/about">關於</a>{{end}}
+                {{if $headerMenu}}<ul class="menu-list">{{range $headerMenu}}
+                <li class="menu-item{{if .Children}} has-sub{{end}}"><a href="{{.URL}}"{{if .NewTab}} target="_blank" rel="noopener"{{end}}{{if or .Active (eq .URL $.CurrentPath)}} aria-current="page"{{end}}{{if .CSSClass}} class="{{.CSSClass}}"{{end}}>{{.Label}}</a>
+                    {{if .Children}}<ul class="sub-menu">{{range .Children}}<li><a href="{{.URL}}"{{if .NewTab}} target="_blank" rel="noopener"{{end}}{{if or .Active (eq .URL $.CurrentPath)}} aria-current="page"{{end}}{{if .CSSClass}} class="{{.CSSClass}}"{{end}}>{{.Label}}</a></li>{{end}}</ul>{{end}}
+                </li>{{end}}</ul>
+                {{else}}<a href="/" {{if or .IsHome (eq .CurrentPath "/")}}aria-current="page"{{end}}>首頁</a>
+                <a href="/posts" {{if or .IsPosts (eq .CurrentPath "/posts")}}aria-current="page"{{end}}>文章</a>
+                <a href="/about" {{if eq .CurrentPath "/about"}}aria-current="page"{{end}}>關於</a>{{end}}
             </nav>
-            <form class="search-form" role="search" action="/search" method="GET">
+            <form class="search-form" id="masthead-search" role="search" action="/search" method="GET">
                 <label class="visually-hidden" for="masthead-q">搜尋</label>
                 <input class="field" id="masthead-q" type="search" name="q" placeholder="搜尋" {{with .Query}}value="{{.}}"{{end}}>
                 <button class="button button-tonal button-icon" type="submit" aria-label="搜尋" title="搜尋"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></button>
@@ -507,6 +589,53 @@
             </div>
         </div>
     </footer>
+    <script>
+    (function () {
+        var masthead = document.querySelector('.masthead');
+        if (!masthead) return;
+        var searchToggle = document.getElementById('search-toggle');
+        var menuToggle = document.getElementById('menu-toggle');
+        var search = document.getElementById('masthead-search');
+        var menu = document.getElementById('primary-menu');
+        function updateScrollPadding() {
+            var position = window.getComputedStyle(masthead).position;
+            var height = position === 'fixed' || position === 'sticky'
+                ? masthead.getBoundingClientRect().height
+                : 0;
+            document.documentElement.style.setProperty(
+                '--masthead-scroll-padding',
+                height ? Math.ceil(height + 8) + 'px' : '0px'
+            );
+        }
+        function setOpen(toggle, open, className) {
+            toggle.setAttribute('aria-expanded', String(open));
+            masthead.classList.toggle(className, open);
+            updateScrollPadding();
+        }
+        updateScrollPadding();
+        if ('ResizeObserver' in window) new ResizeObserver(updateScrollPadding).observe(masthead);
+        window.addEventListener('resize', updateScrollPadding, { passive: true });
+        searchToggle.addEventListener('click', function () {
+            var open = searchToggle.getAttribute('aria-expanded') !== 'true';
+            setOpen(searchToggle, open, 'is-search-open');
+            if (open) search.querySelector('input').focus();
+        });
+        menuToggle.addEventListener('click', function () {
+            setOpen(menuToggle, menuToggle.getAttribute('aria-expanded') !== 'true', 'is-menu-open');
+        });
+        masthead.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') return;
+            if (searchToggle.getAttribute('aria-expanded') === 'true') {
+                setOpen(searchToggle, false, 'is-search-open');
+                searchToggle.focus();
+            }
+            if (menuToggle.getAttribute('aria-expanded') === 'true') {
+                setOpen(menuToggle, false, 'is-menu-open');
+                menuToggle.focus();
+            }
+        });
+    })();
+    </script>
     <button class="to-top" id="to-top" type="button" aria-label="回到頂部" title="回到頂部">
         <svg class="icon" aria-hidden="true"><use href="#i-arrow-up"></use></svg>
     </button>
