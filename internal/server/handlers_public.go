@@ -332,7 +332,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		slug := c.Param("slug")
 		switch slug {
 		case "posts", "search", "post", "c", "t", "author", "archive", "api", "admin", "auth", "login", "install", "uploads", "themes",
-			"shop", "cart", "checkout", "orders", "account":
+			"robots.txt", "sitemap.xml", "llms.txt", "feed.xml", "healthz":
 			return echo.ErrNotFound
 		}
 		db := datapkg.DB

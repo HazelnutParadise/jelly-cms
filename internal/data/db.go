@@ -160,7 +160,13 @@ func MigrateDB(db *gorm.DB) error {
 	if err := migrateOAuthIdentities(db); err != nil {
 		return err
 	}
-	return runEmbeddedMigrations(db)
+	if err := checkSchemaNotNewer(db); err != nil {
+		return err
+	}
+	if err := runEmbeddedMigrations(db); err != nil {
+		return err
+	}
+	return recordSchemaMigrations(db)
 }
 
 // embeddedMigrationFiles holds the SQL migrations shipped with the binary.

@@ -3,6 +3,7 @@
 <style>
     .gateway-card { transition: opacity .12s ease; }
     .gateway-card.disabled .setting-row:not(.toggle-row) { opacity: .45; }
+    .tabs > a.tab { text-decoration: none; }
 </style>
 <link rel="stylesheet" href="/admin/assets/shop-admin.css">
 {{end}}
@@ -13,16 +14,14 @@
     </div>
 </div>
 
-<div class="tabs" role="tablist">
-    <button class="tab active" onclick="switchTab('general')">General</button>
-    <button class="tab" onclick="switchTab('oauth')">OAuth</button>
-    <button class="tab" onclick="switchTab('shop')">{{if eq .Lang "en"}}Shop{{else}}商店{{end}}</button>
-    <button class="tab" onclick="switchTab('shipping')">{{if eq .Lang "en"}}Shipping{{else}}運送{{end}}</button>
-    <button class="tab" onclick="switchTab('payment')">{{if eq .Lang "en"}}Payments{{else}}金流{{end}}</button>
-</div>
+<nav class="tabs" role="tablist" aria-label="{{.T.settings}}">
+    {{range .Tabs}}<a class="tab{{if .Active}} active{{end}}" role="tab" aria-selected="{{if .Active}}true{{else}}false{{end}}" href="{{.Href}}">{{with index $.T .Label}}{{.}}{{else}}{{.Label}}{{end}}</a>{{end}}
+    <a class="tab" href="/admin/tools/backup">{{.T.tools}}</a>
+    <a class="tab" href="/admin/logs">{{.T.logs}}</a>
+</nav>
 
 <!-- General Settings -->
-<div id="generalTab" class="tab-content active">
+<div id="generalTab" class="tab-content{{if and .ActiveTab (eq .ActiveTab "site")}} active{{end}}">
     <form id="settingsForm" class="settings-group">
         <div class="settings-group-head">
             <div>
@@ -61,7 +60,7 @@
 </div>
 
 <!-- OAuth Settings -->
-<div id="oauthTab" class="tab-content">
+<div id="oauthTab" class="tab-content{{if and .ActiveTab (eq .ActiveTab "auth")}} active{{end}}">
     <form id="googleForm" class="settings-group gateway-card" data-gateway="google">
         <div class="settings-group-head">
             <div>
@@ -125,7 +124,7 @@
     <div id="shopLoad" aria-live="polite"></div>
 </div>
 
-<div id="shopTab" class="tab-content">
+<div id="shopTab" class="tab-content{{if eq .ActiveTab "shop"}} active{{end}}">
     <form class="settings-group" id="shopForm" novalidate data-shop-form>
         <div class="settings-group-head"><div><h2 data-t="gShop"></h2><p data-t="gShopHint"></p></div></div>
         <div class="setting-row">
@@ -181,7 +180,7 @@
     </form>
 </div>
 
-<div id="shippingTab" class="tab-content">
+<div id="shippingTab" class="tab-content{{if eq .ActiveTab "shipping"}} active{{end}}">
     <form class="settings-group" novalidate data-shop-form>
         <div class="settings-group-head">
             <div><h2 data-t="gShipping"></h2><p data-t="gShippingHint"></p></div>
@@ -199,7 +198,7 @@
     </form>
 </div>
 
-<div id="paymentTab" class="tab-content">
+<div id="paymentTab" class="tab-content{{if eq .ActiveTab "payment"}} active{{end}}">
     <form class="settings-group gateway-card" novalidate data-shop-form data-gw="ecpay">
         <div class="settings-group-head">
             <div><h2 data-t="ecpayTitle"></h2><p data-t="ecpayHint"></p></div>
@@ -250,21 +249,12 @@
 </div>
 {{end}}
 {{define "scripts"}}
+<!-- Tabs registered by other tickets have no pane here yet. -->
+<div id="pendingTab" class="tab-content{{if not (or (and .ActiveTab (eq .ActiveTab "site")) (and .ActiveTab (eq .ActiveTab "auth")) (and .ActiveTab (eq .ActiveTab "payment")) (and .ActiveTab (eq .ActiveTab "shop")) (and .ActiveTab (eq .ActiveTab "shipping")))}} active{{end}}">
+    <p class="hint">{{.T.settingsTabPending}}</p>
+</div>
+
 <script>
-    function switchTab(tabName) {
-        // Hide all tabs
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-
-        // Show selected tab
-        document.getElementById(tabName + 'Tab').classList.add('active');
-        event.target.classList.add('active');
-    }
-
     async function loadSettings() {
         try {
             const res = await fetch('/api/admin/settings');

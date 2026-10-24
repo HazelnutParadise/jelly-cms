@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from gen import I, doc, ADMIN_CSS, FRONT_CSS, OUT, admin, front, cubes, SUB_CSS, profile_nav, pages
+from gen import I, doc, ADMIN_CSS, FRONT_CSS, OUT, admin, front, cubes, SUB_CSS, profile_nav, settings_nav, pages
 
 CSS = ADMIN_CSS + SUB_CSS + '''
 .nrow{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;padding:12px 10px;border-top:1px solid #EEEFF2;align-items:flex-start}
@@ -16,9 +16,6 @@ CSS = ADMIN_CSS + SUB_CSS + '''
 .pol .ico{width:36px;height:36px;border-radius:0 10px 0 10px;display:grid;place-items:center;color:#fff;flex:0 0 auto}
 '''
 
-def settings_nav(on):
-    items=[("globe","網站","Settings.dc.html"),("list","閱讀與網址","SettingsRoutes.dc.html"),("key","登入與註冊","Settings.dc.html"),("comment","留言","Settings.dc.html"),("card","金流","Settings.dc.html"),("truck","運送","Settings.dc.html"),("mail","郵件與通知","Settings.dc.html"),("db","快取與佇列","Infra.dc.html"),("terminal","程式碼注入","SettingsRoutes.dc.html"),("download","更新","Update.dc.html")]
-    return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px" aria-label="設定分類">'+"".join(f'<a href="{h}"{" class=\"on\"" if l==on else ""}>{I(ic,14)}{l}</a>' for ic,l,h in items)+'</nav>'
 
 B = {}
 
@@ -293,15 +290,15 @@ B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", 
     <section style="max-width:900px;display:flex;flex-direction:column;gap:28px">
       <div>
         <div class="lbl" style="margin-bottom:4px">網址結構</div>
-        <div class="srow"><div><label>文章網址</label><div class="h">改了會自動幫舊網址建 301 轉址。</div></div><div class="c"><select class="ul"><option>/posts/{{slug}}</option><option>/{{year}}/{{month}}/{{slug}}</option><option>/{{year}}/{{slug}}</option><option>/{{category}}/{{slug}}</option><option>/archives/{{slug}}</option></select></div></div>
+        <div class="srow"><div><label>文章網址</label><div class="h">改了會自動幫舊網址建 301 轉址。</div></div><div class="c"><select class="ul"><option>/post/{{slug}}</option><option>/{{year}}/{{month}}/{{slug}}</option><option>/{{year}}/{{slug}}</option><option>/{{category}}/{{slug}}</option><option>/archives/{{slug}}</option></select></div></div>
         <div class="srow"><div><label>網址別名怎麼產生</label></div><div class="c"><div class="seg"><span class="on">從標題（拼音／英文）</span><span>時間戳</span><span>短亂碼</span></div></div></div>
         <div class="srow"><div><label>分類 / 標籤 / 作者 / 月份 前綴</label></div><div class="c" style="gap:4px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><input class="ul" type="text" value="/c/" style="width:64px"><input class="ul" type="text" value="/t/" style="width:64px"><input class="ul" type="text" value="/author/" style="width:84px"><input class="ul" type="text" value="/archive/" style="width:90px"></div></div>
-        <div class="srow"><div><label>預覽</label></div><div class="c" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#5F6470;justify-content:flex-start;flex-direction:column;align-items:flex-start;gap:2px"><span>example.com/posts/caramel-pudding</span><span>example.com/c/recipes/desserts</span><span>example.com/t/gelatin</span></div></div>
+        <div class="srow"><div><label>預覽</label></div><div class="c" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#5F6470;justify-content:flex-start;flex-direction:column;align-items:flex-start;gap:2px"><span>example.com/post/caramel-pudding</span><span>example.com/c/recipes/desserts</span><span>example.com/t/gelatin</span></div></div>
       </div>
       <div>
         <div class="lbl" style="margin-bottom:4px">列表</div>
         <div class="srow"><div><label>首頁顯示</label></div><div class="c"><div class="seg"><span class="on">最新文章</span><span>指定頁面</span></div></div></div>
-        <div class="srow"><div><label>每頁幾篇（首頁 / 分類標籤 / 作者 / 搜尋）</label></div><div class="c" style="gap:4px"><input class="ul" type="text" value="12" style="width:48px;text-align:center"><input class="ul" type="text" value="12" style="width:48px;text-align:center"><input class="ul" type="text" value="12" style="width:48px;text-align:center"><input class="ul" type="text" value="20" style="width:48px;text-align:center"></div></div>
+        <div class="srow"><div><label>每頁幾篇（首頁 / 分類標籤 / 作者 / 搜尋）</label></div><div class="c" style="gap:4px"><input class="ul" type="text" value="10" style="width:48px;text-align:center"><input class="ul" type="text" value="10" style="width:48px;text-align:center"><input class="ul" type="text" value="10" style="width:48px;text-align:center"><input class="ul" type="text" value="10" style="width:48px;text-align:center"></div></div>
         <div class="srow"><div><label>摘要</label><div class="h">沒手寫摘要時自動取幾個字。</div></div><div class="c"><input class="ul" type="text" value="110" style="width:64px;text-align:center"></div></div>
         <div class="srow"><div><label>RSS / Atom</label><div class="h">/feed.xml、每個分類與作者也有自己的 feed。</div></div><div class="c"><div class="seg"><span class="on">全文</span><span>摘要</span><span>關</span></div></div></div>
         <div class="srow"><div><label>Sitemap 與 robots.txt</label><div class="h">自動產生，變更後 ping 搜尋引擎（IndexNow）。</div></div><div class="c"><span class="tg"></span></div></div>

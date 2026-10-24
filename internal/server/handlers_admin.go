@@ -1,7 +1,6 @@
 package server
 
 import (
-	"archive/zip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,10 +15,16 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/payment"
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
+	"github.com/HazelnutParadise/jelly-cms/internal/settings"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/gorm"
 )
+
+// uploadBodyLimit is the request size cap for routes that accept files. Every
+// other route is limited to the global 2 MiB in RegisterRoutes.
+const uploadBodyLimit = "64M"
 
 func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 	registerAdminRoutes(e, tm, nil)
@@ -60,7 +65,7 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		}
 
 		return c.JSON(http.StatusOK, map[string]string{"url": "/uploads/" + file.Filename})
-	})
+	}, middleware.BodyLimit(uploadBodyLimit))
 
 	content.DELETE("/media/:filename", func(c echo.Context) error {
 		filename := c.Param("filename")
@@ -105,7 +110,7 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		}
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "Replaced"})
-	})
+	}, middleware.BodyLimit(uploadBodyLimit))
 
 	content.POST("/media/rename", func(c echo.Context) error {
 		var req struct {
@@ -298,7 +303,7 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		return c.JSON(http.StatusOK, plugins)
 	})
 
-	// Upload plugin
+	// Upload plugin. The archive is validated and extracted by plugin.InstallArchive.
 	api.POST("/plugins/upload", func(c echo.Context) error {
 		file, err := c.FormFile("plugin")
 		if err != nil {
@@ -317,100 +322,31 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		}
 		defer src.Close()
 
-		// Create temporary file
-		tmpPath := filepath.Join(os.TempDir(), file.Filename)
-		dst, err := os.Create(tmpPath)
+		// Copy the upload to a temporary file with a generated name.
+		tmp, err := os.CreateTemp("", "jelly-plugin-*.zip")
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create temporary file"})
 		}
-		defer dst.Close()
-		defer os.Remove(tmpPath) // Clean up temp file
-
-		// Copy uploaded file to temp
-		if _, err = io.Copy(dst, src); err != nil {
+		tmpPath := tmp.Name()
+		defer os.Remove(tmpPath)
+		if _, err = io.Copy(tmp, src); err != nil {
+			tmp.Close()
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save uploaded file"})
 		}
-		dst.Close()
+		if err := tmp.Close(); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save uploaded file"})
+		}
 
-		// Extract ZIP file
-		pluginsDir := "data/plugins"
-		os.MkdirAll(pluginsDir, 0755)
-
-		// Use archive/zip to extract
-		r, err := zip.OpenReader(tmpPath)
+		pluginID, err := plugin.InstallArchive(tmpPath, filepath.Join("data", "plugins"))
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ZIP file: " + err.Error()})
-		}
-		defer r.Close()
-
-		// Find plugin.json to determine plugin directory name
-		var pluginID string
-		var pluginJSONFound bool
-		for _, f := range r.File {
-			if f.Name == "plugin.json" || strings.HasSuffix(f.Name, "/plugin.json") {
-				// Read plugin.json to get plugin ID
-				rc, err := f.Open()
-				if err != nil {
-					continue
-				}
-				var meta plugin.PluginMetadata
-				if json.NewDecoder(rc).Decode(&meta) == nil {
-					pluginID = meta.ID
-					pluginJSONFound = true
-				}
-				rc.Close()
-				break
+			if plugin.IsArchiveError(err) {
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 			}
-		}
-
-		if !pluginJSONFound {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin.json not found in ZIP file"})
-		}
-
-		if pluginID == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid plugin.json: ID field is required"})
-		}
-
-		// Extract to plugin directory
-		pluginDir := filepath.Join(pluginsDir, pluginID)
-		os.MkdirAll(pluginDir, 0755)
-
-		for _, f := range r.File {
-			// Skip directories and hidden files
-			if f.FileInfo().IsDir() || strings.HasPrefix(f.Name, ".") || strings.Contains(f.Name, "..") {
-				continue
-			}
-
-			// Get relative path from ZIP root
-			relPath := f.Name
-			if idx := strings.Index(relPath, "/"); idx >= 0 {
-				relPath = relPath[idx+1:]
-			}
-			if relPath == "" {
-				continue
-			}
-
-			destPath := filepath.Join(pluginDir, relPath)
-			os.MkdirAll(filepath.Dir(destPath), 0755)
-
-			rc, err := f.Open()
-			if err != nil {
-				continue
-			}
-
-			dstFile, err := os.Create(destPath)
-			if err != nil {
-				rc.Close()
-				continue
-			}
-
-			io.Copy(dstFile, rc)
-			rc.Close()
-			dstFile.Close()
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Plugin installation failed"})
 		}
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "Plugin uploaded and extracted successfully", "plugin_id": pluginID})
-	})
+	}, middleware.BodyLimit(uploadBodyLimit))
 
 	// Reload plugin
 	api.POST("/plugins/:id/reload", func(c echo.Context) error {
@@ -432,9 +368,15 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 	})
 
 	// Settings
+	// GET masks secret values; POST accepts only registered keys and audits the write.
 	api.GET("/settings", func(c echo.Context) error {
 		var options []core.Option
-		data.DB.Find(&options)
+		if err := data.DB.WithContext(c.Request().Context()).Find(&options).Error; err != nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+		}
+		for i := range options {
+			options[i].Value = settings.Masked(options[i].Key, options[i].Value)
+		}
 		return c.JSON(http.StatusOK, options)
 	})
 
@@ -443,10 +385,8 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		if err := c.Bind(&req); err != nil {
 			return err
 		}
-		if data.DB == nil {
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
-		}
-		db := data.DB.WithContext(c.Request().Context())
+		// The three maintenance keys keep ticket 05's validation and the
+		// started_at stamping; everything else goes through the registry.
 		maintenance := make(map[string]string, 3)
 		for _, key := range []string{maintenanceEnabledKey, maintenanceMessageKey, maintenanceStartedKey} {
 			if value, ok := req[key]; ok {
@@ -454,8 +394,20 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 				delete(req, key)
 			}
 		}
+		var unknown []string
+		for k := range req {
+			if _, ok := settings.Lookup(k); !ok {
+				unknown = append(unknown, k)
+			}
+		}
+		if len(unknown) > 0 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Unknown setting keys: " + strings.Join(unknown, ", ")})
+		}
 		if len(maintenance) > 0 {
-			if err := saveMaintenanceOptions(db, maintenance); err != nil {
+			if data.DB == nil {
+				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+			}
+			if err := saveMaintenanceOptions(data.DB.WithContext(c.Request().Context()), maintenance); err != nil {
 				status := http.StatusServiceUnavailable
 				if errors.Is(err, errInvalidMaintenanceSetting) {
 					status = http.StatusBadRequest
@@ -463,15 +415,19 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 				return c.JSON(status, map[string]string{"error": "Unable to save settings"})
 			}
 		}
-		for k, v := range req {
-			var opt core.Option
-			if err := db.FirstOrCreate(&opt, core.Option{Key: k}).Error; err != nil {
-				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Unable to save settings"})
+		actor, _ := auth.GetUserFromContext(c)
+		var actorID uint
+		if actor != nil {
+			actorID = actor.ID
+		}
+		if err := settings.Set(c.Request().Context(), actorID, req); err != nil {
+			switch {
+			case errors.Is(err, settings.ErrTooLarge):
+				return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{"error": "Setting value is too large"})
+			case errors.Is(err, settings.ErrUnknownKey), errors.Is(err, settings.ErrInvalidValue):
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 			}
-			opt.Value = v
-			if err := db.Save(&opt).Error; err != nil {
-				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Unable to save settings"})
-			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Settings save failed"})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"message": "Settings saved"})
 	})

@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from gen import I, doc, ADMIN_CSS, OUT, admin
+from gen import I, doc, ADMIN_CSS, OUT, admin, settings_nav
 
 CSS = ADMIN_CSS + '''
 .sub a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#5F6470;font-weight:600;font-size:13px}
@@ -16,9 +16,7 @@ CSS = ADMIN_CSS + '''
 '''
 
 def subnav():
-    return f'''<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px" aria-label="設定分類">
-        <a href="Settings.dc.html">{I("globe",14)}網站</a><a href="Settings.dc.html">{I("key",14)}登入與 OAuth</a><a href="Settings.dc.html">{I("card",14)}金流</a><a href="Settings.dc.html">{I("truck",14)}運送</a><a href="Settings.dc.html">{I("mail",14)}郵件</a><a href="Backup.dc.html">{I("db",14)}備份與匯入</a><a href="Users.dc.html">{I("users",14)}使用者</a><a class="on" href="Update.dc.html">{I("download",14)}更新</a><a href="Logs.dc.html">{I("terminal",14)}系統日誌</a>
-      </nav>'''
+    return settings_nav("更新")
 
 RELEASE_NOTES = f'''<div class="notes" style="font-size:13px">
           <h4>0.9.4 · 2026-10-21</h4>

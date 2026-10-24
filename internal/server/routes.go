@@ -10,13 +10,38 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	appI18n "github.com/HazelnutParadise/jelly-cms/internal/i18n"
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
+	"github.com/HazelnutParadise/jelly-cms/internal/syslog"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 )
 
+// globalBodyLimit caps every request body. Routes that accept files raise the
+// limit themselves (see uploadBodyLimit in handlers_admin.go) and are skipped here.
+const globalBodyLimit = "2M"
+
+// isUploadRoute reports whether the matched route accepts file uploads.
+func isUploadRoute(c echo.Context) bool {
+	switch c.Path() {
+	case "/api/admin/media", "/api/admin/media/:filename", "/api/admin/plugins/upload":
+		return true
+	}
+	return false
+}
+
 // RegisterRoutes sets up the server routes.
 func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runtime) {
+	// Client IPs come from the socket unless JELLY_TRUSTED_PROXIES names the
+	// proxies whose X-Forwarded-For header may be believed.
+	if e.IPExtractor == nil {
+		e.IPExtractor = trustedProxyExtractorFromEnv()
+	}
+	e.Use(syslog.RequestID())
+	e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
+		Limit:   globalBodyLimit,
+		Skipper: isUploadRoute,
+	}))
 	gate := newInstallGate()
 	e.Use(gate.middleware)
 	e.Use(installStateMiddleware)
@@ -24,7 +49,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	e.Use(maintenanceMiddleware(tm))
 	e.Use(enforceStaffAdminAPIs)
 	e.Use(enforceStaffAdminPages)
-	e.Static("/uploads", "data/uploads")
+	registerUploadRoutes(e)
 	e.Static("/admin/assets", "web/admin/assets")
 
 	// Install Routes
@@ -109,12 +134,10 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 		return renderAdmin(c, "plugins.html", "plugins")
 	})
 
+	// Settings tabs (/admin/settings and /admin/settings/:tab).
+	registerSettingsRoutes(e)
 	adminPages.GET("/widgets", func(c echo.Context) error {
 		return renderAdmin(c, "widgets.html", "widgets")
-	})
-
-	adminPages.GET("/settings", func(c echo.Context) error {
-		return renderAdmin(c, "settings.html", "settings")
 	})
 
 	e.GET("/login", func(c echo.Context) error {
@@ -165,6 +188,8 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	// Content organisation: taxonomy, menus, comments, trash, revisions, archives
 	registerContentRoutes(e, tm, renderAdmin)
 
+	// System endpoints and public feeds. They must precede the /:slug catch-all.
+	registerSystemRoutes(e)
 	// Accounts: self-service, user administration, notifications (ticket 06).
 	registerAccountRoutes(e, renderAdmin)
 	registerUserRoutes(e, renderAdmin)

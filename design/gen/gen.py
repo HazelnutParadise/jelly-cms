@@ -76,6 +76,14 @@ def I(name, size=None, extra=""):
     s = f' style="width:{size}px;height:{size}px"' if size else ""
     return f'<svg class="ic"{s} viewBox="0 0 24 24"{extra}>{ICONS[name]}</svg>'
 
+# 設定頁分頁列：所有設定板共用這一份（Settings、SettingsRoutes、SettingsCrawlers、Infra、Update、UpdateContainer）。
+# 手寫的 Settings 板要貼同一份標記；改這裡就要同步 Settings.dc.html。
+SETTINGS_TABS = [("globe","網站","Settings.dc.html"),("list","閱讀與網址","SettingsRoutes.dc.html"),("search","搜尋引擎與 AI 爬蟲","SettingsCrawlers.dc.html"),("key","登入與 OAuth","Settings.dc.html"),("comment","留言","Settings.dc.html"),("card","金流","Settings.dc.html"),("truck","運送","Settings.dc.html"),("mail","郵件與通知","Settings.dc.html"),("db","快取與佇列","Infra.dc.html"),("download","更新","Update.dc.html")]
+SETTINGS_LINKS = [("upload","備份與匯入","Backup.dc.html"),("users","使用者","Users.dc.html"),("terminal","系統日誌","Logs.dc.html")]
+def settings_nav(on=None):
+    tab = lambda ic,l,h: f'<a href="{h}"{" class=\"on\"" if l==on else ""}>{I(ic,14)}{l}</a>'
+    return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px" aria-label="設定分類">'+"".join(tab(*t) for t in SETTINGS_TABS)+'<div style="height:1px;background:#EEEFF2;margin:6px 10px" role="separator"></div>'+"".join(tab(*t) for t in SETTINGS_LINKS)+'</nav>'
+
 BASE_CSS = '''
 body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
 a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
@@ -833,12 +841,12 @@ pages["Redirects"] = ("後台轉址與 SEO", ADMIN_CSS, 1440, 1000, admin("redir
   f'<button class="btn t" type="button">{I("upload")}匯入 CSV</button><button class="btn p" type="button">{I("plus")}新增轉址</button>',
   f'''<main style="padding: 16px 24px 32px; display:grid; grid-template-columns: minmax(0,1fr) 360px; gap:24px; align-items:start">
     <section>
-      <div class="seg" style="margin-bottom:14px"><span class="on">{I("redirect",14)}轉址 <b>231</b></span><span>{I("alert",14)}404 紀錄 <b style="color:#E8285B">18</b></span><span>{I("globe",14)}SEO 預設</span><span>{I("list",14)}Sitemap 與 robots</span></div>
+      <div class="seg" style="margin-bottom:14px"><span class="on">{I("redirect",14)}轉址 <b>231</b></span><span>{I("alert",14)}404 紀錄 <b style="color:#E8285B">18</b></span><span style="padding:0"><a href="Settings.dc.html" style="display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;color:inherit">{I("globe",14)}SEO 預設</a></span></div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:280px;color:#5F6470;font-size:13px">{I("search",14)}<input type="text" placeholder="找來源或目標網址" aria-label="搜尋轉址" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><div class="seg"><span class="on">全部</span><span>301</span><span>302</span><span>自動建立</span></div><span style="margin-left:auto;font-size:12px;color:#5F6470">225 筆是 WordPress 匯入時自動建的</span></div>
       <table>
         <thead><tr><th style="width:36px"><span class="cb"></span></th><th>從</th><th></th><th>到</th><th>類型</th><th>命中</th><th></th></tr></thead>
         <tbody>
-          <tr><td><span class="cb"></span></td><td class="mono" style="font-weight:600;font-family:ui-monospace,Menlo,monospace;font-size:12.5px">/2026/10/21/caramel-pudding/</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Post.dc.html">/posts/caramel-pudding</a></td><td><span class="chip nd">301</span></td><td class="mono">1,204</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
+          <tr><td><span class="cb"></span></td><td class="mono" style="font-weight:600;font-family:ui-monospace,Menlo,monospace;font-size:12.5px">/2026/10/21/caramel-pudding/</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Post.dc.html">/post/caramel-pudding</a></td><td><span class="chip nd">301</span></td><td class="mono">1,204</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
           <tr><td><span class="cb"></span></td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:600">/shop/gift-box-2025</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Product.dc.html">/shop/gift-box</a></td><td><span class="chip nd">301</span></td><td class="mono">388</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
           <tr><td><span class="cb"></span></td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:600">/promo</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Shop.dc.html">/shop?tag=midautumn</a></td><td><span class="chip info">302 · 到 10/31</span></td><td class="mono">2,910</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
           <tr><td><span class="cb"></span></td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:600">/category/recipes/*</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Archive.dc.html">/c/recipes/$1</a></td><td><span class="chip nd">301 · 規則</span></td><td class="mono">7,120</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
@@ -861,9 +869,13 @@ pages["Redirects"] = ("後台轉址與 SEO", ADMIN_CSS, 1440, 1000, admin("redir
       <label style="display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600">保留原本的 ?query<span class="tg"></span></label>
       <label style="display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600">當成規則（支援 * 和 $1）<span class="tg off"></span></label>
       <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("external")}先測試</button></div>
-      <div style="border-top:1px solid #EEEFF2;padding-top:12px;font-size:12px;color:#5F6470;line-height:1.6">SEO 預設頁放在第三個分頁：標題格式「%標題% · %站名%」、預設 OG 圖、是否讓搜尋引擎索引、每篇文章可覆寫。</div>
-    </aside>
-  </main>'''))
+      </aside>
+  </main>
+  <div style="padding:0 24px 40px"><div style="border-top:2px dashed #D9DBE0;padding-top:16px;display:flex;flex-direction:column;gap:12px;max-width:1040px">
+    <span class="lbl">分頁：SEO 預設</span>
+    <div class="seg" style="align-self:flex-start"><span>{I("redirect",14)}轉址 <b>231</b></span><span>{I("alert",14)}404 紀錄 <b style="color:#E8285B">18</b></span><span class="on">{I("globe",14)}SEO 預設</span></div>
+    <div class="card" style="display:flex;align-items:center;gap:14px;padding:16px 18px"><span style="width:36px;height:36px;background:#F3F3F5;display:grid;place-items:center;border-radius:0 10px 0 10px">{I("globe",18)}</span><div style="flex:1;font-size:13px;line-height:1.6"><b style="font-size:14px">SEO 預設不在這裡改</b><div style="color:#5F6470">標題格式「%title% · %site%」、預設 OG 圖、是否讓搜尋引擎索引、各類型索引、摘要模式與 IndexNow，都在設定頁的「SEO 預設」；每篇文章與商品可以各自覆寫。</div></div><a class="btn" href="Settings.dc.html">{I("settings")}前往設定</a></div>
+  </div></div>'''))
 
 # ======================= ADMIN: Logs =======================
 def lrow(t, lv, src, msg):
