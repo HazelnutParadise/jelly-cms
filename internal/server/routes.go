@@ -47,6 +47,8 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	e.Use(installStateMiddleware)
 	e.Use(I18nMiddleware)
 	e.Use(maintenanceMiddleware(tm))
+	e.Use(enforceStaffAdminAPIs)
+	e.Use(enforceStaffAdminPages)
 	registerUploadRoutes(e)
 	e.Static("/admin/assets", "web/admin/assets")
 
@@ -75,7 +77,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	registerPaletteRoutes(e)
 
 	// Admin page routes with authentication
-	adminPages := e.Group("/admin", auth.RequireAuth)
+	adminPages := e.Group("/admin", auth.RequireAuth, staffPageGate)
 	adminPages.GET("", func(c echo.Context) error {
 		return renderAdmin(c, "index.html", "dashboard")
 	})
@@ -134,6 +136,9 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 
 	// Settings tabs (/admin/settings and /admin/settings/:tab).
 	registerSettingsRoutes(e)
+	adminPages.GET("/widgets", func(c echo.Context) error {
+		return renderAdmin(c, "widgets.html", "widgets")
+	})
 
 	e.GET("/login", func(c echo.Context) error {
 		tmpl, err := template.ParseFiles("web/admin/login.html")
@@ -185,6 +190,14 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 
 	// System endpoints and public feeds. They must precede the /:slug catch-all.
 	registerSystemRoutes(e)
+	// Accounts: self-service, user administration, notifications (ticket 06).
+	registerAccountRoutes(e, renderAdmin)
+	registerUserRoutes(e, renderAdmin)
+	wireNotifications()
+
+	// Shop: storefront, cart and checkout (public), admin orders, coupons and settings
+	registerShopRoutes(e, tm)
+	registerShopAdminRoutes(e, renderAdmin)
 
 	// Public Routes (Catch-all should be last)
 	registerAccountPages(e)

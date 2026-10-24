@@ -10,6 +10,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/markup"
 	"github.com/goccy/go-json"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -77,6 +78,8 @@ func RecordRevision(db *gorm.DB, post core.Post, userID uint, kind string) (*cor
 		Kind:    kind,
 		Title:   post.Title,
 		Content: post.Content,
+		Source:  post.Source,
+		Format:  post.Format,
 		Excerpt: post.Excerpt,
 		Meta:    post.Meta,
 		Added:   added,
@@ -105,7 +108,7 @@ func RecordRevision(db *gorm.DB, post core.Post, userID uint, kind string) (*cor
 // revisionKindFor decides whether an update is recorded and as which kind. before is the stored
 // post, after is the post with the request applied.
 func revisionKindFor(before, after core.Post, input map[string]json.RawMessage) (string, bool) {
-	changed := before.Title != after.Title || before.Content != after.Content ||
+	changed := before.Title != after.Title || before.Content != after.Content || before.Source != after.Source || before.Format != after.Format ||
 		before.Excerpt != after.Excerpt || !sameMeta(before.Meta, after.Meta)
 	if !changed {
 		return "", false
@@ -289,6 +292,8 @@ type revisionDetail struct {
 	Content   string           `json:"content"`
 	Excerpt   string           `json:"excerpt"`
 	Meta      json.RawMessage  `json:"meta"`
+	Source    string           `json:"source"`
+	Format    string           `json:"format"`
 }
 
 func revisionUserOf(rev core.Revision) revisionUserView {
@@ -373,7 +378,7 @@ func getRevision(c echo.Context) error {
 	return c.JSON(http.StatusOK, revisionDetail{
 		ID: rev.ID, Kind: rev.Kind, User: revisionUserOf(rev), CreatedAt: rev.CreatedAt,
 		Added: rev.Added, Removed: rev.Removed,
-		Title: rev.Title, Content: rev.Content, Excerpt: rev.Excerpt, Meta: rev.Meta,
+		Title: rev.Title, Content: rev.Content, Excerpt: rev.Excerpt, Meta: rev.Meta, Source: rev.Source, Format: rev.Format,
 	})
 }
 
@@ -405,8 +410,10 @@ func diffRevisions(c echo.Context) error {
 		return revisionQueryError(c, err)
 	}
 	from := diffTarget{Title: fromRev.Title, Content: fromRev.Content}
-
+	fromFormat := fromRev.Format
 	to := diffTarget{Title: post.Title, Content: post.Content}
+	toFormat := post.Format
+	toSource := post.Source
 	if raw := c.QueryParam("to"); raw != "" && raw != "current" {
 		toID, ok := parseTermID(raw)
 		if !ok {
@@ -417,8 +424,17 @@ func diffRevisions(c echo.Context) error {
 			return revisionQueryError(c, err)
 		}
 		to = diffTarget{Title: toRev.Title, Content: toRev.Content}
+		toFormat = toRev.Format
+		toSource = toRev.Source
 	}
-	return c.JSON(http.StatusOK, map[string][]DiffOp{
+	basis := "content"
+	if fromFormat == toFormat && (fromFormat == "jmd" || fromFormat == "md") {
+		basis = "source"
+		from.Content = fromRev.Source
+		to.Content = toSource
+	}
+	return c.JSON(http.StatusOK, map[string]any{
+		"basis":   basis,
 		"title":   LineDiff(from.Title, to.Title),
 		"content": LineDiff(from.Content, to.Content),
 	})
@@ -444,6 +460,14 @@ func restoreRevision(c echo.Context) error {
 	if err != nil {
 		return revisionQueryError(c, err)
 	}
+	format := snapshot.Format
+	if format == "" {
+		format = "html"
+	}
+	if format != "html" && format != "md" && format != "jmd" {
+		return c.JSON(http.StatusBadRequest, map[string]any{"error": "invalid format", "diagnostics": []markup.Diagnostic{}})
+	}
+	var renderDiagnostics []markup.Diagnostic
 	err = data.DB.Transaction(func(tx *gorm.DB) error {
 		var current core.Post
 		if err := visiblePostQuery(tx, user, id).First(&current).Error; err != nil {
@@ -452,11 +476,35 @@ func restoreRevision(c echo.Context) error {
 		if _, err := RecordRevision(tx, current, user.ID, "restore"); err != nil {
 			return err
 		}
+		restored := current
+		restored.Title, restored.Source, restored.Format = snapshot.Title, snapshot.Source, format
+		restored.Excerpt, restored.Meta = snapshot.Excerpt, snapshot.Meta
+		if format == "jmd" || format == "md" {
+			widgets, err := publishedWidgetSpecs(tx)
+			if err != nil {
+				return err
+			}
+			result, err := markup.Render(c.Request().Context(), restored.Source, markup.Options{Trust: renderTrustFor(user), Format: restored.Format, Widgets: widgets})
+			if err != nil {
+				return err
+			}
+			for _, diagnostic := range result.Diagnostics {
+				if diagnostic.Severity == "error" {
+					renderDiagnostics = result.Diagnostics
+					return errRenderDiagnostics
+				}
+			}
+			restored.Content, restored.RenderTrust, restored.RenderVersion = result.HTML, renderTrustFor(user), 1
+			restored.Meta = writeLegacyMarkdown(restored.Meta, restored.Source)
+		} else {
+			restored.Content = markup.Policy(renderTrustFor(user)).Sanitize(snapshot.Content)
+			restored.Source = ""
+			restored.RenderTrust, restored.RenderVersion = renderTrustFor(user), 1
+		}
 		result := visiblePostQuery(tx.Model(&core.Post{}), user, id).Updates(map[string]any{
-			"title":      snapshot.Title,
-			"content":    snapshot.Content,
-			"excerpt":    snapshot.Excerpt,
-			"meta":       snapshot.Meta,
+			"title": restored.Title, "content": restored.Content, "source": restored.Source, "format": restored.Format,
+			"render_trust": restored.RenderTrust, "render_version": restored.RenderVersion,
+			"excerpt": restored.Excerpt, "meta": restored.Meta,
 			"updated_at": time.Now(),
 		})
 		if result.Error != nil {
@@ -469,6 +517,9 @@ func restoreRevision(c echo.Context) error {
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
+	}
+	if errors.Is(err, errRenderDiagnostics) {
+		return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error(), "diagnostics": renderDiagnostics})
 	}
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to restore revision"})

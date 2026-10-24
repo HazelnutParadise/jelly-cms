@@ -92,9 +92,9 @@ func TestAdminNavRoleVisibility(t *testing.T) {
 			sections: []string{"content", "shop", "appearance", "system"},
 			items: map[string][]string{
 				"content":    {"dashboard", "posts", "pages", "taxonomy", "comments", "media", "trash"},
-				"shop":       {"products", "orders"},
+				"shop":       {"products", "orders", "coupons"},
 				"appearance": {"themes", "menus", "plugins", "store"},
-				"system":     {"settings", "redirects", "tools", "logs"},
+				"system":     {"users", "settings", "redirects", "tools", "logs"},
 			},
 		},
 		{

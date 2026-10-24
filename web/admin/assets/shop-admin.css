@@ -1,0 +1,245 @@
+/* Jelly CMS 商店後台（Products、ProductEditor、Orders、OrderDetail、Coupons 板）。
+   只用 layout.html 的變數，深淺模式跟著主題走。 */
+
+[hidden] { display: none !important; }
+
+/* ---------- 工具列：分段、搜尋、日期 ---------- */
+.sa-head { display: flex; align-items: center; gap: .75rem 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.sa-head h1 { margin: 0; }
+.sa-head .sa-grow { flex: 1 1 auto; }
+.sa-seg { display: inline-flex; flex-wrap: wrap; gap: .2rem; padding: .2rem; background: var(--surface-mid); border-radius: var(--r-sm); }
+.sa-seg button { display: inline-flex; align-items: center; gap: .35rem; min-height: 1.9rem; padding: 0 .75rem; background: transparent; border: 0; border-radius: var(--r-sm); font-size: .8125rem; font-weight: 700; color: var(--muted); cursor: pointer; white-space: nowrap; transition: background-color .12s ease, color .12s ease; }
+.sa-seg button:hover { color: var(--ink); }
+.sa-seg button[aria-pressed="true"], .sa-seg button[aria-selected="true"] { background: var(--ink); color: var(--surface); }
+.sa-seg b { font-weight: 700; opacity: .85; }
+.sa-search { display: flex; align-items: center; gap: .5rem; width: 15rem; min-height: 2.25rem; padding: 0 .7rem; background: var(--field); border-radius: var(--r-sm); color: var(--muted); }
+.sa-search .icon { width: .9rem; height: .9rem; flex: 0 0 auto; }
+.sa-search input[type="search"] { flex: 1; min-width: 0; min-height: 0; padding: 0; border: 0; box-shadow: none; background: transparent; font-size: .84375rem; color: var(--ink); }
+.sa-search input[type="search"]:hover, .sa-search input[type="search"]:focus { border: 0; box-shadow: none; }
+.sa-search:focus-within { box-shadow: inset 0 0 0 2px var(--secondary); }
+.sa-dates { display: inline-flex; align-items: center; gap: .4rem; flex-wrap: wrap; font-size: .8125rem; color: var(--muted); }
+
+/* 日期欄位沿用後台底線式輸入 */
+.sa-dates input[type="date"], input[type="datetime-local"], input[type="date"] { width: 100%; min-width: 0; min-height: 2.5rem; padding: .4rem 0; background: transparent; color: var(--ink); border: 0; border-bottom: 1.5px solid var(--outline); border-radius: 0; font: inherit; color-scheme: light dark; }
+input[type="datetime-local"]:hover, input[type="date"]:hover { border-bottom-color: var(--ink); }
+input[type="datetime-local"]:focus, input[type="date"]:focus { outline: none; border-bottom-color: var(--secondary); box-shadow: 0 1.5px 0 0 var(--secondary); }
+.sa-dates input[type="date"] { width: 9.5rem; }
+
+/* ---------- KPI ---------- */
+.sa-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; margin-bottom: 1.25rem; }
+.sa-kpi { display: grid; gap: .2rem; padding: 1rem 1.15rem; background: var(--surface-low); border-radius: var(--r-md); min-width: 0; }
+.sa-kpi .label { margin: 0; }
+.sa-kpi b { font-family: var(--font-display); font-size: 1.625rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; overflow-wrap: anywhere; }
+.sa-kpi small { font-size: .75rem; color: var(--muted); }
+.sa-kpi.warn { background: color-mix(in srgb, var(--warning) 22%, var(--surface)); }
+.sa-kpi.warn .label, .sa-kpi.warn b { color: color-mix(in srgb, var(--warning) 50%, var(--ink)); }
+
+/* ---------- 提示列 ---------- */
+.sa-alert { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .65rem 1rem; margin-bottom: 1rem; background: color-mix(in srgb, var(--warning) 20%, var(--surface)); color: color-mix(in srgb, var(--warning) 45%, var(--ink)); border-radius: var(--r-sm); font-size: .8125rem; font-weight: 700; }
+.sa-alert .icon { width: 1rem; height: 1rem; flex: 0 0 auto; }
+.sa-alert .btn { margin-left: auto; }
+.sa-note { display: flex; align-items: flex-start; gap: .5rem; font-size: .75rem; color: var(--muted); }
+.sa-note .icon { width: .875rem; height: .875rem; margin-top: .15rem; flex: 0 0 auto; }
+
+/* ---------- 列表 ---------- */
+.sa-table td { vertical-align: middle; }
+.sa-prod { display: flex; align-items: center; gap: .65rem; min-width: 0; }
+.sa-thumb { width: 1.875rem; height: 1.875rem; flex: 0 0 auto; border-radius: 0 .4rem 0 .4rem; background: var(--surface-mid); object-fit: cover; }
+.sa-prod a, .sa-link { font-weight: 700; color: var(--ink); text-decoration: none; overflow-wrap: anywhere; }
+.sa-prod a:hover, .sa-link:hover { color: var(--primary); }
+.sa-num { font-family: var(--mono); font-size: .8125rem; white-space: nowrap; text-align: right; }
+th.sa-num { font-family: inherit; }
+.sa-sub { display: block; font-size: .75rem; color: var(--muted); font-weight: 400; overflow-wrap: anywhere; }
+.sa-stock { display: inline-flex; align-items: center; gap: .5rem; white-space: nowrap; }
+.sa-meter { display: inline-block; width: 3rem; height: .3rem; border-radius: 1rem; background: var(--surface-mid); overflow: hidden; }
+.sa-meter i { display: block; height: 100%; background: var(--accent); }
+.sa-meter i.low { background: var(--warning); }
+.sa-stock .zero { color: var(--error); font-weight: 700; }
+tr.sa-row-low td { background: color-mix(in srgb, var(--warning) 9%, var(--surface)); }
+.sa-pager { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; font-size: .8125rem; color: var(--muted); }
+.sa-pager-nav { display: inline-flex; align-items: center; gap: .6rem; color: var(--ink); }
+.sa-nowrap { white-space: nowrap; }
+.sa-items { max-width: 18rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- 編輯頁 ---------- */
+.sa-editor-bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.sa-editor-bar .sa-grow { flex: 1 1 auto; }
+.sa-editor-bar .muted { font-size: .8125rem; }
+.sa-layout { display: grid; grid-template-columns: minmax(0, 1fr) 20.5rem; gap: 1.75rem; align-items: start; }
+.sa-main { min-width: 0; }
+.sa-side { display: grid; gap: 1rem; position: sticky; top: 4.25rem; }
+.sa-sec { padding: 1.1rem 0 1.4rem; border-top: 1px solid var(--line); }
+.sa-sec:first-child { border-top: 0; padding-top: 0; }
+.sa-sec > h2 { font-size: 1rem; margin: 0 0 .75rem; }
+.sa-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem 1.25rem; }
+.sa-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sa-field { display: grid; gap: .2rem; min-width: 0; }
+.sa-field > .label, .sa-field > label { margin: 0; }
+.sa-field .hint { font-size: .75rem; color: var(--muted); }
+.sa-field-error { display: block; font-size: .75rem; font-weight: 700; color: color-mix(in srgb, var(--error) 85%, var(--ink)); }
+[aria-invalid="true"] { box-shadow: inset 0 -2px 0 var(--error) !important; }
+.sa-suffix { display: flex; align-items: center; gap: .4rem; }
+.sa-suffix input { flex: 1; min-width: 0; text-align: right; }
+.sa-suffix span { font-size: .8125rem; color: var(--muted); white-space: nowrap; }
+.sa-title { width: 100%; font-family: var(--font-display); font-size: 2rem; font-weight: 800; letter-spacing: -.02em; border: 0; background: transparent; box-shadow: none; padding: .2rem 0; color: var(--ink); }
+.sa-title:focus { outline: none; box-shadow: inset 0 -2px 0 var(--secondary); }
+.sa-images { display: grid; grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr)); gap: .5rem; }
+.sa-img { position: relative; aspect-ratio: 1; background: var(--surface-mid); border-radius: var(--r-sm); overflow: hidden; }
+.sa-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sa-img .sa-img-tag { position: absolute; left: .4rem; top: .4rem; padding: .1rem .4rem; background: var(--ink); color: var(--surface); font-size: .6875rem; font-weight: 700; border-radius: 0 .25rem 0 .25rem; }
+.sa-img .sa-img-acts { position: absolute; right: .3rem; bottom: .3rem; display: flex; gap: .2rem; }
+.sa-img .sa-img-acts .btn { background: var(--surface); }
+.sa-img-add { display: flex; gap: .5rem; margin-top: .6rem; }
+.sa-img-add input { flex: 1; min-width: 0; }
+.sa-md-tools { display: inline-flex; gap: .15rem; padding: .2rem; margin-bottom: .4rem; background: var(--surface-mid); border-radius: var(--r-sm); }
+.sa-desc { width: 100%; min-height: 11rem; resize: vertical; font-family: var(--font); }
+.sa-variants td { padding: .35rem .4rem; }
+.sa-variants input { width: 100%; min-width: 4.5rem; }
+.sa-variants input.sa-num { text-align: right; }
+.sa-variants td.actions { width: 1%; white-space: nowrap; }
+.sa-variants .sa-stock input { width: 5rem; min-width: 3.5rem; }
+.sa-add-row { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-top: .6rem; font-size: .75rem; color: var(--muted); }
+.sa-cats { display: grid; gap: .35rem; max-height: 16rem; overflow-y: auto; }
+.sa-cats label { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .84375rem; font-weight: 600; }
+.sa-cats label .count { margin-left: auto; font-size: .75rem; color: var(--muted); font-weight: 400; }
+.sa-checks { display: grid; gap: .45rem; }
+.sa-checks label { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .84375rem; font-weight: 600; }
+.sa-seo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+.sa-seo-preview { padding: 1rem; background: var(--surface-low); border-radius: var(--r-md); min-width: 0; }
+.sa-seo-preview .t { display: block; font-size: 1.0625rem; font-weight: 700; color: var(--secondary); overflow-wrap: anywhere; }
+.sa-seo-preview .u { display: block; font-size: .75rem; color: var(--success); overflow-wrap: anywhere; }
+.sa-seo-preview .d { display: block; font-size: .8125rem; color: var(--muted); overflow-wrap: anywhere; }
+.sa-slug { display: flex; align-items: center; gap: .3rem; font-size: .8125rem; color: var(--muted); }
+.sa-slug input { flex: 1; min-width: 0; }
+.sa-danger-link { color: color-mix(in srgb, var(--error) 85%, var(--ink)); }
+
+/* ---------- 卡片（訂單明細右欄、折扣碼面板） ---------- */
+.sa-card { display: grid; gap: .6rem; padding: 1rem 1.1rem; background: var(--surface-low); border-radius: var(--r-md); min-width: 0; }
+.sa-card > .label { display: flex; align-items: center; gap: .5rem; margin: 0; }
+.sa-card > .label a { margin-left: auto; font-weight: 700; color: var(--secondary); text-decoration: none; }
+.sa-card .row { display: flex; gap: .5rem; flex-wrap: wrap; }
+.sa-card p { margin: 0; overflow-wrap: anywhere; }
+.sa-card.dark { background: var(--rail); color: #fff; }
+.sa-card.dark .label { color: var(--rail-muted); }
+.sa-card.dark .btn { justify-content: flex-start; width: 100%; background: var(--rail-hi); color: #fff; }
+.sa-card.dark .btn:hover { background: color-mix(in srgb, #fff 16%, var(--rail-hi)); }
+.sa-card.dark .btn.sa-danger { color: #ff8a80; }
+.sa-card.dark input { color: #fff; }
+.sa-card.dark label { color: var(--rail-text); }
+.sa-card.outline { background: var(--surface); box-shadow: inset 0 0 0 1px var(--outline); }
+.sa-kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .3rem .9rem; margin: 0; font-size: .84375rem; }
+.sa-kv dt { color: var(--muted); }
+.sa-kv dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.sa-kv dd.mono { font-family: var(--mono); font-weight: 600; font-size: .78125rem; }
+.sa-who { display: flex; align-items: center; gap: .65rem; min-width: 0; }
+.sa-avatar { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; background: var(--secondary); color: #fff; font-weight: 800; border-radius: 0 .6rem 0 .6rem; }
+.sa-who b { display: block; }
+
+/* 訂單步驟 */
+.sa-steps { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; padding: .9rem 1rem; margin-bottom: 1.25rem; background: var(--surface-low); border-radius: var(--r-md); list-style: none; }
+.sa-steps li { display: inline-flex; align-items: center; gap: .5rem; font-weight: 700; font-size: .84375rem; color: var(--muted); }
+.sa-steps li i { display: grid; place-items: center; width: 1.6rem; height: 1.6rem; font-style: normal; font-size: .75rem; background: var(--surface-mid); border-radius: 0 .4rem 0 .4rem; }
+.sa-steps li.done { color: var(--ink); }
+.sa-steps li.done i { background: var(--accent); color: #fff; }
+.sa-steps li.on { color: var(--ink); }
+.sa-steps li.on i { background: var(--ink); color: var(--surface); }
+.sa-steps li.stop i { background: var(--error); color: #fff; }
+.sa-totals { display: grid; grid-template-columns: auto auto; justify-content: end; gap: .45rem 3rem; margin: .75rem 0 0; font-size: .84375rem; }
+.sa-totals dt { color: var(--muted); text-align: right; }
+.sa-totals dd { margin: 0; text-align: right; font-family: var(--mono); }
+.sa-totals .grand { font-family: var(--font-display); font-weight: 800; font-size: 1.375rem; color: var(--ink); }
+.sa-timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
+.sa-timeline li { display: grid; grid-template-columns: 6.5rem minmax(0, 1fr); gap: .75rem; font-size: .8125rem; }
+.sa-timeline time { font-family: var(--mono); font-size: .75rem; color: var(--muted); padding-top: .1rem; }
+.sa-timeline span { overflow-wrap: anywhere; }
+.sa-timeline .note { padding: .35rem .55rem; background: color-mix(in srgb, var(--warning) 14%, var(--surface)); border-radius: var(--r-sm); white-space: pre-wrap; }
+.sa-inline { display: flex; gap: .5rem; align-items: flex-end; }
+.sa-inline > :first-child { flex: 1; min-width: 0; }
+
+/* 折扣碼 */
+.sa-split { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 1.5rem; align-items: start; }
+.sa-panel { position: sticky; top: 4.25rem; }
+.sa-panel-head { display: flex; align-items: center; gap: .5rem; }
+.sa-panel-head .stripes { width: 2.5rem; margin: 0; }
+.sa-panel-head b { font-size: .9375rem; }
+.sa-panel-head .sa-close { margin-left: auto; display: none; }
+.sa-box { padding: .9rem; border: 1px dashed var(--outline); border-radius: var(--r-sm); display: grid; gap: .6rem; }
+.sa-chips { display: flex; flex-wrap: wrap; gap: .35rem; }
+.sa-chip { display: inline-flex; align-items: center; gap: .3rem; min-height: 1.75rem; padding: 0 .35rem 0 .6rem; background: var(--surface-mid); border-radius: var(--r-sm); font-size: .8125rem; font-weight: 700; }
+.sa-chip button { display: inline-grid; place-items: center; width: 1.4rem; height: 1.4rem; padding: 0; border: 0; background: transparent; color: var(--muted); cursor: pointer; border-radius: 0 .3rem 0 .3rem; }
+.sa-chip button:hover, .sa-chip button:focus-visible { background: var(--surface-high); color: var(--ink); }
+.sa-picker { display: grid; gap: .3rem; max-height: 12rem; overflow-y: auto; }
+.sa-picker label { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .8125rem; font-weight: 600; }
+.sa-toggle { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: 0; }
+.sa-toggle > span:first-child { font-size: .84375rem; font-weight: 700; }
+.sa-toggle small { display: block; font-weight: 400; font-size: .75rem; color: var(--muted); }
+.sa-usage { display: grid; gap: .25rem; min-width: 5.5rem; }
+.sa-usage .sa-meter { width: 100%; }
+.sa-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .5rem; margin-top: 1.25rem; }
+.sa-preview-out { font-size: .8125rem; padding: .6rem .75rem; background: var(--surface-mid); border-radius: var(--r-sm); }
+.sa-backdrop { display: none; }
+
+/* 設定頁（商店、運送、金流） */
+.sa-savebar { position: sticky; top: 3.75rem; z-index: 5; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; justify-content: flex-end; padding: .5rem 0; margin-bottom: .5rem; background: var(--surface); }
+.sa-savebar .badge { margin-right: auto; }
+.sa-secret { display: flex; align-items: center; gap: .4rem; }
+.sa-secret input { flex: 1; min-width: 0; font-family: var(--mono); }
+.sa-codebox { display: inline-flex; align-items: center; gap: .4rem; flex-wrap: wrap; justify-content: flex-end; }
+.sa-codebox code { padding: .35rem .6rem; background: var(--surface-low); border-radius: var(--r-sm); font-size: .78125rem; overflow-wrap: anywhere; }
+.sa-ship td { padding: .45rem .45rem; }
+.sa-ship input[type="text"] { width: 100%; min-width: 5rem; }
+.sa-ship tr.off td { opacity: .5; }
+.setting-row .control.wide textarea { width: 100%; min-height: 5.5rem; }
+.sa-test-result { font-size: .75rem; color: var(--muted); }
+
+/* ---------- 列印（出貨單、收據） ---------- */
+.sa-print { display: none; }
+@media print {
+    body.sa-printing > *:not(.sa-print) { display: none !important; }
+    body.sa-printing .sa-print { display: block !important; color: #000; background: #fff; font-family: var(--font); font-size: 11pt; }
+    .sa-print h1 { font-size: 18pt; margin: 0 0 .25rem; }
+    .sa-print .ph { display: flex; justify-content: space-between; gap: 2rem; border-bottom: 2px solid #000; padding-bottom: .75rem; margin-bottom: 1rem; }
+    .sa-print .cols { display: flex; gap: 3rem; margin-bottom: 1rem; }
+    .sa-print table { width: 100%; border-collapse: collapse; }
+    .sa-print th, .sa-print td { border-bottom: 1px solid #bbb; padding: .35rem .4rem; text-align: left; color: #000; background: #fff; }
+    .sa-print .r { text-align: right; }
+    .sa-print .total td { font-weight: 800; border-top: 2px solid #000; }
+    .sa-print .foot { margin-top: 1.25rem; font-size: 9pt; white-space: pre-wrap; }
+}
+
+/* ---------- 窄螢幕 ---------- */
+@media (max-width: 1100px) {
+    .sa-split { grid-template-columns: minmax(0, 1fr); }
+    .sa-panel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 1000; width: min(26rem, 100%); overflow-y: auto; border-radius: 0 0 0 1.5rem; transform: translateX(100%); visibility: hidden; transition: transform .2s ease, visibility 0s linear .2s; }
+    .sa-panel.open { transform: none; visibility: visible; transition-delay: 0s; }
+    .sa-panel-head .sa-close { display: inline-flex; }
+    .sa-backdrop.open { display: block; position: fixed; inset: 0; z-index: 999; background: color-mix(in srgb, var(--ink) 45%, transparent); }
+}
+@media (max-width: 1400px) and (min-width: 1101px) {
+    .sa-hide-md { display: none; }
+}
+@media (max-width: 1000px) {
+    .sa-layout { grid-template-columns: minmax(0, 1fr); }
+    .sa-side { position: static; }
+    .sa-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+    .sa-search { width: 100%; }
+    .sa-grid, .sa-grid.two, .sa-seo { grid-template-columns: minmax(0, 1fr); }
+    .sa-hide-sm { display: none; }
+    .sa-title { font-size: 1.5rem; }
+    .sa-timeline li { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
+    .sa-kpi b { font-size: 1.25rem; }
+    .sa-totals { gap: .45rem 1.25rem; }
+    .sa-panel { border-radius: 0; }
+    .sa-prod { min-width: 12rem; }
+    .sa-table td.actions .btn { opacity: 1; }
+    .sa-variants thead { display: none; }
+    .sa-variants tr { display: grid; grid-template-columns: 1fr 1fr; gap: .25rem .5rem; padding: .5rem 0; border-bottom: 1px solid var(--line); }
+    .sa-variants td { padding: 0; border: 0; }
+    .sa-variants td[data-l]::before { content: attr(data-l); display: block; font-size: .6875rem; font-weight: 700; color: var(--muted); }
+    .sa-ship thead { display: none; }
+    .sa-ship tr { display: grid; grid-template-columns: 1fr 1fr; gap: .25rem .5rem; padding: .5rem 0; border-bottom: 1px solid var(--line); }
+    .sa-ship td { padding: 0; border: 0; }
+    .sa-ship td[data-l]::before { content: attr(data-l); display: block; font-size: .6875rem; font-weight: 700; color: var(--muted); }
+}

@@ -1,0 +1,171 @@
+{{define "title"}}{{.T.widgetsTitle}}{{end}}
+{{define "styles"}}
+<style>
+.widgets-workspace { display:grid; grid-template-columns:minmax(0,1fr) minmax(20rem,32rem); gap:1.5rem; align-items:start; }
+.widgets-intro { padding:1rem; margin-bottom:1rem; background:var(--surface-low); border-radius:var(--r-md); color:var(--muted); }
+.widgets-filters { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:1rem; }
+.widgets-filters .btn { background:var(--surface-low); color:var(--ink); }
+.widgets-filters [aria-pressed="true"] { background:var(--ink); color:var(--surface); }
+.widget-row { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.5rem 1rem; text-align:left; padding:1rem 0; background:none; color:var(--ink); border:0; border-top:1px solid var(--outline); font:inherit; cursor:pointer; }
+.widget-row:hover,.widget-row[aria-current="true"] { background:var(--surface-low); }
+.widget-row small { display:block; color:var(--muted); overflow-wrap:anywhere; }
+.widget-state { display:flex; flex-direction:column; align-items:flex-end; gap:.25rem; font-size:.75rem; color:var(--muted); }
+.widgets-editor { position:sticky; top:1rem; padding:1.25rem; background:var(--surface-low); border-radius:var(--r-md); min-width:0; }
+.widgets-editor h2 { font-size:1.125rem; margin-bottom:1rem; }
+.widgets-editor label { display:block; font-size:.875rem; font-weight:600; margin:.8rem 0 .35rem; }
+.widgets-editor :where(input,textarea) { width:100%; min-width:0; }
+.widgets-editor input[type="date"] { min-height:2.5rem; padding:.4rem 0; background:transparent; border:0; border-bottom:1.5px solid var(--outline); border-radius:0; }
+.widgets-editor textarea { font: .8125rem/1.65 var(--mono); resize:vertical; min-height:8rem; tab-size:2; }
+.widgets-editor #widget-source { min-height:18rem; }
+.widgets-editor small { display:block; color:var(--muted); font-size:.75rem; line-height:1.6; margin-top:.35rem; }
+.widgets-actions { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1rem; }
+.widgets-message { margin:.75rem 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.widgets-message.error,.widgets-checks.error { color:var(--error); }
+.widgets-checks { padding:.75rem; margin-top:1rem; background:var(--surface); border-radius:var(--r-sm); font-size:.8125rem; white-space:pre-wrap; }
+.widgets-versions { list-style:none; padding:0; margin-top:1rem; }
+.widgets-versions li { border-top:1px solid var(--outline); padding:.75rem 0; display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; font-size:.8125rem; }
+.widgets-versions pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:20rem; overflow:auto; margin-top:.75rem; font-size:.75rem; }
+.widgets-preview { width:100%; min-height:10rem; border:1px solid var(--outline); background:var(--surface); }
+.widgets-preview-params { display:grid; gap:.5rem; }
+.widgets-empty { color:var(--muted); padding:1rem 0; }
+.widgets-editor [hidden],.widgets-workspace [hidden] { display:none!important; }
+@media(max-width:1050px) { .widgets-workspace { grid-template-columns:minmax(0,1fr); } .widgets-editor { position:static; } }
+@media(max-width:480px) { .widgets-editor { padding:1rem; } .widgets-actions .btn { flex:1 1 auto; } .widget-row { gap:.5rem; } }
+</style>
+{{end}}
+{{define "content"}}
+<div class="page-header"><div class="page-title-wrapper"><h1>{{.T.widgetsTitle}}</h1></div><button class="btn btn-primary" id="widget-new" type="button"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>{{.T.widgetsNew}}</button></div>
+<p class="widgets-intro">{{.T.widgetsIntro}}</p>
+<div class="widgets-workspace">
+<section aria-label="{{.T.widgetsTitle}}">
+    <div class="widgets-filters" id="widget-filters" aria-label="{{.T.widgetsTitle}}">
+        <button type="button" class="btn btn-sm" data-filter="all" aria-pressed="true">{{.T.widgetsAll}}</button>
+        <button type="button" class="btn btn-sm" data-filter="builtin" aria-pressed="false">{{.T.widgetsBuiltin}}</button>
+        <button type="button" class="btn btn-sm" data-filter="custom" aria-pressed="false">{{.T.widgetsCustom}}</button>
+        <button type="button" class="btn btn-sm" data-filter="plugin" aria-pressed="false">{{.T.widgetsPlugin}}</button>
+    </div>
+    <p id="widgets-status" role="status" class="widgets-message">{{.T.widgetsLoading}}</p>
+    <button id="widgets-retry" type="button" class="btn btn-secondary" hidden>{{.T.widgetsRetry}}</button>
+    <div id="widgets-list" aria-busy="true"></div>
+</section>
+<aside class="widgets-editor">
+    <p id="widget-select-hint">{{.T.widgetsSelect}}</p>
+    <form id="widget-form" hidden>
+        <h2 id="widget-editor-title">{{.T.widgetsNew}}</h2>
+        <p class="widgets-message" id="widget-message" role="status" aria-live="polite"></p>
+        <label for="widget-name">{{.T.widgetsName}}</label><input type="text" id="widget-name" name="name" required pattern="[a-z0-9][a-z0-9_-]{0,63}" maxlength="64" autocomplete="off">
+        <label for="widget-title">{{.T.widgetsLabel}}</label><input type="text" id="widget-title" name="title" maxlength="160">
+        <label for="widget-source">{{.T.widgetsSource}}</label><textarea id="widget-source" name="source" spellcheck="false" required></textarea>
+        <label for="widget-params">{{.T.widgetsParams}}</label><textarea id="widget-params" name="params" spellcheck="false" aria-describedby="widget-params-help"></textarea>
+        <small id="widget-params-help">{{.T.widgetsParamsHelp}}<br><code>type: string | number | boolean | date | datetime | enum</code></small>
+        <div id="widget-checks" class="widgets-checks" role="status"></div>
+        <small>{{.T.widgetsImmutableHelp}}</small>
+        <div class="widgets-actions"><button type="submit" class="btn btn-primary" id="widget-save">{{.T.widgetsSave}}</button><button type="button" class="btn btn-secondary" id="widget-publish" hidden>{{.T.widgetsPublish}}</button><button type="button" class="btn btn-text" id="widget-delete" hidden>{{.T.widgetsDelete}}</button></div>
+        <h3 style="margin-top:1.5rem">{{.T.widgetsVersions}}</h3><ul id="widget-versions" class="widgets-versions"></ul>
+        <div id="widget-preview-panel" hidden><h3>{{.T.widgetsPreview}}</h3><div id="widget-preview-params" class="widgets-preview-params"></div><button type="button" class="btn btn-secondary" id="widget-preview">{{.T.widgetsPreview}}</button><div class="jc-widget" data-jc="widget"><iframe id="widget-preview-frame" class="widgets-preview" sandbox="allow-scripts" title="{{.T.widgetsPreview}}" hidden></iframe></div></div>
+    </form>
+</aside>
+</div>
+{{end}}
+{{define "scripts"}}
+<script src="/theme/assets/jelly-components.js"></script>
+<script>
+(function () {
+    'use strict';
+    const T = {widgetsTitle:"{{.T.widgetsTitle}}",widgetsIntro:"{{.T.widgetsIntro}}",widgetsAll:"{{.T.widgetsAll}}",widgetsBuiltin:"{{.T.widgetsBuiltin}}",widgetsCustom:"{{.T.widgetsCustom}}",widgetsPlugin:"{{.T.widgetsPlugin}}",widgetsNew:"{{.T.widgetsNew}}",widgetsName:"{{.T.widgetsName}}",widgetsLabel:"{{.T.widgetsLabel}}",widgetsSource:"{{.T.widgetsSource}}",widgetsParams:"{{.T.widgetsParams}}",widgetsParamsHelp:"{{.T.widgetsParamsHelp}}",widgetsSave:"{{.T.widgetsSave}}",widgetsPublish:"{{.T.widgetsPublish}}",widgetsDelete:"{{.T.widgetsDelete}}",widgetsVersions:"{{.T.widgetsVersions}}",widgetsPublished:"{{.T.widgetsPublished}}",widgetsDraft:"{{.T.widgetsDraft}}",widgetsReady:"{{.T.widgetsReady}}",widgetsUses:"{{.T.widgetsUses}}",widgetsUnknownUses:"{{.T.widgetsUnknownUses}}",widgetsEmpty:"{{.T.widgetsEmpty}}",widgetsPluginEmpty:"{{.T.widgetsPluginEmpty}}",widgetsLoading:"{{.T.widgetsLoading}}",widgetsRetry:"{{.T.widgetsRetry}}",widgetsError:"{{.T.widgetsError}}",widgetsSaved:"{{.T.widgetsSaved}}",widgetsPublishDone:"{{.T.widgetsPublishDone}}",widgetsDeleted:"{{.T.widgetsDeleted}}",widgetsImmutable:"{{.T.widgetsImmutable}}",widgetsChecks:"{{.T.widgetsChecks}}",widgetsChecksOK:"{{.T.widgetsChecksOK}}",widgetsInvalidParams:"{{.T.widgetsInvalidParams}}",widgetsUnsafe:"{{.T.widgetsUnsafe}}",widgetsSelect:"{{.T.widgetsSelect}}",widgetsPreview:"{{.T.widgetsPreview}}",widgetsImmutableHelp:"{{.T.widgetsImmutableHelp}}",widgetsUnsaved:"{{.T.widgetsUnsaved}}",widgetsTabs:"{{.T.widgetsTabs}}",widgetsAccordion:"{{.T.widgetsAccordion}}",widgetsCarousel:"{{.T.widgetsCarousel}}",widgetsLightbox:"{{.T.widgetsLightbox}}",widgetsCountdown:"{{.T.widgetsCountdown}}",widgetsCounter:"{{.T.widgetsCounter}}",widgetsCompare:"{{.T.widgetsCompare}}"};
+    const byId = id => document.getElementById(id), form = byId('widget-form'), message = byId('widget-message');
+    const fields = {name:byId('widget-name'), title:byId('widget-title'), source:byId('widget-source'), params:byId('widget-params')};
+    const builtin = ['tabs','accordion','carousel','lightbox','countdown','counter','compare'];
+    const names = {tabs:T.widgetsTabs,accordion:T.widgetsAccordion,carousel:T.widgetsCarousel,lightbox:T.widgetsLightbox,countdown:T.widgetsCountdown,counter:T.widgetsCounter,compare:T.widgetsCompare};
+    let widgets = [], selected = null, filter = 'all', dirty = false, busy = false, previewVersion = null;
+    function text(tag, value, cls) { const el = document.createElement(tag); el.textContent = value; if (cls) el.className = cls; return el; }
+    function status(value, error) { message.textContent = value; message.classList.toggle('error', !!error); }
+    async function request(path, method, body) {
+        const response = await fetch('/api/admin/widgets' + path, {method:method || 'GET',headers:body ? {'Content-Type':'application/json'} : {},body:body ? JSON.stringify(body) : undefined});
+        if (!response.ok) {
+            let result = {}; try { result = await response.json(); } catch (_) {}
+            const error = new Error(response.status === 409 ? T.widgetsImmutable : T.widgetsError + (result.reasons ? '\n' + result.reasons.join('\n') : result.error ? '\n' + result.error : ''));
+            throw error;
+        }
+        return response.status === 204 ? null : response.json();
+    }
+    function rows() {
+        const list = byId('widgets-list'); list.replaceChildren();
+        const entries = (filter === 'all' || filter === 'builtin' ? builtin.map(name => ({name,title:names[name],builtin:true})) : []).concat(filter === 'all' || filter === 'custom' || filter === 'plugin' ? widgets.filter(w => filter === 'all' || (w.plugin ? filter === 'plugin' : filter === 'custom')) : []);
+        entries.forEach(w => {
+            const row = text('button','', 'widget-row'); row.type = 'button'; row.setAttribute('aria-current', String(!!selected && selected.id === w.id && !w.builtin));
+            const title = text('span',''); title.append(text('strong',w.title || w.name), text('small',w.name + ' · ' + (w.builtin ? T.widgetsBuiltin : w.plugin ? T.widgetsPlugin : T.widgetsCustom)));
+            const meta = text('span','', 'widget-state'); meta.append(text('span',w.builtin ? T.widgetsReady : (w.status === 'published' ? T.widgetsPublished : T.widgetsDraft) + ' v' + w.version), text('span',w.uses == null ? T.widgetsUnknownUses : String(w.uses) + ' ' + T.widgetsUses));
+            row.append(title,meta); row.addEventListener('click', () => { if (busy) return; if (dirty) { status(T.widgetsUnsaved,true); fields.source.focus(); return; } if (w.builtin) { form.hidden = true; byId('widget-select-hint').hidden = false; byId('widget-select-hint').textContent = names[w.name] + ' · ' + T.widgetsReady + '\n' + ({tabs:':::tabs → ::: tab {title=…}',accordion:':::faq → ::: item {title=…}',carousel:':::carousel',lightbox:':::gallery',countdown:'::countdown{to=2030-01-01}',counter:'::counter{to=1200}',compare:'::compare{before=/uploads/before.jpg after=/uploads/after.jpg}'}[w.name]); selected=null; return; } edit(w); }); list.append(row);
+        });
+        if (!entries.length) list.append(text('p',filter === 'plugin' ? T.widgetsPluginEmpty : T.widgetsEmpty,'widgets-empty'));
+    }
+    async function load(preserve) {
+        const state = byId('widgets-status'); state.textContent = T.widgetsLoading; state.classList.remove('error'); byId('widgets-retry').hidden = true; byId('widgets-list').setAttribute('aria-busy','true');
+        try {
+            const result = await request(''); if (!Array.isArray(result)) throw new Error(T.widgetsError); widgets = result; rows(); state.textContent = '';
+            if (!preserve && selected) { const fresh = widgets.find(w=>w.id===selected.id); if (fresh) edit(fresh); }
+        } catch (error) { state.textContent = error.message || T.widgetsError; state.classList.add('error'); byId('widgets-retry').hidden=false; }
+        finally { byId('widgets-list').setAttribute('aria-busy','false'); }
+    }
+    function check() {
+        const reasons=[]; let params;
+        try { params=JSON.parse(fields.params.value); if (!Array.isArray(params) || params.some(p=>!p || typeof p!=='object' || Array.isArray(p))) throw new Error(); } catch (_) { reasons.push(T.widgetsInvalidParams); }
+        const source=fields.source.value;
+        const documentSource=new DOMParser().parseFromString(source,'text/html');
+        if (new TextEncoder().encode(source).length>65536 || documentSource.querySelector('script[src]') || /https?:\/\/|eval\s*\(|new\s+Function\b/i.test(source)) reasons.push(T.widgetsUnsafe);
+        const node=byId('widget-checks'); node.textContent=T.widgetsChecks + '\n' + (reasons.length ? reasons.join('\n') : T.widgetsChecksOK); node.classList.toggle('error',!!reasons.length);
+        return reasons.length ? null : params;
+    }
+    function edit(w) {
+        selected=w; dirty=false; form.hidden=false; byId('widget-select-hint').hidden=true;
+        fields.name.value=w ? w.name : ''; fields.name.readOnly=!!w; fields.title.value=w ? w.title || '' : ''; fields.source.value=w ? w.source || '' : ''; fields.params.value=JSON.stringify(w ? w.params || [] : [],null,2);
+        byId('widget-editor-title').textContent=w ? w.title || w.name : T.widgetsNew; status(''); byId('widget-publish').hidden=!w || w.status==='published'; byId('widget-delete').hidden=!w; byId('widget-preview-panel').hidden=true; byId('widget-preview-frame').hidden=true; byId('widget-preview-frame').removeAttribute('src');
+        const versions=byId('widget-versions'); versions.replaceChildren();
+        (w && w.versions || []).forEach(v=>{
+            const row=text('li','v'+v.version+' · '+(v.published ? T.widgetsPublished : T.widgetsDraft));
+            const details=document.createElement('details'); details.append(text('summary',T.widgetsSource),text('pre',v.source || '')); row.append(details);
+            if(v.published) { const preview=text('button',T.widgetsPreview,'btn btn-sm btn-secondary'); preview.type='button'; preview.addEventListener('click',()=>preparePreview(v)); row.append(preview); }
+            versions.append(row);
+        }); check(); rows();
+    }
+    function preparePreview(v) {
+        previewVersion=v; const container=byId('widget-preview-params'); container.replaceChildren(); let params=[]; try { params=typeof v.params==='string' ? JSON.parse(v.params) : v.params || []; } catch (_) { status(T.widgetsInvalidParams,true); return; }
+        params.forEach((p,i)=>{
+            const label=text('label',p.name + (p.required ? ' *' : '')); const input=document.createElement(p.type==='enum'?'select':'input'); input.id='widget-preview-param-'+i; input.setAttribute('form','widget-preview-only'); label.htmlFor=input.id; input.dataset.param=p.name;
+            if (p.type==='enum') (p.values||[]).forEach(value=>{const option=text('option',value); option.value=value; input.append(option);});
+            else input.type=p.type==='number'?'number':p.type==='date'?'date':'text';
+            if(p.type==='datetime') input.placeholder='2030-01-01T00:00:00+08:00';
+            if(p.type==='boolean') { input.placeholder='true / false'; input.pattern='true|false'; }
+            if(p.default!=null) input.value=String(p.default); input.required=!!p.required; if(p.maxLength) input.maxLength=p.maxLength; container.append(label,input);
+        }); byId('widget-preview-panel').hidden=false; byId('widget-preview-frame').hidden=true; container.scrollIntoView({block:'nearest'});
+    }
+    function lock(value) { busy=value; form.querySelectorAll('button,input,textarea,select').forEach(b=>b.disabled=value); byId('widget-new').disabled=value; }
+    form.addEventListener('input',()=>{dirty=true;check();});
+    form.addEventListener('submit',async event=>{
+        event.preventDefault(); if(busy || !form.reportValidity()) return; const params=check(); if(!params) return;
+        const payload={name:fields.name.value,title:fields.title.value,source:fields.source.value,params}; lock(true); status(T.widgetsLoading);
+        try { const saved=await request(selected ? '/'+selected.id : '',selected ? 'PUT':'POST',payload); selected={...saved,source:payload.source,params:payload.params,versions:selected && selected.versions || []}; dirty=false; await load(false); status(T.widgetsSaved); }
+        catch(error) { status(error.message || T.widgetsError,true); } finally { lock(false); }
+    });
+    byId('widget-new').addEventListener('click',()=>{ if(dirty) {status(T.widgetsUnsaved,true);return;} edit(null); fields.name.focus(); });
+    byId('widget-publish').addEventListener('click',async()=>{
+        if(busy || !selected) return; if(dirty) {status(T.widgetsUnsaved,true);return;} lock(true); status(T.widgetsLoading);
+        try { await request('/'+selected.id+'/publish','POST'); await load(false); status(T.widgetsPublishDone); } catch(error) {status(error.message || T.widgetsError,true);} finally {lock(false);}
+    });
+    byId('widget-delete').addEventListener('click',async()=>{
+        if(busy || !selected) return; if(dirty) {status(T.widgetsUnsaved,true);return;} lock(true); status(T.widgetsLoading);
+        try {await request('/'+selected.id,'DELETE'); selected=null; edit(null); await load(true); status(T.widgetsDeleted);} catch(error) {status(error.message || T.widgetsError,true);} finally {lock(false);}
+    });
+    byId('widget-preview').addEventListener('click',()=>{
+        if(!selected || !previewVersion) return; const params=new URLSearchParams(); let valid=true;
+        byId('widget-preview-params').querySelectorAll('[data-param]').forEach(input=>{if(!input.reportValidity()) valid=false; if(input.value) params.set(input.dataset.param,input.value);}); if(!valid) return;
+        const frame=byId('widget-preview-frame'); frame.src='/widgets/'+encodeURIComponent(selected.name)+'/'+previewVersion.version+'/frame?'+params; frame.hidden=false; window.JellyComponents.init(frame.parentElement);
+    });
+    byId('widget-filters').addEventListener('click',event=>{const button=event.target.closest('[data-filter]');if(!button)return;filter=button.dataset.filter;byId('widget-filters').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));rows();});
+    byId('widgets-retry').addEventListener('click',()=>load(true));
+    window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
+    load(true);
+})();
+</script>
+{{end}}

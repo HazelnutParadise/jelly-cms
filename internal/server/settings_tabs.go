@@ -121,8 +121,8 @@ func init() {
 		SettingsTab{Key: "crawlers", Label: "settingsTabCrawlers", Order: 30},
 		SettingsTab{Key: "auth", Label: "settingsTabAuth", Order: 40},
 		SettingsTab{Key: "comments", Label: "settingsTabComments", Order: 50},
-		// shared with ticket 07: the payment tab is registered by 07; this
-		// stub keeps the existing payment pane reachable until 07 lands.
+		SettingsTab{Key: "shop", Label: "settingsTabShop", Order: 52},
+		SettingsTab{Key: "shipping", Label: "settingsTabShipping", Order: 54},
 		SettingsTab{Key: "payment", Label: "settingsTabPayment", Order: 55},
 		SettingsTab{Key: "mail", Label: "settingsTabMail", Order: 60},
 		SettingsTab{Key: "infra", Label: "settingsTabInfra", Order: 70},
