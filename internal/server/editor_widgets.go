@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -186,30 +187,28 @@ func widgetReply(w core.Widget) map[string]any {
 	return map[string]any{"id": w.ID, "name": w.Name, "title": w.Title, "version": w.Version, "status": w.Status}
 }
 func widgetList(c echo.Context) error {
+	ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Second)
+	defer cancel()
+	db := data.DB.WithContext(ctx)
 	var ws []core.Widget
-	if err := data.DB.Find(&ws).Error; err != nil {
+	if err := db.Find(&ws).Error; err != nil {
 		return c.JSON(500, map[string]string{"error": "Unable to load widgets"})
 	}
 	ids := make([]uint, 0, len(ws))
+	idsByName := make(map[string]uint, len(ws))
 	for _, w := range ws {
 		ids = append(ids, w.ID)
+		idsByName[w.Name] = w.ID
 	}
 	var versions []core.WidgetVersion
 	if len(ids) > 0 {
-		if err := data.DB.Where("widget_id IN ?", ids).Order("version DESC").Find(&versions).Error; err != nil {
+		if err := db.Where("widget_id IN ?", ids).Order("version DESC").Find(&versions).Error; err != nil {
 			return c.JSON(500, map[string]string{"error": "Unable to load widgets"})
 		}
 	}
-	var counts []struct {
-		WidgetID uint
-		Count    int64
-	}
-	if len(ws) > 0 && data.DB.Raw(`SELECT w.id AS widget_id, count(p.id) AS count FROM widgets w LEFT JOIN posts p ON p.source LIKE '%' || 'name=' || w.name || '%' WHERE w.id IN ? GROUP BY w.id`, ids).Scan(&counts).Error != nil {
+	uses, err := widgetUsageCounts(ctx, db, idsByName)
+	if err != nil {
 		return c.JSON(500, map[string]string{"error": "Unable to load widgets"})
-	}
-	uses := map[uint]int64{}
-	for _, c := range counts {
-		uses[c.WidgetID] = c.Count
 	}
 	byWidget := map[uint][]core.WidgetVersion{}
 	latest := map[uint]core.WidgetVersion{}
@@ -234,6 +233,9 @@ func widgetList(c echo.Context) error {
 		}
 		m["versions"] = byWidget[w.ID]
 		out = append(out, m)
+	}
+	if err := ctx.Err(); err != nil {
+		return c.JSON(500, map[string]string{"error": "Unable to load widgets"})
 	}
 	return c.JSON(200, out)
 }
@@ -401,6 +403,11 @@ func widgetFrame(c echo.Context) error {
 			return c.JSON(500, map[string]string{"error": "unable to load widget version"})
 		}
 	}
+	if strings.EqualFold(c.Param("name"), "countdown") {
+		if builtin, ok := builtinWidgetVersion(c.Param("name"), v); ok {
+			return serveBuiltinCountdown(c, builtin)
+		}
+	}
 	if builtin, ok := builtinWidgetVersion(c.Param("name"), v); ok {
 		return serveWidgetFrame(c, builtin)
 	}
@@ -416,7 +423,7 @@ func builtinWidgetVersion(name string, version int) (core.WidgetVersion, bool) {
 	switch name {
 	case "countdown":
 		ps = []widgetParam{{Name: "to", Type: "datetime", Required: true}}
-		src = `<style>:root{color:var(--color-ink,#222);background:var(--color-surface,#fff)}body{font:inherit;color:inherit;background:transparent;margin:0;padding:1rem}.count{font-size:1.35rem;text-align:center}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}</style><div class="count" id="countdown" role="timer"></div><script>const el=document.getElementById("countdown");function update(){const d=Date.parse(props.to)-Date.now();el.textContent=d<=0?"已截止":"剩餘 "+Math.floor(d/86400000)+" 天 "+Math.floor(d%86400000/3600000)+" 小時 "+Math.floor(d%3600000/60000)+" 分鐘"}update();setInterval(update,60000);</script>`
+		src = `<style>:root{color:var(--color-ink,#222);background:var(--color-surface,#fff)}body{font:inherit;color:inherit;background:transparent;margin:0;padding:1rem}.count{font-size:1.35rem;text-align:center}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}</style><div class="count" id="countdown" role="timer"><time datetime="__JELLY_COUNTDOWN_TO__">__JELLY_COUNTDOWN_TO__</time></div><script>const el=document.getElementById("countdown");const deadline=document.querySelector("time");function update(){const d=Date.parse(deadline.dateTime)-Date.now();el.textContent=d<=0?"__JELLY_COUNTDOWN_DONE__":"__JELLY_COUNTDOWN_REMAINING__"+Math.floor(d/86400000)+"__JELLY_COUNTDOWN_DAYS__"+Math.floor(d%86400000/3600000)+"__JELLY_COUNTDOWN_HOURS__"+Math.floor(d%3600000/60000)+"__JELLY_COUNTDOWN_MINUTES__"}update();setInterval(update,60000);</script>`
 	default:
 		return core.WidgetVersion{}, false
 	}
@@ -424,29 +431,26 @@ func builtinWidgetVersion(name string, version int) (core.WidgetVersion, bool) {
 	return core.WidgetVersion{Version: version, Source: src, Params: string(raw), Published: true}, true
 }
 
+func serveBuiltinCountdown(c echo.Context, ver core.WidgetVersion) error {
+	return serveWidgetFrameWithMode(c, ver, true)
+}
+
 func serveWidgetFrame(c echo.Context, ver core.WidgetVersion) error {
-	var ps []widgetParam
-	if err := json.Unmarshal([]byte(ver.Params), &ps); err != nil {
+	return serveWidgetFrameWithMode(c, ver, false)
+}
+
+func serveWidgetFrameWithMode(c echo.Context, ver core.WidgetVersion, builtin bool) error {
+	body, err := buildWidgetDocument(ver, c.QueryParams(), fmt.Sprint(c.Get("lang")), builtin)
+	if errors.Is(err, errWidgetDocumentDefinition) {
 		return echo.ErrNotFound
 	}
-	provided := map[string]string{}
-	for _, p := range ps {
-		if vals, ok := c.QueryParams()[p.Name]; ok && len(vals) > 0 {
-			provided[p.Name] = vals[0]
-		}
-	}
-	spec := markup.WidgetSpec{Version: ver.Version, Params: make(map[string]markup.WidgetParamSpec, len(ps))}
-	for _, p := range ps {
-		spec.Params[p.Name] = markup.WidgetParamSpec{Type: p.Type, Required: p.Required, Default: p.Default, Values: p.Values, MaxLength: p.MaxLength}
-	}
-	values, err := markup.ValidateWidgetParams(spec, provided)
-	if err != nil {
+	if errors.Is(err, errWidgetDocumentParams) {
 		return c.JSON(400, map[string]string{"error": "invalid parameter"})
 	}
-	props, _ := json.Marshal(values)
-	body := "<!doctype html><meta charset=utf-8><script>const props=" + string(props) + ";</script>" + ver.Source
-	body += `<script>window.parent.postMessage({type:"jelly-widget-height",height:document.documentElement.scrollHeight},"*");new ResizeObserver(()=>window.parent.postMessage({type:"jelly-widget-height",height:document.documentElement.scrollHeight},"*")).observe(document.documentElement);</script>`
-	c.Response().Header().Set("Content-Security-Policy", "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'")
+	if err != nil {
+		return c.JSON(500, map[string]string{"error": "unable to build widget frame"})
+	}
+	c.Response().Header().Set("Content-Security-Policy", widgetFrameCSP)
 	c.Response().Header().Set(echo.HeaderContentType, "text/html; charset=utf-8")
 	return c.HTML(http.StatusOK, body)
 }

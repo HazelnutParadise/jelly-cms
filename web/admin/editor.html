@@ -1,21 +1,35 @@
-{{define "editor"}}{{/*
-  Shared editor shell (ticket 09, G1). Used by post_editor.html and
-  page_editor.html through {{template "editor" .}}.
-
-  Final shell (per design/project/Editor.dc.html, EditorFull, EditorFocus,
-  EditorLayout, EditorExport, and the 390px mobile single-column layout):
-    - toolbar: 原稿 / 分割 / 預覽 segments, 滿版 toggle, 專心 toggle, 匯出
-    - left rail: outline (TOC from the render response) and word/char stats
-    - center: CodeMirror 6 source pane (assets/codemirror/) with the slash menu
-      (open, filtered and empty states) and the diagnostics bar (YAML errors,
-      unknown attributes)
-    - right drawer: post settings and the block inspector for layout mode
-    - status bar: line and column, selection count, ⌘/ shortcut hint
-    - preview pane: rendered HTML from POST /api/admin/render, 250 ms debounce,
-      desktop and mobile width switch
-  Behaviour: autosave every 60 s and on blur (POST .../autosave), offline
-  banner while typing continues, image paste uploads to POST /api/admin/media
-  and replaces the placeholder.
-
-  This block is a placeholder. It renders nothing, and no page includes it yet.
-*/}}{{end}}
+{{define "editor"}}
+<link rel="stylesheet" href="/admin/assets/editor.css">
+<link rel="stylesheet" href="/theme/assets/content.css">
+<link rel="stylesheet" href="/vendor/katex/katex.min.css">
+<section class="jelly-editor" id="jellyEditor" data-view="split">
+ <header class="editor-toolbar">
+  <div class="editor-document"><span id="editorDocumentTitle"></span><span id="editorDocumentState"></span></div>
+  <div class="editor-segments" role="group" aria-label="{{.T.ed2View}}"><button type="button" data-view="source">{{.T.ed2Source}}</button><button type="button" data-view="split" aria-pressed="true">{{.T.ed2Split}}</button><button type="button" data-view="preview">{{.T.ed2Preview}}</button><button type="button" data-view="layout">{{.T.ed2Layout}}</button></div>
+  <div class="editor-tools"><button type="button" data-action="save">{{.T.ed2Save}}</button><button type="button" data-action="outline">{{.T.ed2Outline}}</button><button type="button" data-action="full">{{.T.ed2Full}}</button><button type="button" data-action="focus">{{.T.ed2Focus}}</button><button type="button" data-action="export">{{.T.ed2Export}}</button><button type="button" data-action="settings">{{.T.edProperties}}</button></div>
+ </header>
+ <div class="editor-format" role="toolbar" aria-label="Markdown"><button type="button" data-formatting="bold" aria-label="{{.T.ed2Bold}}"><b>B</b></button><button type="button" data-formatting="italic" aria-label="{{.T.ed2Italic}}"><i>I</i></button><button type="button" data-formatting="heading" aria-label="{{.T.ed2Heading}}">H</button><button type="button" data-formatting="link" aria-label="{{.T.ed2Link}}">↗</button><button type="button" data-formatting="quote" aria-label="{{.T.ed2Quote}}">❞</button><button type="button" data-formatting="code" aria-label="{{.T.ed2Code}}">&lt;/&gt;</button><button type="button" data-formatting="task" aria-label="{{.T.ed2Task}}">☑</button><button type="button" data-formatting="insert" aria-label="{{.T.ed2Insert}}">＋</button></div>
+ <div class="editor-notice" id="editorNotice" role="status" hidden></div>
+ <div class="editor-workspace">
+  <aside class="editor-outline"><div class="label">{{.T.ed2Outline}}</div><nav id="editorTOC"></nav><div class="label">{{.T.ed2ThisArticle}}</div><dl id="editorStats"></dl><div id="editorPalette" hidden><div class="label">{{.T.ed2Insert}}</div></div></aside>
+  <div class="editor-center"><div class="editor-panes"><div class="editor-source" id="editorSource"></div><article id="editorPreview" class="editor-preview jc-content prose" data-testid="editor-preview" aria-label="{{.T.ed2Preview}}"></article></div><div id="layoutCanvas" class="layout-canvas" hidden></div><div id="editorDiagnostics" class="editor-diagnostics" aria-live="polite"></div></div>
+  <aside class="block-inspector" data-testid="block-inspector" hidden><div class="label">{{.T.ed2Inspector}}</div><div id="inspectorFields"></div><button type="button" data-action="desktop">{{.T.ed2Desktop}}</button><button type="button" data-action="mobile">{{.T.ed2Mobile}}</button></aside>
+ </div>
+ <footer class="editor-status"><span>Jelly Markdown</span><span id="editorCursor"></span><span id="editorSelection"></span><span id="editorSaveStatus" aria-live="polite"></span><button type="button" data-action="shortcuts">⌘/ {{.T.ed2Shortcuts}}</button></footer>
+ <div id="slashMenu" class="editor-slash" data-testid="slash-menu" role="listbox" aria-label="{{.T.ed2Insert}}" hidden></div>
+ <aside id="focusTools" class="focus-tools" hidden><button type="button" data-action="typewriter" aria-pressed="false">{{.T.ed2Typewriter}}</button><button type="button" data-action="dark">{{.T.ed2Dark}}</button><label>{{.T.ed2Goal}} <input id="dailyGoal" type="number" min="1" max="100000" value="1000"></label><span id="dailyProgress"></span><button type="button" data-action="cheatsheet">{{.T.ed2Cheatsheet}}</button></aside>
+ <aside id="editorCheatsheet" class="editor-cheatsheet" hidden><b>{{.T.ed2Cheatsheet}}</b><p># {{.T.ed2Heading}} · **{{.T.ed2Bold}}** · *{{.T.ed2Italic}}*</p><p>- [ ] {{.T.ed2Task}} · [{{.T.ed2Link}}](https://)</p><p>:::columns {ratio=2:1}<br>::: col<br>…<br>:::<br>:::</p><p>⌘S {{.T.ed2Save}} · ⌘E {{.T.ed2Preview}} · ⌘⇧L {{.T.ed2Dark}} · Esc {{.T.ed2Exit}}</p></aside>
+ <dialog id="editorShortcuts"><h2>{{.T.ed2Shortcuts}}</h2><dl><dt>⌘S / Ctrl+S</dt><dd>{{.T.ed2Save}}</dd><dt>⌘E / Ctrl+E</dt><dd>{{.T.ed2Preview}}</dd><dt>⌘B / Ctrl+B</dt><dd>{{.T.ed2Bold}}</dd><dt>⌘I / Ctrl+I</dt><dd>{{.T.ed2Italic}}</dd><dt>⌘K / Ctrl+K</dt><dd>{{.T.ed2Link}}</dd><dt>⌘⇧L / Ctrl+Shift+L</dt><dd>{{.T.ed2Dark}}</dd><dt>Esc</dt><dd>{{.T.ed2Exit}}</dd></dl><button type="button" data-action="close">{{.T.ed2Close}}</button></dialog>
+ <dialog id="editorExport"><h2>{{.T.ed2Export}}</h2><p>{{.T.ed2ExportHint}}</p><div class="export-formats"><button type="button" data-format="jmd" aria-pressed="true">Jelly Markdown</button><button type="button" data-format="md">{{.T.ed2PlainMD}}</button><button type="button" data-format="html">HTML</button><button type="button" data-format="zip">ZIP</button><button type="button" data-format="pdf">PDF</button></div><label class="inline"><input type="checkbox" id="exportFrontmatter">{{.T.ed2Frontmatter}}</label><p id="exportMessage" role="status"></p><button type="button" class="btn btn-primary" id="exportDownload">{{.T.ed2Download}}</button><button type="button" data-action="close">{{.T.ed2Close}}</button></dialog>
+ <dialog id="editorRestore" data-testid="autosave-restore"><h2>{{.T.ed2RestoreTitle}}</h2><p>{{.T.ed2RestoreHint}}</p><button type="button" id="restoreAutosave">{{.T.ed2Restore}}</button><button type="button" data-action="close">{{.T.ed2KeepSaved}}</button></dialog>
+</section>
+{{end}}
+{{define "editor-scripts"}}
+<script>window.JellyEditorTranslations={{json .T}};window.JellyEditorUser={{json .Viewer}};</script>
+<script src="/admin/assets/codemirror/editor.js"></script>
+<script src="/vendor/katex/katex.min.js"></script>
+<script src="/theme/assets/jelly-components.js"></script>
+<script src="/theme/assets/jelly-motion.js"></script>
+<script src="/admin/assets/sortable.js"></script>
+<script src="/admin/assets/editor.js"></script>
+{{end}}

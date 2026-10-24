@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -31,7 +32,7 @@ import (
 //	                                                  → {html, toc, stats, features, diagnostics, blocks, renderer}; never writes; 2 MB; per-user rate limit
 //	GET    /api/admin/render/schema                   admin/editor/author → blocks, attributes, enumerations, slash-menu items
 //	POST   /api/admin/posts/:id/autosave              owner or editor {title, source, excerpt} → writes an autosave revision only
-//	GET    /api/admin/posts/:id/export?format=jmd|md|html|pdf&images=1&frontmatter=1&history=1
+//	GET    /api/admin/posts/:id/export?format=jmd|md|html|pdf&images=1&frontmatter=1
 //	                                                  owner or editor; 404 for another author's post, 400 bad format, 501 pdf_engine_unavailable
 //	GET    /api/admin/widgets                         admin → custom widget registry, drafts and published versions
 //	POST   /api/admin/widgets                         admin → create a custom widget (HTML, CSS, JS, parameter declarations)
@@ -47,6 +48,7 @@ import (
 // registerEditorRoutes registers the editor endpoints. content is the group
 // for admin, editor and author; api is the admin-only group.
 func registerEditorRoutes(e *echo.Echo, content, api *echo.Group) {
+	e.Static("/vendor/katex", "web/vendor/katex")
 	limiter := newRenderLimiter()
 	content.POST("/render", func(c echo.Context) error { return renderEditorSource(c, limiter) })
 	content.GET("/render/schema", func(c echo.Context) error { return c.JSON(http.StatusOK, markup.Schema()) })
@@ -124,10 +126,14 @@ func renderEditorSource(c echo.Context, limiter *renderLimiter) error {
 	}
 	ctx, cancel := context.WithTimeout(c.Request().Context(), 2*time.Second)
 	defer cancel()
+	format := "jmd"
 	if req.PostID != 0 {
 		var post core.Post
 		if err := visiblePostQuery(data.DB.WithContext(ctx), user, req.PostID).First(&post).Error; err != nil {
 			return postQueryError(c, err)
+		}
+		if post.Format == "md" {
+			format = "md"
 		}
 	}
 	if !limiter.allow(user.ID, time.Now()) {
@@ -139,7 +145,7 @@ func renderEditorSource(c echo.Context, limiter *renderLimiter) error {
 	if err != nil {
 		return c.JSON(500, map[string]string{"error": "unable to load published widgets"})
 	}
-	result, err := markup.Render(ctx, req.Source, markup.Options{Trust: trust, Expand: req.Expand, SourceMap: req.SourceMap, Format: "jmd", Widgets: widgets})
+	result, err := markup.Render(ctx, req.Source, markup.Options{Trust: trust, Expand: req.Expand, SourceMap: req.SourceMap, Format: format, Widgets: widgets})
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error(), "diagnostics": []markup.Diagnostic{}})
 	}
@@ -182,7 +188,9 @@ func autosavePost(c echo.Context) error {
 		return c.JSON(413, map[string]string{"error": "source exceeds 2 MB"})
 	}
 	post.Title, post.Source, post.Excerpt = req.Title, req.Source, req.Excerpt
-	post.Format = "jmd"
+	if post.Format != "md" {
+		post.Format = "jmd"
+	}
 	err = data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error { _, e := RecordRevision(tx, post, user.ID, "autosave"); return e })
 	if err != nil {
 		return c.JSON(500, map[string]string{"error": "Unable to autosave"})
@@ -244,32 +252,27 @@ func exportPost(c echo.Context) error {
 	if err != nil {
 		return c.JSON(500, map[string]string{"error": "export dynamic content unavailable"})
 	}
-	css, cssErr := os.ReadFile("web/themes/default/assets/content.css")
-	if cssErr != nil {
-		return c.JSON(500, map[string]string{"error": "export content stylesheet unavailable"})
-	}
-	katex, katexErr := os.ReadFile("web/vendor/katex/katex.min.css")
-	if katexErr != nil {
-		return c.JSON(500, map[string]string{"error": "export math stylesheet unavailable"})
-	}
-	katexCSS, e := inlineKatexFonts(string(katex))
-	if e != nil {
-		return c.JSON(500, map[string]string{"error": "export math fonts unavailable"})
-	}
 	lang := user.Locale
 	if strings.TrimSpace(lang) == "" {
 		lang = "zh-TW"
 	}
-	mathScript := ""
-	if strings.Contains(body, `class="jc-math"`) {
-		js, e := os.ReadFile("web/vendor/katex/katex.min.js")
-		if e != nil {
-			return c.JSON(500, map[string]string{"error": "export math engine unavailable"})
+	body, status, err := expandOfflineWidgetFrames(ctx, db, body, lang)
+	if err != nil {
+		if status == http.StatusRequestEntityTooLarge {
+			return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{"error": "standalone export exceeds size limit"})
 		}
-		safeJS := strings.ReplaceAll(string(js), "</script", "<\\/script")
-		mathScript = "<script>" + safeJS + "</script><script>document.querySelectorAll('.jc-math[data-tex]').forEach(function(el){katex.render(el.dataset.tex,el,{trust:false,throwOnError:false,displayMode:el.tagName==='DIV'})})</script>"
+		if status < 500 {
+			return c.JSON(status, map[string]string{"error": "invalid widget reference in export"})
+		}
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "unable to export widget documents"})
 	}
-	htmlDoc := fmt.Sprintf("<!doctype html><html lang=\"%s\"><head><meta charset=\"utf-8\"><title>%s</title><style>%s\n%s</style></head><body><article>%s</article>%s</body></html>", htmlEscape(lang), htmlEscape(p.Title), katexCSS, css, body, mathScript)
+	htmlDoc, err := buildStandaloneHTMLDocument(ctx, body, p.Title, lang)
+	if errors.Is(err, errOfflineExportTooLarge) {
+		return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{"error": "standalone export exceeds size limit"})
+	}
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "unable to build standalone HTML export"})
+	}
 	if c.QueryParam("images") != "1" {
 		c.Response().Header().Set(echo.HeaderContentType, "text/html; charset=utf-8")
 		return c.String(200, htmlDoc)
@@ -277,6 +280,9 @@ func exportPost(c echo.Context) error {
 	zipHTML, paths, e := rewriteUploadAttrs(htmlDoc)
 	if e != nil {
 		return c.JSON(400, map[string]string{"error": "invalid upload path"})
+	}
+	if len(zipHTML) > maxOfflineExportBytes {
+		return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{"error": "standalone export exceeds size limit"})
 	}
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)

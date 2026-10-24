@@ -23,14 +23,27 @@ func renderMarkdown(source string, sourceMap bool) (string, []TOCEntry, error) {
 }
 
 func renderMarkdownAt(source string, sourceMap bool, lineOffset int) (string, []TOCEntry, error) {
+	return renderMarkdownWithPipeline(source, sourceMap, lineOffset, nil)
+}
+
+func renderMarkdownWithPipeline(source string, sourceMap bool, lineOffset int, p *pipeline) (string, []TOCEntry, error) {
 	md := goldmark.New(goldmark.WithExtensions(extension.GFM, extension.Footnote, extension.TaskList), goldmark.WithParserOptions(parser.WithHeadingAttribute(), parser.WithAutoHeadingID()), goldmark.WithRendererOptions(gmhtml.WithUnsafe()))
 	var b bytes.Buffer
-	if err := md.Convert([]byte(source), &b); err != nil {
+	sourceBytes := []byte(source)
+	if p != nil && p.opt.Format == "jmd" {
+		doc := md.Parser().Parse(text.NewReader(sourceBytes))
+		if err := p.applyLinkInlineAttrs(doc, sourceBytes, lineOffset); err != nil {
+			return "", nil, err
+		}
+		if err := md.Renderer().Render(&b, sourceBytes, doc); err != nil {
+			return "", nil, err
+		}
+	} else if err := md.Convert(sourceBytes, &b); err != nil {
 		return "", nil, err
 	}
 	out := b.String()
 	if sourceMap {
-		out = applyASTSourceMap(md, []byte(source), out, lineOffset)
+		out = applyASTSourceMap(md, sourceBytes, out, lineOffset)
 	}
 	out = normalizeTaskLists(out)
 	out = normalizeFootnotes(out)
@@ -65,6 +78,98 @@ func renderMarkdownAt(source string, sourceMap bool, lineOffset int) (string, []
 		return open + m[3] + "</h" + m[1] + ">"
 	})
 	return strings.TrimSpace(out), toc, nil
+}
+
+// multilineCodeSpanLines returns source lines occupied by valid multiline
+// inline code spans. The block preprocessor must leave these lines intact so
+// JMD directives inside the spans stay literal.
+// lineStarts returns the byte offset of every line start in source.
+func lineStarts(source []byte) []int {
+	starts := []int{0}
+	for i, c := range source {
+		if c == '\n' {
+			starts = append(starts, i+1)
+		}
+	}
+	return starts
+}
+
+// lineAt returns the zero-based line containing offset.
+func lineAt(starts []int, offset int) int {
+	return sort.Search(len(starts), func(i int) bool { return starts[i] > offset }) - 1
+}
+
+// multilineCodeSpanRanges maps zero-based source lines to the byte column
+// ranges, delimiters included, covered by inline code spans crossing lines.
+func multilineCodeSpanRanges(ctx context.Context, source []byte) (map[int][][2]int, error) {
+	md := goldmark.New(goldmark.WithExtensions(extension.GFM, extension.Footnote, extension.TaskList), goldmark.WithParserOptions(parser.WithHeadingAttribute(), parser.WithAutoHeadingID()))
+	doc := md.Parser().Parse(text.NewReader(source))
+	protected := make(map[int][][2]int)
+	var starts []int
+	visited := 0
+	err := ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		visited++
+		if visited&0xff == 0 && ctx.Err() != nil {
+			return ast.WalkStop, ErrRenderTimeout
+		}
+		span, ok := node.(*ast.CodeSpan)
+		if !ok || !entering {
+			return ast.WalkContinue, nil
+		}
+		start, stop := len(source), -1
+		for child := span.FirstChild(); child != nil; child = child.NextSibling() {
+			textNode, ok := child.(*ast.Text)
+			if !ok || textNode.Segment.Padding != 0 {
+				continue
+			}
+			if textNode.Segment.Start < start {
+				start = textNode.Segment.Start
+			}
+			if textNode.Segment.Stop > stop {
+				stop = textNode.Segment.Stop
+			}
+		}
+		if stop <= start || !bytes.Contains(source[start:stop], []byte{'\n'}) {
+			return ast.WalkContinue, nil
+		}
+		// Extend over at most one stripped padding space, then this span's own
+		// backtick run, so adjacent spans never share delimiter bytes.
+		if start > 0 && source[start-1] == ' ' {
+			start--
+		}
+		for start > 0 && source[start-1] == '`' {
+			start--
+		}
+		if stop < len(source) && source[stop] == ' ' {
+			stop++
+		}
+		for stop < len(source) && source[stop] == '`' {
+			stop++
+		}
+		if starts == nil {
+			starts = lineStarts(source)
+		}
+		first, last := lineAt(starts, start), lineAt(starts, stop-1)
+		for line := first; line <= last; line++ {
+			lineStart := starts[line]
+			lineStop := len(source)
+			if line+1 < len(starts) {
+				lineStop = starts[line+1] - 1
+			}
+			from, to := max(start, lineStart)-lineStart, min(stop, lineStop)-lineStart
+			if to < from {
+				continue
+			}
+			// Spans are visited in source order; merge any residual overlap.
+			if rs := protected[line]; len(rs) > 0 && rs[len(rs)-1][1] >= from {
+				rs[len(rs)-1][1] = max(rs[len(rs)-1][1], to)
+				continue
+			}
+			protected[line] = append(protected[line], [2]int{from, to})
+		}
+		return ast.WalkSkipChildren, nil
+	})
+	return protected, err
 }
 
 type sourceMappedBlock struct {

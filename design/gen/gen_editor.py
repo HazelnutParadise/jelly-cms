@@ -3,6 +3,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 import gen
 from gen import I, doc, ADMIN_CSS, MARK, OUT
 
+# The editor uses the shared local content stylesheet and server render response.
+# Save/conflict/offline states retain the source; export saves before downloading.
 CSS = ADMIN_CSS + '''
 .tool{width:30px;height:30px;display:inline-grid;place-items:center;border:0;background:transparent;border-radius:4px;color:#3A3D45;cursor:pointer}
 .tool:hover{background:#EDEEF1}.tool.on{background:#E6E7EB;color:#15161A}.tool .ic{width:16px;height:16px;stroke-width:1.6}
@@ -176,7 +178,7 @@ full = f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction:c
         </article>
       </section>
     </div>
-    <div class="status"><span>Markdown · GFM + 數學 + YAML 表格 + LaTeX / HTML 區塊</span><span>第 <b>16</b> 行，第 <b>2</b> 欄</span><span><b>1,284</b> 字 · 約 6 分鐘</span><span>已選取 5 字</span><span style="margin-left:auto">自動儲存 12:03 · 本機備份 {I("check",12)}</span><span><span class="kbd">⌘/</span> 快速鍵</span></div>
+    <div class="status"><span>Markdown · GFM + 數學 + YAML 表格 + LaTeX / HTML 區塊</span><span>第 <b>16</b> 行，第 <b>2</b> 欄</span><span><b>1,284</b> 字 · 約 6 分鐘</span><span>已選取 5 字</span><span style="margin-left:auto">自動儲存 12:03 · 本機稿已保留 {I("check",12)}</span><span><span class="kbd">⌘/</span> 快速鍵</span></div>
   </div>'''
 
 # ===================== EditorFocus: 專心模式（單欄、打字機、淡出介面） =====================
@@ -361,7 +363,7 @@ slash_board = f'''<div style="width:100%;min-height:100vh;display:flex;flex-dire
         </div>
       </div>
     </div>
-    <div class="status"><span>Markdown · GFM + 數學 + YAML 表格 + LaTeX / HTML 區塊</span><span>第 <b>{SLASH_LINE}</b> 行，第 <b>2</b> 欄</span><span><b>1,284</b> 字 · 約 6 分鐘</span><span style="display:inline-flex;align-items:center;gap:5px;color:#7A5200">{I("alert",12)}2 則診斷</span><span style="margin-left:auto">自動儲存 12:03 · 本機備份 {I("check",12)}</span><span><span class="kbd">⌘/</span> 快速鍵</span></div>
+    <div class="status"><span>Markdown · GFM + 數學 + YAML 表格 + LaTeX / HTML 區塊</span><span>第 <b>{SLASH_LINE}</b> 行，第 <b>2</b> 欄</span><span><b>1,284</b> 字 · 約 6 分鐘</span><span style="display:inline-flex;align-items:center;gap:5px;color:#7A5200">{I("alert",12)}2 則診斷</span><span style="margin-left:auto">自動儲存 12:03 · 本機稿已保留 {I("check",12)}</span><span><span class="kbd">⌘/</span> 快速鍵</span></div>
   </div>'''
 
 # ===================== EditorMobile: 手機單欄編輯器 =====================

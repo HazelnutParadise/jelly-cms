@@ -27,7 +27,7 @@ type pipeline struct {
 var knownContainers = map[string]bool{"hero": true, "section": true, "columns": true, "col": true, "sidebar": true, "cta": true, "gallery": true, "carousel": true, "faq": true, "item": true, "tabs": true, "tab": true, "products": true, "posts": true}
 var headingSourceRE = regexp.MustCompile(`^\s{0,3}#{1,6}(?:\s|$)`)
 var validIDRE = regexp.MustCompile(`^[\pL\pN_:-]{1,128}$`)
-var headingAttrTokenRE = regexp.MustCompile(`(?:#[\pL\pN_-]+|\.[A-Za-z0-9_-]+|[A-Za-z][A-Za-z0-9_-]*(?:=(?:"[^"]*"|'[^']*'|[^\s}]+))?)`)
+var headingAttrTokenRE = regexp.MustCompile(`(?:#[\pL\pN_-]+|\.[A-Za-z0-9_-]+|[A-Za-z][A-Za-z0-9_-]*(?:=(?:"(?:\\[^\r\n]|[^"\\\r\n])*"|'(?:\\[^\r\n]|[^'\\\r\n])*'|[^\s}]+))?)`)
 var calloutOpenRE = regexp.MustCompile(`(?i)^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?:\s*(.*))?$`)
 var motionValues = map[string]map[string]bool{"reveal": {"fade-up": true, "fade": true, "slide-left": true, "slide-right": true, "zoom": true}, "hover": {"lift": true, "glow": true, "tilt": true}, "scroll": {"parallax": true}}
 var enumValues = map[string]map[string]bool{"bg": {"primary": true, "secondary": true, "accent": true, "warning": true, "ink": true, "raspberry": true, "blue": true, "mint": true, "yellow": true}, "align": {"left": true, "center": true, "right": true}, "height": {"short": true, "normal": true, "tall": true, "full": true}, "ratio": {"1:1": true, "2:1": true, "1:2": true, "1:1:1": true}}
@@ -61,7 +61,32 @@ func (p *pipeline) diag(line, col int, code, msg string) {
 	p.diagnostics = append(p.diagnostics, Diagnostic{Line: line, Col: col, Severity: "warning", Code: code, Message: msg})
 }
 func (p *pipeline) prepare() (string, error) {
-	lines := strings.Split(strings.ReplaceAll(p.source, "\r\n", "\n"), "\n")
+	normalizedSource := strings.ReplaceAll(p.source, "\r\n", "\n")
+	lines := strings.Split(normalizedSource, "\n")
+	var protectedCode map[int][][2]int
+	if p.opt.Format == "jmd" {
+		var err error
+		if protectedCode, err = multilineCodeSpanRanges(p.ctx, []byte(normalizedSource)); err != nil {
+			return "", ErrRenderTimeout
+		}
+	}
+	inlineJMD := func(segment string, line int) string {
+		segment = replaceDirectivesOutsideCode(segment, func(tok string) string {
+			m := lineDirective.FindStringSubmatch(tok)
+			name := m[1]
+			attrs := parseAttrs("{" + m[2] + "}")
+			p.blocks = append(p.blocks, Block{Kind: "directive", Name: name, Attrs: attrs, StartLine: line, EndLine: line})
+			return p.placeholder(p.directive(name, attrs, line))
+		})
+		return mathInline(segment, p)
+	}
+	coverParagraph := func(i int) {
+		if n := len(p.blocks); n > 0 && p.blocks[n-1].Kind == "paragraph" && p.blocks[n-1].EndLine == i {
+			p.blocks[n-1].EndLine = i + 1
+		} else {
+			p.blocks = append(p.blocks, Block{Kind: "paragraph", StartLine: i + 1, EndLine: i + 1})
+		}
+	}
 	var walk func(int, int, int) (int, string)
 	walk = func(i, end, depth int) (int, string) {
 		var b strings.Builder
@@ -88,6 +113,23 @@ func (p *pipeline) prepare() (string, error) {
 			}
 			inIndentedCode = false
 			indentedBlock = -1
+			if ranges := protectedCode[i]; len(ranges) > 0 {
+				// Only the code span bytes stay literal; surrounding text keeps JMD inline syntax.
+				var out strings.Builder
+				last := 0
+				for _, r := range ranges {
+					out.WriteString(inlineJMD(line[last:r[0]], i+1))
+					out.WriteString(line[r[0]:r[1]])
+					last = r[1]
+				}
+				out.WriteString(inlineJMD(line[last:], i+1))
+				if trimmed != "" {
+					coverParagraph(i)
+				}
+				b.WriteString(out.String() + "\n")
+				i++
+				continue
+			}
 			if strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "\t") {
 				inIndentedCode = true
 				p.blocks = append(p.blocks, Block{Kind: "code", StartLine: i + 1, EndLine: i + 1})
@@ -273,7 +315,7 @@ func (p *pipeline) prepare() (string, error) {
 						if strings.TrimSpace(m[2]) != "" {
 							lineOffset = i
 						}
-						bodyHTML, _, _ = renderMarkdownAt(strings.Join(body, "\n"), p.opt.SourceMap, lineOffset)
+						bodyHTML, _, _ = renderMarkdownWithPipeline(strings.Join(body, "\n"), p.opt.SourceMap, lineOffset, p)
 						bodyHTML = Policy(p.opt.Trust).Sanitize(bodyHTML)
 					}
 					fragment := `<div class="jc-callout" data-kind="` + kind + `" role="note"><p class="jc-callout-title">` + title + `</p>` + bodyHTML + `</div>`
@@ -314,11 +356,7 @@ func (p *pipeline) prepare() (string, error) {
 				line = mathInline(line, p)
 			}
 			if strings.TrimSpace(line) != "" && !strings.HasPrefix(strings.TrimSpace(line), "<span data-jc-slot") {
-				if n := len(p.blocks); n > 0 && p.blocks[n-1].Kind == "paragraph" && p.blocks[n-1].EndLine == i {
-					p.blocks[n-1].EndLine = i + 1
-				} else {
-					p.blocks = append(p.blocks, Block{Kind: "paragraph", StartLine: i + 1, EndLine: i + 1})
-				}
+				coverParagraph(i)
 			}
 			b.WriteString(line + "\n")
 			i++
@@ -343,11 +381,11 @@ func (p *pipeline) prepare() (string, error) {
 }
 
 func (p *pipeline) headingAttrs(line string, n int) string {
-	idx := strings.LastIndex(line, "{")
-	if idx < 0 || !strings.HasSuffix(strings.TrimSpace(line), "}") {
+	idx, end, found := trailingAttrBlock(line)
+	if !found || strings.TrimSpace(line[end:]) != "" {
 		return line
 	}
-	rawAttrs := strings.TrimSpace(line[idx:])
+	rawAttrs := strings.TrimSpace(line[idx:end])
 	if !validAttrSyntax(rawAttrs) {
 		return line
 	}
@@ -412,7 +450,7 @@ func (p *pipeline) headingAttrs(line string, n int) string {
 	}
 	outputAttrs = append(outputAttrs, a...)
 	text := strings.TrimSpace(strings.TrimLeft(title, "#"))
-	inline := renderHeadingInline(text)
+	inline := renderHeadingInline(text, p, n-1)
 	return p.placeholder("<" + tag + " " + strings.Join(outputAttrs, " ") + ">" + inline + "</" + tag + ">")
 }
 
@@ -435,8 +473,8 @@ func validAttrSyntax(raw string) bool {
 	return strings.TrimSpace(raw[pos:]) == ""
 }
 
-func renderHeadingInline(source string) string {
-	h, _, err := renderMarkdown("# "+source, false)
+func renderHeadingInline(source string, p *pipeline, lineOffset int) string {
+	h, _, err := renderMarkdownWithPipeline("# "+source, false, lineOffset, p)
 	if err != nil {
 		return esc(source)
 	}
@@ -520,7 +558,7 @@ func (p *pipeline) containerBody(s string, line int) string {
 	if strings.TrimSpace(s) == "" {
 		return ""
 	}
-	body, _, err := renderMarkdownAt(s, p.opt.SourceMap, line)
+	body, _, err := renderMarkdownWithPipeline(s, p.opt.SourceMap, line, p)
 	if err != nil {
 		return esc(s)
 	}
@@ -665,7 +703,11 @@ func (p *pipeline) widgetMarkup(name string, attrs map[string]string, line int) 
 		return ""
 	}
 	title := name
-	return `<div class="jc-widget" data-jc="` + esc(name) + `" data-widget="` + esc(name) + `" data-v="` + strconv.Itoa(spec.Version) + `"><iframe sandbox="allow-scripts" src="` + esc(frame) + `" loading="lazy" title="` + esc(title) + `"></iframe></div>`
+	builtinMarker := ""
+	if !registered && name == "countdown" {
+		builtinMarker = ` data-builtin="countdown"`
+	}
+	return `<div class="jc-widget" data-jc="` + esc(name) + `" data-widget="` + esc(name) + `" data-v="` + strconv.Itoa(spec.Version) + `"` + builtinMarker + `><iframe sandbox="allow-scripts" src="` + esc(frame) + `" loading="lazy" title="` + esc(title) + `"></iframe></div>`
 }
 
 func (p *pipeline) nativeCompareMarkup(attrs map[string]string, line int) string {

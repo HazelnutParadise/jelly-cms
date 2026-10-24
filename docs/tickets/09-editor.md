@@ -3,7 +3,7 @@
 Epic：編輯與發布
 User Story：作者在一個比 WordPress 好用的編輯器裡寫 Markdown：有大綱、斜線選單、即時預覽、專心模式、自動儲存與版本；能用 `:::` 版面區塊排出多欄與英雄區、用屬性加上動效、插入內建互動元件；能寫 GFM、腳註、待辦、警示框、YAML 表格、KaTeX 數學、LaTeX 文件、HTML 區塊；能把單篇匯出成 Jelly MD、純 MD、HTML、PDF。伺服器是唯一的渲染器，所有輸出經淨化。
 Blocked by：05 前台主題的 `content.css` 抽出與字型自帶（草稿 PR #23；`layout.html` 重寫後再動主題側）、04 的版本（已合併）。07 只影響 `:::products` 區塊。
-Status：實作中（渲染與後端局部回歸已通過；前端編輯器、內容樣式、真實瀏覽器、最終完整測試及 CI 尚未驗收，完成證據見 STATUS.md）
+Status：最終驗收中（編輯器、內容元件及離線 HTML 已通過本機瀏覽器驗收；純 Markdown 匯出缺口、完整測試、必要 CI 與交付待完成，證據見 STATUS.md）
 設計稿：`design/project/Editor、EditorFull、EditorFocus、EditorFocus2、EditorLayout、EditorMotion、EditorExport、Widgets、Revisions、Post.dc.html`；本工作單先補：手機版編輯器（單欄）、斜線選單的三種狀態（開啟、篩選、空）、診斷列（YAML 錯誤、未知屬性）、`Widgets` 板的 `::tabs` 改成 `:::tabs`。
 
 ## 先修的安全問題（G0 第一件事）
@@ -33,7 +33,7 @@ Status：實作中（渲染與後端局部回歸已通過；前端編輯器、�
 
 ### 儲存
 
-遷移 `internal/data/migrations/00NN_post_source.sql`（編號接在 06／07 之後）：`posts.source text`、`posts.format varchar(8)`（`html` 舊資料、`md` 舊 Markdown、`jmd` 新語法）、`posts.render_version int`、`posts.render_trust varchar(8)`（strict／rich）；`revisions.source`、`revisions.format`。回填：有 `meta.markdown` 的列 `source` 取之、`format='md'`；只有 HTML 的列 `format='html'`。`content` 維持為淨化後的渲染結果；`meta.markdown` 雙寫一個版本。`render_version` 落後的列由背景工作重新渲染（不在請求內做）。
+遷移 `internal/data/migrations/00NN_post_source.sql`（編號接在 06／07 之後）：`posts.source text`、`posts.format varchar(8)`（`html` 舊資料、`md` 舊 Markdown、`jmd` 新語法）、`posts.render_version int`、`posts.render_trust varchar(8)`（strict／rich）；`revisions.source`、`revisions.format`。回填：有 `meta.markdown` 的列 `source` 取之、`format='md'`；只有 HTML 的列 `format='html'`。`content` 維持為淨化後的渲染結果；只有物件型 `meta` 的 `meta.markdown` 雙寫一個版本。既有陣列、字串、數值、布林與明確 `null` 原樣保留，原稿以 `source` 為準，避免編輯與版本還原覆蓋原有資料。`render_version` 落後的列由背景工作重新渲染（不在請求內做）。
 
 ### `internal/markup`（新套件）
 
@@ -86,7 +86,7 @@ func Schema() SchemaDoc                                // 區塊、屬性、列�
 | `POST|PUT /api/admin/posts[/:id]` 接受 `source`、`format`、`base_updated_at` | 既有規則 | 回應加 `diagnostics`；衝突 409 |
 | `POST /api/admin/posts/:id/autosave {title, source, excerpt}` | 擁有者或編輯 | 只寫 autosave 版本；`GET /api/admin/posts/:id` 回 `autosave`（比 `updated_at` 新時） |
 | `GET /api/admin/posts/:id/revisions/diff` | 既有 | 兩邊都有 `source` 時以 `source` 比對（`basis:"source"`） |
-| `GET /api/admin/posts/:id/export?format=jmd|md|html|pdf&images=1&frontmatter=1&history=1` | 擁有者或編輯 | 404 他人文章、400 格式錯、501 `pdf_engine_unavailable` |
+| `GET /api/admin/posts/:id/export?format=jmd|md|html|pdf&images=1&frontmatter=1` | 擁有者或編輯 | 404 他人文章、400 格式錯、501 `pdf_engine_unavailable` |
 | `GET|POST|PUT|DELETE /api/admin/widgets`、`POST /api/admin/widgets/:id/publish` | admin | 登錄、版本、自動檢查 |
 | `GET /widgets/:name/:v/frame?…` | 公開 | `Content-Security-Policy: sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'`；參數依宣告驗證 |
 

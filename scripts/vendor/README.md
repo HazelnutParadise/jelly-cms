@@ -19,5 +19,12 @@ Scripts:
 
 | Script | Output | Status |
 |---|---|---|
-| `codemirror.sh` | `web/admin/assets/codemirror/` | not implemented |
-| `katex.sh` | `web/vendor/katex/` | not implemented |
+| `codemirror.sh` | `web/admin/assets/codemirror/` | pinned package-lock.json; npm ci + esbuild |
+| `katex.sh` | `web/vendor/katex/` | pinned release; local CSS, JavaScript and fonts |
+
+CodeMirror: run `scripts/vendor/codemirror.sh` from any directory. The committed
+`codemirror/package.json`, `package-lock.json` and `entry.js` are copied to an
+isolated build directory. `npm ci` verifies locked tarball integrity. LICENSE
+includes every bundled dependency, including transitive packages. VERSION records
+each package source commit from its npm release metadata, tarball integrity and
+the UTC build date. esbuild is a build tool and is not included in the bundle.

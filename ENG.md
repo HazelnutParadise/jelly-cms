@@ -113,3 +113,7 @@ users [existing id PK]
 工作單 09 沿用伺服器統一渲染與淨化。已發布元件的型別宣告經 `markup.Options.Widgets` 傳入渲染器，參數由共用驗證函式轉為字串、有限數值、布林或日期時間。動態商品與文章依種類、分類與數量建立獨立查詢鍵，由 HTTP 層提供公開資料，渲染器不存取資料庫。
 
 KaTeX 採工作單允許的前台備援。G0 以自帶 KaTeX 與既有 qjs／Wazero 跑過 CGO 關閉的實際探針，取消執行時重現 `QJS_Eval` 與 `JS_FreeValue` 因 context deadline 關閉模組而 panic，無法作為安全的請求內引擎。`RenderMath` 回 `ErrNoEngine`，伺服器輸出跳脫後的 TeX 與 `jc-math[data-tex]`，瀏覽器使用自帶 KaTeX 且關閉 trust。這項選擇不等同前端已驗收完成。
+
+編輯器以 `source` 保存原稿，只在物件型 `meta` 雙寫舊版 `markdown` 欄位。合法的非物件 JSON（陣列、字串、數值、布林與明確 `null`）在建立、編輯、舊式 HTML 寫入與版本還原時保持原值。未初始化的空 metadata 可建立物件，不能將明確 `null` 當成未初始化。
+
+HTML 匯出將精確發布版本的元件文件放入 `sandbox="allow-scripts"` 的 `srcdoc`，與線上 frame 共用參數驗證、倒數備援及主題色接收器。只接受父視窗傳來的固定色彩欄位，不放寬元件 CSP。外層文件自帶內容樣式、數學字型及所需互動資源；圖片 ZIP 改寫本地圖片路徑，伺服器不抓取遠端圖片。元件文件以兩次批次查詢載入，寫入前檢查展開內容的 8 MiB 上限，整個請求沿用兩秒 context。

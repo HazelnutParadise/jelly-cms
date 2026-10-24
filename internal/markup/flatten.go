@@ -178,11 +178,11 @@ func stripInlineAttrs(s string) string {
 	if !headingSourceRE.MatchString(s) {
 		return s
 	}
-	m := regexp.MustCompile(`[ \t]*\{[^{}]*\}[ \t]*$`).FindString(s)
-	if m == "" || !validAttrSyntax(strings.TrimSpace(m)) {
+	start, end, ok := trailingAttrBlock(s)
+	if !ok || !validAttrSyntax(strings.TrimSpace(s[start:end])) {
 		return s
 	}
-	attrs := parseAttrs(strings.TrimSpace(m))
+	attrs := parseAttrs(strings.TrimSpace(s[start:end]))
 	valid := attrs["id"] != "" || strings.TrimSpace(attrs["class"]) != ""
 	for key := range motionValues {
 		if _, ok := attrs[key]; ok {
@@ -197,7 +197,7 @@ func stripInlineAttrs(s string) string {
 	if !valid {
 		return s
 	}
-	return strings.TrimSuffix(s, m)
+	return strings.TrimRight(s[:start], " \t") + s[end:]
 }
 func flattenDirective(s string) string {
 	return replaceDirectivesOutsideCode(s, func(t string) string {

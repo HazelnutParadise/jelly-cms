@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"log"
@@ -381,6 +382,10 @@ func preparePostContent(c echo.Context, post *core.Post, input map[string]json.R
 }
 
 func writeLegacyMarkdown(meta json.RawMessage, source string) json.RawMessage {
+	// Only object metadata mirrors the source; other valid JSON, including null, stays untouched.
+	if len(bytes.TrimSpace(meta)) > 0 && json.Valid(meta) && bytes.TrimSpace(meta)[0] != '{' {
+		return meta
+	}
 	var fields map[string]json.RawMessage
 	if json.Unmarshal(meta, &fields) != nil || fields == nil {
 		fields = make(map[string]json.RawMessage)
@@ -392,6 +397,10 @@ func writeLegacyMarkdown(meta json.RawMessage, source string) json.RawMessage {
 }
 
 func clearLegacyMarkdown(meta json.RawMessage) json.RawMessage {
+	// Only object metadata can carry the legacy markdown key; other valid JSON stays untouched.
+	if len(bytes.TrimSpace(meta)) > 0 && json.Valid(meta) && bytes.TrimSpace(meta)[0] != '{' {
+		return meta
+	}
 	var fields map[string]json.RawMessage
 	if json.Unmarshal(meta, &fields) != nil || fields == nil {
 		fields = make(map[string]json.RawMessage)

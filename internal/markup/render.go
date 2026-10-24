@@ -62,7 +62,7 @@ func Render(ctx context.Context, source string, opt Options) (Result, error) {
 		var raw string
 		var toc []TOCEntry
 		if err == nil && ctx.Err() == nil {
-			raw, toc, err = renderMarkdown(prepared, opt.SourceMap)
+			raw, toc, err = renderMarkdownWithPipeline(prepared, opt.SourceMap, 0, p)
 		}
 		if err == nil && ctx.Err() != nil {
 			err = ErrRenderTimeout
@@ -210,9 +210,9 @@ func unwrapPlaceholderParagraphs(s string) string {
 
 var (
 	customAttrValue = regexp.MustCompile(`^[A-Za-z0-9_.:+/-]+$`)
-	containerStart  = regexp.MustCompile(`^\s*:::\s*([A-Za-z][A-Za-z0-9_-]*)(?:\s+(\{[^}]*\}))?\s*(?:<!--.*-->)?\s*$`)
-	lineDirective   = regexp.MustCompile(`::([A-Za-z][A-Za-z0-9_-]*)\{([^}]*)\}`)
-	attrToken       = regexp.MustCompile(`(?:#([\pL\pN_-]+)|\.([A-Za-z0-9_-]+)|([A-Za-z][A-Za-z0-9_-]*)=(?:"([^"]*)"|'([^']*)'|([^\s}]+))|([A-Za-z][A-Za-z0-9_-]*))`)
+	containerStart  = regexp.MustCompile(`^\s*:::\s*([A-Za-z][A-Za-z0-9_-]*)(?:\s+(\{(?:"(?:\\[^\r\n]|[^"\\\r\n])*"|'(?:\\[^\r\n]|[^'\\\r\n])*'|[^}'"\r\n])*\}))?\s*(?:<!--.*-->)?\s*$`)
+	lineDirective   = regexp.MustCompile(`::([A-Za-z][A-Za-z0-9_-]*)\{((?:"(?:\\[^\r\n]|[^"\\\r\n])*"|'(?:\\[^\r\n]|[^'\\\r\n])*'|[^}'"\r\n])*)\}`)
+	attrToken       = regexp.MustCompile(`(?:#([\pL\pN_-]+)|\.([A-Za-z0-9_-]+)|([A-Za-z][A-Za-z0-9_-]*)=(?:"((?:\\[^\r\n]|[^"\\\r\n])*)"|'((?:\\[^\r\n]|[^'\\\r\n])*)'|([^\s}]+))|([A-Za-z][A-Za-z0-9_-]*))`)
 )
 
 func replaceDirectivesOutsideCode(source string, replace func(string) string) string {
@@ -255,12 +255,12 @@ func parseAttrs(raw string) map[string]string {
 		case m[2] != "":
 			attrs["class"] = strings.TrimSpace(attrs["class"] + " " + m[2])
 		case m[3] != "":
-			v := m[4]
-			if v == "" {
-				v = m[5]
+			v := m[6]
+			if m[4] != "" || strings.Contains(m[0], `=""`) {
+				v = decodeAttrValue(m[4], '"')
 			}
-			if v == "" {
-				v = m[6]
+			if m[5] != "" || strings.Contains(m[0], `=''`) {
+				v = decodeAttrValue(m[5], '\'')
 			}
 			attrs[m[3]] = v
 		case m[7] != "":

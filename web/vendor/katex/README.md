@@ -1,12 +1,13 @@
-# KaTeX vendor files (placeholder)
+# KaTeX
 
-This directory will hold the KaTeX stylesheet and its woff2 fonts, shared by
-the admin pages and the theme (ticket 09, G1). They are built by
-`scripts/vendor/katex.sh`, which is not implemented yet.
+KaTeX 0.19.1 is bundled for the editor preview and public content. `VERSION`
+records the source commit, npm archive, SHA-512 integrity and build date.
+`LICENSE` contains the upstream MIT license.
 
-Required when the files are added:
+Run `scripts/vendor/katex.sh` from any directory to rebuild the JavaScript,
+stylesheet and 20 woff2 fonts. The script verifies the pinned archive before
+copying its distribution files. Browsers use the first, woff2, font source;
+woff and ttf fallback formats are not distributed.
 
-- `LICENSE` (the upstream KaTeX license)
-- `VERSION` (release, source commit, and build date)
-
-Pages must not load these from a CDN.
+Pages load these local assets only when their content contains mathematics.
+Rendering uses `trust: false`; invalid TeX remains readable as source.
