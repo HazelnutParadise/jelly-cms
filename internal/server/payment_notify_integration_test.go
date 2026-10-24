@@ -103,7 +103,12 @@ func shopPlaceOrder(t *testing.T, h *accessHarness, variantID uint, email, metho
 func shopPaymentFixture(t *testing.T, h *accessHarness) {
 	t.Helper()
 	shopSetup(t, h)
-	h.user("admin", "payowner")
+	admin := h.user("admin", "payowner")
+	if err := h.db.Create(&core.NotificationPref{
+		UserID: admin.ID, Event: "order.new", InApp: true, Email: true, Webhook: false,
+	}).Error; err != nil {
+		t.Fatalf("enable admin order-new email notification: %v", err)
+	}
 }
 
 // shopPaymentVariant seeds one product for the tests that place orders through checkout.
