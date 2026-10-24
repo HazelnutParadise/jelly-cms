@@ -16,11 +16,25 @@ Jelly CMS 全部畫面的設計稿原始檔。程式與這裡必須一致：改�
 重新產生：
 
 ```sh
-python3 design/gen/gen.py          # 前台商店流程、後台缺的功能、營運與狀態畫面
-python3 design/gen/gen_editor.py   # 編輯器滿版與專心模式
-python3 design/gen/gen_update.py   # 版本更新（執行檔／容器）
-python3 design/gen/gen_front2.py   # 作者、標籤、彙整索引、商品分類、會員中心、訂單查詢
+cd design/gen
+for s in gen gen_editor gen_update gen_front2 gen_crawlers gen_halo gen_infra gen_layout gen_motion; do
+  PYTHONDONTWRITEBYTECODE=1 python3 $s.py
+done
 ```
+
+| 腳本 | 產出 |
+|---|---|
+| `gen.py` | 結帳、付款完成、彙整、分類標籤、導覽選單、留言、使用者、個人資料、回收桶、版本比較、匯入、備份、轉址、日誌、指令面板、狀態畫面（共用 CSS 與字型 helmet 在這裡） |
+| `gen_editor.py` | 編輯器滿版與專心模式 |
+| `gen_update.py` | 版本更新（執行檔／容器） |
+| `gen_front2.py` | 作者、標籤、彙整索引、商品分類、會員中心、訂單查詢 |
+| `gen_crawlers.py` | 設定 · 搜尋引擎與 AI 爬蟲 |
+| `gen_halo.py` | 通知、API 權杖、附件策略、應用市場、外掛詳情、設定 · 閱讀與網址、維護模式、折扣碼 |
+| `gen_infra.py` | 快取與佇列 |
+| `gen_layout.py` | 編輯器版面模式、匯出文章（EditorLayout、EditorExport） |
+| `gen_motion.py` | 編輯器動效與互動元件（EditorMotion、Widgets） |
+
+九支腳本重新產生後 `git diff` 必須是空的（除非你正好改了它們）；改共用 CSS 或 helmet 後全部重跑。
 
 截圖檢查（需要 Playwright）：
 
@@ -34,3 +48,25 @@ node design/tools/shot.mjs Main Posts EditorFull
 2. 新畫面先在這裡補板、加進 `canvas.json` 所屬的那一排，再實作。
 3. 提交後把線上畫布更新成同一版：用 Claude 的 Artifact 工具發布到上面的網址，`root` 指向 `design/`，`file_path` 為 `project/canvas.json`，`files` 列出有改動的 `project/*.dc.html`。
 4. 視覺系統（顏色、形狀、字型、裝飾）定義在 `web/themes/default/layout.html` 與 `web/admin/layout.html` 的 CSS 變數，和板裡的 helmet 樣式對應；改其中一邊就要改另一邊。
+
+
+## 字型
+
+板不從網路載入字型。`project/fonts.css` 以 `@font-face` 指向 `project/fonts/*.woff2`（Bricolage Grotesque 與 Noto Sans TC 的子集，和 `web/admin/assets/fonts/` 是同一份檔案）；每張板的 helmet 只有一行 `<link rel="stylesheet" href="./fonts.css">`。
+
+- `project/fonts/` 不進版控（`.gitignore`）。第一次取得專案、或字型更新後執行 `scripts/vendor/fonts.sh`，它在產生網站字型時一併複製到這裡。
+- 發布線上畫布時，`files` 要把 `project/fonts.css` 和 `project/fonts/*.woff2` 一起列進去，否則線上畫布會退回系統字型。
+- 新板用 `gen.py` 的 `doc()` 就自動帶這行；手寫新板自己加這一行，不要再貼 Google Fonts。
+
+## Jelly UI 元件對照
+
+後台採用 [Jelly UI](https://jelly-ui.com/)（Web Components）的四類控制項；版面、側欄、卡片、表格、按鈕、自家圖示不換。板上是它們在本專案語言裡的樣子，程式用的標籤、屬性與對接規則在 `docs/tickets/12-zero-cdn-jelly-ui.md`。
+
+| 控制項 | 板 | 板上的樣子 | 程式 |
+|---|---|---|---|
+| 開關 | Settings、SettingsRoutes、SettingsCrawlers（`.tg.j`） | 膠囊軌道、白色圓形拇指與柔影；開是薄荷色、關是灰；上游拇指移動時會拉長，靜態板不畫 | `<jelly-switch>`，設定頁六個布林欄位 |
+| 分段選擇 | Posts（`.seg.j`） | 膠囊軌道，選中的段是墨色膠囊與柔影；每段標籤後面接篇數，同字級同色（上游的段標籤只能是純文字） | `<jelly-segmented>` 加 `<jelly-segment>`，文章列表的狀態篩選 |
+| 對話框 | Trash（`.jd`） | 對角單角圓角卡片、右上角圓形 ✕、背景暗化加輕微模糊；回收桶的「輸入刪除確認」是 `Jelly.confirm` 的 `requireText` 版 | `<jelly-dialog>`，由 `window.Jelly.confirm()` 產生 |
+| 通知 | States（`.jt`） | 墨色底（淺色版用白底）、圓形色點、右側圓形 ✕；動作按鈕與細節文字沿用 | `<jelly-toaster>`，由 `window.Jelly.toast()` 轉呼叫 `jellyToast()` |
+
+兩個上游限制寫在這裡，免得有人誤會是板畫錯：開關與分段選擇是 canvas 繪製的膠囊形，圓角不能改成對角單角；只有對話框與通知有 `--jelly-<元件>-radius` 變數，所以這兩個維持對角圓角。
