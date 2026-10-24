@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 )
 
 // PluginMetadata defines the structure of a plugin.json file.
@@ -12,6 +13,11 @@ type PluginMetadata struct {
 	Description string `json:"description"`
 	Author      string `json:"author"`
 	Entrypoint  string `json:"entrypoint"` // e.g., "index.js"
+	// WebMCPTools holds the raw webmcp_tools list: extra read-only WebMCP tools
+	// this plugin offers while it is loaded (ticket 13). It stays raw so a
+	// malformed entry skips that tool instead of failing the plugin load; each
+	// entry decodes into core.WebMCPToolDecl.
+	WebMCPTools json.RawMessage `json:"webmcp_tools,omitempty"`
 }
 
 // Manager handles the lifecycle of plugins.

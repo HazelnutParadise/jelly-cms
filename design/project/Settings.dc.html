@@ -97,10 +97,32 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
         <div style="background: #F5F5F7; border-radius: 0 14px 0 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; font-size: 13px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v4M12 17v1"/></svg><div>金鑰只存在伺服器端資料庫，後台只回傳遮罩值。改動會寫進系統日誌。</div><a href="Settings.dc.html" style="margin-left: auto; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px">查看日誌<svg class="ic" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></div>
       </section>
     </main>
+
+    <section style="margin: 0 24px 32px; padding: 20px 24px 24px; border: 1px solid #EEEFF2; border-radius: 0 18px 0 18px; display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; align-items: start" aria-label="網站分頁：搜尋引擎與 AI 代理">
+      <div>
+        <div class="lbl">同一頁 · 網站分頁</div>
+        <nav class="sub" style="display: flex; flex-direction: column; gap: 2px; margin-top: 10px" aria-label="設定分類（網站分頁）">
+          <a href="Settings.dc.html" class="on"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>網站</a>
+          <a href="Settings.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18"/><circle cx="7" cy="15" r="1" fill="currentColor"/></svg>金流</a>
+        </nav>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 24px; max-width: 920px">
+        <div>
+          <div style="padding-bottom: 8px"><h2 class="d" style="font-size: 20px">網站</h2><div style="color: #5F6470; font-size: 13px; margin-top: 2px">名稱、描述與後台語言。</div></div>
+          <div class="srow"><div><label for="w1">網站名稱</label></div><div class="c"><input id="w1" class="ul" type="text" value="果凍筆記"></div></div>
+          <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label for="w2">網站描述</label><div class="h">給搜尋引擎與頁尾用的一句話，也是 AI 代理讀到的網站介紹。</div></div><div class="c"><input id="w2" class="ul" type="text" value="寫下來，才算數。"></div></div>
+        </div>
+        <div>
+          <div style="padding-bottom: 8px"><h2 class="d" style="font-size: 20px">搜尋引擎與 AI 代理</h2><div style="color: #5F6470; font-size: 13px; margin-top: 2px">「搜尋引擎與 AI 爬蟲」分頁上線後，這一列移到那個分頁。</div></div>
+          <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label id="wm-l">讓瀏覽器裡的 AI 代理使用網站工具（WebMCP）</label><div class="h">前台每一頁提供四個唯讀工具：搜尋內容、列出文章、讀一篇、網站資訊。草稿、私密、排程與回收桶的內容一樣拿不到；外掛與主題可以加自己的唯讀工具。關閉後頁面不載入腳本，並送出 <span style="font-family: ui-monospace, Menlo, monospace">Permissions-Policy: tools=()</span>。</div></div><div class="c"><span class="chip">4 個內建 · 1 個外掛</span><span class="tg" role="switch" aria-checked="true" aria-labelledby="wm-l"></span></div></div>
+          <div style="margin-top: 12px; background: #F5F5F7; border-radius: 0 14px 0 14px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; font-size: 13px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg><div>工具只讀、只走同一個網站的公開 API，權限檢查和一般訪客相同。文章內容可能夾帶給 AI 的指令，所以回傳內文的工具都標成「不可信內容」。</div></div>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1320}}'>
 class Component extends DCLogic {
   renderVals() { return {}; }
 }

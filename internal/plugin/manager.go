@@ -315,6 +315,15 @@ func (m *Runtime) GetPlugin(pluginID string) (*PluginMetadata, error) {
 	return &meta, nil
 }
 
+// LoadedPlugins returns a copy of the metadata of every loaded plugin in load
+// order. The WebMCP tool list (ticket 13) reads the webmcp_tools declarations
+// from it, so only loaded (enabled) plugins contribute tools. A nil runtime
+// has no plugins.
+func (m *Runtime) LoadedPlugins() []PluginMetadata {
+	// TODO(ticket 13): return copies of the loaded metadata in m.order.
+	return nil
+}
+
 // CallHook hands the payload to every callback registered for the hook. A
 // failing plugin is reported and never stops the other plugins.
 func (m *Runtime) CallHook(hook Hook, data map[string]interface{}) {
