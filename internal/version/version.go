@@ -36,13 +36,22 @@ type RuntimeInfo struct {
 	Writable bool
 }
 
-// Runtime returns the runtime kind. JELLY_RUNTIME overrides detection; any
-// other value, or no value, reports a standalone binary.
-// TODO(08c): detect containers, Kubernetes and package managers when unset.
+// RuntimeDetector classifies the running process. internal/update sets it in
+// its init, because update imports version and version cannot import update
+// back. Until update is linked in, Runtime reports a non-writable binary.
+var RuntimeDetector func() RuntimeInfo
+
+// Runtime returns how the process runs. It delegates to RuntimeDetector when
+// that is registered. Otherwise only JELLY_RUNTIME is honored, and the result
+// is a non-writable binary so the binary never claims it can self-replace
+// without detection.
 func Runtime() RuntimeInfo {
+	if RuntimeDetector != nil {
+		return RuntimeDetector()
+	}
 	switch kind := strings.ToLower(strings.TrimSpace(os.Getenv("JELLY_RUNTIME"))); kind {
 	case KindContainer, KindKubernetes, KindPackage, KindBinary:
-		return RuntimeInfo{Kind: kind, DetectedBy: "env:JELLY_RUNTIME", Writable: kind == KindBinary}
+		return RuntimeInfo{Kind: kind, DetectedBy: "env:JELLY_RUNTIME", Writable: false}
 	}
-	return RuntimeInfo{Kind: KindBinary, DetectedBy: "default", Writable: true}
+	return RuntimeInfo{Kind: KindBinary, DetectedBy: "fallback:update-not-linked", Writable: false}
 }

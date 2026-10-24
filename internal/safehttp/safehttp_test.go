@@ -1,21 +1,15 @@
 package safehttp
 
 import (
-	"bytes"
 	"errors"
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 )
-
-// roundTripFunc replaces the transport so body limits can be checked without
-// reaching the network.
-type roundTripFunc func(*http.Request) (*http.Response, error)
-
-func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 func TestSafeHTTPBlocksPrivateLoopbackLinkLocalCGNAT(t *testing.T) {
 	for _, s := range []string{"127.0.0.1", "10.0.0.1", "169.254.1.1", "100.64.0.1", "::1"} {
@@ -85,20 +79,18 @@ func TestSafeHTTPSizeAndTimeCaps(t *testing.T) {
 		t.Errorf("Timeout = %s, want 250ms", got)
 	}
 
-	// A body larger than MaxBytes must not be delivered in full. The client
-	// is given a fake transport, so no dial happens.
+	// A body larger than MaxBytes must not be delivered in full. A real local
+	// server is used because replacing Client.Transport would bypass the
+	// limit, which lives in the client's own transport.
+	t.Setenv(allowLoopbackEnv, "1")
 	const limit = 1024
 	big := strings.Repeat("x", 10*1024)
-	c := Client(Options{MaxBytes: limit, Timeout: time.Second})
-	c.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{},
-			Body:       io.NopCloser(bytes.NewReader([]byte(big))),
-			Request:    r,
-		}, nil
-	})
-	resp, err := c.Get("https://example.com/big")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, big)
+	}))
+	defer srv.Close()
+	c := Client(Options{MaxBytes: limit, Timeout: 5 * time.Second})
+	resp, err := c.Get(srv.URL)
 	if err != nil {
 		t.Fatalf("GET with fake transport: %v", err)
 	}
