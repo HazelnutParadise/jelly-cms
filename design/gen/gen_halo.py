@@ -250,8 +250,8 @@ B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", 
         <div class="srow"><div><label>每頁幾篇（首頁 / 分類標籤 / 作者 / 搜尋）</label></div><div class="c" style="gap:4px"><input class="ul" type="text" value="12" style="width:48px;text-align:center"><input class="ul" type="text" value="12" style="width:48px;text-align:center"><input class="ul" type="text" value="12" style="width:48px;text-align:center"><input class="ul" type="text" value="20" style="width:48px;text-align:center"></div></div>
         <div class="srow"><div><label>摘要</label><div class="h">沒手寫摘要時自動取幾個字。</div></div><div class="c"><input class="ul" type="text" value="110" style="width:64px;text-align:center"></div></div>
         <div class="srow"><div><label>RSS / Atom</label><div class="h">/feed.xml、每個分類與作者也有自己的 feed。</div></div><div class="c"><div class="seg"><span class="on">全文</span><span>摘要</span><span>關</span></div></div></div>
-        <div class="srow"><div><label>Sitemap 與 robots.txt</label><div class="h">自動產生，變更後 ping 搜尋引擎（IndexNow）。</div></div><div class="c"><span class="tg"></span></div></div>
-        <div class="srow"><div><label>讓搜尋引擎索引這個站</label><div class="h">關掉會加 noindex，測試站用。</div></div><div class="c"><span class="tg"></span></div></div>
+        <div class="srow"><div><label>Sitemap 與 robots.txt</label><div class="h">自動產生，變更後 ping 搜尋引擎（IndexNow）。</div></div><div class="c"><span class="tg j"></span></div></div>
+        <div class="srow"><div><label>讓搜尋引擎索引這個站</label><div class="h">關掉會加 noindex，測試站用。</div></div><div class="c"><span class="tg j"></span></div></div>
       </div>
       <div>
         <div class="lbl" style="margin-bottom:4px">程式碼注入</div>
@@ -262,7 +262,7 @@ B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", 
       </div>
       <div>
         <div class="lbl" style="margin-bottom:4px">維護模式</div>
-        <div class="srow"><div><label>開啟維護模式</label><div class="h">前台顯示維護頁（503），登入的管理員照常看得到網站。</div></div><div class="c"><span class="tg off"></span></div></div>
+        <div class="srow"><div><label>開啟維護模式</label><div class="h">前台顯示維護頁（503），登入的管理員照常看得到網站。</div></div><div class="c"><span class="tg j off"></span></div></div>
         <div class="srow"><div><label>維護頁訊息</label></div><div class="c"><input class="ul" type="text" value="我們在升級，大概 10 分鐘。"></div></div>
       </div>
     </section>

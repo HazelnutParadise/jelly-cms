@@ -2,9 +2,7 @@
 import os, json
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "project")
 
-FONTS = '''<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">'''
+FONTS = '''<link rel="stylesheet" href="./fonts.css">'''
 
 MARK = '<svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="{ink}" fill-opacity=".9"/></svg>'
 
@@ -93,6 +91,17 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .seg span.on{background:#15161A;color:#fff}
 .tg{position:relative;width:40px;height:22px;border-radius:0 11px 0 11px;background:#13C2A3;display:inline-block;flex:0 0 auto}.tg:after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;background:#fff;border-radius:0 7px 0 7px}
 .tg.off{background:#D9DBE0}.tg.off:after{right:auto;left:3px}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}
+.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span,.seg.j a{min-height:30px;padding:0 14px;border-radius:999px}
+.seg.j span.on,.seg.j a.on{background:#15161A;color:#fff;box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
+.jt{display:flex;align-items:center;gap:11px;padding:11px 12px 11px 14px;background:#15161A;color:#fff;border-radius:0 12px 0 12px;font-size:13px;line-height:1.3;font-weight:600;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28)}
+.jt>i{width:11px;height:11px;border-radius:50%;flex:0 0 auto}.jt .d2{color:#C9CBD3;font-weight:500}
+.jt .xx{margin-left:auto;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#C9CBD3;flex:0 0 auto}.jt .xx .ic{width:13px;height:13px}
+.jt.light{background:#fff;color:#15161A;box-shadow:inset 0 0 0 1px #E2E3E8,0 14px 34px -16px rgba(21,22,26,.2)}.jt.light .d2{color:#5F6470}.jt.light .xx{color:#5F6470}
+.jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
+.jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
+.jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
 .ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
 .cube{position:absolute;border-radius:0 26% 0 26%}
@@ -617,8 +626,10 @@ pages["Trash"] = ("後台回收桶", ADMIN_CSS, 1440, 1000, admin("trash", ["內
       </tbody>
     </table>
   </main>''',
-  extra=f'''<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 0 0 1px #E2E3E8,0 24px 64px rgba(21,22,26,.18);padding:24px;display:flex;flex-direction:column;gap:14px">
-    <div style="display:flex;align-items:center;gap:10px"><span style="width:40px;height:40px;display:grid;place-items:center;background:#FBE1DE;color:#9C2318;border-radius:0 12px 0 12px">{I("alert",20)}</span><b style="font-size:16px">永久刪除「試賣：芒果果凍」？</b></div>
+  extra=f'''<div class="jd-scrim"></div>
+  <div class="jd" role="alertdialog" aria-label="永久刪除">
+    <span class="close">{I("x",14)}</span>
+    <div style="display:flex;align-items:center;gap:10px;padding-right:34px"><span style="width:40px;height:40px;display:grid;place-items:center;background:#FBE1DE;color:#9C2318;border-radius:0 12px 0 12px;flex:0 0 auto">{I("alert",20)}</span><b style="font-size:16px">永久刪除「試賣：芒果果凍」？</b></div>
     <p style="margin:0;font-size:13.5px;line-height:1.6;color:#5F6470">刪了就真的沒了，連同 3 張商品圖。有 2 筆舊訂單引用這個商品，訂單會保留但商品名字會變灰。</p>
     <div><span class="lbl">輸入 <b style="color:#15161A">刪除</b> 確認</span><input class="ul" type="text" placeholder="刪除"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn t" type="button">{I("x")}取消</button><button class="btn danger" type="button">{I("trash")}永久刪除</button></div>
@@ -858,10 +869,10 @@ pages["States"] = ("後台狀態畫面", ADMIN_CSS, 1440, 1000, admin("posts", [
         <div style="display:flex;gap:8px"><a class="btn t s" href="Dashboard.dc.html">{I("arrow-l",14)}回儀表板</a><button class="btn t s" type="button">{I("mail",14)}向管理員申請</button></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#15161A;color:#fff;border-radius:0 12px 0 12px;font-size:13px;box-shadow:0 12px 32px rgba(21,22,26,.2)"><span style="width:8px;height:8px;background:#13C2A3;border-radius:0 3px 0 3px"></span><b>已發布</b><a href="Post.dc.html" style="color:#C9CBD3;margin-left:auto">看前台 ↗</a></div>
-        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#15161A;color:#fff;border-radius:0 12px 0 12px;font-size:13px;box-shadow:0 12px 32px rgba(21,22,26,.2)"><span style="width:8px;height:8px;background:#E8285B;border-radius:0 3px 0 3px"></span><b>儲存失敗</b><span style="color:#C9CBD3">連線中斷</span><button class="btn x s" type="button" style="color:#fff;margin-left:auto">{I("refresh",12)}重試</button></div>
-        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#15161A;color:#fff;border-radius:0 12px 0 12px;font-size:13px;box-shadow:0 12px 32px rgba(21,22,26,.2)"><span style="width:8px;height:8px;background:#F5B800;border-radius:0 3px 0 3px"></span><b>已移到回收桶</b><button class="btn x s" type="button" style="color:#fff;margin-left:auto">{I("undo",12)}復原</button></div>
-        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;border-radius:0 12px 0 12px;font-size:13px;box-shadow:inset 0 0 0 1px #E2E3E8"><span style="width:8px;height:8px;background:#2F6BFF;border-radius:0 3px 0 3px"></span><b>離線</b><span style="color:#5F6470">會自動重連，草稿留在本機</span></div>
+        <div class="jt"><i style="background:#13C2A3"></i><b>已發布</b><a href="Post.dc.html" style="color:#C9CBD3;white-space:nowrap">看前台 ↗</a><span class="xx">{I("x")}</span></div>
+        <div class="jt"><i style="background:#E8285B"></i><b>儲存失敗</b><span class="d2">連線中斷</span><button class="btn x s" type="button" style="color:#fff;margin-left:auto">{I("refresh",12)}重試</button><span class="xx" style="margin-left:0">{I("x")}</span></div>
+        <div class="jt"><i style="background:#F5B800"></i><b>已移到回收桶</b><button class="btn x s" type="button" style="color:#fff;margin-left:auto">{I("undo",12)}復原</button><span class="xx" style="margin-left:0">{I("x")}</span></div>
+        <div class="jt light"><i style="background:#2F6BFF"></i><b>離線</b><span class="d2">會自動重連，草稿留在本機</span><span class="xx">{I("x")}</span></div>
       </div>
     </section>
   </main>'''))

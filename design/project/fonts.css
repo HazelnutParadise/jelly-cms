@@ -1,0 +1,17 @@
+/* 設計板的字型：指向自帶的 woff2 子集，不連外。
+   fonts/ 不進版控，由 scripts/vendor/fonts.sh 產生（與 web/admin/assets/fonts 同一份檔案）。
+   發布畫布時要把這個檔和 fonts/*.woff2 一起發布。 */
+@font-face {
+  font-family: "Noto Sans TC";
+  src: url("fonts/noto-sans-tc.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("fonts/bricolage-grotesque.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}

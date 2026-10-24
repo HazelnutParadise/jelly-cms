@@ -25,11 +25,11 @@ main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-column
 
       <div>
         <div class="lbl" style="margin-bottom:4px">搜尋引擎（Google、Bing、DuckDuckGo…）</div>
-        <div class="srow"><div><label>讓搜尋引擎索引這個網站</label><div class="h">關掉等於整站 noindex，測試站或還沒上線用。</div></div><div class="c"><span class="tg"></span></div></div>
+        <div class="srow"><div><label>讓搜尋引擎索引這個網站</label><div class="h">關掉等於整站 noindex，測試站或還沒上線用。</div></div><div class="c"><span class="tg j"></span></div></div>
         <div class="srow"><div><label>哪些頁面可以被索引</label><div class="h">不索引的頁面不會進 sitemap，並加 noindex。單篇文章可以另外覆寫。</div></div><div class="c" style="flex-wrap:wrap;justify-content:flex-start;gap:6px"><span class="chip ok">首頁</span><span class="chip ok">文章</span><span class="chip ok">頁面</span><span class="chip ok">分類頁</span><span class="chip">標籤頁</span><span class="chip ok">作者頁</span><span class="chip">月份彙整</span><span class="chip ok">商品</span><span class="chip">搜尋結果</span><span class="chip">購物車與結帳</span><span class="chip">會員中心</span></div></div>
         <div class="srow"><div><label>圖片</label></div><div class="c"><div class="seg"><span class="on">可被圖片搜尋</span><span>不要（noimageindex）</span></div></div></div>
         <div class="srow"><div><label>摘要長度與快照</label><div class="h">對應 max-snippet、max-image-preview、noarchive。</div></div><div class="c"><div class="seg"><span class="on">不限制</span><span>只給短摘要</span><span>不給快取副本</span></div></div></div>
-        <div class="srow"><div><label>變更時通知搜尋引擎</label><div class="h">IndexNow（Bing、Yandex、Naver…）與 Google Sitemap ping。</div></div><div class="c"><span class="tg"></span></div></div>
+        <div class="srow"><div><label>變更時通知搜尋引擎</label><div class="h">IndexNow（Bing、Yandex、Naver…）與 Google Sitemap ping。</div></div><div class="c"><span class="tg j"></span></div></div>
       </div>
 
       <div>
@@ -47,9 +47,9 @@ main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-column
         {bot("Amazon","Amazonbot","Alexa、AI 功能","no","ok",False)}
         {bot("其他","cohere-ai · Diffbot · omgili · YouBot · PetalBot · 共 14 個","小型或資料仲介","no",None,False)}
         <div style="display:flex;gap:8px;margin-top:10px;align-items:center"><input class="ul" type="text" placeholder="加一個 User-Agent，例如 MyCompanyBot" style="max-width:320px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><button class="btn t s" type="button">{I("plus",12)}加入</button></div>
-        <div class="srow" style="margin-top:8px"><div><label>伺服器端直接擋不守規矩的</label><div class="h">對標成「會無視 robots」的爬蟲，依 User-Agent 與已知 IP 段回 403，並寫進日誌。可能誤擋，所以預設只擋名單上那幾個。</div></div><div class="c"><span class="tg"></span></div></div>
-        <div class="srow"><div><label>宣告資料探勘保留（TDM-Reservation）</label><div class="h">歐盟 DSM 指令承認的機器可讀聲明，加在 HTTP 標頭與 HTML。</div></div><div class="c"><span class="tg"></span></div></div>
-        <div class="srow"><div><label>提供 llms.txt</label><div class="h">給允許的 AI 一份乾淨的站點摘要與重要頁面清單，少爬一點、答得準一點。</div></div><div class="c"><span class="tg"></span></div></div>
+        <div class="srow" style="margin-top:8px"><div><label>伺服器端直接擋不守規矩的</label><div class="h">對標成「會無視 robots」的爬蟲，依 User-Agent 與已知 IP 段回 403，並寫進日誌。可能誤擋，所以預設只擋名單上那幾個。</div></div><div class="c"><span class="tg j"></span></div></div>
+        <div class="srow"><div><label>宣告資料探勘保留（TDM-Reservation）</label><div class="h">歐盟 DSM 指令承認的機器可讀聲明，加在 HTTP 標頭與 HTML。</div></div><div class="c"><span class="tg j"></span></div></div>
+        <div class="srow"><div><label>提供 llms.txt</label><div class="h">給允許的 AI 一份乾淨的站點摘要與重要頁面清單，少爬一點、答得準一點。</div></div><div class="c"><span class="tg j"></span></div></div>
       </div>
 
       <div>
