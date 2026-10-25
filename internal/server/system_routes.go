@@ -132,19 +132,6 @@ var systemAdminEndpoints = []systemEndpoint{
 	{http.MethodPost, "/api/admin/update/rollback"},
 	{http.MethodPut, "/api/admin/update/settings"},
 
-	{http.MethodGet, "/api/admin/infra"},
-	{http.MethodPut, "/api/admin/infra/cache"},
-	{http.MethodPost, "/api/admin/infra/cache/test"},
-	{http.MethodPost, "/api/admin/infra/cache/flush"},
-	{http.MethodPut, "/api/admin/infra/queue"},
-	{http.MethodPost, "/api/admin/infra/queue/test"},
-	{http.MethodPost, "/api/admin/infra/queue/switch"},
-	{http.MethodPost, "/api/admin/infra/queue/pause"},
-	{http.MethodPost, "/api/admin/infra/queue/resume"},
-	{http.MethodGet, "/api/admin/jobs"},
-	{http.MethodPost, "/api/admin/jobs/:id/retry"},
-	{http.MethodPost, "/api/admin/jobs/retry-failed"},
-	{http.MethodDelete, "/api/admin/jobs/:id"},
 	{http.MethodGet, "/api/admin/mail/settings"},
 	{http.MethodPut, "/api/admin/mail/settings"},
 	{http.MethodPost, "/api/admin/mail/test"},
@@ -220,6 +207,7 @@ var systemPublicEndpoints = []systemEndpoint{
 // before the /:slug catch-all is registered.
 func registerSystemRoutes(e *echo.Echo) {
 	registerLogRoutes(e)
+	registerInfraRoutes(e)
 	for _, ep := range systemAdminEndpoints {
 		e.Add(ep.Method, ep.Path, notImplemented, auth.RequireRole("admin"))
 	}

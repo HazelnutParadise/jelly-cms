@@ -100,6 +100,49 @@ type Queue interface {
 	Close() error
 }
 
+// ErrJobRunning is returned when an action would touch a job that a worker holds.
+var ErrJobRunning = errors.New("queue: job is running")
+
+// JobInfo is a job with the state the admin pages show. The payload is part
+// of Job but the admin API never returns it.
+type JobInfo struct {
+	Job
+	State     string
+	LastError string
+}
+
+// ListFilter narrows Inspector.List. Empty fields match everything. Limit
+// defaults to 100 and is capped at 200.
+type ListFilter struct {
+	Queue string
+	State string
+	Limit int
+}
+
+func (f ListFilter) limit() int {
+	switch {
+	case f.Limit <= 0:
+		return 100
+	case f.Limit > 200:
+		return 200
+	default:
+		return f.Limit
+	}
+}
+
+// Inspector is the admin surface of a queue. The built-in drivers implement
+// it; the jobs page needs it. It is separate from Queue so that drivers
+// written against Queue alone keep compiling.
+type Inspector interface {
+	Get(ctx context.Context, id string) (JobInfo, error)
+	List(ctx context.Context, f ListFilter) ([]JobInfo, error)
+	// RetryFailed queues every failed job in queueName (all queues when empty)
+	// and returns how many it requeued.
+	RetryFailed(ctx context.Context, queueName string) (int64, error)
+	// Remove deletes a job row. A running job cannot be removed.
+	Remove(ctx context.Context, id string) error
+}
+
 // HandlerFunc runs one job. A returned error goes through Fail.
 type HandlerFunc func(context.Context, Job) error
 
@@ -297,10 +340,23 @@ func (q *memoryQueue) Retry(_ context.Context, id string) error {
 	if !ok {
 		return ErrNotFound
 	}
-	r.state = "queued"
-	r.job.RunAt = time.Now().UTC()
-	r.finishedAt = time.Time{}
+	r.requeue(time.Now().UTC())
 	return nil
+}
+
+// requeue puts r back in the queue with a fresh attempt budget. A manual
+// retry is a new start, so the attempts already spent do not count against it.
+func (r *record) requeue(now time.Time) {
+	r.state = "queued"
+	r.job.Attempts = 0
+	r.job.RunAt = now
+	r.lockedBy = ""
+	r.lockedTill = time.Time{}
+	r.finishedAt = time.Time{}
+}
+
+func (r *record) info() JobInfo {
+	return JobInfo{Job: r.job, State: r.state, LastError: r.lastErr}
 }
 
 func (q *memoryQueue) Stats(context.Context) ([]QueueStats, error) {
@@ -359,3 +415,71 @@ func (q *memoryQueue) Drain(_ context.Context, limit int) ([]Job, error) {
 func (q *memoryQueue) Ping(context.Context) (time.Duration, error) { return 0, nil }
 
 func (q *memoryQueue) Close() error { return nil }
+
+var _ Inspector = (*memoryQueue)(nil)
+
+func (q *memoryQueue) Get(_ context.Context, id string) (JobInfo, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	r, ok := q.jobs[id]
+	if !ok {
+		return JobInfo{}, ErrNotFound
+	}
+	return r.info(), nil
+}
+
+func (q *memoryQueue) List(_ context.Context, f ListFilter) ([]JobInfo, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	out := []JobInfo{}
+	for _, r := range q.jobs {
+		if f.Queue != "" && r.job.Queue != f.Queue {
+			continue
+		}
+		if f.State != "" && r.state != f.State {
+			continue
+		}
+		out = append(out, r.info())
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].RunAt.Equal(out[j].RunAt) {
+			return out[i].RunAt.After(out[j].RunAt)
+		}
+		return out[i].ID < out[j].ID
+	})
+	if len(out) > f.limit() {
+		out = out[:f.limit()]
+	}
+	return out, nil
+}
+
+func (q *memoryQueue) RetryFailed(_ context.Context, queueName string) (int64, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	now := time.Now().UTC()
+	var n int64
+	for _, r := range q.jobs {
+		if r.state == "failed" && (queueName == "" || r.job.Queue == queueName) {
+			r.requeue(now)
+			n++
+		}
+	}
+	return n, nil
+}
+
+func (q *memoryQueue) Remove(_ context.Context, id string) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	r, ok := q.jobs[id]
+	if !ok {
+		return ErrNotFound
+	}
+	if r.state == "running" {
+		return ErrJobRunning
+	}
+	delete(q.jobs, id)
+	if r.job.DedupeKey != "" && q.dedupe[r.job.DedupeKey] == id {
+		delete(q.dedupe, r.job.DedupeKey)
+	}
+	return nil
+}

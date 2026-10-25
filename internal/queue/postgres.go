@@ -183,7 +183,126 @@ func (q *postgresQueue) Fail(ctx context.Context, id string, cause error, retryA
 }
 
 func (q *postgresQueue) Retry(ctx context.Context, id string) error {
-	return q.update(ctx, id, `UPDATE jobs SET state = 'queued', run_at = now(), finished_at = NULL, locked_by = NULL, locked_until = NULL WHERE id = ?::uuid`)
+	return q.update(ctx, id, `UPDATE jobs SET state = 'queued', attempts = 0, run_at = now(), finished_at = NULL, locked_by = NULL, locked_until = NULL WHERE id = ?::uuid`)
+}
+
+var _ Inspector = (*postgresQueue)(nil)
+
+// jobListRow is one jobs row with its state, for the admin pages. The payload
+// is left out on purpose.
+type jobListRow struct {
+	ID          string
+	Queue       string
+	Kind        string
+	DedupeKey   *string
+	Attempts    int
+	MaxAttempts int
+	RunAt       time.Time
+	State       string
+	LastError   *string
+}
+
+const jobListColumns = `id::text AS id, queue, kind, dedupe_key, attempts, max_attempts, run_at, state, last_error`
+
+func (r jobListRow) info() JobInfo {
+	j := Job{
+		ID:          r.ID,
+		Queue:       r.Queue,
+		Kind:        r.Kind,
+		Attempts:    r.Attempts,
+		MaxAttempts: r.MaxAttempts,
+		RunAt:       r.RunAt.UTC(),
+	}
+	if r.DedupeKey != nil {
+		j.DedupeKey = *r.DedupeKey
+	}
+	info := JobInfo{Job: j, State: r.State}
+	if r.LastError != nil {
+		info.LastError = *r.LastError
+	}
+	return info
+}
+
+func (q *postgresQueue) Get(ctx context.Context, id string) (JobInfo, error) {
+	db, err := q.db(ctx)
+	if err != nil {
+		return JobInfo{}, err
+	}
+	if !uuidPattern.MatchString(id) {
+		return JobInfo{}, ErrNotFound
+	}
+	var rows []jobListRow
+	if err := db.Raw(`SELECT `+jobListColumns+` FROM jobs WHERE id = ?::uuid`, id).Scan(&rows).Error; err != nil {
+		return JobInfo{}, fmt.Errorf("queue: get job: %w", err)
+	}
+	if len(rows) == 0 {
+		return JobInfo{}, ErrNotFound
+	}
+	return rows[0].info(), nil
+}
+
+func (q *postgresQueue) List(ctx context.Context, f ListFilter) ([]JobInfo, error) {
+	db, err := q.db(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []jobListRow
+	err = db.Raw(`SELECT `+jobListColumns+` FROM jobs
+		WHERE (?::text = '' OR queue = ?) AND (?::text = '' OR state = ?)
+		ORDER BY run_at DESC, id
+		LIMIT ?`, f.Queue, f.Queue, f.State, f.State, f.limit()).Scan(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("queue: list jobs: %w", err)
+	}
+	out := make([]JobInfo, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r.info())
+	}
+	return out, nil
+}
+
+func (q *postgresQueue) RetryFailed(ctx context.Context, queueName string) (int64, error) {
+	db, err := q.db(ctx)
+	if err != nil {
+		return 0, err
+	}
+	res := db.Exec(`UPDATE jobs SET state = 'queued', attempts = 0, run_at = now(), finished_at = NULL,
+			locked_by = NULL, locked_until = NULL
+		WHERE state = 'failed' AND (?::text = '' OR queue = ?)`, queueName, queueName)
+	if res.Error != nil {
+		return 0, fmt.Errorf("queue: retry failed jobs: %w", res.Error)
+	}
+	return res.RowsAffected, nil
+}
+
+// Remove deletes a job row that no worker holds. The state check runs again
+// inside the DELETE so a job that a worker reserved in between is kept.
+func (q *postgresQueue) Remove(ctx context.Context, id string) error {
+	db, err := q.db(ctx)
+	if err != nil {
+		return err
+	}
+	if !uuidPattern.MatchString(id) {
+		return ErrNotFound
+	}
+	var state string
+	if err := db.Raw(`SELECT state FROM jobs WHERE id = ?::uuid`, id).Scan(&state).Error; err != nil {
+		return fmt.Errorf("queue: read job: %w", err)
+	}
+	if state == "" {
+		return ErrNotFound
+	}
+	if state == "running" {
+		return ErrJobRunning
+	}
+	res := db.Exec(`DELETE FROM jobs WHERE id = ?::uuid AND state <> 'running'`, id)
+	if res.Error != nil {
+		return fmt.Errorf("queue: remove job: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return ErrJobRunning
+	}
+	return nil
 }
 
 // update runs a statement that takes the job ID as its only argument.
