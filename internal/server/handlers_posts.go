@@ -23,6 +23,7 @@ import (
 )
 
 var errPostConflict = errors.New("post changed")
+var errReservedSlug = errors.New("slug is reserved")
 var errRenderDiagnostics = errors.New("render diagnostics")
 
 // Ticket 09 G0 (docs/tickets/09-editor.md): source writes are rendered and
@@ -110,6 +111,7 @@ func createPost(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
+	cfg := loadPermalinkConfig(c.Request().Context())
 	diagnostics, err := preparePostContent(c, &post, input, user)
 	if err != nil {
 		if errors.Is(err, errRenderDiagnostics) {
@@ -122,6 +124,16 @@ func createPost(c echo.Context) error {
 		post.PublishedAt = &now
 	}
 	err = data.DB.Transaction(func(tx *gorm.DB) error {
+		if post.Slug == "" {
+			slug, err := newContentSlug(tx, cfg, post)
+			if err != nil {
+				return err
+			}
+			post.Slug = slug
+		}
+		if core.IsReservedSlug(post.Slug, cfg.currentPrefixNames()...) {
+			return errReservedSlug
+		}
 		if err := core.NewPostService(tx).Create(&post); err != nil {
 			return err
 		}
@@ -130,7 +142,7 @@ func createPost(c echo.Context) error {
 		}
 		// A new post must be reachable at its own URL, so drop any automatic
 		// redirect that still sends that path elsewhere after a slug change.
-		if err := redirects.ReleaseAutoPath(tx, publicPostPath(post.Type, post.Slug)); err != nil {
+		if err := redirects.ReleaseAutoPath(tx, permalinkPathFor(tx, cfg, post)); err != nil {
 			return err
 		}
 		kind := "manual"
@@ -140,6 +152,9 @@ func createPost(c echo.Context) error {
 		_, err := RecordRevision(tx, post, user.ID, kind)
 		return err
 	})
+	if errors.Is(err, errReservedSlug) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Slug is reserved"})
+	}
 	if err != nil {
 		return termWriteError(c, err, "Unable to create post")
 	}
@@ -229,6 +244,12 @@ func updatePost(c echo.Context) error {
 	if _, err := applyPostInput(&nextForRender, input); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
+	cfg := loadPermalinkConfig(c.Request().Context())
+	_, slugInput := input["slug"]
+	_, typeInput := input["type"]
+	if (slugInput || typeInput) && core.IsReservedSlug(nextForRender.Slug, cfg.currentPrefixNames()...) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Slug is reserved"})
+	}
 	diagnostics, err := preparePostContent(c, &nextForRender, input, user)
 	if err != nil {
 		if errors.Is(err, errRenderDiagnostics) {
@@ -248,8 +269,9 @@ func updatePost(c echo.Context) error {
 			updates["published_at"] = updates["updated_at"]
 		}
 	}
-	oldPath := publicPostPath(existing.Type, existing.Slug)
-	newPath := publicPostPath(nextForRender.Type, nextForRender.Slug)
+	// The old URL is built before the write; the new one after the categories
+	// are saved, because a {category} pattern depends on them.
+	oldPath := permalinkPathFor(data.DB, cfg, existing)
 	slugRedirectSkipped := ""
 	err = data.DB.Transaction(func(tx *gorm.DB) error {
 		write := tx.Model(&core.Post{}).Where("id = ?", id)
@@ -272,6 +294,11 @@ func updatePost(c echo.Context) error {
 		if err := applyPostTerms(tx, &existing, input); err != nil {
 			return err
 		}
+		var saved core.Post
+		if err := tx.Select("id", "type", "slug", "published_at", "created_at").First(&saved, id).Error; err != nil {
+			return err
+		}
+		newPath := permalinkPathFor(tx, cfg, saved)
 		next := existing
 		next = nextForRender
 		if stamped, ok := updates["published_at"].(time.Time); ok && next.PublishedAt == nil {

@@ -66,12 +66,6 @@ func SitemapPart(ctx context.Context, siteURL, kind string, n int) ([]byte, erro
 	return nil, ErrNotImplemented
 }
 
-// Feed renders an RSS or Atom feed. scope is "" for the site, or a taxonomy
-// or author slug.
-func Feed(ctx context.Context, siteURL, scope string) ([]byte, error) {
-	return nil, ErrNotImplemented
-}
-
 // LLMSTxt renders /llms.txt.
 func LLMSTxt(ctx context.Context, siteURL string) ([]byte, error) {
 	return nil, ErrNotImplemented

@@ -37,6 +37,8 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	if e.IPExtractor == nil {
 		e.IPExtractor = trustedProxyExtractorFromEnv()
 	}
+	// Permalinks rewrite the path before routing (permalink.go, ticket 08b).
+	e.Pre(permalinkRouting)
 	wireLogSinks()
 	e.Use(syslog.RequestID())
 	e.Use(syslog.AccessLog())
@@ -52,6 +54,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	e.Use(redirectMiddleware)
 	e.Use(enforceStaffAdminAPIs)
 	e.Use(enforceStaffAdminPages)
+	e.Use(settingsURLGuard)
 	registerUploadRoutes(e)
 	e.Static("/admin/assets", "web/admin/assets")
 

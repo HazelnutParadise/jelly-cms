@@ -117,7 +117,26 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		if db == nil {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
 		}
-		db = db.WithContext(c.Request().Context())
+		ctx := c.Request().Context()
+		db = db.WithContext(ctx)
+
+		// home_show=page answers with the chosen page; the latest posts are the default.
+		landing, ok, err := homeLandingPage(ctx, db)
+		if err != nil {
+			return err
+		}
+		if ok {
+			landing.Content, err = publicPostContent(ctx, db, landing)
+			if err != nil {
+				return err
+			}
+			return publicRender(c, tm, db, "page.html", landing.Title, map[string]interface{}{
+				"IsHome":  true,
+				"IsPage":  true,
+				"Page":    landing,
+				"Content": template.HTML(landing.Content),
+			})
+		}
 
 		stats, err := publicStats(db)
 		if err != nil {
@@ -128,11 +147,13 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 			return err
 		}
 
-		posts := make([]core.Post, 0, 5)
+		// per_page_home counts every post on the home page, the featured one included.
+		size := perPage(ctx, keyPerPageHome)
+		posts := make([]core.Post, 0, size)
 		var latest []core.Post
 		err = publicPostPreloads(publicPostVisibility(db).Where("posts.type = ?", "post")).
 			Order("posts.pinned DESC, " + archivePostDate + " DESC, posts.id DESC").
-			Limit(6).Find(&latest).Error
+			Limit(size).Find(&latest).Error
 		if err != nil {
 			return err
 		}
@@ -158,23 +179,24 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		}
 		db = db.WithContext(c.Request().Context())
 		page := publicPageParam(c)
+		size := perPage(c.Request().Context(), keyPerPageHome)
 
 		var total int64
 		if err := publicPostVisibility(db).Where("posts.type = ?", "post").Count(&total).Error; err != nil {
 			return err
 		}
-		totalPages := publicTotalPages(total, publicPostsPageSize)
+		totalPages := publicTotalPages(total, size)
 		if page > 1 && page > totalPages {
 			return echo.ErrNotFound
 		}
-		if page-1 > int(^uint(0)>>1)/publicPostsPageSize {
+		if page-1 > int(^uint(0)>>1)/size {
 			return echo.ErrNotFound
 		}
 
-		posts := make([]core.Post, 0, publicPostsPageSize)
+		posts := make([]core.Post, 0, size)
 		err := publicPostPreloads(publicPostVisibility(db).Where("posts.type = ?", "post")).
 			Order("posts.pinned DESC, " + archivePostDate + " DESC, posts.id DESC").
-			Limit(publicPostsPageSize).Offset((page - 1) * publicPostsPageSize).
+			Limit(size).Offset((page - 1) * size).
 			Find(&posts).Error
 		if err != nil {
 			return err
@@ -206,12 +228,17 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 			"Page":       page,
 			"TotalPages": totalPages,
 			"Total":      total,
-			"PageSize":   publicPostsPageSize,
+			"PageSize":   size,
 			"Categories": visibleCategories,
 		})
 	})
 
 	e.GET("/post/:slug", func(c echo.Context) error {
+		// Only a URL that matched the current permalink pattern reaches this
+		// route as a post; a bare /post/ URL is not served once the pattern changed.
+		if canonical, _ := c.Get(permalinkCanonicalKey).(bool); !canonical {
+			return echo.ErrNotFound
+		}
 		db := datapkg.DB
 		if db == nil {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
@@ -262,19 +289,20 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		db = db.WithContext(c.Request().Context())
 		query := c.QueryParam("q")
 		page := publicPageParam(c)
+		size := perPage(c.Request().Context(), keyPerPageSearch)
 		results := []searchResult{}
 		var total int64
 		if query != "" {
 			var err error
-			results, total, err = searchPublicPosts(db, query, page, publicPostsPageSize)
+			results, total, err = searchPublicPosts(db, query, page, size)
 			if err != nil {
 				return err
 			}
-			if page > 1 && page > publicTotalPages(total, publicPostsPageSize) {
+			if page > 1 && page > publicTotalPages(total, size) {
 				return echo.ErrNotFound
 			}
 		}
-		totalPages := publicTotalPages(total, publicPostsPageSize)
+		totalPages := publicTotalPages(total, size)
 		return publicRender(c, tm, db, "search.html", "搜尋結果", map[string]interface{}{
 			"IsSearch":   true,
 			"Query":      query,
@@ -364,6 +392,29 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 	})
 }
 
+// homeLandingPage returns the page that / shows when home_show is page. ok is
+// false when the latest posts should show: the mode is latest, or the page
+// does not exist or is not public.
+func homeLandingPage(ctx context.Context, db *gorm.DB) (page core.Post, ok bool, err error) {
+	values := loadOptionValues(ctx, keyHomeShow, keyHomePageID)
+	if valueOr(values, keyHomeShow) != "page" {
+		return core.Post{}, false, nil
+	}
+	id, err := strconv.ParseUint(valueOr(values, keyHomePageID), 10, 64)
+	if err != nil || id == 0 {
+		return core.Post{}, false, nil
+	}
+	err = publicPostVisibility(db).Where("posts.type = ? AND posts.id = ?", "page", id).
+		Preload("Author").First(&page).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return core.Post{}, false, nil
+	}
+	if err != nil {
+		return core.Post{}, false, err
+	}
+	return page, true, nil
+}
+
 func publicPostContent(ctx context.Context, db *gorm.DB, post core.Post) (string, error) {
 	content := post.Content
 	if post.RenderVersion < 1 {
@@ -413,11 +464,15 @@ func queryDynamicItems(db *gorm.DB, kind string, attrs map[string]string) ([]mar
 			q = q.Joins("JOIN post_categories pc ON pc.post_id=posts.id").Joins("JOIN categories c ON c.id=pc.category_id").Where("c.slug = ? AND c.hide_from_list = false", category)
 		}
 		var rows []core.Post
-		if err := q.Order("posts.published_at DESC NULLS LAST, posts.id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		err := q.Preload("Categories", func(tx *gorm.DB) *gorm.DB {
+			return tx.Where("categories.hide_from_list = ?", false).Order("categories.position ASC, categories.name ASC")
+		}).Order("posts.published_at DESC NULLS LAST, posts.id DESC").Limit(limit).Find(&rows).Error
+		if err != nil {
 			return nil, err
 		}
+		cfg := loadPermalinkConfig(dbContext(db))
 		for _, p := range rows {
-			items = append(items, markup.DynamicItem{Title: p.Title, URL: "/post/" + p.Slug})
+			items = append(items, markup.DynamicItem{Title: p.Title, URL: permalinkPathFor(db, cfg, p)})
 		}
 	}
 	return items, nil

@@ -18,7 +18,7 @@ import (
 //	GET  /sitemap-{posts|pages|categories|products}-{n}.xml   seo.SitemapPart
 //	GET  /llms.txt                         seo.LLMSTxt
 //	GET  /.well-known/tdmrep.json          seo.TDMRep
-//	GET  /feed.xml                         seo.Feed
+//	GET  /feed.xml                         seo.Feed (live, feed_routes.go)
 //	GET  /c/:slug/feed.xml                 seo.Feed (category)
 //	GET  /author/:u/feed.xml               seo.Feed (author)
 //	GET  /<indexnow_key>.txt               registered by 08b from seo_indexnow_key
@@ -187,7 +187,6 @@ var systemPublicEndpoints = []systemEndpoint{
 	{http.MethodGet, "/sitemap-*"},
 	{http.MethodGet, "/llms.txt"},
 	{http.MethodGet, "/.well-known/tdmrep.json"},
-	{http.MethodGet, "/feed.xml"},
 	{http.MethodGet, "/c/:slug/feed.xml"},
 	{http.MethodGet, "/author/:u/feed.xml"},
 }
@@ -198,6 +197,7 @@ func registerSystemRoutes(e *echo.Echo) {
 	registerLogRoutes(e)
 	registerInfraRoutes(e)
 	registerRedirectRoutes(e)
+	registerFeedRoutes(e)
 	for _, ep := range systemAdminEndpoints {
 		e.Add(ep.Method, ep.Path, notImplemented, auth.RequireRole("admin"))
 	}
