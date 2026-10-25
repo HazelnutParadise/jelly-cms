@@ -190,7 +190,7 @@ func initializeAfterInstallation(pluginRuntime *plugin.Runtime) {
 	if err := os.MkdirAll("data/plugins", 0755); err != nil {
 		log.Printf("plugin directory setup failed after installation: %v", err)
 	}
-	if err := pluginRuntime.LoadAll(context.Background(), "data/plugins"); err != nil {
+	if err := pluginRuntime.LoadWhere(context.Background(), "data/plugins", PluginEnabledFilter()); err != nil {
 		log.Printf("plugin loading failed after installation: %v", err)
 	}
 }

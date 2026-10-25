@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"archive/zip"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -42,15 +41,44 @@ func ValidPluginID(id string) bool {
 	return pluginIDPattern.MatchString(id)
 }
 
+// ArchiveExpectation pins what an archive must contain before it replaces
+// anything on disk. An empty field is not checked.
+type ArchiveExpectation struct {
+	ID string
+	// Version is the manifest version the archive must declare.
+	Version string
+	// PermissionsHash is the PermissionNamesHash of the permissions the
+	// archive must declare.
+	PermissionsHash string
+}
+
 // InstallArchive extracts the plugin ZIP at zipPath to pluginsDir/<id> and
 // returns the plugin ID from its manifest.
+func InstallArchive(zipPath, pluginsDir string) (string, error) {
+	return InstallArchiveExpecting(zipPath, pluginsDir, ArchiveExpectation{})
+}
+
+// InspectArchive reads and validates the manifest of the plugin ZIP at zipPath
+// without extracting anything.
+func InspectArchive(zipPath string) (PluginMetadata, error) {
+	r, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return PluginMetadata{}, archiveErrorf("invalid ZIP file: %v", err)
+	}
+	defer r.Close()
+
+	return readArchiveManifest(r.File)
+}
+
+// InstallArchiveExpecting is InstallArchive with the identity the archive must
+// have. A mismatch is an ArchiveError and nothing is written.
 //
 // The manifest id is validated before it is used in any path. Entries are
 // extracted into a staging directory inside pluginsDir and only then renamed
 // into place, so a failed upload never leaves a half-written plugin. Absolute
 // names, ".." segments, backslashes and symbolic links are refused, and the
 // per-file and total sizes are capped.
-func InstallArchive(zipPath, pluginsDir string) (string, error) {
+func InstallArchiveExpecting(zipPath, pluginsDir string, want ArchiveExpectation) (string, error) {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return "", archiveErrorf("invalid ZIP file: %v", err)
@@ -63,6 +91,15 @@ func InstallArchive(zipPath, pluginsDir string) (string, error) {
 	}
 	if !ValidPluginID(meta.ID) {
 		return "", archiveErrorf("invalid plugin.json: id %q is missing or invalid", meta.ID)
+	}
+	if want.ID != "" && meta.ID != want.ID {
+		return "", archiveErrorf("archive id %q does not match %q", meta.ID, want.ID)
+	}
+	if want.Version != "" && meta.Version != want.Version {
+		return "", archiveErrorf("archive version %q does not match %q", meta.Version, want.Version)
+	}
+	if want.PermissionsHash != "" && PermissionNamesHash(ManifestPermissionNames(meta)) != want.PermissionsHash {
+		return "", archiveErrorf("archive permissions differ from the approved permissions")
 	}
 
 	if err := os.MkdirAll(pluginsDir, 0o755); err != nil {
@@ -113,8 +150,17 @@ func readArchiveManifest(files []*zip.File) (PluginMetadata, error) {
 			return PluginMetadata{}, archiveErrorf("open plugin.json: %v", err)
 		}
 		defer rc.Close()
-		var meta PluginMetadata
-		if err := json.NewDecoder(io.LimitReader(rc, maxManifestBytes)).Decode(&meta); err != nil {
+		raw, err := io.ReadAll(io.LimitReader(rc, maxManifestBytes+1))
+		if err != nil {
+			return PluginMetadata{}, archiveErrorf("read plugin.json: %v", err)
+		}
+		if len(raw) > maxManifestBytes {
+			return PluginMetadata{}, archiveErrorf("plugin.json exceeds %d bytes", maxManifestBytes)
+		}
+		// ParseManifest applies the same checks the runtime and the admin
+		// screens apply, so an archive that would not load is refused here.
+		meta, err := ParseManifest(raw)
+		if err != nil {
 			return PluginMetadata{}, archiveErrorf("invalid plugin.json: %v", err)
 		}
 		return meta, nil

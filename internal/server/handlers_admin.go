@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -301,9 +302,14 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		return c.JSON(http.StatusOK, plugins)
 	})
 
-	// Upload plugin. The archive is validated and extracted by plugin.InstallArchive.
+	// Upload plugin. The archive is validated and extracted by installPluginFile,
+	// which also records the plugins row (disabled until an admin enables it).
+	// The field is "file"; "plugin" is still read for the existing admin screen.
 	api.POST("/plugins/upload", func(c echo.Context) error {
-		file, err := c.FormFile("plugin")
+		file, err := c.FormFile("file")
+		if err != nil {
+			file, err = c.FormFile("plugin")
+		}
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "No file uploaded"})
 		}
@@ -335,15 +341,18 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save uploaded file"})
 		}
 
-		pluginID, err := plugin.InstallArchive(tmpPath, filepath.Join("data", "plugins"))
+		res, err := installPluginFile(c.Request().Context(), pluginRuntime, tmpPath, pluginFileInstall{Source: storeSourceUpload, Signature: storeSignatureNone})
 		if err != nil {
-			if plugin.IsArchiveError(err) {
+			switch {
+			case errors.Is(err, errPluginRunning):
+				return c.JSON(http.StatusConflict, map[string]string{"error": "Plugin is running; disable it before uploading a new version"})
+			case plugin.IsArchiveError(err):
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 			}
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Plugin installation failed"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]string{"message": "Plugin uploaded and extracted successfully", "plugin_id": pluginID})
+		return c.JSON(http.StatusOK, map[string]string{"message": "Plugin uploaded and extracted successfully", "plugin_id": res.ID})
 	}, middleware.BodyLimit(uploadBodyLimit))
 
 	// Reload plugin

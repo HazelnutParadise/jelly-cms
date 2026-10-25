@@ -97,7 +97,7 @@ import (
 //	  PATCH|DELETE /media/files/:id            POST   /media/files/:id/replace
 //	  POST   /media/fetch
 //
-// Live in this branch: /healthz, the settings tabs, uploads, the WXR import API (import_api.go), the update API (update_api.go), the plugin detail API (plugin_detail_api.go) and the admin pages above.
+// Live in this branch: /healthz, the settings tabs, uploads, the WXR import API (import_api.go), the update API (update_api.go), the plugin detail API (plugin_detail_api.go), the store and install-from-URL API (store_api.go) and the admin pages above.
 type systemEndpoint struct {
 	Method string
 	Path   string
@@ -109,12 +109,6 @@ var systemAdminEndpoints = []systemEndpoint{
 	{http.MethodGet, "/api/admin/mail/settings"},
 	{http.MethodPut, "/api/admin/mail/settings"},
 	{http.MethodPost, "/api/admin/mail/test"},
-
-	{http.MethodGet, "/api/admin/store"},
-	{http.MethodPost, "/api/admin/store/refresh"},
-	{http.MethodPost, "/api/admin/store/install"},
-	{http.MethodPost, "/api/admin/store/update"},
-	{http.MethodPost, "/api/admin/plugins/install-url"},
 
 	{http.MethodGet, "/api/admin/media/policies"},
 	{http.MethodPost, "/api/admin/media/policies"},
@@ -156,6 +150,7 @@ func registerSystemRoutes(e *echo.Echo, pluginRuntime *plugin.Runtime) {
 	registerImportRoutes(e)
 	registerUpdateRoutes(e)
 	registerPluginDetailRoutes(e, pluginRuntime)
+	registerStoreRoutes(e, pluginRuntime)
 	for _, ep := range systemAdminEndpoints {
 		e.Add(ep.Method, ep.Path, notImplemented, auth.RequireRole("admin"))
 	}

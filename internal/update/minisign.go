@@ -40,11 +40,17 @@ type signatureFile struct {
 // verifySignature checks a minisign signature over data with the configured
 // public key. Both the file signature and the trusted comment signature must hold.
 func verifySignature(data, sigFile []byte) error {
-	line := publicKeyLine()
-	if line == "" {
+	return VerifyMinisign(publicKeyLine(), data, sigFile)
+}
+
+// VerifyMinisign checks data against the minisign signature file sigFile using
+// the public key line pubLine. Both the file signature and the trusted comment
+// signature must hold. An empty pubLine returns ErrNoSigningKey.
+func VerifyMinisign(pubLine string, data, sigFile []byte) error {
+	if pubLine == "" {
 		return ErrNoSigningKey
 	}
-	keyID, pub, err := parsePublicKey(line)
+	keyID, pub, err := parsePublicKey(pubLine)
 	if err != nil {
 		return err
 	}
