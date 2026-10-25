@@ -42,13 +42,22 @@ func checkSchemaNotNewer(db *gorm.DB) error {
 		return err
 	}
 	known := 0
-	if len(migrations) > 0 {
-		known = migrations[len(migrations)-1].number
+	for _, migration := range migrations {
+		if migration.number > known {
+			known = migration.number
+		}
 	}
 	if newest.Valid && int(newest.Int64) > known {
 		return fmt.Errorf("database schema version %d is newer than this binary (%d); refusing to start", newest.Int64, known)
 	}
 	return nil
+}
+
+// ValidateSchemaVersion performs the read-only preflight schema check used by
+// the installed-binary healthcheck. Older schemas are accepted because the
+// next normal startup applies their migrations before confirming health.
+func ValidateSchemaVersion(db *gorm.DB) error {
+	return checkSchemaNotNewer(db)
 }
 
 // recordSchemaMigrations writes one schema_migrations row per embedded file
@@ -111,6 +120,11 @@ func listEmbeddedMigrations() ([]embeddedMigration, error) {
 		}
 		out = append(out, embeddedMigration{number: number, name: entry.Name()})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].number < out[j].number })
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].number == out[j].number {
+			return out[i].name < out[j].name
+		}
+		return out[i].number < out[j].number
+	})
 	return out, nil
 }

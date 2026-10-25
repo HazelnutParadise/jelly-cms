@@ -122,10 +122,9 @@ const (
 	envExecutable   = "JELLY_UPDATE_EXECUTABLE"
 )
 
-// officialPublicKey is the minisign public key line of the release signing key.
-// It stays empty until the maintainer generates the key. Apply refuses to run
-// while it is empty, so an unsigned or unverifiable release is never installed.
-const officialPublicKey = ""
+// officialPublicKey is injected into release builds. Empty stays fail-closed,
+// so an unsigned or unverifiable release is never installed.
+var officialPublicKey string
 
 // TestSeamsActive reports whether the test seams are honoured.
 func TestSeamsActive() bool { return os.Getenv(envTestLoopback) == "1" }

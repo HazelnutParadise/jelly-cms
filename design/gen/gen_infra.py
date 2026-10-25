@@ -67,7 +67,7 @@ main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-column
             <div style="display:flex;gap:8px"><button class="btn t" type="button">{I("pause")}暫停所有工作者</button><a class="btn t" href="Logs.dc.html">{I("terminal")}失敗紀錄</a><span style="font-size:12px;color:#5F6470;align-self:center;margin-left:auto">今天處理 2,318 件 · 平均等待 0.8 秒</span></div>
           </div>
         </div>
-        <div style="font-size:12.5px;color:#5F6470;line-height:1.7;display:flex;gap:10px;align-items:flex-start">{I("alert",16)}<span>外掛也走同一套：外掛可以註冊自己的佇列和快取命名空間，但看不到別的外掛的資料。切換後端時會先把等待中的工作搬過去，再切，不會掉件。</span></div>
+        <div style="font-size:12.5px;color:#5F6470;line-height:1.7;display:flex;gap:10px;align-items:flex-start">{I("alert",16)}<span>工作列表顯示可選取複製的工作編號，可依佇列與狀態篩選並刷新，逐筆重試或刪除失敗工作。外掛也走同一套：外掛可以註冊自己的佇列和快取命名空間，但看不到別的外掛的資料。切換後端時會先把等待中的工作搬過去，再切，不會掉件。</span></div>
       </section>
     </main>'''
 

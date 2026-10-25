@@ -179,6 +179,15 @@ func initializeAfterInstallation(pluginRuntime *plugin.Runtime) {
 		log.Printf("installation completed without a live database handle; skipping service initialization")
 		return
 	}
+	SetSystemDatabase(db)
+	ctx := context.Background()
+	if err := ensureDefaultMediaPolicy(ctx); err != nil {
+		log.Printf("media: ensure default policy after installation: %v", err)
+	} else if n, err := importLegacyUploads(ctx); err != nil {
+		log.Printf("media: import legacy uploads after installation: %v", err)
+	} else if n > 0 {
+		log.Printf("media: imported %d legacy upload(s) after installation", n)
+	}
 
 	InitPaymentService(db)
 	auth.ReloadOAuthProviders()

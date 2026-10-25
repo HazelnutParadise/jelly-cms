@@ -8,6 +8,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/settings"
 	"gorm.io/gorm"
 )
 
@@ -56,15 +57,15 @@ const sitemapNamespace = "http://www.sitemaps.org/schemas/sitemap/0.9"
 // publicPosts scopes posts or pages to the public, published and indexable ones.
 func publicPosts(db *gorm.DB, typ string) *gorm.DB {
 	return db.Model(&core.Post{}).
-		Where("type = ? AND status = ? AND visibility = ? AND deleted_at IS NULL AND published_at <= ?",
-			typ, "published", "public", time.Now()).
+		Where("type = ? AND status = ? AND (visibility = ? OR visibility = '' OR visibility IS NULL) AND deleted_at IS NULL AND COALESCE(published_at, created_at) <= ?",
+			typ, "published", "public", time.Now().UTC()).
 		Where("seo_index <> ?", "noindex")
 }
 
 // publicProducts scopes products to the active, indexable and not trashed ones.
 func publicProducts(db *gorm.DB) *gorm.DB {
 	return db.Model(&core.Product{}).
-		Where("status = ? AND deleted_by_id IS NULL AND seo_index <> ?", "active", "noindex")
+		Where("status = ? AND deleted_by_id IS NULL AND deleted_at IS NULL AND seo_index <> ?", "active", "noindex")
 }
 
 // kindScope returns the query of the items a kind lists, or nil for an
@@ -86,6 +87,9 @@ func kindScope(db *gorm.DB, kind string) *gorm.DB {
 // kindCount counts the URLs of one kind. A kind that seo_index_types turns
 // off counts as zero.
 func kindCount(ctx context.Context, db *gorm.DB, types map[string]bool, kind string) (int64, error) {
+	if settings.Get(ctx, "seo_index_site") == "false" {
+		return 0, nil
+	}
 	if !typeIndexable(types, sitemapTypeName[kind]) {
 		return 0, nil
 	}

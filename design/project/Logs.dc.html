@@ -123,7 +123,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="seg"><span class="on">全部</span><span>應用</span><span>HTTP</span><span>金流</span><span>外掛</span><span>登入與稽核</span><span>排程</span></div>
       <div class="seg"><span class="on" style="background:#9C2318">錯誤</span><span class="on" style="background:#7A5200">警告</span><span class="on">資訊</span><span>除錯</span></div>
-      <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;flex:1;min-width:200px;color:#5F6470;font-size:13px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><input type="text" placeholder='篩選，例如 order_id=JL-2026-0417 或 status>=500' aria-label="篩選日誌" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></label>
+      <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;flex:1;min-width:200px;color:#5F6470;font-size:13px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><input type="text" placeholder='搜尋訊息或請求 ID' aria-label="篩選日誌" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></label>
       <div class="seg"><span>15 分</span><span class="on">1 小時</span><span>今天</span><span><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"/></svg>自訂</span></div>
     </div>
     <div class="card log" style="padding:0;overflow:hidden">
@@ -137,7 +137,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
       <div class="r"><span style="color:#5F6470">15:52:48.336</span><span class="lv w">WARN</span><span style="color:#2F6BFF">auth</span><span>登入失敗 × 5 · user=admin · 114.x.x.x · 已暫時封鎖 15 分</span></div>
       <div class="r"><span style="color:#5F6470">15:50:12.901</span><span class="lv d">DBG</span><span style="color:#2F6BFF">theme</span><span>render index.html 38ms · cache miss</span></div>
       <div class="r"><span style="color:#5F6470">15:49:59.470</span><span class="lv i">INFO</span><span style="color:#2F6BFF">http</span><span>GET / 200 · 12ms · cache hit</span></div>
-      <div style="padding:10px;text-align:center;font-size:12px;color:#5F6470;font-family:'Noto Sans TC',sans-serif">往下捲自動載入更多 · 日誌保留 30 天，錯誤保留 90 天</div>
+      <div style="padding:10px;text-align:center;font-size:12px;color:#5F6470;font-family:'Noto Sans TC',sans-serif"><button class="btn t s" type="button">載入更多</button> · 點請求 ID 可篩選同一請求；即時模式可暫停與重新連線</div>
     </div>
   </main>
   </div>

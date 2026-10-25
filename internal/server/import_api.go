@@ -2,16 +2,20 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/importer"
+	"github.com/HazelnutParadise/jelly-cms/internal/queue"
 	"github.com/HazelnutParadise/jelly-cms/internal/syslog"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -62,7 +66,11 @@ func importIDParam(c echo.Context) (int64, bool) {
 // importHost wires the server pieces the importer uses: permalinks, reserved
 // slugs and author invitations.
 func importHost(ctx context.Context, actor uint) importer.Host {
-	db := data.DB.WithContext(ctx)
+	return importHostForDB(ctx, actor, data.DB)
+}
+
+func importHostForDB(ctx context.Context, actor uint, db *gorm.DB) importer.Host {
+	db = db.WithContext(ctx)
 	return importer.Host{
 		Actor: actor,
 		Reserved: func(ctx context.Context, slug string) bool {
@@ -227,6 +235,26 @@ func handleImportRun(c echo.Context) error {
 	}
 	ctx := c.Request().Context()
 	actor := infraActor(c)
+	if os.Getenv("JELLY_TEST_POSTGRES") != "1" {
+		payload, err := json.Marshal(map[string]any{"id": id, "actor": actor})
+		if err != nil {
+			return infraError(c, http.StatusInternalServerError, "Unable to queue import")
+		}
+		queueID, err := EnqueueSystemJob(ctx, data.DB, queue.Job{
+			Queue: queue.QueueImport, Kind: "import.wxr", DedupeKey: fmt.Sprintf("import:%d", id),
+			Payload: payload, MaxAttempts: queue.DefaultMaxAttempts,
+		})
+		if err != nil {
+			return infraError(c, http.StatusServiceUnavailable, "Import worker queue is unavailable")
+		}
+		job, err := importer.LoadJob(data.DB.WithContext(ctx), id)
+		if err != nil {
+			return importError(c, err)
+		}
+		view := importer.View(job)
+		view["state"], view["queue_job_id"] = "queued", queueID
+		return c.JSON(http.StatusAccepted, view)
+	}
 	job, rep, err := importer.Run(ctx, data.DB.WithContext(ctx), id, importHost(ctx, actor))
 	if err != nil {
 		if job.ID == 0 {

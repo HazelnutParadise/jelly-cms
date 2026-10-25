@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/config"
+	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/version"
 )
 
@@ -127,6 +128,26 @@ func ConfirmStarted() error {
 // WriteHealthcheck writes the report that the healthcheck subcommand prints.
 // Apply runs the subcommand on the installed executable before it trusts it.
 func WriteHealthcheck(w io.Writer) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load installed configuration: %w", err)
+	}
+	db, err := data.Open(cfg.Database)
+	if err != nil {
+		return fmt.Errorf("connect to installed database: %w", err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("open installed database pool: %w", err)
+	}
+	defer sqlDB.Close()
+	var ready int
+	if err := db.Raw("SELECT 1").Scan(&ready).Error; err != nil {
+		return fmt.Errorf("query installed database: %w", err)
+	}
+	if err := data.ValidateSchemaVersion(db); err != nil {
+		return fmt.Errorf("validate installed database schema: %w", err)
+	}
 	return json.NewEncoder(w).Encode(map[string]string{
 		"status":  "ok",
 		"version": version.Version,
@@ -140,10 +161,5 @@ func Relaunch() error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(exe, os.Args[1:]...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Env = os.Environ()
-	return cmd.Start()
+	return relaunch(exe, os.Args[1:], os.Environ())
 }

@@ -43,7 +43,8 @@ const (
 // publicSEOKeys are the options a public page reads on each render.
 var publicSEOKeys = []string{
 	keySEOIndexSite, keySEOIndexTypes, keyTDMReservation, keyTDMPolicyURL,
-	keyInjectHeadAll, keyInjectHeadContent, keyInjectFooter, keyInjectOnCommerce,
+	"site_title", "seo_images_index", "seo_title_format", "seo_default_og_image",
+	keyInjectHeadAll, keyInjectHeadContent, keyInjectFooter, keyInjectOnCommerce, "seo_snippet_mode",
 }
 
 // sitemapPartRE matches the part file names /sitemap-<kind>-<n>.xml.
@@ -262,14 +263,65 @@ func applyPublicSEO(c echo.Context, db *gorm.DB, file string, values map[string]
 	home, _ := values["IsHome"].(bool)
 	contentPage := file == "post.html" || (file == "page.html" && !home)
 	values["Inject"] = publicInjectionFor(c.Request().URL.Path, opts, contentPage)
-
-	if publicNoindex(db, opts, publicIndexKind(file, home), values) {
-		values["RobotsMeta"] = "noindex"
-		c.Response().Header().Set("X-Robots-Tag", "noindex")
+	if site, _ := values["SiteTitle"].(string); site == "" {
+		values["SiteTitle"] = valueOr(opts, "site_title")
 	}
+	values["SEOPageTitle"] = publicSEOTitle(values, opts["seo_title_format"])
+	if image := publicOGImage(values, opts["seo_default_og_image"]); image != "" {
+		values["SEOImage"] = image
+	}
+
+	noindex := publicNoindex(db, opts, publicIndexKind(file, home), values)
+	noai := publicNoAI(values)
+	noimageindex := opts["seo_images_index"] == "false"
+	directives := seo.RobotsDirectives(opts["seo_snippet_mode"], noindex, noai, !noimageindex)
+	robots := strings.Join(directives, ", ")
+	if noindex {
+		values["RobotsMeta"] = "noindex"
+		var extras []string
+		for _, directive := range directives {
+			if directive != "noindex" {
+				extras = append(extras, directive)
+			}
+		}
+		if len(extras) > 0 {
+			values["RobotsExtraMeta"] = strings.Join(extras, ", ")
+		}
+	} else {
+		values["RobotsMeta"] = robots
+	}
+	c.Response().Header().Set("X-Robots-Tag", robots)
 	if opts[keyTDMReservation] == "true" {
 		c.Response().Header().Set("TDM-Reservation", "1")
 	}
+}
+
+func publicSEOTitle(values map[string]interface{}, format string) string {
+	title, _ := values["Title"].(string)
+	site, _ := values["SiteTitle"].(string)
+	if format == "" {
+		if title == "" {
+			return site
+		}
+		if site == "" {
+			return title
+		}
+		return title + " · " + site
+	}
+	return strings.ReplaceAll(strings.ReplaceAll(format, "{title}", title), "{site}", site)
+}
+
+func publicOGImage(values map[string]interface{}, fallback string) string {
+	if post, ok := values["Post"].(core.Post); ok && strings.TrimSpace(post.Cover) != "" {
+		return post.Cover
+	}
+	if page, ok := values["Page"].(core.Post); ok && strings.TrimSpace(page.Cover) != "" {
+		return page.Cover
+	}
+	if product, ok := values["Product"].(core.CatalogProductView); ok && strings.TrimSpace(product.Image) != "" {
+		return product.Image
+	}
+	return strings.TrimSpace(fallback)
 }
 
 // publicIndexKind names the seo_index_types key that governs a template.
@@ -288,6 +340,22 @@ func publicIndexKind(file string, home bool) string {
 		return "search"
 	case "posts.html":
 		return "archive"
+	case "category.html":
+		return "category"
+	case "tag.html":
+		return "tag"
+	case "author.html":
+		return "author"
+	case "archive.html":
+		return "archive"
+	case "archive_month.html":
+		return "archive"
+	case "shop.html", "shop_category.html", "cart.html", "checkout.html", "order_view.html", "order_done.html", "order_lookup.html", "sandbox_pay.html":
+		return "commerce"
+	case "account_orders.html", "account_order.html", "account_addresses.html", "account_invoices.html", "account_notifications.html", "account_security.html":
+		return "account"
+	case "product.html":
+		return "product"
 	}
 	return ""
 }
@@ -308,17 +376,27 @@ func publicNoindex(db *gorm.DB, opts map[string]string, kind string, values map[
 	if allowed, set := types[kind]; kind != "" && set && !allowed {
 		return true
 	}
-	post, ok := values["Post"].(core.Post)
-	if !ok {
-		post, ok = values["Page"].(core.Post)
+	if post, ok := values["Post"].(core.Post); ok {
+		return post.SEOIndex == "noindex"
 	}
-	if !ok || post.ID == 0 || db == nil {
-		return false
+	if post, ok := values["Page"].(core.Post); ok {
+		return post.SEOIndex == "noindex"
 	}
-	var index string
-	if err := db.Raw("SELECT seo_index FROM posts WHERE id = ?", post.ID).Scan(&index).Error; err != nil {
-		log.Printf("read seo_index of post %d: %v", post.ID, err)
-		return false
+	if product, ok := values["Product"].(core.CatalogProductView); ok {
+		return product.SEOIndex == "noindex"
 	}
-	return index == "noindex"
+	return false
+}
+
+func publicNoAI(values map[string]interface{}) bool {
+	if post, ok := values["Post"].(core.Post); ok {
+		return post.SEOAI == "noai"
+	}
+	if post, ok := values["Page"].(core.Post); ok {
+		return post.SEOAI == "noai"
+	}
+	if product, ok := values["Product"].(core.CatalogProductView); ok {
+		return product.SEOAI == "noai"
+	}
+	return false
 }

@@ -147,7 +147,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
         <div class="srow"><div><label>讓搜尋引擎索引這個站</label><div class="h">關掉會加 noindex，測試站用。</div></div><div class="c"><span class="tg"></span></div></div>
       </div>
       <div>
-        <div class="lbl" style="margin-bottom:4px">程式碼注入</div>
+        <div class="lbl" style="margin-bottom:4px">程式碼注入</div><div class="srow"><div><label>管理員密碼</label><div class="h">每次儲存都要重新驗證，目前密碼不會保留。</div></div><div class="c"><input class="ul" type="password" autocomplete="current-password"></div></div><div class="srow"><div><label>也套用到結帳與帳號頁面</label></div><div class="c"><span class="tg off"></span></div></div>
         <p style="margin:0 0 8px;font-size:12.5px;color:#5F6470">放統計、字型、驗證標籤。會原樣輸出，只有管理員能改；留言與外掛碰不到這裡。</p>
         <div class="srow" style="grid-template-columns:200px minmax(0,1fr)"><div><label>全站 &lt;head&gt;</label></div><div class="c"><textarea class="ul code" rows="3" style="width:100%;font-size:12px;text-align:left">&lt;script defer src="https://umami.example.com/script.js" data-website-id="…"&gt;&lt;/script&gt;</textarea></div></div>
         <div class="srow" style="grid-template-columns:200px minmax(0,1fr)"><div><label>文章與頁面 &lt;head&gt;</label></div><div class="c"><textarea class="ul code" rows="2" style="width:100%;font-size:12px;text-align:left" placeholder="只在內容頁輸出"></textarea></div></div>
@@ -156,7 +156,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
       <div>
         <div class="lbl" style="margin-bottom:4px">維護模式</div>
         <div class="srow"><div><label>開啟維護模式</label><div class="h">前台顯示維護頁（503），登入的管理員照常看得到網站。</div></div><div class="c"><span class="tg off"></span></div></div>
-        <div class="srow"><div><label>維護頁訊息</label></div><div class="c"><input class="ul" type="text" value="我們在升級，大概 10 分鐘。"></div></div>
+        <div class="srow"><div><label>重試秒數</label></div><div class="c"><input class="ul" type="number" min="1" max="86400" value="600"></div></div><div class="srow"><div><label>維護頁訊息</label></div><div class="c"><input class="ul" type="text" value="我們在升級，大概 10 分鐘。"></div></div>
       </div>
     </section>
   </main>

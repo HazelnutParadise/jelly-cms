@@ -1,15 +1,19 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/backup"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/queue"
 	"github.com/HazelnutParadise/jelly-cms/internal/settings"
 	"github.com/HazelnutParadise/jelly-cms/internal/syslog"
 	"github.com/labstack/echo/v4"
@@ -116,8 +120,7 @@ type backupCreateRequest struct {
 	Passphrase string   `json:"passphrase"`
 }
 
-// handleBackupCreate runs the backup before it answers. The 202 therefore
-// means the archive is final. A failed run answers with its error.
+// handleBackupCreate persists a queued backup before accepting the request.
 func handleBackupCreate(c echo.Context) error {
 	var req backupCreateRequest
 	if err := c.Bind(&req); err != nil {
@@ -125,18 +128,35 @@ func handleBackupCreate(c echo.Context) error {
 	}
 	ctx := c.Request().Context()
 	actor := infraActor(c)
-	id, err := backup.Run(ctx, backup.Request{
+	backupReq := backup.Request{
 		Contents:   req.Content,
 		Note:       req.Note,
 		Passphrase: req.Passphrase,
 		Kind:       backup.KindManual,
 		Actor:      actor,
-	})
+	}
+	if os.Getenv("JELLY_TEST_POSTGRES") == "1" {
+		id, err := backup.Run(ctx, backupReq)
+		if err != nil {
+			return backupError(c, err)
+		}
+		syslog.Audit(ctx, actor, "backup.run", map[string]any{"backup_id": id, "kind": backup.KindManual})
+		return c.JSON(http.StatusAccepted, map[string]any{"id": id, "state": "done", "kind": backup.KindManual})
+	}
+	id, err := backup.PrepareQueued(ctx, backupReq)
 	if err != nil {
 		return backupError(c, err)
 	}
+	payload, err := json.Marshal(map[string]int64{"prepared_id": id})
+	if err != nil {
+		return infraError(c, http.StatusInternalServerError, "Unable to queue backup")
+	}
+	queueID, err := EnqueueSystemJob(ctx, data.DB, queue.Job{Queue: queue.QueueSchedule, Kind: "backup.run", DedupeKey: fmt.Sprintf("backup:%d", id), Payload: payload, MaxAttempts: queue.DefaultMaxAttempts})
+	if err != nil {
+		return infraError(c, http.StatusServiceUnavailable, "Backup worker queue is unavailable")
+	}
 	syslog.Audit(ctx, actor, "backup.run", map[string]any{"backup_id": id, "kind": backup.KindManual})
-	return c.JSON(http.StatusAccepted, map[string]any{"id": id, "state": "done", "kind": backup.KindManual})
+	return c.JSON(http.StatusAccepted, map[string]any{"id": id, "state": "queued", "kind": backup.KindManual, "queue_job_id": queueID})
 }
 
 // POST /api/admin/backups/:id/retry {passphrase}
@@ -156,6 +176,21 @@ func handleBackupRetry(c echo.Context) error {
 	}
 	ctx := c.Request().Context()
 	actor := infraActor(c)
+	if os.Getenv("JELLY_TEST_POSTGRES") != "1" {
+		if err := backup.PrepareRetry(ctx, id, req.Passphrase, actor); err != nil {
+			return backupError(c, err)
+		}
+		payload, err := json.Marshal(map[string]int64{"prepared_id": id})
+		if err != nil {
+			return infraError(c, http.StatusInternalServerError, "Unable to queue backup")
+		}
+		queueID, err := EnqueueSystemJob(ctx, data.DB, queue.Job{Queue: queue.QueueSchedule, Kind: "backup.run", DedupeKey: fmt.Sprintf("backup:%d", id), Payload: payload, MaxAttempts: queue.DefaultMaxAttempts})
+		if err != nil {
+			return infraError(c, http.StatusServiceUnavailable, "Backup worker queue is unavailable")
+		}
+		syslog.Audit(ctx, actor, "backup.retry", map[string]any{"backup_id": id})
+		return c.JSON(http.StatusAccepted, map[string]any{"id": id, "state": "queued", "queue_job_id": queueID})
+	}
 	if _, err := backup.Retry(ctx, id, req.Passphrase, actor); err != nil {
 		return backupError(c, err)
 	}
@@ -199,6 +234,12 @@ func handleBackupRestore(c echo.Context) error {
 		return infraError(c, http.StatusBadRequest, "Invalid request body")
 	}
 	ctx := c.Request().Context()
+	gateCtx, releaseGate, gateErr := acquireExclusiveSystemWrite(ctx, data.DB)
+	if gateErr != nil {
+		return infraError(c, http.StatusServiceUnavailable, "Site write coordination is unavailable")
+	}
+	defer releaseGate()
+	ctx = gateCtx
 	actor := infraActor(c)
 	res, err := backup.Restore(ctx, backup.RestoreRequest{
 		ID:         id,

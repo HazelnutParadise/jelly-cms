@@ -1,8 +1,10 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/seo"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
@@ -11,13 +13,44 @@ import (
 
 // registerFeedRoutes mounts the public site feed. The feed follows feed_mode
 // (full, summary or off), feed_items, excerpt_auto_length and the permalink
-// pattern. Category and author feeds are not implemented yet.
+// pattern. Scoped feeds use configured category and author prefixes.
 func registerFeedRoutes(e *echo.Echo) {
 	e.GET("/feed.xml", handleSiteFeed)
+	// Register the defaults explicitly so the feed routes win over archive
+	// routes that share their prefixes. The parameter route below handles
+	// custom prefixes.
+	e.GET("/c/:slug/feed.xml", handleCategoryFeed)
+	e.GET("/author/:slug/feed.xml", handleAuthorFeed)
+	e.GET("/:prefix/:slug/feed.xml", handleScopedFeed)
 }
 
 // handleSiteFeed answers GET /feed.xml. feed_mode off answers 404.
 func handleSiteFeed(c echo.Context) error {
+	return serveFeed(c, "")
+}
+
+func handleCategoryFeed(c echo.Context) error {
+	return serveFeed(c, "category:"+c.Param("slug"))
+}
+
+func handleAuthorFeed(c echo.Context) error {
+	return serveFeed(c, "author:"+c.Param("slug"))
+}
+
+func handleScopedFeed(c echo.Context) error {
+	cfg := loadPermalinkConfig(c.Request().Context())
+	prefix := strings.Trim(c.Param("prefix"), "/")
+	slug := c.Param("slug")
+	if prefix == strings.Trim(cfg.prefixes["/c"], "/") {
+		return serveFeed(c, "category:"+slug)
+	}
+	if prefix == strings.Trim(cfg.prefixes["/author"], "/") {
+		return serveFeed(c, "author:"+slug)
+	}
+	return echo.ErrNotFound
+}
+
+func serveFeed(c echo.Context, scope string) error {
 	ctx := c.Request().Context()
 	values := loadOptionValues(ctx,
 		keyFeedMode, keyFeedItems, keyExcerptAutoLength, keySiteTitle, keySiteDescription)
@@ -45,8 +78,11 @@ func handleSiteFeed(c echo.Context) error {
 		},
 		Plain: theme.PlainText,
 	}
-	body, err := seo.Feed(seo.WithFeedOptions(ctx, opts), siteURL, "")
+	body, err := seo.Feed(seo.WithFeedOptions(ctx, opts), siteURL, scope)
 	if err != nil {
+		if errors.Is(err, seo.ErrFeedNotFound) {
+			return echo.ErrNotFound
+		}
 		return err
 	}
 	return c.Blob(http.StatusOK, "application/rss+xml; charset=utf-8", body)

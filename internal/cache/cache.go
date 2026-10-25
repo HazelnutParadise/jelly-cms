@@ -1,7 +1,6 @@
 // Package cache is the key-value cache behind page and object caching.
 //
-// Drivers: memory (implemented here) and redis (Redis or Valkey, stub until
-// the cache settings page is wired).
+// Drivers: memory and Redis/Valkey.
 package cache
 
 import (
@@ -59,10 +58,10 @@ func Open(cfg Config) (Store, error) {
 	case "", DriverMemory:
 		return newMemory(cfg.DefaultTTL), nil
 	case DriverRedis:
-		if cfg.URL == "" {
+		if strings.TrimSpace(cfg.URL) == "" {
 			return nil, errors.New("cache: redis driver needs a URL")
 		}
-		return &redisStore{url: cfg.URL}, nil
+		return newRedisStore(cfg.URL, cfg.DefaultTTL)
 	default:
 		return nil, fmt.Errorf("cache: unknown driver %q", cfg.Driver)
 	}

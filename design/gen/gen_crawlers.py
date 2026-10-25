@@ -28,7 +28,7 @@ main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-column
         <div class="srow"><div><label>哪些頁面可以被索引</label><div class="h">不索引的頁面不會進 sitemap，並加 noindex。單篇文章可以另外覆寫。</div></div><div class="c" style="flex-wrap:wrap;justify-content:flex-start;gap:6px"><span class="chip ok">首頁</span><span class="chip ok">文章</span><span class="chip ok">頁面</span><span class="chip ok">分類頁</span><span class="chip">標籤頁</span><span class="chip ok">作者頁</span><span class="chip">月份彙整</span><span class="chip ok">商品</span><span class="chip">搜尋結果</span><span class="chip">購物車與結帳</span><span class="chip">會員中心</span></div></div>
         <div class="srow"><div><label>圖片</label></div><div class="c"><div class="seg"><span class="on">可被圖片搜尋</span><span>不要（noimageindex）</span></div></div></div>
         <div class="srow"><div><label>摘要長度與快照</label><div class="h">對應 max-snippet、max-image-preview、noarchive。</div></div><div class="c"><div class="seg"><span class="on">不限制</span><span>只給短摘要</span><span>不給快取副本</span></div></div></div>
-        <div class="srow"><div><label>變更時通知搜尋引擎</label><div class="h">IndexNow（Bing、Yandex、Naver…）與 Google Sitemap ping。</div></div><div class="c"><span class="tg"></span></div></div>
+        <div class="srow"><div><label>變更時通知搜尋引擎</label><div class="h">IndexNow（Bing、Yandex、Naver…）。金鑰留空保留，可明確清除。</div></div><div class="c"><span class="tg"></span></div></div>
       </div>
 
       <div>

@@ -156,6 +156,14 @@ func applyRelease(ctx context.Context, rel Release, exe, current string) error {
 	if err := ctx.Err(); err != nil {
 		return failApply(err)
 	}
+	if beforeSwap := beforeSwapCallback(ctx); beforeSwap != nil {
+		if err := beforeSwap(ctx); err != nil {
+			return failApply(err)
+		}
+		if err := ctx.Err(); err != nil {
+			return failApply(err)
+		}
+	}
 
 	if err := mutateState(func(st *State) bool {
 		st.Status = StatusApplying

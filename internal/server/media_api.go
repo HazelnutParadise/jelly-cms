@@ -23,7 +23,9 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -34,7 +36,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
-	"github.com/HazelnutParadise/jelly-cms/internal/ext"
+	"github.com/HazelnutParadise/jelly-cms/internal/queue"
 	"github.com/HazelnutParadise/jelly-cms/internal/safehttp"
 	"github.com/HazelnutParadise/jelly-cms/internal/settings"
 	"github.com/HazelnutParadise/jelly-cms/internal/storage"
@@ -95,6 +97,7 @@ func registerMediaRoutes(e *echo.Echo) {
 	e.DELETE("/api/admin/media/files/:id", handleMediaFileTrash, staff)
 	e.POST("/api/admin/media/files/:id/replace", handleMediaFileReplace, staff, middleware.BodyLimit(uploadBodyLimit))
 	e.POST("/api/admin/media/fetch", handleMediaFetch, admin)
+	e.GET("/media/:id", handlePublicMediaFile)
 
 	ctx := context.Background()
 	if err := ensureDefaultMediaPolicy(ctx); err != nil {
@@ -103,7 +106,7 @@ func registerMediaRoutes(e *echo.Echo) {
 	if n, err := importLegacyUploads(ctx); err != nil {
 		log.Printf("media: legacy import: %v", err)
 	} else if n > 0 {
-		log.Printf("media: imported %d legacy upload(s) into the default policy", n)
+		log.Printf("media: imported %d legacy upload(s) into the local attachment policy", n)
 	}
 }
 
@@ -151,6 +154,8 @@ type mediaFileRow struct {
 	UpdatedAt    time.Time
 }
 
+type mediaDBContextKey struct{}
+
 // mediaFailure is a client-facing error. Handlers and helpers return it so the
 // status, code and message stay together.
 type mediaFailure struct {
@@ -164,6 +169,9 @@ func (f *mediaFailure) send(c echo.Context) error {
 }
 
 func mediaDB(ctx context.Context) *gorm.DB {
+	if db, _ := ctx.Value(mediaDBContextKey{}).(*gorm.DB); db != nil {
+		return db.WithContext(ctx)
+	}
 	return data.DB.WithContext(ctx)
 }
 
@@ -223,11 +231,12 @@ func mediaPolicyJSON(p mediaPolicyRow, files int64) map[string]any {
 }
 
 type mediaPolicyInput struct {
-	Name    *string        `json:"name"`
-	Driver  *string        `json:"driver"`
-	Purpose *string        `json:"purpose"`
-	Config  map[string]any `json:"config"`
-	Secret  *string        `json:"secret"`
+	Name        *string        `json:"name"`
+	Driver      *string        `json:"driver"`
+	Purpose     *string        `json:"purpose"`
+	Config      map[string]any `json:"config"`
+	Secret      *string        `json:"secret"`
+	ClearSecret bool           `json:"clear_secret"`
 }
 
 func loadMediaPolicy(ctx context.Context, id int64) (mediaPolicyRow, error) {
@@ -295,18 +304,16 @@ func validatePolicyFields(name, driver, purpose string) *mediaFailure {
 // config because their root is fixed to uploadsRoot.
 func mediaPolicyConfig(driver string, cfg map[string]any) (string, *mediaFailure) {
 	if driver != storage.DriverS3 {
+		if len(cfg) != 0 {
+			return "", &mediaFailure{http.StatusBadRequest, "invalid_config", "config is not supported for this driver"}
+		}
 		return "{}", nil
 	}
-	out := map[string]string{}
-	for _, key := range []string{"endpoint", "bucket", "region", "prefix"} {
-		if v, ok := cfg[key].(string); ok {
-			out[key] = strings.TrimSpace(v)
-		}
+	parsed, _, fail := parseMediaS3Config(cfg)
+	if fail != nil {
+		return "", fail
 	}
-	if out["bucket"] == "" {
-		return "", &mediaFailure{http.StatusBadRequest, "invalid_config", "bucket is required for s3"}
-	}
-	b, err := json.Marshal(out)
+	b, err := json.Marshal(parsed)
 	if err != nil {
 		return "", &mediaFailure{http.StatusBadRequest, "invalid_config", "config is invalid"}
 	}
@@ -353,13 +360,29 @@ func handleMediaPolicyCreate(c echo.Context) error {
 	if fail != nil {
 		return fail.send(c)
 	}
+	if fail := validateMediaPolicyPurposeConfig(driver, purpose, cfg); fail != nil {
+		return fail.send(c)
+	}
 	row := mediaPolicyRow{Name: name, Driver: driver, Purpose: purpose, Config: cfg}
-	if in.Secret != nil && *in.Secret != "" {
-		sealed, err := settings.SealBytes("media-policy", []byte(*in.Secret))
+	if driver == storage.DriverS3 {
+		_, credentials, fail := parseMediaS3Config(in.Config)
+		if fail != nil {
+			return fail.send(c)
+		}
+		if in.Secret != nil {
+			updated, err := mediaCredentialsFromSecret(*in.Secret, credentials)
+			if err != nil {
+				return c.JSON(http.StatusBadRequest, map[string]any{"code": "invalid_config", "error": "S3 credentials are invalid"})
+			}
+			credentials = updated
+		}
+		sealed, err := sealMediaCredentials(credentials)
 		if err != nil {
-			return mediaServerError(c, "seal policy secret", err)
+			return mediaServerError(c, "seal policy credentials", err)
 		}
 		row.SecretEnc = sealed
+	} else if in.Secret != nil && strings.TrimSpace(*in.Secret) != "" {
+		return c.JSON(http.StatusBadRequest, map[string]any{"code": "invalid_secret", "error": "this storage driver does not use credentials"})
 	}
 	if err := mediaDB(ctx).Table("media_policies").Create(&row).Error; err != nil {
 		return mediaServerError(c, "create policy", err)
@@ -374,52 +397,169 @@ func handleMediaPolicyUpdate(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]any{"code": "not_found", "error": "Policy not found"})
 	}
-	row, err := loadMediaPolicy(ctx, id)
-	if err != nil {
-		return policyLoadError(c, err)
-	}
 	var in mediaPolicyInput
 	if err := json.NewDecoder(c.Request().Body).Decode(&in); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]any{"code": "invalid_json", "error": "Invalid request"})
 	}
-	if in.Driver != nil && *in.Driver != row.Driver {
-		return c.JSON(http.StatusBadRequest, map[string]any{"code": "driver_change", "error": "driver cannot change; move the files to another policy"})
-	}
-	if in.Purpose != nil && *in.Purpose != row.Purpose {
-		return c.JSON(http.StatusBadRequest, map[string]any{"code": "purpose_change", "error": "purpose cannot change"})
-	}
-	updates := map[string]any{"updated_at": time.Now()}
-	if in.Name != nil {
-		name := strings.TrimSpace(*in.Name)
-		if fail := validatePolicyFields(name, row.Driver, row.Purpose); fail != nil {
-			return fail.send(c)
+	var row mediaPolicyRow
+	var fail *mediaFailure
+	var op string
+	err := mediaDB(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		row, err = lockMediaPolicy(ctx, tx, id)
+		if err != nil {
+			return err
 		}
-		updates["name"] = name
-	}
-	if in.Config != nil {
-		cfg, fail := mediaPolicyConfig(row.Driver, in.Config)
-		if fail != nil {
-			return fail.send(c)
+		if in.Driver != nil && *in.Driver != row.Driver {
+			fail = &mediaFailure{http.StatusBadRequest, "driver_change", "driver cannot change; move the files to another policy"}
+			return nil
 		}
-		updates["config"] = cfg
-	}
-	if in.Secret != nil {
-		if *in.Secret == "" {
-			updates["secret_enc"] = nil
-		} else {
-			sealed, err := settings.SealBytes("media-policy", []byte(*in.Secret))
+		if in.Purpose != nil && *in.Purpose != row.Purpose {
+			fail = &mediaFailure{http.StatusBadRequest, "purpose_change", "purpose cannot change"}
+			return nil
+		}
+		configInput := in.Config
+		if row.Driver == storage.DriverS3 && in.Config != nil {
+			var current map[string]any
+			if err := json.Unmarshal([]byte(row.Config), &current); err != nil {
+				op = "load S3 config"
+				return err
+			}
+			merged := make(map[string]any, len(current)+len(in.Config))
+			for key, value := range current {
+				merged[key] = value
+			}
+			for key, value := range in.Config {
+				if value == nil {
+					continue
+				}
+				if text, ok := value.(string); ok && strings.TrimSpace(text) == "" {
+					continue
+				}
+				merged[key] = value
+			}
+			configInput = merged
+		}
+		updates := map[string]any{"updated_at": time.Now()}
+		if in.Name != nil {
+			name := strings.TrimSpace(*in.Name)
+			if validationFailure := validatePolicyFields(name, row.Driver, row.Purpose); validationFailure != nil {
+				fail = validationFailure
+				return nil
+			}
+			updates["name"] = name
+		}
+		if configInput != nil {
+			cfg, validationFailure := mediaPolicyConfig(row.Driver, configInput)
+			if validationFailure != nil {
+				fail = validationFailure
+				return nil
+			}
+			updates["config"] = cfg
+		}
+		if row.Driver == storage.DriverS3 && (in.Config != nil || (in.Secret != nil && strings.TrimSpace(*in.Secret) != "") || in.ClearSecret) {
+			if configInput == nil {
+				var current map[string]any
+				if err := json.Unmarshal([]byte(row.Config), &current); err != nil {
+					op = "load S3 config"
+					return err
+				}
+				configInput = current
+			}
+			_, credentials, validationFailure := parseMediaS3Config(configInput)
+			if validationFailure != nil {
+				fail = validationFailure
+				return nil
+			}
+			if len(row.SecretEnc) > 0 {
+				existing, err := openMediaCredentials(row.SecretEnc)
+				if err != nil {
+					op = "open S3 credentials"
+					return err
+				}
+				credentials = mergeMediaCredentials(credentials, existing)
+			}
+			if in.ClearSecret {
+				credentials = mediaS3Credentials{}
+			} else if in.Secret != nil && strings.TrimSpace(*in.Secret) != "" {
+				credentials, err = mediaCredentialsFromSecret(*in.Secret, credentials)
+				if err != nil {
+					fail = &mediaFailure{http.StatusBadRequest, "invalid_config", "S3 credentials are invalid"}
+					return nil
+				}
+			}
+			if (credentials.AccessKey == "") != (credentials.SecretKey == "") {
+				fail = &mediaFailure{http.StatusBadRequest, "invalid_config", "S3 access_key and secret_key must be supplied together"}
+				return nil
+			}
+			sealed, err := sealMediaCredentials(credentials)
 			if err != nil {
-				return mediaServerError(c, "seal policy secret", err)
+				op = "seal policy credentials"
+				return err
 			}
 			updates["secret_enc"] = sealed
+			candidate := row
+			if config, ok := updates["config"].(string); ok {
+				candidate.Config = config
+			}
+			candidate.SecretEnc = sealed
+			if validationFailure := validateMediaPolicyPurposeConfig(candidate.Driver, candidate.Purpose, candidate.Config); validationFailure != nil {
+				fail = validationFailure
+				return nil
+			}
+			if _, err := policyDriver(candidate, ctx); err != nil {
+				fail = &mediaFailure{http.StatusBadRequest, "invalid_config", "S3 configuration is invalid"}
+				return nil
+			}
+		} else if in.Secret != nil && strings.TrimSpace(*in.Secret) != "" {
+			fail = &mediaFailure{http.StatusBadRequest, "invalid_secret", "this storage driver does not use credentials"}
+			return nil
 		}
-	}
-	if err := mediaDB(ctx).Table("media_policies").Where("id = ? AND deleted_at IS NULL", id).Updates(updates).Error; err != nil {
-		return mediaServerError(c, "update policy", err)
-	}
-	row, err = loadMediaPolicy(ctx, id)
+		if newConfig, ok := updates["config"].(string); ok {
+			changed, err := mediaPolicyDestinationChanged(row.Driver, row.Config, newConfig)
+			if err != nil {
+				op = "compare policy destination"
+				return err
+			}
+			if changed {
+				hasFiles, err := mediaPolicyHasFiles(ctx, tx, id)
+				if err != nil {
+					op = "count policy files"
+					return err
+				}
+				hasBackups, err := mediaPolicyHasBackupReference(ctx, tx, id)
+				if err != nil {
+					op = "check backup policy references"
+					return err
+				}
+				if hasFiles || hasBackups {
+					fail = &mediaFailure{http.StatusConflict, "policy_in_use", "This policy is used by existing files or backups"}
+					return nil
+				}
+			}
+		}
+		if err := tx.Table("media_policies").Where("id = ? AND deleted_at IS NULL", id).Updates(updates).Error; err != nil {
+			op = "update policy"
+			return err
+		}
+		row, err = lockMediaPolicy(ctx, tx, id)
+		if err != nil {
+			op = "reload updated policy"
+			return err
+		}
+		return nil
+	})
 	if err != nil {
-		return policyLoadError(c, err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return policyLoadError(c, err)
+		}
+		if op == "" {
+			op = "update policy"
+		}
+		return mediaServerError(c, op, err)
+	}
+	if fail != nil {
+		return fail.send(c)
 	}
 	counts, err := mediaFileCounts(ctx)
 	if err != nil {
@@ -442,24 +582,40 @@ func handleMediaPolicyDelete(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]any{"code": "not_found", "error": "Policy not found"})
 	}
-	row, err := loadMediaPolicy(ctx, id)
-	if err != nil {
+	var fail *mediaFailure
+	err := mediaDB(ctx).Transaction(func(tx *gorm.DB) error {
+		row, err := lockMediaPolicy(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if row.IsDefault {
+			fail = &mediaFailure{http.StatusConflict, "policy_is_default", "Set another default policy before deleting this one"}
+			return nil
+		}
+		hasFiles, err := mediaPolicyHasFiles(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		hasBackups, err := mediaPolicyHasBackupReference(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		if hasFiles || hasBackups {
+			fail = &mediaFailure{http.StatusConflict, "policy_in_use", "This policy is used by existing files or backups"}
+			return nil
+		}
+		now := time.Now()
+		return tx.Table("media_policies").Where("id = ? AND deleted_at IS NULL", id).
+			Updates(map[string]any{"deleted_at": now, "updated_at": now}).Error
+	})
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return policyLoadError(c, err)
 	}
-	if row.IsDefault {
-		return c.JSON(http.StatusConflict, map[string]any{"code": "policy_is_default", "error": "Set another default policy before deleting this one"})
-	}
-	counts, err := mediaFileCounts(ctx)
 	if err != nil {
-		return mediaServerError(c, "count files", err)
-	}
-	if counts[id] > 0 {
-		return c.JSON(http.StatusConflict, map[string]any{"code": "policy_in_use", "error": "Move or delete the files in this policy first"})
-	}
-	now := time.Now()
-	if err := mediaDB(ctx).Table("media_policies").Where("id = ? AND deleted_at IS NULL", id).
-		Updates(map[string]any{"deleted_at": now, "updated_at": now}).Error; err != nil {
 		return mediaServerError(c, "delete policy", err)
+	}
+	if fail != nil {
+		return fail.send(c)
 	}
 	syslog.Audit(ctx, infraActor(c), "media.policy.delete", map[string]any{"policy_id": id})
 	return c.JSON(http.StatusOK, map[string]any{"deleted": true})
@@ -468,7 +624,8 @@ func handleMediaPolicyDelete(c echo.Context) error {
 // handleMediaPolicyTest reports the driver check as data. A driver that is
 // off or unreachable answers 200 with ok false, so the screen can show why.
 func handleMediaPolicyTest(c echo.Context) error {
-	ctx := c.Request().Context()
+	ctx, cancel := context.WithTimeout(c.Request().Context(), mediaFetchTimeout)
+	defer cancel()
 	id, ok := mediaIDParam(c)
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]any{"code": "not_found", "error": "Policy not found"})
@@ -477,7 +634,7 @@ func handleMediaPolicyTest(c echo.Context) error {
 	if err != nil {
 		return policyLoadError(c, err)
 	}
-	drv, err := mediaDriver(row)
+	drv, err := mediaDriver(row, ctx)
 	if err == nil {
 		err = drv.Test(ctx)
 	}
@@ -518,11 +675,8 @@ func handleMediaPolicyDefault(c echo.Context) error {
 	return c.JSON(http.StatusOK, mediaPolicyJSON(row, counts[id]))
 }
 
-// handleMediaPolicyMove moves every file row of a policy to another policy of
-// the same purpose. Only local to local moves are supported for now: both
-// policies share the uploads root, so the bytes and public addresses stay put.
-// Moves across drivers need the S3 driver or a plugin driver, and content
-// references would have to be rewritten too.
+// handleMediaPolicyMove copies files and changes references as one background
+// operation in production. Test mode keeps the historical synchronous contract.
 func handleMediaPolicyMove(c echo.Context) error {
 	ctx := c.Request().Context()
 	from, ok := mediaIDParam(c)
@@ -546,31 +700,31 @@ func handleMediaPolicyMove(c echo.Context) error {
 	if err != nil {
 		return policyLoadError(c, err)
 	}
-	if src.Purpose != dst.Purpose {
-		return c.JSON(http.StatusBadRequest, map[string]any{"code": "purpose_mismatch", "error": "Both policies must have the same purpose"})
+	if src.Purpose != dst.Purpose || src.Purpose != mediaPurposeMedia {
+		return c.JSON(http.StatusBadRequest, map[string]any{"code": "purpose_mismatch", "error": "Both policies must be attachment policies"})
 	}
-	if src.Driver != storage.DriverLocal || dst.Driver != storage.DriverLocal {
-		return c.JSON(http.StatusConflict, map[string]any{"code": "driver_unavailable", "error": "Only moves between local policies are supported"})
+	if _, err := policyDriver(src, ctx); err != nil {
+		return c.JSON(http.StatusServiceUnavailable, map[string]any{"code": "driver_unavailable", "error": "The source storage driver is not available"})
 	}
-
-	var moved int64
-	err = mediaDB(ctx).Transaction(func(tx *gorm.DB) error {
-		var clashes int64
-		if err := tx.Raw(`SELECT COUNT(*) FROM media_files f JOIN media_files t ON t.path = f.path AND t.policy_id = ?
-			WHERE f.policy_id = ?`, dst.ID, src.ID).Scan(&clashes).Error; err != nil {
-			return err
+	if _, err := policyDriver(dst, ctx); err != nil {
+		return c.JSON(http.StatusServiceUnavailable, map[string]any{"code": "driver_unavailable", "error": "The destination storage driver is not available"})
+	}
+	if os.Getenv("JELLY_TEST_POSTGRES") != "1" {
+		payload, err := json.Marshal(mediaMoveJobPayload{FromPolicyID: src.ID, ToPolicyID: dst.ID, ActorID: infraActor(c)})
+		if err != nil {
+			return mediaServerError(c, "prepare media move", err)
 		}
-		if clashes > 0 {
-			return errMediaPathClash
+		dedupe, err := mediaMoveDedupeKey(ctx, src.ID, dst.ID)
+		if err != nil {
+			return mediaServerError(c, "prepare media move", err)
 		}
-		res := tx.Table("media_files").Where("policy_id = ?", src.ID).
-			Updates(map[string]any{"policy_id": dst.ID, "updated_at": time.Now()})
-		if res.Error != nil {
-			return res.Error
+		jobID, err := EnqueueSystemJob(ctx, data.DB, queue.Job{Queue: queue.QueueMedia, Kind: "media.move_policy", DedupeKey: dedupe, Payload: payload, MaxAttempts: queue.DefaultMaxAttempts})
+		if err != nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]any{"code": "queue_unavailable", "error": "Media move could not be queued"})
 		}
-		moved = res.RowsAffected
-		return nil
-	})
+		return c.JSON(http.StatusAccepted, map[string]any{"state": "queued", "job_id": jobID, "from_policy_id": src.ID, "to_policy_id": dst.ID})
+	}
+	moved, err := moveMediaPolicy(ctx, src.ID, dst.ID)
 	if errors.Is(err, errMediaPathClash) {
 		return c.JSON(http.StatusConflict, map[string]any{"code": "path_conflict", "error": "The target policy already has files with the same paths"})
 	}
@@ -585,25 +739,8 @@ var errMediaPathClash = errors.New("media: path clash")
 
 // mediaDriver returns the storage driver for a policy. Plugin drivers are
 // registered on the media.storage extension point with the id plugin:<id>.
-func mediaDriver(p mediaPolicyRow) (storage.Driver, error) {
-	switch {
-	case p.Driver == storage.DriverLocal:
-		return storage.NewLocal(uploadsRoot), nil
-	case p.Driver == storage.DriverS3:
-		var cfg map[string]string
-		_ = json.Unmarshal([]byte(p.Config), &cfg)
-		return storage.NewS3(cfg["endpoint"], cfg["bucket"]), nil
-	case mediaPluginDriver.MatchString(p.Driver):
-		for _, prov := range ext.Resolve(ext.PointMediaStorage) {
-			if "plugin:"+prov.ID != p.Driver {
-				continue
-			}
-			if drv, ok := prov.Provider.(storage.Driver); ok {
-				return drv, nil
-			}
-		}
-	}
-	return nil, errMediaDriverUnavailable
+func mediaDriver(p mediaPolicyRow, requestContexts ...context.Context) (storage.Driver, error) {
+	return policyDriver(p, requestContexts...)
 }
 
 // mediaPublicURL is the address a file is served at. Only the local driver
@@ -774,13 +911,17 @@ func handleMediaGroupDelete(c echo.Context) error {
 // ---- files ----
 
 func mediaFileJSON(f mediaFileRow, driver string) map[string]any {
+	publicURL := mediaPublicURL(driver, f.Path)
+	if publicURL == "" && f.ID > 0 {
+		publicURL = "/media/" + strconv.FormatInt(f.ID, 10)
+	}
 	return map[string]any{
 		"id":            f.ID,
 		"policy_id":     f.PolicyID,
 		"group_id":      f.GroupID,
 		"filename":      f.Filename,
 		"path":          f.Path,
-		"url":           mediaPublicURL(driver, f.Path),
+		"url":           publicURL,
 		"mime":          f.Mime,
 		"size":          f.Size,
 		"width":         f.Width,
@@ -796,7 +937,9 @@ func mediaFileJSON(f mediaFileRow, driver string) map[string]any {
 
 func loadMediaFile(ctx context.Context, id int64) (mediaFileRow, error) {
 	var row mediaFileRow
-	err := mediaDB(ctx).Table("media_files").Where("id = ? AND deleted_at IS NULL", id).Take(&row).Error
+	err := mediaDB(ctx).Table("media_files AS media_files").
+		Joins("JOIN media_policies ON media_policies.id = media_files.policy_id AND media_policies.purpose = ?", mediaPurposeMedia).
+		Where("media_files.id = ? AND media_files.deleted_at IS NULL", id).Take(&row).Error
 	return row, err
 }
 
@@ -807,12 +950,93 @@ func fileLoadError(c echo.Context, err error) error {
 	return mediaServerError(c, "load file", err)
 }
 
+// handlePublicMediaFile serves stable, public URLs for non-local policies.
+// Backup-purpose objects never enter this route.
+func handlePublicMediaFile(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || id <= 0 {
+		return echo.ErrNotFound
+	}
+	ctx, cancel := context.WithTimeout(c.Request().Context(), 30*time.Second)
+	defer cancel()
+	var row mediaFileRow
+	if err := mediaDB(ctx).Table("media_files").Where("id = ? AND deleted_at IS NULL", id).Take(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return echo.ErrNotFound
+		}
+		return err
+	}
+	policy, err := loadMediaPolicy(ctx, row.PolicyID)
+	if err != nil || policy.Purpose != mediaPurposeMedia {
+		return echo.ErrNotFound
+	}
+	drv, err := mediaDriver(policy, ctx)
+	if err != nil {
+		return echo.ErrNotFound
+	}
+	if row.Size < 0 {
+		return echo.ErrNotFound
+	}
+	info, err := drv.Stat(ctx, row.Path)
+	if err != nil {
+		if mediaObjectMissing(err) {
+			return echo.ErrNotFound
+		}
+		return mediaServerError(c, "stat public media", err)
+	}
+	if info.Size != row.Size {
+		return mediaServerError(c, "verify public media size", errors.New("stored object size does not match media metadata"))
+	}
+	etag := ""
+	if len(row.Sha256) == sha256.Size*2 {
+		if _, err := hex.DecodeString(row.Sha256); err == nil {
+			etag = `"` + strings.ToLower(row.Sha256) + `"`
+		}
+	}
+	h := c.Response().Header()
+	h.Set(echo.HeaderContentType, row.Mime)
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set(echo.HeaderContentLength, strconv.FormatInt(row.Size, 10))
+	h.Set("Accept-Ranges", "none")
+	h.Set("Cache-Control", "public, max-age=0, must-revalidate")
+	if etag != "" {
+		h.Set("ETag", etag)
+		if mediaIfNoneMatch(c.Request().Header.Get("If-None-Match"), etag) {
+			return c.NoContent(http.StatusNotModified)
+		}
+	}
+	if !strings.HasPrefix(strings.ToLower(row.Mime), "image/") || row.Mime == "image/svg+xml" {
+		h.Set("Content-Disposition", "attachment")
+		h.Set("Content-Security-Policy", "sandbox")
+	}
+	if c.Request().Method == http.MethodHead {
+		return c.NoContent(http.StatusOK)
+	}
+	r, err := drv.Open(ctx, row.Path)
+	if err != nil {
+		return echo.ErrNotFound
+	}
+	defer r.Close()
+	_, err = io.CopyN(c.Response(), r, row.Size)
+	return err
+}
+
+func mediaIfNoneMatch(header, etag string) bool {
+	for _, candidate := range strings.Split(header, ",") {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "*" || strings.TrimPrefix(candidate, "W/") == etag {
+			return true
+		}
+	}
+	return false
+}
+
 // handleMediaFileList filters by policy, group, file name and trash state.
 // trashed=1 lists only trashed files. group_id=none lists the ungrouped ones.
 func handleMediaFileList(c echo.Context) error {
 	ctx := c.Request().Context()
 	apply := func(tx *gorm.DB) (*gorm.DB, *mediaFailure) {
-		tx = tx.Table("media_files")
+		tx = tx.Table("media_files").Where("policy_id IN (SELECT id FROM media_policies WHERE purpose = ? AND deleted_at IS NULL)", mediaPurposeMedia)
 		if c.QueryParam("trashed") == "1" {
 			tx = tx.Where("deleted_at IS NOT NULL")
 		} else {
@@ -875,6 +1099,8 @@ func handleMediaFileList(c echo.Context) error {
 // readMediaUpload reads the multipart field "file" and enforces the size limit
 // before and while reading, so a lying header cannot exceed it.
 func readMediaUpload(ctx context.Context, c echo.Context) (string, []byte, *mediaFailure) {
+	readCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
 	header, err := c.FormFile("file")
 	if err != nil {
 		return "", nil, &mediaFailure{http.StatusBadRequest, "file_required", "file is required"}
@@ -889,14 +1115,34 @@ func readMediaUpload(ctx context.Context, c echo.Context) (string, []byte, *medi
 		return "", nil, &mediaFailure{http.StatusBadRequest, "unreadable", "file cannot be read"}
 	}
 	defer src.Close()
-	data, err := io.ReadAll(io.LimitReader(src, limit+1))
+	stopClose := context.AfterFunc(readCtx, func() { _ = src.Close() })
+	defer stopClose()
+	data, err := io.ReadAll(io.LimitReader(mediaContextReader{ctx: readCtx, reader: src}, limit+1))
 	if err != nil {
+		if readCtx.Err() != nil {
+			return "", nil, &mediaFailure{http.StatusRequestTimeout, "read_timeout", "file upload timed out"}
+		}
 		return "", nil, &mediaFailure{http.StatusBadRequest, "unreadable", "file cannot be read"}
 	}
 	if int64(len(data)) > limit {
 		return "", nil, tooLarge
 	}
+	if err := readCtx.Err(); err != nil {
+		return "", nil, &mediaFailure{http.StatusRequestTimeout, "read_timeout", "file upload timed out"}
+	}
 	return header.Filename, data, nil
+}
+
+type mediaContextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r mediaContextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.reader.Read(p)
 }
 
 // mediaPrepared is an upload after validation and metadata removal, ready to
@@ -1063,48 +1309,147 @@ func sanitizeFilename(raw string) string {
 type mediaStoreInput struct {
 	Policy   mediaPolicyRow
 	Prepared mediaPrepared
+	Path     string
 	Source   string
 	GroupID  *int64
 	Alt      string
 	Actor    uint
 }
 
+func handleLegacyMediaUpload(c echo.Context) error {
+	ctx := c.Request().Context()
+	name, raw, fail := readMediaUpload(ctx, c)
+	if fail != nil {
+		return fail.send(c)
+	}
+	policy, fail := uploadPolicy(ctx, "")
+	if fail != nil {
+		return fail.send(c)
+	}
+	prepared, fail := prepareMedia(ctx, name, raw)
+	if fail != nil {
+		return fail.send(c)
+	}
+	row, err := storeMediaFile(ctx, mediaStoreInput{Policy: policy, Prepared: prepared, Source: "upload", Actor: infraActor(c), Path: prepared.Name})
+	if err != nil {
+		return mediaStoreError(c, err)
+	}
+	file := mediaFileJSON(row, policy.Driver)
+	return c.JSON(http.StatusOK, map[string]string{"url": file["url"].(string)})
+}
+
+func legacyMediaRow(ctx context.Context, filename string) (mediaFileRow, mediaPolicyRow, error) {
+	var row mediaFileRow
+	err := mediaDB(ctx).Table("media_files").Joins("JOIN media_policies ON media_policies.id = media_files.policy_id AND media_policies.purpose = ?", mediaPurposeMedia).
+		Where("media_files.path = ? AND media_files.deleted_at IS NULL", filename).Take(&row).Error
+	if err != nil {
+		return mediaFileRow{}, mediaPolicyRow{}, err
+	}
+	policy, err := loadMediaPolicy(ctx, row.PolicyID)
+	return row, policy, err
+}
+
+func handleLegacyMediaReplace(c echo.Context) error {
+	ctx := c.Request().Context()
+	filename := c.Param("filename")
+	if filepath.Base(filename) != filename {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
+	}
+	name, raw, fail := readMediaUpload(ctx, c)
+	if fail != nil {
+		return fail.send(c)
+	}
+	prepared, fail := prepareMedia(ctx, name, raw)
+	if fail != nil {
+		return fail.send(c)
+	}
+	row, policy, err := legacyMediaRow(ctx, filename)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		policy, err = legacyLocalMediaPolicy(ctx)
+		if err == nil {
+			if _, statErr := storage.NewLocal(uploadsRoot).Stat(ctx, filename); statErr == nil {
+				_, err = importLegacyFile(ctx, policy, filename, filepath.Join(uploadsRoot, filepath.FromSlash(filename)))
+				if err == nil {
+					row, policy, err = legacyMediaRow(ctx, filename)
+				}
+			} else if mediaObjectMissing(statErr) {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "File not found"})
+			} else {
+				err = statErr
+			}
+		}
+	}
+	if err != nil {
+		return mediaStoreError(c, err)
+	}
+	if policy.Driver != storage.DriverLocal {
+		return c.JSON(http.StatusConflict, map[string]string{"error": "File is not stored in the local uploads folder"})
+	}
+	if prepared.Mime != row.Mime {
+		return c.JSON(http.StatusUnsupportedMediaType, map[string]string{"error": "The replacement must have the same type"})
+	}
+	if _, err := replaceMediaObject(ctx, row, policy, prepared); err != nil {
+		return mediaStoreError(c, err)
+	}
+	return c.JSON(http.StatusOK, map[string]string{"message": "Replaced"})
+}
+
+func handleLegacyMediaDelete(c echo.Context) error {
+	ctx := c.Request().Context()
+	filename := c.Param("filename")
+	if filepath.Base(filename) != filename {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
+	}
+	row, policy, err := legacyMediaRow(ctx, filename)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := os.Remove(filepath.Join(uploadsRoot, filename)); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+		return c.JSON(http.StatusOK, map[string]string{"message": "Deleted"})
+	}
+	if err != nil {
+		return mediaServerError(c, "load legacy file", err)
+	}
+	if policy.Driver != storage.DriverLocal {
+		return c.JSON(http.StatusConflict, map[string]string{"error": "File is not stored in the local uploads folder"})
+	}
+	drv, err := policyDriver(policy, ctx)
+	if err != nil {
+		return mediaStoreError(c, err)
+	}
+	limit := row.Size
+	if limit < 1 {
+		limit = 1
+	}
+	oldBytes, err := readDriverObject(ctx, drv, row.Path, limit)
+	if err != nil {
+		return mediaStoreError(c, err)
+	}
+	if err := drv.Delete(ctx, row.Path); err != nil {
+		return mediaStoreError(c, err)
+	}
+	err = mediaDB(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("DELETE FROM media_refs WHERE file_id = ?", row.ID).Error; err != nil {
+			return err
+		}
+		return tx.Table("media_files").Where("id = ?", row.ID).Delete(&mediaFileRow{}).Error
+	})
+	if err != nil {
+		restoreCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		restoreErr := drv.Put(restoreCtx, row.Path, bytes.NewReader(oldBytes), int64(len(oldBytes)), row.Mime)
+		cancel()
+		if restoreErr != nil {
+			return mediaServerError(c, "delete failed and file restore failed", errors.Join(err, restoreErr))
+		}
+		return mediaServerError(c, "delete legacy file metadata", err)
+	}
+	return c.JSON(http.StatusOK, map[string]string{"message": "Deleted"})
+}
+
 // storeMediaFile writes the bytes through the policy's driver and records the
 // row. A failed insert removes the bytes again.
 func storeMediaFile(ctx context.Context, in mediaStoreInput) (mediaFileRow, error) {
-	drv, err := mediaDriver(in.Policy)
-	if err != nil {
-		return mediaFileRow{}, err
-	}
-	p, err := freeMediaPath(ctx, drv, in.Policy.ID, in.Prepared.Name)
-	if err != nil {
-		return mediaFileRow{}, err
-	}
-	if err := drv.Put(ctx, p, bytes.NewReader(in.Prepared.Data), int64(len(in.Prepared.Data)), in.Prepared.Mime); err != nil {
-		return mediaFileRow{}, err
-	}
-	row := mediaFileRow{
-		PolicyID:     in.Policy.ID,
-		GroupID:      in.GroupID,
-		OwnerID:      actorPtr(in.Actor),
-		Path:         p,
-		Filename:     in.Prepared.Name,
-		Mime:         in.Prepared.Mime,
-		Size:         int64(len(in.Prepared.Data)),
-		Width:        in.Prepared.Width,
-		Height:       in.Prepared.Height,
-		Alt:          in.Alt,
-		Sha256:       in.Prepared.Sha256,
-		Source:       in.Source,
-		ExifStripped: in.Prepared.ExifStripped,
-	}
-	if err := mediaDB(ctx).Table("media_files").Create(&row).Error; err != nil {
-		if rmErr := drv.Delete(ctx, p); rmErr != nil {
-			log.Printf("media: remove %s after failed insert: %v", p, rmErr)
-		}
-		return mediaFileRow{}, err
-	}
-	return row, nil
+	return insertMediaFile(ctx, in)
 }
 
 func actorPtr(id uint) *int64 {
@@ -1117,31 +1462,6 @@ func actorPtr(id uint) *int64 {
 
 // freeMediaPath picks YYYY/MM/<name> and adds -2, -3 and so on when the name is
 // taken in the policy or already exists on disk, so no file is overwritten.
-func freeMediaPath(ctx context.Context, drv storage.Driver, policyID int64, name string) (string, error) {
-	folder := time.Now().UTC().Format(mediaFolderLayout)
-	ext := path.Ext(name)
-	stem := strings.TrimSuffix(name, ext)
-	for n := 1; n <= mediaCollisionLimit; n++ {
-		candidate := name
-		if n > 1 {
-			candidate = fmt.Sprintf("%s-%d%s", stem, n, ext)
-		}
-		p := folder + "/" + candidate
-		var taken int64
-		if err := mediaDB(ctx).Raw("SELECT COUNT(*) FROM media_files WHERE policy_id = ? AND path = ?", policyID, p).Scan(&taken).Error; err != nil {
-			return "", err
-		}
-		if taken > 0 {
-			continue
-		}
-		if _, err := drv.Stat(ctx, p); err == nil {
-			continue
-		}
-		return p, nil
-	}
-	return "", errors.New("media: no free file name")
-}
-
 // uploadPolicy resolves the policy for an upload. An empty id means the default.
 func uploadPolicy(ctx context.Context, raw string) (mediaPolicyRow, *mediaFailure) {
 	if raw == "" {
@@ -1281,6 +1601,9 @@ func handleMediaFileTrash(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]any{"code": "not_found", "error": "File not found"})
 	}
+	if _, err := loadMediaFile(ctx, id); err != nil {
+		return fileLoadError(c, err)
+	}
 	now := time.Now()
 	res := mediaDB(ctx).Table("media_files").Where("id = ? AND deleted_at IS NULL", id).
 		Updates(map[string]any{"deleted_at": now, "updated_at": now})
@@ -1321,27 +1644,9 @@ func handleMediaFileReplace(c echo.Context) error {
 	if prepared.Mime != row.Mime {
 		return c.JSON(http.StatusUnsupportedMediaType, map[string]any{"code": "type_mismatch", "error": "The replacement must have the same type"})
 	}
-	drv, err := mediaDriver(policy)
+	row, err = replaceMediaObject(ctx, row, policy, prepared)
 	if err != nil {
 		return mediaStoreError(c, err)
-	}
-	if err := drv.Put(ctx, row.Path, bytes.NewReader(prepared.Data), int64(len(prepared.Data)), prepared.Mime); err != nil {
-		return mediaStoreError(c, err)
-	}
-	updates := map[string]any{
-		"size":          int64(len(prepared.Data)),
-		"sha256":        prepared.Sha256,
-		"width":         prepared.Width,
-		"height":        prepared.Height,
-		"exif_stripped": prepared.ExifStripped,
-		"updated_at":    time.Now(),
-	}
-	if err := mediaDB(ctx).Table("media_files").Where("id = ?", id).Updates(updates).Error; err != nil {
-		return mediaServerError(c, "update replaced file", err)
-	}
-	row, err = loadMediaFile(ctx, id)
-	if err != nil {
-		return fileLoadError(c, err)
 	}
 	syslog.Audit(ctx, infraActor(c), "media.file.replace", map[string]any{"file_id": id})
 	return c.JSON(http.StatusOK, mediaFileJSON(row, policy.Driver))
@@ -1390,6 +1695,31 @@ func handleMediaFetch(c echo.Context) error {
 	actor := infraActor(c)
 	results := make([]map[string]any, 0, len(in.URLs))
 	blocked := []string{}
+	if os.Getenv("JELLY_TEST_POSTGRES") != "1" {
+		jobIDs := make([]string, 0, len(in.URLs))
+		for _, raw := range in.URLs {
+			if err := validateMediaFetchURL(raw); err != nil {
+				results = append(results, map[string]any{"url": raw, "status": "rejected", "error": err.Error()})
+				continue
+			}
+			id, err := queueMediaFetch(ctx, mediaFetchJobPayload{URL: raw, PolicyID: policy.ID, ActorID: actor})
+			if err != nil {
+				results = append(results, map[string]any{"url": raw, "status": "queue_failed", "error": "file could not be queued"})
+				return c.JSON(http.StatusServiceUnavailable, map[string]any{"state": "partial", "job_ids": jobIDs, "results": results, "blocked": blocked})
+			}
+			jobIDs = append(jobIDs, id)
+			results = append(results, map[string]any{"url": raw, "status": "queued", "job_id": id})
+		}
+		state := "queued"
+		status := http.StatusAccepted
+		if len(jobIDs) == 0 {
+			state = "rejected"
+			status = http.StatusUnprocessableEntity
+		} else if len(jobIDs) < len(in.URLs) {
+			state = "partial"
+		}
+		return c.JSON(status, map[string]any{"state": state, "job_ids": jobIDs, "results": results, "blocked": blocked})
+	}
 	for _, raw := range in.URLs {
 		res := fetchMediaURL(ctx, policy, raw, maxBytes, actor)
 		if res.Status == "blocked" {
@@ -1402,11 +1732,11 @@ func handleMediaFetch(c echo.Context) error {
 
 func fetchMediaURL(ctx context.Context, policy mediaPolicyRow, raw string, maxBytes int64, actor uint) mediaFetchResult {
 	res := mediaFetchResult{URL: raw, Driver: policy.Driver}
-	u, err := url.Parse(raw)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		res.Status, res.Error = "rejected", "only absolute http and https URLs are accepted"
+	if err := validateMediaFetchURL(raw); err != nil {
+		res.Status, res.Error = "rejected", err.Error()
 		return res
 	}
+	u, _ := url.Parse(raw)
 	client := safehttp.Client(safehttp.Options{Timeout: mediaFetchTimeout, MaxBytes: maxBytes})
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
@@ -1444,6 +1774,14 @@ func fetchMediaURL(ctx context.Context, policy mediaPolicyRow, raw string, maxBy
 	prepared, fail := prepareMedia(ctx, name, data)
 	if fail != nil {
 		res.Status, res.Error = "rejected", fail.Msg
+		return res
+	}
+	var existing mediaFileRow
+	if err := mediaDB(ctx).Table("media_files").Where("policy_id = ? AND source = 'fetch' AND filename = ? AND sha256 = ? AND deleted_at IS NULL", policy.ID, prepared.Name, prepared.Sha256).Take(&existing).Error; err == nil {
+		res.Status, res.File = "stored", &existing
+		return res
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		res.Status, res.Error = "failed", "media database is unavailable"
 		return res
 	}
 	row, err := storeMediaFile(ctx, mediaStoreInput{Policy: policy, Prepared: prepared, Source: "fetch", Actor: actor})

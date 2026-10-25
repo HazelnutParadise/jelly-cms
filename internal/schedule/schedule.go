@@ -19,6 +19,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/queue"
+	"gorm.io/gorm"
 )
 
 // AdvisoryLockClass and AdvisoryLockKey identify the scheduler lock. The
@@ -116,14 +117,20 @@ func (s *Scheduler) tick(ctx context.Context, now time.Time) {
 // get the lock keeps trying so it takes over when the leader stops. Run
 // returns nil when ctx ends.
 func (s *Scheduler) Run(ctx context.Context) error {
+	return s.RunWithDB(ctx, data.DB)
+}
+
+// RunWithDB runs the scheduler against an explicit site database. Production
+// lifecycle code uses this to preserve per-database isolation.
+func (s *Scheduler) RunWithDB(ctx context.Context, db *gorm.DB) error {
 	for ctx.Err() == nil {
-		if data.DB == nil {
+		if db == nil {
 			if !sleep(ctx, time.Second) {
 				return nil
 			}
 			continue
 		}
-		sqlDB, err := data.DB.DB()
+		sqlDB, err := db.DB()
 		if err != nil {
 			return err
 		}

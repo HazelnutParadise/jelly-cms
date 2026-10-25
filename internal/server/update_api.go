@@ -1,18 +1,23 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
+	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/queue"
 	"github.com/HazelnutParadise/jelly-cms/internal/settings"
 	"github.com/HazelnutParadise/jelly-cms/internal/syslog"
 	"github.com/HazelnutParadise/jelly-cms/internal/update"
 	"github.com/HazelnutParadise/jelly-cms/internal/version"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -118,6 +123,20 @@ func handleUpdateStatus(c echo.Context) error {
 func handleUpdateCheck(c echo.Context) error {
 	ctx := c.Request().Context()
 	channel := settings.Get(ctx, keyUpdateChannel)
+	if os.Getenv("JELLY_TEST_POSTGRES") != "1" {
+		payload, err := json.Marshal(map[string]any{"manual": true, "channel": channel})
+		if err != nil {
+			return infraError(c, http.StatusInternalServerError, "Unable to queue update check")
+		}
+		id, err := EnqueueSystemJob(ctx, data.DB, queue.Job{
+			Queue: queue.QueueSchedule, Kind: "update.check", Payload: payload, MaxAttempts: queue.DefaultMaxAttempts,
+		})
+		if err != nil {
+			return infraError(c, http.StatusServiceUnavailable, "Update worker queue is unavailable")
+		}
+		syslog.Audit(ctx, infraActor(c), "update.check", map[string]any{"state": "queued", "channel": channel, "job_id": id})
+		return c.JSON(http.StatusAccepted, map[string]any{"state": "queued", "job_id": id, "channel": channel})
+	}
 	rel, err := update.Check(ctx, channel)
 	if err != nil {
 		log.Printf("update: check: %v", err)
@@ -149,8 +168,24 @@ func handleUpdateApply(c echo.Context) error {
 	if err := update.ValidVersion(target); err != nil {
 		return infraError(c, http.StatusBadRequest, "version must be a semantic version such as v1.2.0")
 	}
+	if err := updateRuntimeGuard(); err != nil {
+		return updateError(c, err)
+	}
 	ctx := c.Request().Context()
 	actor := infraActor(c)
+	if os.Getenv("JELLY_TEST_POSTGRES") != "1" {
+		payload, err := json.Marshal(map[string]any{"version": target, "expected_version": version.Version, "actor": actor})
+		if err != nil {
+			return infraError(c, http.StatusInternalServerError, "Unable to queue update")
+		}
+		id, err := EnqueueSystemJob(ctx, data.DB, queue.Job{Queue: queue.QueueSchedule, Kind: "update.apply", DedupeKey: "update.apply:" + target, Payload: payload, MaxAttempts: queue.DefaultMaxAttempts})
+		if err != nil {
+			return infraError(c, http.StatusServiceUnavailable, "Update worker queue is unavailable")
+		}
+		syslog.Audit(ctx, actor, "update.apply", map[string]any{"version": target, "state": "queued", "job_id": id})
+		return c.JSON(http.StatusAccepted, map[string]any{"version": target, "state": "queued", "restart": true, "job_id": id})
+	}
+	ctx = withUpdatePreBackup(ctx, actor, uuid.NewString(), target)
 	if err := update.Apply(ctx, target); err != nil {
 		return updateError(c, err)
 	}
@@ -176,8 +211,23 @@ func handleUpdateCancel(c echo.Context) error {
 // POST[I] /api/admin/update/rollback
 
 func handleUpdateRollback(c echo.Context) error {
+	if err := updateRuntimeGuard(); err != nil {
+		return updateError(c, err)
+	}
 	ctx := c.Request().Context()
 	actor := infraActor(c)
+	if os.Getenv("JELLY_TEST_POSTGRES") != "1" {
+		payload, err := json.Marshal(map[string]any{"expected_version": version.Version, "actor": actor})
+		if err != nil {
+			return infraError(c, http.StatusInternalServerError, "Unable to queue rollback")
+		}
+		id, err := EnqueueSystemJob(ctx, data.DB, queue.Job{Queue: queue.QueueSchedule, Kind: "update.rollback", DedupeKey: "update.rollback:" + version.Version, Payload: payload, MaxAttempts: queue.DefaultMaxAttempts})
+		if err != nil {
+			return infraError(c, http.StatusServiceUnavailable, "Update worker queue is unavailable")
+		}
+		syslog.Audit(ctx, actor, "update.rollback", map[string]any{"state": "queued", "job_id": id})
+		return c.JSON(http.StatusAccepted, map[string]any{"state": "queued", "restart": true, "job_id": id})
+	}
 	if err := update.Rollback(ctx); err != nil {
 		return updateError(c, err)
 	}
@@ -187,6 +237,19 @@ func handleUpdateRollback(c echo.Context) error {
 		update.RequestRestart()
 	}
 	return c.JSON(http.StatusAccepted, map[string]any{"state": update.StatusRolledBack, "restart": restart})
+}
+
+// updateRuntimeGuard rejects runtimes that cannot replace their executable
+// before either the synchronous path or the queued worker path can start.
+func updateRuntimeGuard() error {
+	rt := version.Runtime()
+	if rt.Kind != version.KindBinary {
+		return &update.RuntimeError{Kind: rt.Kind}
+	}
+	if !rt.Writable {
+		return update.ErrNotWritable
+	}
+	return nil
 }
 
 // PUT /api/admin/update/settings {channel, auto_check, on_new, auto_time, keep_versions}

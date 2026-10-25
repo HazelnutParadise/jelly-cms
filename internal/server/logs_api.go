@@ -200,7 +200,8 @@ func parseLogFilter(c echo.Context) (logFilter, error) {
 		words = append(words, token)
 	}
 	if len(words) > 0 {
-		f.add("message ILIKE ?", "%"+logLikeEscaper.Replace(strings.Join(words, " "))+"%")
+		pattern := "%" + logLikeEscaper.Replace(strings.Join(words, " ")) + "%"
+		f.add("(request_id ILIKE ? OR message ILIKE ?)", pattern, pattern)
 	}
 	if raw := strings.TrimSpace(c.QueryParam("since")); raw != "" {
 		since, err := time.Parse(time.RFC3339Nano, raw)

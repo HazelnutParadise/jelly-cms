@@ -39,6 +39,7 @@ def common_top(mode):
 bin_main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start">
       {subnav()}
       <section style="display:flex;flex-direction:column;gap:20px;max-width:980px">
+        <p style="font-size:13px;color:#5F6470">檢查、套用或退回已排入背景處理。畫面會顯示工作編號，請到<a href="Infra.dc.html#sys-jobs">工作列表</a>查看並刷新結果。</p>
         {common_top("bin")}
         <div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start">
           <div class="card" style="display:flex;flex-direction:column;gap:12px">
@@ -106,11 +107,13 @@ docker_main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template
     </main>'''
 
 def topbar_notice(): 
-    return f'<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#7A5200;background:#FCF0C8;padding:4px 10px;border-radius:0 7px 0 7px;font-weight:700">{I("download",13)}0.9.4 可用</span><button class="btn t" type="button">{I("refresh")}重新檢查</button>'
+    return f'<span style="display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#7A5200;background:#FCF0C8;padding:4px 10px;border-radius:0 7px 0 7px;font-weight:700">{I("download",13)}0.9.4 可用</span><button class="btn t" type="button">{I("refresh")}重新檢查</button><button class="btn t" type="button">取消更新</button>'
 
 boards = [
  ("Update", "後台 · 更新（執行檔）", admin("settings", ["系統","設定","更新"], topbar_notice(), bin_main)),
  ("UpdateContainer", "後台 · 更新（容器）", admin("settings", ["系統","設定","更新"], topbar_notice(), docker_main)),
 ]
 for name,title,html in boards:
+    if os.environ.get("JELLY_DESIGN_ONLY") and name not in os.environ["JELLY_DESIGN_ONLY"].split(","):
+        continue
     open(os.path.join(OUT, f"{name}.dc.html"),"w",encoding="utf-8").write(doc(title, CSS, html, 1440, 1000)); print("wrote",name)

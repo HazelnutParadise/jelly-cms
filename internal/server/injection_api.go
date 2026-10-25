@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/settings"
@@ -37,6 +38,7 @@ type injectionBody struct {
 	HeadAll         *string `json:"head_all"`
 	HeadContent     *string `json:"head_content"`
 	Footer          *string `json:"footer"`
+	OnCommerce      *bool   `json:"on_commerce"`
 	CurrentPassword string  `json:"current_password"`
 }
 
@@ -49,6 +51,7 @@ func handleInjectionGet(c echo.Context) error {
 		"head_all":     settings.Get(ctx, keyInjectHeadAll),
 		"head_content": settings.Get(ctx, keyInjectHeadContent),
 		"footer":       settings.Get(ctx, keyInjectFooter),
+		"on_commerce":  settings.Get(ctx, keyInjectOnCommerce),
 	})
 }
 
@@ -105,6 +108,9 @@ func handleInjectionPut(c echo.Context) error {
 			return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{"error": "Injection exceeds 64 KiB"})
 		}
 		kv[s.key] = *s.value
+	}
+	if body.OnCommerce != nil {
+		kv[keyInjectOnCommerce] = strconv.FormatBool(*body.OnCommerce)
 	}
 	if len(kv) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "No injection slot supplied"})

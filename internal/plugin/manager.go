@@ -24,23 +24,27 @@ var pluginIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 // failures stay isolated between plugins. The registry lock only guards the
 // registry itself; JavaScript never runs while the lock is held.
 type Runtime struct {
-	mu      sync.RWMutex
-	plugins map[string]*pluginState
-	order   []string
-	closed  bool
+	mu          sync.RWMutex
+	plugins     map[string]*pluginState
+	order       []string
+	hostHandler HostHandler
+	closed      bool
 }
 
 // pluginState is the parent-side handle of one loaded plugin. execMu serialises
 // every request to the worker, and the registry lock never waits for it.
 type pluginState struct {
-	id   string
-	meta PluginMetadata
+	id      string
+	meta    PluginMetadata
+	runtime *Runtime
 
 	worker *workerProcess
 
-	execMu  sync.Mutex
-	closed  bool
-	invalid bool
+	execMu       sync.Mutex
+	extensionsMu sync.RWMutex
+	extensions   map[string]struct{}
+	closed       bool
+	invalid      bool
 }
 
 // errRuntimeClosed reports a load or reload attempted on a closed runtime.
@@ -130,15 +134,24 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool, expected
 		return err
 	}
 
-	state := &pluginState{id: meta.ID, meta: meta, worker: worker}
+	state := &pluginState{
+		id: meta.ID, meta: clonePluginMetadata(meta), worker: worker, runtime: m,
+		extensions: make(map[string]struct{}),
+	}
 
-	if _, err := worker.request(ctx, workerRequest{
-		Op:    opLoad,
-		Entry: meta.Entrypoint,
-		Code:  string(script),
-	}, workerStepTimeout); err != nil {
+	loadFrame, err := m.requestWorker(ctx, worker, meta, workerRequest{
+		Op:       opLoad,
+		Entry:    meta.Entrypoint,
+		Code:     string(script),
+		Metadata: &meta,
+	}, workerStepTimeout)
+	if err != nil {
 		worker.terminate()
 
+		return fmt.Errorf("load plugin %s: %w", meta.ID, err)
+	}
+	if err := validateExtensionSnapshot(meta, loadFrame.Extensions); err != nil {
+		worker.terminate()
 		return fmt.Errorf("load plugin %s: %w", meta.ID, err)
 	}
 
@@ -149,12 +162,17 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool, expected
 		return fmt.Errorf("build boot payload for plugin %s: %w", meta.ID, err)
 	}
 
-	if _, err := worker.request(ctx, workerRequest{
+	bootFrame, err := m.requestWorker(ctx, worker, meta, workerRequest{
 		Op:      opBoot,
 		Payload: bootPayload,
-	}, workerStepTimeout); err != nil {
+	}, workerStepTimeout)
+	if err != nil {
 		worker.terminate()
 
+		return fmt.Errorf("boot plugin %s: %w", meta.ID, err)
+	}
+	if err := state.setExtensionSnapshot(meta, bootFrame.Extensions); err != nil {
+		worker.terminate()
 		return fmt.Errorf("boot plugin %s: %w", meta.ID, err)
 	}
 
@@ -326,7 +344,7 @@ func (m *Runtime) GetPlugin(pluginID string) (*PluginMetadata, error) {
 		return nil, fmt.Errorf("plugin not found: %s", pluginID)
 	}
 
-	meta := state.meta
+	meta := clonePluginMetadata(state.meta)
 
 	return &meta, nil
 }
@@ -467,16 +485,22 @@ func (s *pluginState) dispatch(hook Hook, payload []byte) error {
 		return nil
 	}
 
-	if _, err := s.worker.request(context.Background(), workerRequest{
+	frame, err := s.runtime.requestWorker(context.Background(), s.worker, s.meta, workerRequest{
 		Op:      opHook,
 		Hook:    string(hook),
 		Payload: payload,
-	}, workerStepTimeout); err != nil {
+	}, workerStepTimeout)
+	if err != nil {
 		if !s.worker.alive() {
 			s.invalid = true
 		}
 
 		return fmt.Errorf("hook %s: %w", hook, err)
+	}
+	if err := s.setExtensionSnapshot(s.meta, frame.Extensions); err != nil {
+		s.invalid = true
+		s.worker.terminate()
+		return err
 	}
 
 	return nil
@@ -492,16 +516,22 @@ func (s *pluginState) call(ctx context.Context, hook Hook, payload []byte) error
 		return ErrPluginNotLoaded
 	}
 
-	if _, err := s.worker.request(ctx, workerRequest{
+	frame, err := s.runtime.requestWorker(ctx, s.worker, s.meta, workerRequest{
 		Op:      opHook,
 		Hook:    string(hook),
 		Payload: payload,
-	}, workerStepTimeout); err != nil {
+	}, workerStepTimeout)
+	if err != nil {
 		if !s.worker.alive() {
 			s.invalid = true
 		}
 
 		return fmt.Errorf("hook %s: %w", hook, err)
+	}
+	if err := s.setExtensionSnapshot(s.meta, frame.Extensions); err != nil {
+		s.invalid = true
+		s.worker.terminate()
+		return err
 	}
 
 	return nil
@@ -526,7 +556,9 @@ func (s *pluginState) shutdown(ctx context.Context, payload []byte) error {
 		return nil
 	}
 
-	return s.worker.shutdown(ctx, payload)
+	_, err := s.runtime.requestWorker(ctx, s.worker, s.meta, workerRequest{Op: opShutdown, Payload: payload}, workerStepTimeout)
+	s.worker.terminate()
+	return err
 }
 
 // abort reclaims the worker without running JavaScript.

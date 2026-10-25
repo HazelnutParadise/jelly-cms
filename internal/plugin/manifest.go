@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"net"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/ext"
 )
@@ -55,7 +57,8 @@ type SettingSpec struct {
 
 // PermissionSpec declares one permission the plugin asks for.
 type PermissionSpec struct {
-	Name string `json:"name"`
+	Name  string   `json:"name"`
+	Hosts []string `json:"hosts,omitempty"`
 }
 
 // Enforced reports whether the runtime enforces the permission.
@@ -190,9 +193,49 @@ func validatePermissionSpecs(permissions []PermissionSpec) error {
 			return fmt.Errorf("permission %q is declared twice", permission.Name)
 		}
 		seen[permission.Name] = true
+		if permission.Name != "http.fetch" && len(permission.Hosts) > 0 {
+			return fmt.Errorf("permission %q does not accept host allowlists", permission.Name)
+		}
+		if len(permission.Hosts) > 32 {
+			return fmt.Errorf("permission %q declares at most 32 hosts", permission.Name)
+		}
+		hosts := make(map[string]bool, len(permission.Hosts))
+		for _, host := range permission.Hosts {
+			if host == "" || host != strings.ToLower(host) || strings.TrimSpace(host) != host || strings.ContainsAny(host, "*/:@?#[]") {
+				return fmt.Errorf("permission %q has invalid host %q", permission.Name, host)
+			}
+			if ip := net.ParseIP(host); ip != nil {
+				if ip.String() != host {
+					return fmt.Errorf("permission %q host %q is not canonical", permission.Name, host)
+				}
+			} else if !validPermissionHostname(host) {
+				return fmt.Errorf("permission %q has invalid host %q", permission.Name, host)
+			}
+			if hosts[host] {
+				return fmt.Errorf("permission %q repeats host %q", permission.Name, host)
+			}
+			hosts[host] = true
+		}
 	}
 
 	return nil
+}
+
+func validPermissionHostname(host string) bool {
+	if len(host) > 253 || strings.HasSuffix(host, ".") {
+		return false
+	}
+	for _, label := range strings.Split(host, ".") {
+		if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, r := range label {
+			if !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && r != '-' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func validateActionSpecs(actions []ActionSpec) error {

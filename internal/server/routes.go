@@ -32,6 +32,7 @@ func isUploadRoute(c echo.Context) bool {
 
 // RegisterRoutes sets up the server routes.
 func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runtime) {
+	ConfigurePluginHost(pluginRuntime)
 	// Client IPs come from the socket unless JELLY_TRUSTED_PROXIES names the
 	// proxies whose X-Forwarded-For header may be believed.
 	if e.IPExtractor == nil {

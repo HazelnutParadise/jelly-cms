@@ -59,6 +59,12 @@ func parseProductInput(in productInput) (int64, int64, []parsedProductVariant, e
 	if in.Status != "" && !validProductStatus(in.Status) {
 		return 0, 0, nil, errors.New("invalid product status")
 	}
+	if in.SEOIndex != nil && *in.SEOIndex != "inherit" && *in.SEOIndex != "index" && *in.SEOIndex != "noindex" {
+		return 0, 0, nil, errors.New("invalid product seo_index")
+	}
+	if in.SEOAI != nil && *in.SEOAI != "inherit" && *in.SEOAI != "allow" && *in.SEOAI != "noai" {
+		return 0, 0, nil, errors.New("invalid product seo_ai")
+	}
 	for _, image := range in.Images {
 		if !validLocalProductURL(image) {
 			return 0, 0, nil, errors.New("invalid image URL")
@@ -349,6 +355,16 @@ func applyProductInput(tx *gorm.DB, p *core.Product, in productInput, price, com
 		p.RelatedIDs = []byte("[]")
 	}
 	p.SEOTitle, p.SEODescription = in.SEOTitle, in.SEODescription
+	if in.SEOIndex != nil {
+		p.SEOIndex = *in.SEOIndex
+	} else if isCreate {
+		p.SEOIndex = "inherit"
+	}
+	if in.SEOAI != nil {
+		p.SEOAI = *in.SEOAI
+	} else if isCreate {
+		p.SEOAI = "inherit"
+	}
 	return nil
 }
 
@@ -518,7 +534,7 @@ func adminProductsCreate(c echo.Context) error {
 	if err := applyProductInput(tx, &p, in, price, compare, true); err != nil {
 		return productError(c, 400, "Invalid product values")
 	}
-	if err := tx.Select("title", "slug", "description", "price", "sku", "stock", "images", "status", "compare_at_price", "low_stock_threshold", "requires_shipping", "cold_chain", "attributes", "related_ids", "seo_title", "seo_description", "kind").Create(&p).Error; err != nil {
+	if err := tx.Select("title", "slug", "description", "price", "sku", "stock", "images", "status", "compare_at_price", "low_stock_threshold", "requires_shipping", "cold_chain", "attributes", "related_ids", "seo_title", "seo_description", "seo_index", "seo_ai", "kind").Create(&p).Error; err != nil {
 		return productDBError(c, err)
 	}
 	stock, err := saveVariantSet(tx, p.ID, variants, true)
@@ -532,12 +548,19 @@ func adminProductsCreate(c echo.Context) error {
 	if err := replaceProductCategories(tx, p.ID, in.CategoryIDs); err != nil {
 		return productDBError(c, err)
 	}
+	item := indexNowItem{Kind: "product", ID: p.ID, Slug: p.Slug}
+	if err := recordIndexNowIntent(c.Request().Context(), tx, item, accountBaseURL(c)); err != nil {
+		return productDBError(c, err)
+	}
 	if err := tx.Commit().Error; err != nil {
 		return productDBError(c, err)
 	}
 	view, err := loadAdminProduct(data.DB, &p)
 	if err != nil {
 		return productError(c, 500, "product saved but could not load response")
+	}
+	if err := dispatchIndexNowPending(c.Request().Context(), data.DB, 1); err != nil {
+		reportIndexNowEnqueueFailure(c, item, err)
 	}
 	return c.JSON(200, view)
 }
@@ -599,7 +622,7 @@ func adminProductsUpdate(c echo.Context) error {
 			p.Stock = *in.Stock
 		}
 	}
-	if err := tx.Select("title", "slug", "description", "price", "sku", "status", "compare_at_price", "low_stock_threshold", "requires_shipping", "cold_chain", "kind", "seo_title", "seo_description", "images", "attributes", "related_ids", "stock").Save(&p).Error; err != nil {
+	if err := tx.Select("title", "slug", "description", "price", "sku", "status", "compare_at_price", "low_stock_threshold", "requires_shipping", "cold_chain", "kind", "seo_title", "seo_description", "seo_index", "seo_ai", "images", "attributes", "related_ids", "stock").Save(&p).Error; err != nil {
 		return productDBError(c, err)
 	}
 	if in.CategoryIDs != nil {
@@ -607,12 +630,19 @@ func adminProductsUpdate(c echo.Context) error {
 			return productDBError(c, err)
 		}
 	}
+	item := indexNowItem{Kind: "product", ID: p.ID, Slug: p.Slug}
+	if err := recordIndexNowIntent(c.Request().Context(), tx, item, accountBaseURL(c)); err != nil {
+		return productDBError(c, err)
+	}
 	if err := tx.Commit().Error; err != nil {
 		return productDBError(c, err)
 	}
 	view, err := loadAdminProduct(data.DB, &p)
 	if err != nil {
 		return productError(c, 500, "product saved but could not load response")
+	}
+	if err := dispatchIndexNowPending(c.Request().Context(), data.DB, 1); err != nil {
+		reportIndexNowEnqueueFailure(c, item, err)
 	}
 	return c.JSON(200, view)
 }

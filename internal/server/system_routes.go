@@ -28,13 +28,13 @@ import (
 // Admin pages (admin role; sit beside the existing pages in routes.go):
 //
 //	/admin/settings, /admin/settings/:tab  settings_tabs.go
-//	/admin/redirects                       redirects.html (placeholder)
-//	/admin/logs                            logs.html (placeholder)
-//	/admin/tools/backup                    tools_backup.html (placeholder)
-//	/admin/tools/import                    tools_import.html (placeholder)
-//	/admin/store                           store.html (placeholder)
-//	/admin/plugins/:id                     plugin_detail.html (placeholder)
-//	/admin/media/policies                  media_policies.html (placeholder)
+//	/admin/redirects                       system.html (redirects)
+//	/admin/logs                            system.html (logs)
+//	/admin/tools/backup                    system.html (backup)
+//	/admin/tools/import                    system.html (import)
+//	/admin/store                           system.html (store)
+//	/admin/plugins/:id                     system.html (plugin)
+//	/admin/media/policies                  system.html (media)
 //
 // Admin API (/api/admin/*, admin role). Rows marked [I] are interactive-only
 // (see ticket 08 「互動限定」). Endpoints already implemented elsewhere
@@ -99,22 +99,16 @@ type systemEndpoint struct {
 
 // systemAdminEndpoints lists the admin API endpoints that are not implemented
 // yet. Each one answers 501 for admins and 401/403 for everyone else.
-var systemAdminEndpoints = []systemEndpoint{
-	{http.MethodGet, "/api/admin/mail/settings"},
-	{http.MethodPut, "/api/admin/mail/settings"},
-	{http.MethodPost, "/api/admin/mail/test"},
-}
+var systemAdminEndpoints = []systemEndpoint{}
 
 // systemPublicEndpoints are served without login. They are registered before
 // the /:slug catch-all, which is registered last in RegisterRoutes.
-var systemPublicEndpoints = []systemEndpoint{
-	{http.MethodGet, "/c/:slug/feed.xml"},
-	{http.MethodGet, "/author/:u/feed.xml"},
-}
+var systemPublicEndpoints = []systemEndpoint{}
 
 // registerSystemRoutes mounts the system endpoints and pages. It must run
 // before the /:slug catch-all is registered.
 func registerSystemRoutes(e *echo.Echo, pluginRuntime *plugin.Runtime) {
+	e.Use(systemWriteGateMiddleware)
 	registerLogRoutes(e)
 	registerInfraRoutes(e)
 	registerRedirectRoutes(e)
@@ -128,6 +122,7 @@ func registerSystemRoutes(e *echo.Echo, pluginRuntime *plugin.Runtime) {
 	registerPluginDetailRoutes(e, pluginRuntime)
 	registerStoreRoutes(e, pluginRuntime)
 	registerMediaRoutes(e)
+	registerMailRoutes(e)
 	for _, ep := range systemAdminEndpoints {
 		e.Add(ep.Method, ep.Path, notImplemented, auth.RequireRole("admin"))
 	}
@@ -137,31 +132,13 @@ func registerSystemRoutes(e *echo.Echo, pluginRuntime *plugin.Runtime) {
 	e.GET("/healthz", handleHealthz)
 
 	pages := e.Group("/admin", auth.RequireRole("admin"))
-	pages.GET("/redirects", renderPlaceholder("redirects", "redirects"))
-	pages.GET("/logs", renderPlaceholder("logs", "logs"))
-	pages.GET("/tools/backup", renderPlaceholder("tools", "tools"))
-	pages.GET("/tools/import", renderPlaceholder("tools", "importWordPress"))
-	pages.GET("/store", renderPlaceholder("store", "store"))
-	pages.GET("/plugins/:id", func(c echo.Context) error {
-		return renderAdminPage(c, AdminPage{
-			File:   "placeholder.html",
-			Active: "plugins",
-			Data:   map[string]interface{}{"PageTitle": "plugins", "PluginID": c.Param("id")},
-		})
-	})
-	pages.GET("/media/policies", renderPlaceholder("media", "media"))
-}
-
-// renderPlaceholder renders the placeholder page for an admin screen. The
-// screen's real content arrives with its ticket.
-func renderPlaceholder(active, titleKey string) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		return renderAdminPage(c, AdminPage{
-			File:   "placeholder.html",
-			Active: active,
-			Data:   map[string]interface{}{"PageTitle": titleKey},
-		})
-	}
+	pages.GET("/redirects", renderSystemPage("redirects", "redirects", "redirects"))
+	pages.GET("/logs", renderSystemPage("logs", "logs", "logs"))
+	pages.GET("/tools/backup", renderSystemPage("backup", "tools", "sys_backup"))
+	pages.GET("/tools/import", renderSystemPage("import", "tools", "importWordPress"))
+	pages.GET("/store", renderSystemPage("store", "store", "store"))
+	pages.GET("/plugins/:id", renderSystemPage("plugin", "plugins", "sys_pluginDetail"))
+	pages.GET("/media/policies", renderSystemPage("media", "media", "sys_mediaPolicies"))
 }
 
 // handleHealthz reports that the process is serving requests. It does not

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -96,8 +97,15 @@ func run(parent context.Context) error {
 	// Recover any interrupted installation, then load the site configuration
 	// and connect to its database. The site stays closed to installation when
 	// this fails; the HTTP layer answers 503 while data.DB is nil.
-	if err := initializeSite(); err != nil {
-		log.Printf("Site initialization failed: %v", err)
+	if err := backup.RecoverInterruptedRestore(); err != nil {
+		// Do not initialize authentication while a secrets swap is ambiguous.
+		// Keep the durable journal and fail startup closed for operator recovery.
+		return fmt.Errorf("recover interrupted backup restore: %w", err)
+	}
+	initErr := initializeSite()
+	server.SetSystemDatabase(data.DB)
+	if initErr != nil {
+		log.Printf("Site initialization failed: %v", initErr)
 	}
 
 	// Theme Manager
@@ -124,6 +132,7 @@ func run(parent context.Context) error {
 	if err != nil {
 		log.Printf("Failed to initialize plugin runtime: %v", err)
 	} else {
+		server.ConfigurePluginHost(pluginRuntime)
 		defer pluginRuntime.Close()
 
 		// Load all plugins if database is connected
@@ -138,16 +147,19 @@ func run(parent context.Context) error {
 	// Routes
 	server.RegisterRoutes(e, tm, pluginRuntime)
 
-	go runTrashPurge(ctx)
-	go runLogsPrune(ctx)
-	go runRedirectHits(ctx)
-	go runBackupSchedule(ctx)
-	go runOrderExpiry(ctx)
-	go server.RerenderStalePosts(ctx)
-
-	// The server is about to serve; an applied version has now started cleanly.
-	if err := update.ConfirmStarted(); err != nil {
-		log.Printf("update: confirm start: %v", err)
+	// Bind before confirming an applied update. A process that cannot claim its
+	// real service address must remain eligible for startup rollback.
+	listener, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		return err
+	}
+	e.Listener = listener
+	stopSystemRuntime := startSystemRuntime(ctx)
+	defer stopSystemRuntime()
+	if initErr == nil && config.GlobalConfig != nil && data.DB != nil {
+		if err := update.ConfirmStarted(); err != nil {
+			log.Printf("update: confirm start: %v", err)
+		}
 	}
 	return runHTTPServer(ctx, e, ":8080")
 }

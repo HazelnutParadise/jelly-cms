@@ -71,6 +71,8 @@ type Post struct {
 	Format        string `json:"format" gorm:"size:8;default:html"`
 	RenderVersion int    `json:"-" gorm:"default:0"`
 	RenderTrust   string `json:"-" gorm:"size:8;default:strict"`
+	SEOIndex      string `json:"seo_index" gorm:"column:seo_index;size:8;not null;default:inherit"`
+	SEOAI         string `json:"seo_ai" gorm:"column:seo_ai;size:8;not null;default:inherit"`
 }
 
 // CommentsAllowed treats a nil AllowComments as true.
@@ -114,6 +116,8 @@ type Product struct {
 	SoldCount         int64           `json:"sold_count" gorm:"not null;default:0"`
 	SEOTitle          string          `json:"seo_title" gorm:"size:255;not null;default:''"`
 	SEODescription    string          `json:"seo_description" gorm:"type:text;not null;default:''"`
+	SEOIndex          string          `json:"seo_index" gorm:"column:seo_index;size:8;not null;default:inherit"`
+	SEOAI             string          `json:"seo_ai" gorm:"column:seo_ai;size:8;not null;default:inherit"`
 	Kind              string          `json:"kind" gorm:"size:16;not null;default:'physical'"` // physical, digital
 }
 

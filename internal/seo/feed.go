@@ -71,6 +71,9 @@ func feedOptionsFrom(ctx context.Context) FeedOptions {
 // ErrFeedDatabase means the feed cannot read posts because the database is not ready.
 var ErrFeedDatabase = errors.New("seo: feed needs a database")
 
+// ErrFeedNotFound marks an unknown category or author feed scope.
+var ErrFeedNotFound = errors.New("seo: feed scope not found")
+
 type rssDocument struct {
 	XMLName xml.Name   `xml:"rss"`
 	Version string     `xml:"version,attr"`
@@ -113,14 +116,39 @@ func truncateRunes(text string, n int) string {
 	return strings.TrimSpace(string(runes[:n])) + "…"
 }
 
-// Feed renders the RSS 2.0 site feed. Only scope "" (the whole site) is
-// supported; category and author feeds are not implemented yet.
+// Feed renders the RSS 2.0 feed for the whole site or one explicit
+// "category:<slug>" / "author:<username>" scope.
 func Feed(ctx context.Context, siteURL, scope string) ([]byte, error) {
-	if scope != "" {
-		return nil, ErrNotImplemented
-	}
 	if data.DB == nil {
 		return nil, ErrFeedDatabase
+	}
+	var scopeSQL string
+	var scopeArgs []any
+	switch kind, value, ok := strings.Cut(scope, ":"); {
+	case scope == "":
+	case !ok || strings.TrimSpace(value) == "":
+		return nil, ErrFeedNotFound
+	case kind == "category":
+		var category core.Category
+		if err := data.DB.WithContext(ctx).Where("slug = ?", value).First(&category).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, ErrFeedNotFound
+			}
+			return nil, err
+		}
+		scopeSQL = "EXISTS (SELECT 1 FROM post_categories WHERE post_categories.post_id = posts.id AND post_categories.category_id = ?)"
+		scopeArgs = []any{category.ID}
+	case kind == "author":
+		var author core.User
+		if err := data.DB.WithContext(ctx).Where("username = ?", value).First(&author).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, ErrFeedNotFound
+			}
+			return nil, err
+		}
+		scopeSQL, scopeArgs = "posts.author_id = ?", []any{author.ID}
+	default:
+		return nil, ErrFeedNotFound
 	}
 	opts := feedOptionsFrom(ctx)
 	if opts.Items <= 0 {
@@ -140,10 +168,14 @@ func Feed(ctx context.Context, siteURL, scope string) ([]byte, error) {
 	}
 
 	var rows []core.Post
-	err := data.DB.WithContext(ctx).Model(&core.Post{}).
+	query := data.DB.WithContext(ctx).Model(&core.Post{}).
 		Where("posts.type = ? AND posts.status = ?", "post", "published").
 		Where("(posts.visibility = ? OR posts.visibility = '' OR posts.visibility IS NULL)", "public").
-		Where("COALESCE(posts.published_at, posts.created_at) <= ?", time.Now()).
+		Where("COALESCE(posts.published_at, posts.created_at) <= ?", time.Now().UTC())
+	if scopeSQL != "" {
+		query = query.Where(scopeSQL, scopeArgs...)
+	}
+	err := query.
 		Preload("Categories", func(tx *gorm.DB) *gorm.DB {
 			return tx.Where("categories.hide_from_list = ?", false).Order("categories.position ASC, categories.name ASC")
 		}).

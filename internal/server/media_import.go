@@ -42,8 +42,35 @@ func ensureDefaultMediaPolicy(ctx context.Context) error {
 	).Error
 }
 
-// importLegacyUploads records files under uploadsRoot that have no row in the
-// default policy. Each file gets source legacy and keeps its /uploads path.
+// legacyLocalMediaPolicy keeps pre-policy /uploads objects attached to the
+// local driver even when an administrator chooses S3 as the default.
+func legacyLocalMediaPolicy(ctx context.Context) (mediaPolicyRow, error) {
+	if err := ensureDefaultMediaPolicy(ctx); err != nil {
+		return mediaPolicyRow{}, err
+	}
+	var policy mediaPolicyRow
+	err := mediaDB(ctx).Transaction(func(tx *gorm.DB) error {
+		// The media default row serializes startup importers across instances.
+		var defaultID int64
+		if err := tx.Raw("SELECT id FROM media_policies WHERE purpose = ? AND is_default = TRUE AND deleted_at IS NULL FOR UPDATE", mediaPurposeMedia).Scan(&defaultID).Error; err != nil {
+			return err
+		}
+		if defaultID == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		err := tx.Table("media_policies").Where("driver = ? AND purpose = ? AND deleted_at IS NULL", storage.DriverLocal, mediaPurposeMedia).
+			Order("is_default DESC, id").Take(&policy).Error
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		policy = mediaPolicyRow{Name: mediaDefaultPolicyName, Driver: storage.DriverLocal, Purpose: mediaPurposeMedia, Config: "{}"}
+		return tx.Table("media_policies").Create(&policy).Error
+	})
+	return policy, err
+}
+
+// importLegacyUploads records files under uploadsRoot that have no row in a
+// local attachment policy. Each file gets source legacy and keeps its /uploads path.
 // Dot-prefixed names are skipped: they are temporary files of a write that did
 // not finish. It returns how many rows it added.
 func importLegacyUploads(ctx context.Context) (int, error) {
@@ -53,7 +80,7 @@ func importLegacyUploads(ctx context.Context) (int, error) {
 	if _, err := os.Stat(uploadsRoot); errors.Is(err, fs.ErrNotExist) {
 		return 0, nil
 	}
-	policy, err := defaultMediaPolicy(ctx)
+	policy, err := legacyLocalMediaPolicy(ctx)
 	if err != nil {
 		return 0, err
 	}

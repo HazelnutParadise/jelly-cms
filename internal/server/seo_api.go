@@ -79,7 +79,7 @@ func handleSEOOverrides(c echo.Context) error {
 		WHERE deleted_at IS NULL AND (seo_index <> 'inherit' OR seo_ai <> 'inherit')
 		UNION ALL
 		SELECT 'product' AS kind, id, title, slug, seo_index, seo_ai FROM products
-		WHERE deleted_by_id IS NULL AND (seo_index <> 'inherit' OR seo_ai <> 'inherit')
+		WHERE deleted_by_id IS NULL AND deleted_at IS NULL AND (seo_index <> 'inherit' OR seo_ai <> 'inherit')
 		ORDER BY kind, id`).Scan(&rows).Error
 	if err != nil {
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})

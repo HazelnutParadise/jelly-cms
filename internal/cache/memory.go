@@ -155,25 +155,3 @@ func formatCounter(n int64) string {
 	}
 	return string(buf[i:])
 }
-
-// redisStore is a stub until the Redis driver lands in 08a.
-type redisStore struct{ url string }
-
-func (r *redisStore) Get(context.Context, string, string) ([]byte, bool, error) {
-	return nil, false, ErrNotImplemented
-}
-func (r *redisStore) Set(context.Context, string, string, []byte, time.Duration) error {
-	return ErrNotImplemented
-}
-func (r *redisStore) Delete(context.Context, string, ...string) error { return ErrNotImplemented }
-func (r *redisStore) Flush(context.Context, string) error             { return ErrNotImplemented }
-func (r *redisStore) Incr(context.Context, string, string, time.Duration) (int64, error) {
-	return 0, ErrNotImplemented
-}
-func (r *redisStore) Stats(context.Context) (Stats, error) {
-	return Stats{Driver: DriverRedis}, ErrNotImplemented
-}
-func (r *redisStore) Ping(context.Context) (time.Duration, error) {
-	return 0, ErrNotImplemented
-}
-func (r *redisStore) Close() error { return nil }

@@ -39,79 +39,9 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 	registerEditorRoutes(e, content, api)
 
 	// Media
-	content.POST("/media", func(c echo.Context) error {
-		file, err := c.FormFile("file")
-		if err != nil {
-			return err
-		}
-		src, err := file.Open()
-		if err != nil {
-			return err
-		}
-		defer src.Close()
-
-		// Ensure uploads directory exists. The name is reduced to a safe
-		// single element so a crafted filename cannot leave data/uploads.
-		name := sanitizeFilename(file.Filename)
-		os.MkdirAll(uploadsRoot, 0755)
-		dstPath := filepath.Join(uploadsRoot, name)
-		dst, err := os.Create(dstPath)
-		if err != nil {
-			return err
-		}
-		defer dst.Close()
-
-		if _, err = io.Copy(dst, src); err != nil {
-			return err
-		}
-
-		return c.JSON(http.StatusOK, map[string]string{"url": "/uploads/" + name})
-	}, middleware.BodyLimit(uploadBodyLimit))
-
-	content.DELETE("/media/:filename", func(c echo.Context) error {
-		filename := c.Param("filename")
-		// Prevent directory traversal
-		if filepath.Base(filename) != filename {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
-		}
-
-		path := filepath.Join("data/uploads", filename)
-		if err := os.Remove(path); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, map[string]string{"message": "Deleted"})
-	})
-
-	content.PUT("/media/:filename", func(c echo.Context) error {
-		filename := c.Param("filename")
-		// Prevent directory traversal
-		if filepath.Base(filename) != filename {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
-		}
-
-		file, err := c.FormFile("file")
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "No file uploaded"})
-		}
-		src, err := file.Open()
-		if err != nil {
-			return err
-		}
-		defer src.Close()
-
-		dstPath := filepath.Join("data/uploads", filename)
-		dst, err := os.Create(dstPath)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		defer dst.Close()
-
-		if _, err = io.Copy(dst, src); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-
-		return c.JSON(http.StatusOK, map[string]string{"message": "Replaced"})
-	}, middleware.BodyLimit(uploadBodyLimit))
+	content.POST("/media", handleLegacyMediaUpload, middleware.BodyLimit(uploadBodyLimit))
+	content.DELETE("/media/:filename", handleLegacyMediaDelete)
+	content.PUT("/media/:filename", handleLegacyMediaReplace, middleware.BodyLimit(uploadBodyLimit))
 
 	content.POST("/media/rename", func(c echo.Context) error {
 		var req struct {
@@ -127,14 +57,7 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
 		}
 
-		oldPath := filepath.Join("data/uploads", req.OldName)
-		newPath := filepath.Join("data/uploads", req.NewName)
-
-		if err := os.Rename(oldPath, newPath); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-
-		return c.JSON(http.StatusOK, map[string]string{"message": "Renamed"})
+		return moveLegacyMedia(c, req.OldName, req.NewName)
 	})
 
 	content.GET("/media", func(c echo.Context) error {
@@ -342,12 +265,32 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		if err := tmp.Close(); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save uploaded file"})
 		}
+		digest, err := hashPluginArchive(tmpPath)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to inspect uploaded file"})
+		}
+		meta, err := plugin.ValidateArchive(tmpPath)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+		permissions := plugin.ManifestPermissionNames(meta)
+		permissionsHash := plugin.PermissionNamesHash(permissions)
+		if c.QueryParam("dry") == "1" {
+			return c.JSON(http.StatusOK, map[string]any{"id": meta.ID, "version": meta.Version, "permissions": permissions, "permissions_hash": permissionsHash, "sha256": digest})
+		}
+		if len(permissions) > 0 {
+			if c.FormValue("accept_permissions") != permissionsHash || c.FormValue("sha256") != digest {
+				return c.JSON(http.StatusConflict, map[string]string{"error": "Preview this exact archive and accept its permissions before installing"})
+			}
+		}
 
-		res, err := installPluginFile(c.Request().Context(), pluginRuntime, tmpPath, pluginFileInstall{Source: storeSourceUpload, Signature: storeSignatureNone})
+		res, err := installPluginFile(c.Request().Context(), pluginRuntime, tmpPath, pluginFileInstall{Source: storeSourceUpload, Signature: storeSignatureNone, Want: plugin.ArchiveExpectation{ID: meta.ID, Version: meta.Version, PermissionsHash: permissionsHash}})
 		if err != nil {
 			switch {
 			case errors.Is(err, errPluginRunning):
 				return c.JSON(http.StatusConflict, map[string]string{"error": "Plugin is running; disable it before uploading a new version"})
+			case errors.Is(err, errPluginRecoveryPending):
+				return c.JSON(http.StatusConflict, map[string]string{"error": "Plugin recovery is pending"})
 			case plugin.IsArchiveError(err):
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 			}

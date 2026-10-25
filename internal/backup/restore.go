@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/update"
 	"gorm.io/gorm"
 )
 
@@ -83,13 +84,14 @@ func Restore(ctx context.Context, req RestoreRequest) (RestoreResult, error) {
 	if err != nil {
 		return RestoreResult{}, err
 	}
-	if row.State != stateDone || row.FilePath == nil || row.SHA256 == nil {
+	if row.State != stateDone || row.SHA256 == nil {
 		return RestoreResult{}, ErrNotDone
 	}
-	archive, err := archiveFile(*row.FilePath)
+	archive, release, err := ensureLocalArchive(ctx, row)
 	if err != nil {
 		return RestoreResult{}, err
 	}
+	defer release()
 	if err := prepareDir(Directory); err != nil {
 		return RestoreResult{}, err
 	}
@@ -118,11 +120,38 @@ func Restore(ctx context.Context, req RestoreRequest) (RestoreResult, error) {
 			return RestoreResult{PreRestoreID: preID}, fmt.Errorf("enter maintenance mode: %w", err)
 		}
 	}
-	if err := applyDatabase(ctx, manifest, stage); err != nil {
+	journal, err := prepareRestoreJournal(manifest)
+	if err != nil {
 		return RestoreResult{PreRestoreID: preID}, err
 	}
-	if err := applyFiles(manifest, stage); err != nil {
+	if err := applyDatabaseAndFiles(ctx, manifest, stage, journal); err != nil {
+		if journal != "" {
+			markerID, markerErr := restoreJournalMarkerID(journal)
+			if markerErr != nil {
+				return RestoreResult{PreRestoreID: preID}, errors.Join(err, fmt.Errorf("read restore journal after transaction failure: %w", markerErr))
+			}
+			committed, markerErr := restoreCommitMarkerExists(data.DB, markerID)
+			if markerErr != nil {
+				// The commit outcome cannot be proved. Keep both the journal and
+				// preserved files for startup recovery instead of guessing.
+				return RestoreResult{PreRestoreID: preID}, errors.Join(err, fmt.Errorf("check restore commit after transaction failure: %w", markerErr))
+			}
+			if committed {
+				requestRestoreRestart(manifest)
+				if cleanupErr := completeRestoreJournal(journal); cleanupErr != nil {
+					return RestoreResult{PreRestoreID: preID}, errors.Join(err, fmt.Errorf("complete committed restore journal: %w", cleanupErr))
+				}
+				return RestoreResult{PreRestoreID: preID}, nil
+			}
+		}
+		if recoveryErr := rollbackRestoreJournal(journal); recoveryErr != nil {
+			return RestoreResult{PreRestoreID: preID}, errors.Join(err, fmt.Errorf("recover restore files: %w", recoveryErr))
+		}
 		return RestoreResult{PreRestoreID: preID}, err
+	}
+	requestRestoreRestart(manifest)
+	if err := completeRestoreJournal(journal); err != nil {
+		return RestoreResult{PreRestoreID: preID}, fmt.Errorf("complete restore journal: %w", err)
 	}
 	return RestoreResult{PreRestoreID: preID}, nil
 }
@@ -133,13 +162,14 @@ func Verify(ctx context.Context, id int64, passphrase string) (Manifest, error) 
 	if err != nil {
 		return Manifest{}, err
 	}
-	if row.State != stateDone || row.FilePath == nil || row.SHA256 == nil {
+	if row.State != stateDone || row.SHA256 == nil {
 		return Manifest{}, ErrNotDone
 	}
-	archive, err := archiveFile(*row.FilePath)
+	archive, release, err := ensureLocalArchive(ctx, row)
 	if err != nil {
 		return Manifest{}, err
 	}
+	defer release()
 	if err := prepareDir(Directory); err != nil {
 		return Manifest{}, err
 	}
@@ -377,6 +407,10 @@ func isInside(root, p string) bool {
 // transaction. Tables are cleared children first and filled parents first, so
 // foreign keys hold at every step.
 func applyDatabase(ctx context.Context, m Manifest, stage string) error {
+	return applyDatabaseAndFiles(ctx, m, stage, "")
+}
+
+func applyDatabaseAndFiles(ctx context.Context, m Manifest, stage, journal string) error {
 	names := make([]string, 0, len(m.Tables))
 	for name := range m.Tables {
 		names = append(names, name)
@@ -408,6 +442,21 @@ func applyDatabase(ctx context.Context, m Manifest, stage string) error {
 		if err != nil {
 			return err
 		}
+		selfReferences, err := deferSelfReferences(tx, names)
+		if err != nil {
+			return err
+		}
+		// Stop concurrent readers and writers from observing an intermediate
+		// dataset. The locks are transaction scoped and held through file swap.
+		for _, name := range names {
+			if err := tx.Exec("LOCK TABLE " + quoteIdent(name) + " IN ACCESS EXCLUSIVE MODE").Error; err != nil {
+				return fmt.Errorf("backup: lock %s: %w", name, err)
+			}
+		}
+		triggers, err := disableRestoreTriggers(tx)
+		if err != nil {
+			return err
+		}
 		for i := len(order) - 1; i >= 0; i-- {
 			if err := clearTable(tx, order[i]); err != nil {
 				return err
@@ -420,8 +469,137 @@ func applyDatabase(ctx context.Context, m Manifest, stage string) error {
 				return err
 			}
 		}
-		return resetSequences(tx, order)
+		if err := resetSequences(tx, order); err != nil {
+			return err
+		}
+		if err := restoreSelfReferenceConstraints(tx, selfReferences); err != nil {
+			return err
+		}
+		if _, err := applyFilesWithJournal(m, stage, journal); err != nil {
+			return err
+		}
+		markerID, err := restoreJournalMarkerID(journal)
+		if err != nil {
+			return err
+		}
+		if err := writeRestoreCommitMarker(tx, markerID); err != nil {
+			return err
+		}
+		return restoreTriggerStates(tx, triggers)
 	})
+}
+
+func requestRestoreRestart(m Manifest) {
+	for _, fi := range m.Files {
+		if fi.Path == authSecretsEntry {
+			// The key file is now on disk, but process-wide auth state remains
+			// unchanged until the graceful restart reloads it.
+			update.RequestRestart()
+			return
+		}
+	}
+}
+
+type selfReferenceConstraint struct {
+	Table      string `gorm:"column:table_name"`
+	Name       string `gorm:"column:constraint_name"`
+	Deferrable bool   `gorm:"column:is_deferrable"`
+}
+
+func deferSelfReferences(tx *gorm.DB, tables []string) ([]selfReferenceConstraint, error) {
+	var constraints []selfReferenceConstraint
+	if err := tx.Raw(`SELECT c.relname AS table_name, f.conname AS constraint_name,
+		f.condeferrable AS is_deferrable
+		FROM pg_constraint f JOIN pg_class c ON c.oid=f.conrelid
+		JOIN pg_namespace n ON n.oid=c.relnamespace
+		WHERE f.contype='f' AND f.conrelid=f.confrelid
+		AND n.nspname=current_schema() AND c.relname IN ?`, tables).Scan(&constraints).Error; err != nil {
+		return nil, fmt.Errorf("backup: inspect self-referencing foreign keys: %w", err)
+	}
+	for _, fk := range constraints {
+		if !fk.Deferrable {
+			if err := tx.Exec("ALTER TABLE " + quoteIdent(fk.Table) + " ALTER CONSTRAINT " + quoteIdent(fk.Name) + " DEFERRABLE INITIALLY DEFERRED").Error; err != nil {
+				return nil, fmt.Errorf("backup: defer self-reference %s: %w", fk.Name, err)
+			}
+		}
+	}
+	if len(constraints) > 0 {
+		if err := tx.Exec("SET CONSTRAINTS ALL DEFERRED").Error; err != nil {
+			return nil, fmt.Errorf("backup: defer restore constraints: %w", err)
+		}
+	}
+	return constraints, nil
+}
+
+func restoreSelfReferenceConstraints(tx *gorm.DB, constraints []selfReferenceConstraint) error {
+	if len(constraints) == 0 {
+		return nil
+	}
+	if err := tx.Exec("SET CONSTRAINTS ALL IMMEDIATE").Error; err != nil {
+		return fmt.Errorf("backup: validate restored constraints: %w", err)
+	}
+	for _, fk := range constraints {
+		if fk.Deferrable {
+			continue
+		}
+		if err := tx.Exec("ALTER TABLE " + quoteIdent(fk.Table) + " ALTER CONSTRAINT " + quoteIdent(fk.Name) + " NOT DEFERRABLE").Error; err != nil {
+			return fmt.Errorf("backup: restore self-reference constraint %s: %w", fk.Name, err)
+		}
+	}
+	return nil
+}
+
+type restoreTrigger struct {
+	Table   string `gorm:"column:table_name"`
+	Name    string `gorm:"column:trigger_name"`
+	Enabled string `gorm:"column:enabled_state"`
+}
+
+// Only these application triggers enforce immutable ledgers or create audit
+// snapshots. Foreign keys and all other triggers remain active during restore.
+func disableRestoreTriggers(tx *gorm.DB) ([]restoreTrigger, error) {
+	var found []restoreTrigger
+	if err := tx.Raw(`SELECT c.relname AS table_name, t.tgname AS trigger_name, t.tgenabled AS enabled_state
+		FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
+		JOIN pg_namespace n ON n.oid=c.relnamespace
+		WHERE NOT t.tgisinternal AND n.nspname=current_schema()
+		AND t.tgname IN ?`, []string{
+		"stock_movements_append_only", "widget_versions_immutable",
+		"widget_versions_audit_change", "widgets_audit_change", "oauth_identities_audit_change",
+	}).Scan(&found).Error; err != nil {
+		return nil, fmt.Errorf("backup: inspect restore triggers: %w", err)
+	}
+	for _, trigger := range found {
+		if trigger.Enabled == "D" {
+			continue
+		}
+		if err := tx.Exec("ALTER TABLE " + quoteIdent(trigger.Table) + " DISABLE TRIGGER " + quoteIdent(trigger.Name)).Error; err != nil {
+			return nil, fmt.Errorf("backup: disable restore trigger %s: %w", trigger.Name, err)
+		}
+	}
+	return found, nil
+}
+
+func restoreTriggerStates(tx *gorm.DB, triggers []restoreTrigger) error {
+	for _, trigger := range triggers {
+		var stmt string
+		switch trigger.Enabled {
+		case "O":
+			stmt = "ENABLE TRIGGER"
+		case "A":
+			stmt = "ENABLE ALWAYS TRIGGER"
+		case "R":
+			stmt = "ENABLE REPLICA TRIGGER"
+		case "D":
+			continue
+		default:
+			return fmt.Errorf("backup: unknown trigger state %q for %s", trigger.Enabled, trigger.Name)
+		}
+		if err := tx.Exec("ALTER TABLE " + quoteIdent(trigger.Table) + " " + stmt + " " + quoteIdent(trigger.Name)).Error; err != nil {
+			return fmt.Errorf("backup: restore trigger %s: %w", trigger.Name, err)
+		}
+	}
+	return nil
 }
 
 // restoreOrder returns names with every referenced table before the tables that
@@ -598,6 +776,23 @@ func resetSequences(tx *gorm.DB, tables []string) error {
 
 // applyFiles puts back attachments and, when the archive has it, auth-secrets.json.
 func applyFiles(m Manifest, stage string) error {
+	_, err := applyFilesWithJournal(m, stage, "")
+	return err
+}
+
+func applyFilesWithJournal(m Manifest, stage, journal string) (bool, error) {
+	attachments := false
+	secretReplaced := false
+	for _, content := range m.Contents {
+		if content == ContentAttachments {
+			attachments = true
+		}
+	}
+	if attachments {
+		if err := replaceAttachments(m, stage, journal); err != nil {
+			return false, err
+		}
+	}
 	for _, fi := range m.Files {
 		src := filepath.Join(stage, contentDir, filepath.FromSlash(fi.Path))
 		var dst string
@@ -606,14 +801,98 @@ func applyFiles(m Manifest, stage string) error {
 		case fi.Path == authSecretsEntry:
 			dst, mode = authSecretsFile, 0o600
 		case strings.HasPrefix(fi.Path, attachmentsPrefix):
-			rel := strings.TrimPrefix(fi.Path, attachmentsPrefix)
-			dst, mode = filepath.Join(attachmentsDir, filepath.FromSlash(rel)), 0o644
+			continue
 		default:
 			continue
 		}
+		if fi.Path == authSecretsEntry && journal != "" {
+			old := filepath.Join(journal, "auth-secrets-old")
+			if _, err := os.Stat(dst); err == nil {
+				if err := os.Rename(dst, old); err != nil {
+					return false, fmt.Errorf("backup: preserve old authentication secrets: %w", err)
+				}
+				if err := syncDirectory(journal); err != nil {
+					return false, fmt.Errorf("backup: sync preserved authentication secrets: %w", err)
+				}
+				if err := syncDirectory(filepath.Dir(dst)); err != nil {
+					return false, fmt.Errorf("backup: sync authentication secrets directory: %w", err)
+				}
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return false, err
+			}
+		}
 		if err := copyFileAtomic(src, dst, mode); err != nil {
+			return false, err
+		}
+		if fi.Path == authSecretsEntry {
+			secretReplaced = true
+			if err := setRestoreResourceApplied(journal, "secrets"); err != nil {
+				return false, fmt.Errorf("backup: record restored secrets: %w", err)
+			}
+		}
+	}
+	return secretReplaced, nil
+}
+
+func replaceAttachments(m Manifest, stage, journal string) error {
+	parent := filepath.Dir(attachmentsDir)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return fmt.Errorf("backup: prepare attachments: %w", err)
+	}
+	newDir := filepath.Join(parent, ".uploads-restore-new")
+	if err := os.RemoveAll(newDir); err != nil {
+		return fmt.Errorf("backup: clear attachment staging: %w", err)
+	}
+	if err := os.MkdirAll(newDir, 0o755); err != nil {
+		return fmt.Errorf("backup: stage attachments: %w", err)
+	}
+	for _, fi := range m.Files {
+		if !strings.HasPrefix(fi.Path, attachmentsPrefix) {
+			continue
+		}
+		rel := strings.TrimPrefix(fi.Path, attachmentsPrefix)
+		dst := filepath.Join(newDir, filepath.FromSlash(rel))
+		if err := copyFileAtomic(filepath.Join(stage, contentDir, filepath.FromSlash(fi.Path)), dst, 0o644); err != nil {
+			_ = os.RemoveAll(newDir)
 			return err
 		}
+	}
+	oldDir := attachmentsDir + ".restore-old"
+	if journal != "" {
+		oldDir = filepath.Join(journal, "uploads-old")
+	}
+	if err := os.RemoveAll(oldDir); err != nil {
+		_ = os.RemoveAll(newDir)
+		return err
+	}
+	if _, err := os.Stat(attachmentsDir); err == nil {
+		if err := os.Rename(attachmentsDir, oldDir); err != nil {
+			_ = os.RemoveAll(newDir)
+			return fmt.Errorf("backup: preserve old attachments: %w", err)
+		}
+		if err := syncDirectory(parent); err != nil {
+			_ = os.Rename(oldDir, attachmentsDir)
+			return fmt.Errorf("backup: sync preserved attachments: %w", err)
+		}
+		if journal != "" {
+			if err := syncDirectory(journal); err != nil {
+				_ = os.Rename(oldDir, attachmentsDir)
+				return fmt.Errorf("backup: sync attachments journal: %w", err)
+			}
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		_ = os.RemoveAll(newDir)
+		return err
+	}
+	if err := os.Rename(newDir, attachmentsDir); err != nil {
+		_ = os.Rename(oldDir, attachmentsDir)
+		return fmt.Errorf("backup: place restored attachments: %w", err)
+	}
+	if err := syncDirectory(parent); err != nil {
+		return fmt.Errorf("backup: sync restored attachments: %w", err)
+	}
+	if err := setRestoreResourceApplied(journal, "attachments"); err != nil {
+		return fmt.Errorf("backup: record restored attachments: %w", err)
 	}
 	return nil
 }
@@ -655,6 +934,9 @@ func copyFileAtomic(src, dst string, mode os.FileMode) error {
 	}
 	if err := os.Rename(tmpName, dst); err != nil {
 		return fmt.Errorf("backup: place %s: %w", dst, err)
+	}
+	if err := syncDirectory(filepath.Dir(dst)); err != nil {
+		return fmt.Errorf("backup: sync %s directory: %w", dst, err)
 	}
 	done = true
 	return nil

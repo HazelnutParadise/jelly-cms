@@ -220,8 +220,8 @@ func runLocked(ctx context.Context, req Request) (int64, error) {
 		actor := req.Actor
 		row.CreatedBy = &actor
 	}
-	if err := data.DB.WithContext(ctx).Create(&row).Error; err != nil {
-		return 0, fmt.Errorf("backup: create row: %w", err)
+	if err := createBackupRecord(ctx, &row); err != nil {
+		return 0, err
 	}
 	req.Contents = contents
 	req.Kind = kind
@@ -239,6 +239,11 @@ func Retry(ctx context.Context, id int64, passphrase string, actor uint) (int64,
 	if data.DB == nil {
 		return 0, ErrNotInstalled
 	}
+	conn, unlock, err := acquirePreparedLock(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	defer unlock(conn)
 	if err := checkRequest(Request{Note: "", Passphrase: passphrase}); err != nil {
 		return 0, err
 	}
@@ -266,28 +271,131 @@ func Retry(ctx context.Context, id int64, passphrase string, actor uint) (int64,
 
 // execute writes the archive for row id and records the outcome.
 func execute(ctx context.Context, id int64, req Request) error {
-	art, err := writeArchive(ctx, req)
+	row, err := loadRecord(ctx, id)
+	if err != nil {
+		return err
+	}
+	dbManifest := decodeDatabaseManifest(row.Manifest)
+	if dbManifest.malformed {
+		err := ErrInvalidArchive
+		markFailed(ctx, id, err)
+		return err
+	}
+	policyID := int64(0)
+	if dbManifest.pending != nil {
+		policyID = dbManifest.pending.PolicyID
+	}
+	var art artifact
+	if row.FilePath != nil && row.SHA256 != nil {
+		local, pathErr := archiveFile(*row.FilePath)
+		if pathErr == nil && localArchiveMatches(row, local) {
+			var manifest Manifest
+			inner := cloneManifestFields(dbManifest.fields)
+			raw, marshalErr := json.Marshal(inner)
+			if marshalErr != nil {
+				return marshalErr
+			}
+			if unmarshalErr := json.Unmarshal(raw, &manifest); unmarshalErr != nil {
+				return unmarshalErr
+			}
+			art = artifact{Path: local, Size: row.SizeBytes, SHA256: *row.SHA256, Manifest: manifest}
+		}
+	}
+	if art.Path == "" {
+		if dbManifest.pending != nil && dbManifest.pending.TransferKey != "" {
+			var fetched string
+			fetched, err = fetchPendingArchive(ctx, row, dbManifest.pending)
+			if err == nil {
+				var manifest Manifest
+				raw, marshalErr := json.Marshal(cloneManifestFields(dbManifest.fields))
+				if marshalErr != nil {
+					err = marshalErr
+				} else if unmarshalErr := json.Unmarshal(raw, &manifest); unmarshalErr != nil {
+					err = unmarshalErr
+				} else {
+					art = artifact{Path: fetched, Size: dbManifest.pending.TransferSize, SHA256: dbManifest.pending.TransferSHA, Manifest: manifest}
+				}
+			}
+			if err != nil {
+				markFailed(ctx, id, err)
+				return err
+			}
+		} else {
+			art, err = writeArchive(ctx, req)
+			if err != nil {
+				markFailed(ctx, id, err)
+				return err
+			}
+		}
+	}
+	if art.Size <= 0 || art.Size > MaxArchiveBytes {
+		err = fmt.Errorf("backup: archive exceeds the %d byte limit", MaxArchiveBytes)
+		markFailed(ctx, id, err)
+		return err
+	}
+	innerRaw, err := json.Marshal(art.Manifest)
 	if err != nil {
 		markFailed(ctx, id, err)
 		return err
 	}
-	manifest, err := json.Marshal(art.Manifest)
-	if err != nil {
+	innerFields := make(map[string]json.RawMessage)
+	if err := json.Unmarshal(innerRaw, &innerFields); err != nil {
 		markFailed(ctx, id, err)
 		return err
 	}
-	if err := data.DB.WithContext(ctx).Model(&record{}).Where("id = ?", id).Updates(map[string]any{
-		"state":       stateDone,
-		"file_path":   art.Path,
-		"size_bytes":  art.Size,
-		"sha256":      art.SHA256,
-		"manifest":    string(manifest),
-		"last_error":  nil,
-		"finished_at": time.Now().UTC(),
-	}).Error; err != nil {
-		return fmt.Errorf("backup: record result: %w", err)
+	for key, value := range innerFields {
+		dbManifest.fields[key] = value
+	}
+	if dbManifest.pending == nil {
+		dbManifest.pending = &pendingMetadata{}
+	}
+	if policyID > 0 {
+		dbManifest.pending.PolicyID = policyID
+		dbManifest.pending.Queued = false
+		dbManifest.pending.TransferKey = transferKey(id, art.SHA256)
+		dbManifest.pending.TransferSHA = art.SHA256
+		dbManifest.pending.TransferSize = art.Size
+	}
+	if err := persistDatabaseManifest(ctx, id, dbManifest, map[string]any{
+		"file_path": art.Path, "size_bytes": art.Size, "sha256": art.SHA256,
+	}); err != nil {
+		wrapped := fmt.Errorf("backup: persist pending archive: %w", err)
+		markFailed(ctx, id, wrapped)
+		return wrapped
+	}
+	if policyID > 0 {
+		drv, err := resolveStorage(ctx, policyID)
+		if err != nil {
+			markFailed(ctx, id, err)
+			return err
+		}
+		if err := putAndVerify(ctx, drv, dbManifest.pending.TransferKey, art.Path, art.Size, art.SHA256); err != nil {
+			markFailed(ctx, id, err)
+			return err
+		}
+		dbManifest.remote = &remoteMetadata{PolicyID: policyID, Key: dbManifest.pending.TransferKey, SHA256: art.SHA256, Size: art.Size}
+	}
+	dbManifest.pending = nil
+	if err := persistDatabaseManifest(ctx, id, dbManifest, map[string]any{
+		"state": stateDone, "file_path": art.Path, "size_bytes": art.Size, "sha256": art.SHA256,
+		"last_error": nil, "finished_at": time.Now().UTC(),
+	}); err != nil {
+		wrapped := fmt.Errorf("backup: record result: %w", err)
+		markFailed(ctx, id, wrapped)
+		return wrapped
 	}
 	return nil
+}
+
+func cloneManifestFields(fields map[string]json.RawMessage) map[string]json.RawMessage {
+	cloned := make(map[string]json.RawMessage, len(fields))
+	for key, value := range fields {
+		if key == "_jelly_remote" || key == "_jelly_pending" {
+			continue
+		}
+		cloned[key] = value
+	}
+	return cloned
 }
 
 // markFailed records cause on the row. It uses a context detached from the
@@ -297,7 +405,9 @@ func markFailed(ctx context.Context, id int64, cause error) {
 	if len(msg) > lastErrorLimit {
 		msg = msg[:lastErrorLimit]
 	}
-	err := data.DB.WithContext(context.WithoutCancel(ctx)).Model(&record{}).Where("id = ?", id).Updates(map[string]any{
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	err := data.DB.WithContext(cleanupCtx).Model(&record{}).Where("id = ?", id).Updates(map[string]any{
 		"state":       stateFailed,
 		"last_error":  msg,
 		"finished_at": time.Now().UTC(),
@@ -385,13 +495,32 @@ func Delete(ctx context.Context, id int64) error {
 	if err != nil {
 		return err
 	}
-	if row.State == stateRunning {
-		return ErrBusy
-	}
-	if err := removeArchive(row); err != nil {
+	return deleteBackupRow(ctx, row)
+}
+
+// deleteBackupRow serializes deletion against queued workers across processes.
+// It removes external data first, so a failed remote delete leaves the database
+// reference available for a safe retry.
+func deleteBackupRow(ctx context.Context, row record) error {
+	conn, unlock, err := acquirePreparedLock(ctx, row.ID)
+	if err != nil {
 		return err
 	}
-	return data.DB.WithContext(ctx).Delete(&record{}, id).Error
+	defer unlock(conn)
+	current, err := loadRecord(ctx, row.ID)
+	if err != nil {
+		return err
+	}
+	if current.State == stateQueued || current.State == stateRunning {
+		return ErrBusy
+	}
+	if err := deleteRemoteArchive(ctx, current); err != nil {
+		return err
+	}
+	if err := removeArchive(current); err != nil {
+		return err
+	}
+	return data.DB.WithContext(ctx).Delete(&record{}, current.ID).Error
 }
 
 // ArchivePath returns the archive file of a finished backup and the name to
@@ -401,17 +530,23 @@ func ArchivePath(ctx context.Context, id int64) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	if row.State != stateDone || row.FilePath == nil {
+	if row.State != stateDone {
 		return "", "", ErrNotDone
 	}
-	path, err := archiveFile(*row.FilePath)
+	path, release, err := ensureLocalArchive(ctx, row)
 	if err != nil {
 		return "", "", err
 	}
-	if _, err := os.Stat(path); err != nil {
-		return "", "", fmt.Errorf("backup: archive file: %w", err)
+	defer release()
+	row, err = loadRecord(ctx, id)
+	if err != nil {
+		return "", "", err
 	}
-	return path, fmt.Sprintf("jelly-backup-%d.jbk", id), nil
+	stable, err := stableDownloadPath(row, path)
+	if err != nil {
+		return "", "", fmt.Errorf("backup: prepare download archive: %w", err)
+	}
+	return stable, fmt.Sprintf("jelly-backup-%d.jbk", id), nil
 }
 
 func loadRecord(ctx context.Context, id int64) (record, error) {

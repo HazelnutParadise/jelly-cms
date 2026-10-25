@@ -38,6 +38,9 @@ func seedSpecs() []Spec {
 
 		// Keys listed in docs/tickets/08-system.md (選項鍵).
 		s("site_timezone", KindString, "UTC", "site"),
+		s("comments_enabled", KindBool, "true", "comments"),
+		s("comments_registered_only", KindBool, "false", "comments"),
+		s("comments_require_approval", KindBool, "true", "comments"),
 		s("permalink_post", KindString, "/post/{slug}", "routes"),
 		s("permalink_legacy", KindJSON, "[]", "routes"),
 		s("permalink_category_prefix", KindString, "/c", "routes"),

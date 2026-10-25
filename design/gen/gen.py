@@ -801,8 +801,11 @@ pages["Import"] = ("後台 WordPress 匯入", ADMIN_CSS, 1440, 1000, admin("tool
           </tbody>
         </table>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px">{I("eye",18)}<span>執行前會先<b>試跑</b>，列出會衝突的網址和找不到的附件，你確認後才真的寫入。</span><label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:600">完成後寄 Email<span class="tg"></span></label></div>
-      <div style="display:flex;gap:8px"><button class="btn t" type="button">{I("arrow-l")}上一步</button><button class="btn p" type="button">{I("play")}試跑，然後匯入</button></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px">{I("eye",18)}<span>執行前會先<b>試跑</b>，列出會衝突的網址和找不到的附件，確認試跑報告後，再按「執行匯入」才會寫入。</span><label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:600">試跑完成<span class="chip ok">可以匯入</span></label></div>
+      <div style="display:flex;gap:8px"><button class="btn t" type="button">{I("arrow-l")}上一步</button><button class="btn t" type="button">{I("eye")}試跑</button><button class="btn p" type="button">{I("play")}執行匯入</button></div>
+      <p style="font-size:13px;color:#5F6470">匯入已排程或執行中時會自動刷新，兩分鐘後可手動重新整理。<a href="Infra.dc.html#sys-jobs">查看工作與編號</a></p>
+      <div class="card"><h3>完成後的匯入報告</h3><table><thead><tr><th>類型</th><th>已建立</th></tr></thead><tbody><tr><td>文章</td><td>1</td></tr><tr><td>頁面</td><td>0</td></tr><tr><td>附件</td><td>0</td></tr><tr><td>留言</td><td>0</td></tr><tr><td>作者</td><td>1</td></tr></tbody></table></div>
+      <div class="card"><h3>已略過</h3><p>依實際原因列出筆數：已匯入過、未選擇的類型、附件未啟用抓取等；沒有略過時顯示空狀態。</p></div>
     </section>
   </main>'''))
 
@@ -814,11 +817,12 @@ pages["Backup"] = ("後台備份與匯出", ADMIN_CSS, 1440, 1000, admin("tools"
     <section style="display:flex;flex-direction:column;gap:24px">
       <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
         <div class="card" style="display:flex;flex-direction:column;gap:6px"><span class="lbl">上次備份</span><b class="mono" style="font-size:24px">今天 03:00</b><span style="font-size:12px;color:#0F6A45;display:flex;align-items:center;gap:4px">{I("check",14)}成功 · 412 MB · 48 秒</span></div>
-        <div class="card" style="display:flex;flex-direction:column;gap:6px"><span class="lbl">排程</span><b class="mono" style="font-size:24px">每天 03:00</b><span style="font-size:12px;color:#5F6470">保留 14 天，週日的保留 3 個月</span></div>
+        <div class="card" style="display:flex;flex-direction:column;gap:6px"><span class="lbl">排程</span><b class="mono" style="font-size:24px">每天 03:00</b><span style="font-size:12px;color:#5F6470">保留 14 天，週日的保留 3 個月。關閉可停用排程</span></div>
         <div class="card" style="display:flex;flex-direction:column;gap:6px;background:#15161A;color:#fff;box-shadow:none"><span class="lbl" style="color:#9A9FAB">存到哪</span><b style="font-size:16px;display:flex;align-items:center;gap:8px">{I("globe")}Cloudflare R2 · jelly-backups</b><span style="font-size:12px;color:#C9CBD3">本機也留 3 份 · <a href="Settings.dc.html" style="color:#fff">設定</a></span></div>
       </div>
+      <p style="font-size:13px;color:#5F6470">已排入背景處理，工作編號：backup-job。<a href="Infra.dc.html#sys-jobs">查看工作並刷新狀態</a>。待處理與執行中的備份不可刪除。</p>
       <div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="lbl">備份紀錄</div><span style="margin-left:auto;font-size:12px;color:#5F6470">還原會先把現在的站再備份一次，不會直接覆蓋。</span></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><div class="lbl">備份紀錄</div><span style="margin-left:auto;font-size:12px;color:#5F6470">還原前先備份現況，輸入 RESTORE 與加密密碼確認；完成後保留維護模式。</span></div>
         <table>
           <thead><tr><th>時間</th><th>內容</th><th>大小</th><th>位置</th><th>狀態</th><th></th></tr></thead>
           <tbody>
@@ -830,7 +834,7 @@ pages["Backup"] = ("後台備份與匯出", ADMIN_CSS, 1440, 1000, admin("tools"
         </table>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="card" style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">匯出內容</b></div><p style="margin:0;font-size:13px;color:#5F6470;line-height:1.6">給人看、給別的系統用的格式。不含設定和外掛。</p><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn t s" type="button">{I("download",14)}Markdown 資料夾（.zip）</button><button class="btn t s" type="button">{I("download",14)}WXR（給 WordPress）</button><button class="btn t s" type="button">{I("download",14)}JSON</button></div></div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">匯出內容</b></div><p style="margin:0;font-size:13px;color:#5F6470;line-height:1.6">可選 jmd（Markdown ZIP）、WXR 或 JSON。備份另可輸入註記與加密密碼，密碼不會儲存。</p><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn t s" type="button">{I("download",14)}Markdown 資料夾（.zip）</button><button class="btn t s" type="button">{I("download",14)}WXR（給 WordPress）</button><button class="btn t s" type="button">{I("download",14)}JSON</button></div></div>
         <div class="card" style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">搬到另一台主機</b></div><p style="margin:0;font-size:13px;color:#5F6470;line-height:1.6">整站打包，在新主機的安裝畫面選「從備份還原」就能接著用。</p><div style="display:flex;gap:6px"><button class="btn s" type="button">{I("box",14)}打包整站</button><button class="btn t s" type="button">{I("copy",14)}複製還原指令</button></div></div>
       </div>
     </section>
@@ -842,7 +846,7 @@ pages["Redirects"] = ("後台轉址與 SEO", ADMIN_CSS, 1440, 1000, admin("redir
   f'''<main style="padding: 16px 24px 32px; display:grid; grid-template-columns: minmax(0,1fr) 360px; gap:24px; align-items:start">
     <section>
       <div class="seg" style="margin-bottom:14px"><span class="on">{I("redirect",14)}轉址 <b>231</b></span><span>{I("alert",14)}404 紀錄 <b style="color:#E8285B">18</b></span><span style="padding:0"><a href="Settings.dc.html" style="display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;color:inherit">{I("globe",14)}SEO 預設</a></span></div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:280px;color:#5F6470;font-size:13px">{I("search",14)}<input type="text" placeholder="找來源或目標網址" aria-label="搜尋轉址" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><div class="seg"><span class="on">全部</span><span>301</span><span>302</span><span>自動建立</span></div><span style="margin-left:auto;font-size:12px;color:#5F6470">225 筆是 WordPress 匯入時自動建的</span></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:280px;color:#5F6470;font-size:13px">{I("search",14)}<input type="text" placeholder="找來源或目標網址，CSV 匯入先預覽" aria-label="搜尋轉址" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><div class="seg"><span class="on">全部</span><span>301</span><span>302</span><span>自動建立</span></div><span style="margin-left:auto;font-size:12px;color:#5F6470">225 筆是 WordPress 匯入時自動建的</span></div>
       <table>
         <thead><tr><th style="width:36px"><span class="cb"></span></th><th>從</th><th></th><th>到</th><th>類型</th><th>命中</th><th></th></tr></thead>
         <tbody>
@@ -874,7 +878,7 @@ pages["Redirects"] = ("後台轉址與 SEO", ADMIN_CSS, 1440, 1000, admin("redir
   <div style="padding:0 24px 40px"><div style="border-top:2px dashed #D9DBE0;padding-top:16px;display:flex;flex-direction:column;gap:12px;max-width:1040px">
     <span class="lbl">分頁：SEO 預設</span>
     <div class="seg" style="align-self:flex-start"><span>{I("redirect",14)}轉址 <b>231</b></span><span>{I("alert",14)}404 紀錄 <b style="color:#E8285B">18</b></span><span class="on">{I("globe",14)}SEO 預設</span></div>
-    <div class="card" style="display:flex;align-items:center;gap:14px;padding:16px 18px"><span style="width:36px;height:36px;background:#F3F3F5;display:grid;place-items:center;border-radius:0 10px 0 10px">{I("globe",18)}</span><div style="flex:1;font-size:13px;line-height:1.6"><b style="font-size:14px">SEO 預設不在這裡改</b><div style="color:#5F6470">標題格式「%title% · %site%」、預設 OG 圖、是否讓搜尋引擎索引、各類型索引、摘要模式與 IndexNow，都在設定頁的「SEO 預設」；每篇文章與商品可以各自覆寫。</div></div><a class="btn" href="Settings.dc.html">{I("settings")}前往設定</a></div>
+    <div class="card" style="display:flex;align-items:center;gap:14px;padding:16px 18px"><span style="width:36px;height:36px;background:#F3F3F5;display:grid;place-items:center;border-radius:0 10px 0 10px">{I("globe",18)}</span><div style="flex:1;font-size:13px;line-height:1.6"><b style="font-size:14px">SEO 預設不在這裡改</b><div style="color:#5F6470">標題格式「%title% · %site%」、預設 OG 圖、是否讓搜尋引擎索引、各類型索引、摘要模式與 IndexNow，都在設定頁的「SEO 預設」；這裡可改標題格式與預設 OG 圖；完整索引與爬蟲規則在「搜尋引擎與 AI 爬蟲」，每篇內容可以覆寫。</div></div><a class="btn" href="Settings.dc.html">{I("settings")}前往設定</a></div>
   </div></div>'''))
 
 # ======================= ADMIN: Logs =======================
@@ -893,7 +897,7 @@ pages["Logs"] = ("後台系統日誌", ADMIN_CSS, 1440, 1000, admin("logs", ["�
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <div class="seg"><span class="on">全部</span><span>應用</span><span>HTTP</span><span>金流</span><span>外掛</span><span>登入與稽核</span><span>排程</span></div>
       <div class="seg"><span class="on" style="background:#9C2318">錯誤</span><span class="on" style="background:#7A5200">警告</span><span class="on">資訊</span><span>除錯</span></div>
-      <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;flex:1;min-width:200px;color:#5F6470;font-size:13px">{I("search",14)}<input type="text" placeholder='篩選，例如 order_id=JL-2026-0417 或 status>=500' aria-label="篩選日誌" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></label>
+      <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;flex:1;min-width:200px;color:#5F6470;font-size:13px">{I("search",14)}<input type="text" placeholder='搜尋訊息或請求 ID' aria-label="篩選日誌" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></label>
       <div class="seg"><span>15 分</span><span class="on">1 小時</span><span>今天</span><span>{I("calendar",12)}自訂</span></div>
     </div>
     <div class="card log" style="padding:0;overflow:hidden">
@@ -907,7 +911,7 @@ pages["Logs"] = ("後台系統日誌", ADMIN_CSS, 1440, 1000, admin("logs", ["�
       {lrow("15:52:48.336",("w","WARN"),"auth","登入失敗 × 5 · user=admin · 114.x.x.x · 已暫時封鎖 15 分")}
       {lrow("15:50:12.901",("d","DBG"),"theme","render index.html 38ms · cache miss")}
       {lrow("15:49:59.470",("i","INFO"),"http","GET / 200 · 12ms · cache hit")}
-      <div style="padding:10px;text-align:center;font-size:12px;color:#5F6470;font-family:'Noto Sans TC',sans-serif">往下捲自動載入更多 · 日誌保留 30 天，錯誤保留 90 天</div>
+      <div style="padding:10px;text-align:center;font-size:12px;color:#5F6470;font-family:'Noto Sans TC',sans-serif"><button class="btn t s" type="button">載入更多</button> · 點請求 ID 可篩選同一請求；即時模式可暫停與重新連線</div>
     </div>
   </main>'''))
 
@@ -985,6 +989,8 @@ pages["States"] = ("後台狀態畫面", ADMIN_CSS, 1440, 1000, admin("posts", [
 
 if __name__ == "__main__":
     for name,(title,css,w,h,body) in pages.items():
+        if os.environ.get("JELLY_DESIGN_ONLY") and name not in os.environ["JELLY_DESIGN_ONLY"].split(","):
+            continue
         with open(os.path.join(OUT, f"{name}.dc.html"), "w", encoding="utf-8") as f:
             f.write(doc(title, css, body, w, h))
         print("wrote", name)

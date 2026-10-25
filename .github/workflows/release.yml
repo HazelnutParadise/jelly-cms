@@ -29,14 +29,16 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
+          MINISIGN_PUBLIC_KEY: ${{ secrets.MINISIGN_PUBLIC_KEY }}
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
           BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          PUBLIC_KEY_LINE="$(printf '%s\n' "$MINISIGN_PUBLIC_KEY" | awk 'NF && $1 !~ /^untrusted/ { print $1; exit }')"
           BIN=jelly-cms
           if [ "$GOOS" = windows ]; then BIN=jelly-cms.exe; fi
           mkdir -p stage dist
-          go build -trimpath -ldflags "-X github.com/HazelnutParadise/jelly-cms/internal/version.Version=${VERSION} -X github.com/HazelnutParadise/jelly-cms/internal/version.Commit=${GITHUB_SHA} -X github.com/HazelnutParadise/jelly-cms/internal/version.BuiltAt=${BUILT_AT}" -o "stage/$BIN" ./cmd/server
+          go build -trimpath -ldflags "-X github.com/HazelnutParadise/jelly-cms/internal/version.Version=${VERSION} -X github.com/HazelnutParadise/jelly-cms/internal/version.Commit=${GITHUB_SHA} -X github.com/HazelnutParadise/jelly-cms/internal/version.BuiltAt=${BUILT_AT} -X 'github.com/HazelnutParadise/jelly-cms/internal/update.officialPublicKey=${PUBLIC_KEY_LINE}'" -o "stage/$BIN" ./cmd/server
           cp -R web stage/web
           # Entries are written without a leading "./", as the updater requires.
           tar -C stage -czf "dist/jelly-cms_${GOOS}_${GOARCH}.tar.gz" "$BIN" web

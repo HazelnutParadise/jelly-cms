@@ -3,8 +3,21 @@
 Epic：系統與維運
 User Story：站長在一個分頁式設定頁完成網站、網址、搜尋引擎與 AI 爬蟲、程式碼注入、維護模式、郵件、快取與佇列、更新的設定；管理轉址與 404；看系統日誌；備份、匯出、還原；從 WordPress 匯入；從應用市場安裝與更新外掛與主題、調整外掛設定與擴充點；管理附件的儲存策略與分組。
 Blocked by：05（維護模式中介層與選項、`content.css`）、06（`internal/notify`、`RequireInteractive`、員工閘、`user_invites`）、07（金流與運送分頁由 07 註冊）、09（`markup.Flatten` 供匯出）。本工作單在同一條 main 上接續時以各該契約為準；本分支放標示「shared with ticket NN」的最小存根。
-Status：draft（本工作單只交付設計板補齊、契約、骨架與失敗的驗收測試；實作由另一批代理依本文件完成）
+Status：in_progress（接續 PR #27 的既有 worktree 與 claude/pr-f-system 分支；以完整使用流程、本機驗收及必要 CI 為交付條件）
 設計稿：`design/project/Settings、SettingsRoutes、SettingsCrawlers、Redirects、Logs、Update、UpdateContainer、Infra、Backup、Import、AppStore、PluginDetail、MediaPolicies、Media、Palette、States.dc.html`；本工作單先補：`Settings` 板補齊沒畫的分頁（網站、登入與註冊、留言、郵件與通知、SEO 預設）並統一所有板的分頁列；`SettingsRoutes` 預設網址改成 `/post/{slug}`、每頁 10；`Redirects` 板補 SEO 預設分頁；`Infra` 板移除 Memcached；`canvas.json` 把 Palette 與 States 的「尚未實作」拿掉。
+
+## PR #27 接手驗收紀錄
+
+接手起點為 `be9d4a3d4d3acbcccb7192912f4a802e0c5a1c2f`，保留既有提交與本文件契約。主代理負責審查與驗收，測試、前端與後端分開指派；實作者不得修改測試。以下六項全部完成後才可合併，進度不以既有 CI 通過取代使用流程。
+
+1. **08a 基礎與執行**：補完郵件設定與本機 SMTP 測試、實際 Redis 快取／佇列與 S3 儲存、共用活動佇列的 worker／排程及關機；以實際讀寫、失敗／重試、重啟、暫停及切換不掉件驗證。
+2. **08b 網址與政策**：分類／作者 Feed、完整商品 SEO 讀寫與公開輸出；通用設定不得繞過注入的互動與密碼限制；保留既有網址／轉址／維護契約並補正常、非法、私密與未來內容回歸。
+3. **08c 備份與更新**：包含已發布元件、庫存異動、OAuth／元件稽核的完整資料集可還原，失敗保留資料與檔案；秘密替換後重啟一致；較新 schema 在任何寫入前拒絕，更新僅在真實服務啟動後確認成功；簽章信任來源可隨正式建置提供，空金鑰保持拒絕。
+4. **08d 外掛與附件**：根目錄／單層包裝 ZIP 保留子目錄，安裝失敗保留舊目錄與資料列，失敗的新安裝不得於重啟後執行；附件策略、分組、搬移與引用一致，保留舊上傳 API。
+5. **08e 畫面與完整流程**：取代系統佔位頁並同步本機設計板；繁中／英文、390px／1280px、亮／暗、錯誤與載入狀態、離線資源和真實操作驗收。依既有分工在推送後於 PR 請 Claude 同步線上畫布，收到完成回報才標已同步。
+6. **交付**：主代理審查完整差異，重跑專用 PostgreSQL 全套競態測試、格式／vet／原生與跨平台編譯；更新 STATUS 與 PR，推送、必要 CI 全綠後合併 main，清理已合併分支。部署與真實收款不屬此階段。
+
+已確認的原始缺口：系統頁面仍為佔位、mail 與分類／作者 Feed 回 501、Redis／S3 為存根、worker／scheduler 沒有完整啟動接點；通用設定可寫注入鍵、佇列切換先刪來源、外掛換檔後寫 DB 失敗不回復、完整還原遭不可變更 trigger 阻擋。需以獨立回歸測試先重現，修正後重跑。原有測試與四項 CI 目前通過不代表以上流程已完成。
 
 ## 先修的安全問題（08a 第一批）
 
@@ -119,7 +132,7 @@ func Switch(ctx, from, to Queue) error
 - 外掛 manifest：`settings [{key,type,min,max}]`、`permissions [{name}]`（已強制者標 `enforced`）、`actions`。
 - 匯入的作者建成受邀使用者（06 的 `user_invites`）；舊 `uploads/` 匯入在同一個資料庫上再次 `RegisterRoutes` 時執行。
 - 08b：轉址規則的 JSON 欄位與資料表欄名相同；CSV 匯入 multipart 欄位 `file`，表頭 `from_path,to_url,kind`；測試端點回 `chain`；404 清單項目 `path`、`count`、`suggestion`；爬蟲統計 `bot`、`action`、`count`；維護回 `enabled`、`message`、`retry_after`、`elapsed_minutes`；自訂規則 `user_agent`、`action`、`path`；`seo_ai` 關閉值 `noai`。互動限定 = `jwt_token` cookie 加 `X-Jelly-CSRF` 且無 Authorization，Bearer 打注入寫入回 403。點擊數由 `redirects.FlushHits()` 落庫；維護中 `/robots.txt` 回 503 帶 `Retry-After`，`/admin` 維持 200。更改 `ai_policy_preset` 即重算 robots，不另設目錄更新端點。
-- 跳過而非失敗：通知相關（需 06 的 notify）、S3 策略（minio-go 尚未進 go.mod）。
+- 接手後的必要整合驗證：通知投遞、Redis 與 S3 已實作，不再以缺少套件略過；NATS 另以 `-tags nats` 與專用 JetStream 服務驗證。測試服務與旗標見 [系統維運](../system-operations.md)。
 
 ### 安全規則
 

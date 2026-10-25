@@ -188,6 +188,7 @@ func renderShopCatalog(tm *theme.Manager, c echo.Context, term *core.ProductCate
 		"Lang": pageData.Lang, "Currency": pageData.Currency, "ContactEmail": pageData.ContactEmail,
 		"FreeShippingOver": pageData.FreeShippingOver, "Facets": pageData.Facets,
 	}
+	applyPublicSEO(c, data.DB, templateName, dataMap)
 	html, err := tm.RenderWithDB(templateName, dataMap, data.DB)
 	if err != nil {
 		return echo.NewHTTPError(500, "could not render shop page")
@@ -595,6 +596,7 @@ func shopProductPage(tm *theme.Manager) echo.HandlerFunc {
 		jsonLDString = strings.ReplaceAll(jsonLDString, "&", "\\u0026")
 		trust := shopTrustLines(c)
 		dataMap := map[string]interface{}{"SiteTitle": getSiteTitle(), "Title": product.Title, "CurrentPath": c.Path(), "Lang": shopLang(c), "Currency": currency, "ContactEmail": contact, "FreeShippingOver": freeShipping, "Product": productView, "Variants": variantViews, "Category": category, "Related": related, "Trust": trust, "JSONLD": jsonLD, "JSONLDHTML": template.HTML(jsonLDString), "DescriptionHTML": productView.DescriptionHTML}
+		applyPublicSEO(c, data.DB, "product.html", dataMap)
 		html, err := tm.RenderWithDB("product.html", dataMap, data.DB)
 		if err != nil {
 			return echo.NewHTTPError(500, fmt.Sprintf("could not render product page: %v", err))

@@ -1,12 +1,11 @@
 // Package storage is the attachment storage driver interface. Drivers:
-// local (local.go, files under a root directory) and s3 (minio-go, stub). Plugins
+// local (local.go, files under a root directory) and s3 (minio-go). Plugins
 // may provide drivers through the media.storage extension point.
 package storage
 
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"path"
 	"strings"
@@ -19,11 +18,15 @@ const (
 	DriverS3    = "s3"
 )
 
-// ErrNotImplemented marks behaviour that the skeleton does not provide yet.
-var ErrNotImplemented = errors.New("storage: not implemented")
-
 // ErrInvalidPath is returned for names that escape the driver root.
 var ErrInvalidPath = errors.New("storage: invalid path")
+
+// ErrNotImplemented is retained for callers handling optional storage drivers.
+var ErrNotImplemented = errors.New("storage: not implemented")
+
+// ErrS3Disabled is retained for source compatibility; the built-in S3 driver
+// is enabled now and does not return this sentinel during normal operations.
+var ErrS3Disabled = errors.New("storage: s3 driver is not enabled in this build")
 
 // Info describes a stored object.
 type Info struct {
@@ -61,29 +64,25 @@ func CleanPath(p string) (string, error) {
 	return clean, nil
 }
 
-// S3 is a stub for the S3-compatible driver. minio-go is not in go.mod yet, so
-// every operation reports ErrNotImplemented and the policy is kept but unusable.
+// S3 is an S3-compatible object driver.
 type S3 struct {
-	Endpoint string
-	Bucket   string
+	Endpoint      string
+	Bucket        string
+	Region        string
+	Prefix        string
+	PublicBaseURL string
+	client        s3API
+	initErr       error
 }
 
-// NewS3 returns the stub; every operation reports ErrNotImplemented.
+// NewS3 uses standard AWS environment credentials and keeps the existing API.
 func NewS3(endpoint, bucket string) *S3 {
-	return &S3{Endpoint: endpoint, Bucket: bucket}
+	d, err := NewS3WithConfig(S3Config{Endpoint: endpoint, Bucket: bucket})
+	if d != nil {
+		return d
+	}
+	return &S3{Endpoint: endpoint, Bucket: bucket, initErr: err}
 }
-
-// ErrS3Disabled names the state of the S3 driver so admins see why a policy fails.
-var ErrS3Disabled = fmt.Errorf("%w: the s3 driver is not enabled in this build", ErrNotImplemented)
-
-func (s *S3) Put(context.Context, string, io.Reader, int64, string) error {
-	return ErrS3Disabled
-}
-func (s *S3) Open(context.Context, string) (io.ReadCloser, error) { return nil, ErrS3Disabled }
-func (s *S3) Stat(context.Context, string) (Info, error)          { return Info{}, ErrS3Disabled }
-func (s *S3) Delete(context.Context, string) error                { return ErrS3Disabled }
-func (s *S3) URL(string) string                                   { return "" }
-func (s *S3) Test(context.Context) error                          { return ErrS3Disabled }
 
 var (
 	_ Driver = (*Local)(nil)

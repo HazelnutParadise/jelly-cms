@@ -3,8 +3,7 @@
 //
 // Drivers: postgres (the jobs table, migration 0019), memory (in-process, for
 // tests and as a switch target), redis (Redis Streams) and nats (JetStream,
-// behind a build tag). The postgres driver lives in postgres.go; redis and
-// nats are not implemented yet.
+// behind a build tag).
 package queue
 
 import (
@@ -14,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -166,16 +166,23 @@ func HandlerFor(kind string) (HandlerFunc, bool) {
 	return h, ok
 }
 
-// Open returns the queue for cfg. postgres (the default) and memory are
-// available now; redis and nats return ErrNotImplemented.
+// Open returns the queue for cfg. NATS requires the nats build tag.
 func Open(cfg Config) (Queue, error) {
 	switch strings.ToLower(strings.TrimSpace(cfg.Driver)) {
 	case "", DriverPostgres:
 		return newPostgresQueue()
 	case DriverMemory:
 		return newMemoryQueue(DriverMemory), nil
-	case DriverRedis, DriverNATS:
-		return nil, fmt.Errorf("queue: driver %q: %w", cfg.Driver, ErrNotImplemented)
+	case DriverRedis:
+		if strings.TrimSpace(cfg.URL) == "" {
+			return nil, errors.New("queue: redis driver needs a URL")
+		}
+		return newRedisQueue(cfg.URL)
+	case DriverNATS:
+		if strings.TrimSpace(cfg.URL) == "" {
+			return nil, errors.New("queue: nats driver needs a URL")
+		}
+		return openNATSQueue(cfg)
 	default:
 		return nil, fmt.Errorf("queue: unknown driver %q", cfg.Driver)
 	}
@@ -184,31 +191,77 @@ func Open(cfg Config) (Queue, error) {
 // switchBatch is how many queued jobs Switch moves per round.
 const switchBatch = 200
 
-// Switch moves queued jobs from one backend to another. Jobs are removed from
-// from only after to has accepted them, in batches; if to refuses a job the
-// rest of the batch goes back to from, so a failed switch loses nothing.
-// Running jobs finish on from. Callers pause workers first so nothing new is
-// reserved while the move runs.
+// Switch moves queued jobs while retaining the entire source batch on errors.
+// Drivers with transfer support take a non-destructive snapshot, enqueue the
+// target, then confirm source deletion. Legacy drivers use Drain and restore
+// the full batch if the target or context fails. Workers must be paused first.
 func Switch(ctx context.Context, from, to Queue) error {
+	if from == nil || to == nil {
+		return errors.New("queue: switch requires source and target queues")
+	}
+	if reflect.TypeOf(from) == reflect.TypeOf(to) && reflect.TypeOf(from).Comparable() && reflect.ValueOf(from).Interface() == reflect.ValueOf(to).Interface() {
+		return nil
+	}
+	if transfer, ok := from.(TransferSource); ok {
+		jobs, err := transfer.SnapshotQueued(ctx, 0)
+		if err != nil {
+			return fmt.Errorf("queue: snapshot source: %w", err)
+		}
+		for _, j := range jobs {
+			if err := ctx.Err(); err != nil {
+				return fmt.Errorf("queue: transfer cancelled: %w", errors.Join(err, restoreBatch(ctx, from, jobs)))
+			}
+			if _, err := to.Enqueue(ctx, j); err != nil {
+				return fmt.Errorf("queue: enqueue on target: %w", errors.Join(err, restoreBatch(ctx, from, jobs)))
+			}
+		}
+		ids := make([]string, 0, len(jobs))
+		for _, j := range jobs {
+			ids = append(ids, j.ID)
+		}
+		if err := transfer.ConfirmQueued(ctx, ids); err != nil {
+			return fmt.Errorf("queue: confirm source removal (target may contain duplicates): %w", errors.Join(err, restoreBatch(ctx, from, jobs)))
+		}
+		return nil
+	}
+	var moved []Job
+	seen := map[string]struct{}{}
 	for {
 		batch, err := from.Drain(ctx, switchBatch)
 		if err != nil {
-			return fmt.Errorf("queue: drain source: %w", err)
+			return fmt.Errorf("queue: drain source: %w", errors.Join(err, restoreBatch(ctx, from, moved)))
 		}
 		if len(batch) == 0 {
 			return nil
 		}
-		for i, j := range batch {
+		for _, job := range batch {
+			if _, exists := seen[job.ID]; exists {
+				return fmt.Errorf("queue: source drain repeated job %q: %w", job.ID, restoreBatch(ctx, from, append(moved, batch...)))
+			}
+			seen[job.ID] = struct{}{}
+		}
+		moved = append(moved, batch...)
+		for _, j := range batch {
+			if err := ctx.Err(); err != nil {
+				return fmt.Errorf("queue: transfer cancelled: %w", errors.Join(err, restoreBatch(ctx, from, moved)))
+			}
 			if _, err := to.Enqueue(ctx, j); err != nil {
-				for _, back := range batch[i:] {
-					if _, rerr := from.Enqueue(context.WithoutCancel(ctx), back); rerr != nil {
-						err = errors.Join(err, rerr)
-					}
-				}
-				return fmt.Errorf("queue: enqueue on target: %w", err)
+				return fmt.Errorf("queue: enqueue on target: %w", errors.Join(err, restoreBatch(ctx, from, moved)))
 			}
 		}
 	}
+}
+
+func restoreBatch(ctx context.Context, from Queue, batch []Job) error {
+	restoreCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+	var errs error
+	for _, j := range batch {
+		if _, err := from.Enqueue(restoreCtx, j); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("restore %s: %w", j.ID, err))
+		}
+	}
+	return errs
 }
 
 func newJobID() string {
@@ -312,6 +365,28 @@ func (q *memoryQueue) Ack(_ context.Context, id string) error {
 	return nil
 }
 
+func (q *memoryQueue) ExtendLease(ctx context.Context, id, worker string, lease time.Duration) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	r, ok := q.jobs[id]
+	if !ok {
+		return ErrNotFound
+	}
+	if r.state != "running" || r.lockedBy != worker || time.Now().After(r.lockedTill) {
+		return errors.New("queue: lease is no longer owned by worker")
+	}
+	if lease <= 0 {
+		return errors.New("queue: lease duration must be positive")
+	}
+	r.lockedTill = time.Now().Add(lease)
+	return nil
+}
+
+var _ LeaseExtender = (*memoryQueue)(nil)
+
 func (q *memoryQueue) Fail(_ context.Context, id string, cause error, retryAt *time.Time) error {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -411,6 +486,59 @@ func (q *memoryQueue) Drain(_ context.Context, limit int) ([]Job, error) {
 	}
 	return out, nil
 }
+
+func (q *memoryQueue) SnapshotQueued(ctx context.Context, limit int) ([]Job, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	var queued []*record
+	for _, r := range q.jobs {
+		if r.state == "queued" {
+			queued = append(queued, r)
+		}
+	}
+	sort.Slice(queued, func(i, j int) bool { return queued[i].job.RunAt.Before(queued[j].job.RunAt) })
+	if limit > 0 && len(queued) > limit {
+		queued = queued[:limit]
+	}
+	out := make([]Job, 0, len(queued))
+	for _, r := range queued {
+		out = append(out, r.job)
+	}
+	return out, nil
+}
+
+func (q *memoryQueue) ConfirmQueued(ctx context.Context, ids []string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, id := range ids {
+		r, ok := q.jobs[id]
+		if !ok {
+			continue
+		}
+		if r.state != "queued" {
+			return fmt.Errorf("queue: job %s changed state during transfer", id)
+		}
+	}
+	for _, id := range ids {
+		r, ok := q.jobs[id]
+		if !ok {
+			continue
+		}
+		delete(q.jobs, id)
+		if r.job.DedupeKey != "" && q.dedupe[r.job.DedupeKey] == id {
+			delete(q.dedupe, r.job.DedupeKey)
+		}
+	}
+	return nil
+}
+
+var _ TransferSource = (*memoryQueue)(nil)
 
 func (q *memoryQueue) Ping(context.Context) (time.Duration, error) { return 0, nil }
 

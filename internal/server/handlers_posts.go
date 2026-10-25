@@ -150,7 +150,10 @@ func createPost(c echo.Context) error {
 			kind = "publish"
 		}
 		_, err := RecordRevision(tx, post, user.ID, kind)
-		return err
+		if err != nil {
+			return err
+		}
+		return recordIndexNowIntent(c.Request().Context(), tx, indexNowItem{Kind: post.Type, ID: post.ID, Slug: post.Slug}, accountBaseURL(c))
 	})
 	if errors.Is(err, errReservedSlug) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Slug is reserved"})
@@ -161,6 +164,10 @@ func createPost(c echo.Context) error {
 	var created core.Post
 	if err := data.DB.Preload("Categories").Preload("Tags").First(&created, post.ID).Error; err != nil {
 		return postQueryError(c, err)
+	}
+	item := indexNowItem{Kind: created.Type, ID: created.ID, Slug: created.Slug}
+	if err := dispatchIndexNowPending(c.Request().Context(), data.DB, 1); err != nil {
+		reportIndexNowEnqueueFailure(c, item, err)
 	}
 	return postResponse(c, created, diagnostics)
 }
@@ -323,7 +330,7 @@ func updatePost(c echo.Context) error {
 			}
 			slugRedirectSkipped = skipped
 		}
-		return nil
+		return recordIndexNowIntent(c.Request().Context(), tx, indexNowItem{Kind: saved.Type, ID: saved.ID, Slug: saved.Slug}, accountBaseURL(c))
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
@@ -349,6 +356,10 @@ func updatePost(c echo.Context) error {
 	}
 	if err := read.First(&updated).Error; err != nil {
 		return postQueryError(c, err)
+	}
+	item := indexNowItem{Kind: updated.Type, ID: updated.ID, Slug: updated.Slug}
+	if err := dispatchIndexNowPending(c.Request().Context(), data.DB, 1); err != nil {
+		reportIndexNowEnqueueFailure(c, item, err)
 	}
 	return postResponse(c, updated, diagnostics)
 }
@@ -614,6 +625,10 @@ func applyPostInput(post *core.Post, input map[string]json.RawMessage) (map[stri
 			post.Cover = value.(string)
 		case "visibility":
 			post.Visibility = value.(string)
+		case "seo_index":
+			post.SEOIndex = value.(string)
+		case "seo_ai":
+			post.SEOAI = value.(string)
 		case "pinned":
 			post.Pinned = value.(bool)
 		case "allow_comments":

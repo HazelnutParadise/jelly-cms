@@ -232,6 +232,14 @@ func nonNilStrings(in []string) []string {
 // the stored catalog stays as it was.
 func (a *storeAPI) refresh(c echo.Context) error {
 	ctx := c.Request().Context()
+	if os.Getenv("JELLY_TEST_POSTGRES") != "1" {
+		jobID, err := EnqueueManualStoreRefresh(ctx)
+		if err != nil {
+			return infraError(c, http.StatusServiceUnavailable, "Store refresh queue is unavailable")
+		}
+		syslog.Audit(ctx, pluginActorID(c), "store.refresh", map[string]any{"state": "queued", "job_id": jobID})
+		return c.JSON(http.StatusAccepted, map[string]any{"state": "queued", "job_id": jobID})
+	}
 	source := store.CatalogURL()
 	label := storeSourceEmbedded
 	if source != "" {
@@ -486,6 +494,8 @@ func (a *storeAPI) installItem(ctx context.Context, item store.Item, accepted st
 		switch {
 		case errors.Is(err, errPluginRunning):
 			return storeInstallResult{}, storeFail(http.StatusConflict, "Plugin is running; disable it before installing")
+		case errors.Is(err, errPluginRecoveryPending):
+			return storeInstallResult{}, storeFail(http.StatusConflict, "Plugin recovery is pending")
 		case plugin.IsArchiveError(err):
 			log.Printf("store archive %s: %v", item.ID, err)
 			return storeInstallResult{}, storeFail(http.StatusBadGateway, "Plugin archive does not match the catalog entry")
@@ -597,8 +607,10 @@ func (a *storeAPI) update(c echo.Context) error {
 }
 
 type installURLRequest struct {
-	URL    string `json:"url"`
-	SHA256 string `json:"sha256"`
+	URL               string `json:"url"`
+	SHA256            string `json:"sha256"`
+	PreviewSHA256     string `json:"preview_sha256"`
+	AcceptPermissions string `json:"accept_permissions"`
 }
 
 // installURL downloads a plugin archive from an http or https address through
@@ -631,12 +643,30 @@ func (a *storeAPI) installURL(c echo.Context) error {
 	if want != "" && archive.sha256 != want {
 		return infraError(c, http.StatusBadRequest, "sha256 does not match the downloaded file")
 	}
+	meta, err := plugin.ValidateArchive(archive.path)
+	if err != nil {
+		return infraError(c, http.StatusBadRequest, err.Error())
+	}
+	permissions := plugin.ManifestPermissionNames(meta)
+	permissionsHash := plugin.PermissionNamesHash(permissions)
+	if c.QueryParam("dry") == "1" {
+		return c.JSON(http.StatusOK, map[string]any{"id": meta.ID, "version": meta.Version, "permissions": permissions, "permissions_hash": permissionsHash, "sha256": archive.sha256})
+	}
+	previewSHA256 := strings.ToLower(strings.TrimSpace(req.PreviewSHA256))
+	if previewSHA256 == "" {
+		previewSHA256 = want
+	}
+	if len(permissions) > 0 && (req.AcceptPermissions != permissionsHash || previewSHA256 != archive.sha256) {
+		return infraError(c, http.StatusConflict, "Preview this exact archive and accept its permissions before installing")
+	}
 
-	res, err := installPluginFile(ctx, a.runtime, archive.path, pluginFileInstall{Source: storeSourceURL, Signature: storeSignatureNone})
+	res, err := installPluginFile(ctx, a.runtime, archive.path, pluginFileInstall{Source: storeSourceURL, Signature: storeSignatureNone, Want: plugin.ArchiveExpectation{ID: meta.ID, Version: meta.Version, PermissionsHash: permissionsHash}})
 	if err != nil {
 		switch {
 		case errors.Is(err, errPluginRunning):
 			return infraError(c, http.StatusConflict, "Plugin is running; disable it before installing")
+		case errors.Is(err, errPluginRecoveryPending):
+			return infraError(c, http.StatusConflict, "Plugin recovery is pending")
 		case plugin.IsArchiveError(err):
 			return infraError(c, http.StatusBadRequest, err.Error())
 		}
@@ -722,33 +752,105 @@ func installPluginFile(ctx context.Context, runtime *plugin.Runtime, zipPath str
 	if pluginRunning(runtime, meta.ID) {
 		return pluginFileResult{}, errPluginRunning
 	}
+	var result pluginFileResult
+	err = withPluginInstallLock(ctx, meta.ID, func() error {
+		if pluginRunning(runtime, meta.ID) {
+			return errPluginRunning
+		}
+		stamp, err := newPluginCommitStamp(ctx, meta.ID)
+		if err != nil {
+			return err
+		}
+		result, err = installPluginFileLocked(ctx, zipPath, in, stamp)
+		return err
+	})
+	return result, err
+}
 
-	pluginFilesMu.Lock()
-	defer pluginFilesMu.Unlock()
-
-	if pluginRunning(runtime, meta.ID) {
-		return pluginFileResult{}, errPluginRunning
-	}
-	id, err := plugin.InstallArchiveExpecting(zipPath, pluginDirRoot, in.Want)
+func installPluginFileLocked(ctx context.Context, zipPath string, in pluginFileInstall, stamp time.Time) (pluginFileResult, error) {
+	staged, err := plugin.StageArchive(zipPath, pluginDirRoot, in.Want)
 	if err != nil {
 		return pluginFileResult{}, err
 	}
-	installed, err := plugin.ReadManifest(filepath.Join(pluginDirRoot, id))
+	defer staged.Cleanup()
+	installed, err := plugin.ReadManifest(staged.Stage)
 	if err != nil {
-		return pluginFileResult{}, fmt.Errorf("read installed manifest: %w", err)
+		return pluginFileResult{}, fmt.Errorf("read staged manifest: %w", err)
+	}
+	permissionsHash := plugin.PermissionNamesHash(plugin.ManifestPermissionNames(installed))
+	j, err := commitPluginArchive(staged, installed.Version, permissionsHash, stamp)
+	if err != nil {
+		return pluginFileResult{}, errors.Join(fmt.Errorf("activate plugin files: %w", err), rollbackPluginArchive(j))
 	}
 	previous, err := writePluginRow(ctx, pluginRowWrite{
-		ID:              id,
+		ID:              staged.ID,
 		Version:         installed.Version,
 		Source:          in.Source,
 		Signature:       in.Signature,
-		PermissionsHash: plugin.PermissionNamesHash(plugin.ManifestPermissionNames(installed)),
+		PermissionsHash: permissionsHash,
+		CommitStamp:     stamp,
 	})
 	if err != nil {
-		return pluginFileResult{}, fmt.Errorf("record plugin %s: %w", id, err)
+		committed, checkErr := pluginInstallRowCommitted(ctx, staged.ID, installed.Version, permissionsHash, stamp, j.TreeSHA256)
+		if checkErr == nil && committed {
+			if cleanupErr := finishPluginArchiveCommit(j); cleanupErr != nil {
+				log.Printf("plugin %s: post-commit cleanup deferred: %v", staged.ID, cleanupErr)
+			}
+			return pluginFileResult{ID: staged.ID, Version: installed.Version, Enabled: false}, nil
+		}
+		if checkErr == nil {
+			return pluginFileResult{}, errors.Join(fmt.Errorf("record plugin %s: %w", staged.ID, err), rollbackPluginArchive(j))
+		}
+		return pluginFileResult{}, errors.Join(fmt.Errorf("record plugin %s: %w", staged.ID, err), fmt.Errorf("verify plugin row commit: %w", checkErr))
+	}
+	if cleanupErr := finishPluginArchiveCommit(j); cleanupErr != nil {
+		log.Printf("plugin %s: post-commit cleanup deferred: %v", staged.ID, cleanupErr)
 	}
 
-	return pluginFileResult{ID: id, Version: installed.Version, PreviousVersion: previous, Enabled: false}, nil
+	return pluginFileResult{ID: staged.ID, Version: installed.Version, PreviousVersion: previous, Enabled: false}, nil
+}
+
+func pluginInstallRowCommitted(ctx context.Context, id, version, permissionsHash string, stamp time.Time, treeSHA256 string) (bool, error) {
+	var rows []struct {
+		Version         string    `gorm:"column:version"`
+		PermissionsHash string    `gorm:"column:permissions_granted_hash"`
+		UpdatedAt       time.Time `gorm:"column:updated_at"`
+	}
+	if err := data.DB.WithContext(ctx).Raw(`SELECT version, permissions_granted_hash, updated_at FROM plugins WHERE id = ?`, id).Scan(&rows).Error; err != nil {
+		return false, err
+	}
+	if len(rows) != 1 || rows[0].Version != version || rows[0].PermissionsHash != permissionsHash || !rows[0].UpdatedAt.Equal(stamp) {
+		return false, nil
+	}
+	digest, err := pluginTreeDigest(filepath.Join(pluginDirRoot, id))
+	if err != nil {
+		return false, err
+	}
+	return digest == treeSHA256, nil
+}
+
+func pluginInstallRowAbsent(ctx context.Context, id string) (bool, error) {
+	var rows []struct {
+		ID string `gorm:"column:id"`
+	}
+	if err := data.DB.WithContext(ctx).Raw(`SELECT id FROM plugins WHERE id = ?`, id).Scan(&rows).Error; err != nil {
+		return false, err
+	}
+	return len(rows) == 0, nil
+}
+
+func newPluginCommitStamp(ctx context.Context, id string) (time.Time, error) {
+	var rows []struct {
+		UpdatedAt time.Time `gorm:"column:updated_at"`
+	}
+	if err := data.DB.WithContext(ctx).Raw(`SELECT updated_at FROM plugins WHERE id = ?`, id).Scan(&rows).Error; err != nil {
+		return time.Time{}, err
+	}
+	stamp := time.Now().UTC().Truncate(time.Microsecond)
+	if len(rows) > 0 && !stamp.After(rows[0].UpdatedAt.UTC()) {
+		stamp = rows[0].UpdatedAt.UTC().Truncate(time.Microsecond).Add(time.Microsecond)
+	}
+	return stamp, nil
 }
 
 type pluginRowWrite struct {
@@ -757,6 +859,7 @@ type pluginRowWrite struct {
 	Source          string
 	Signature       string
 	PermissionsHash string
+	CommitStamp     time.Time
 }
 
 // writePluginRow inserts or updates the plugins row. An existing row keeps its
@@ -773,16 +876,16 @@ func writePluginRow(ctx context.Context, w pluginRowWrite) (string, error) {
 		}
 		if len(rows) == 0 {
 			return tx.Exec(`INSERT INTO plugins (id, kind, version, source, enabled, signature, permissions_granted_hash, installed_at, updated_at)
-				VALUES (?, 'plugin', ?, ?, FALSE, ?, ?, now(), now())`,
-				w.ID, w.Version, w.Source, w.Signature, w.PermissionsHash).Error
+				VALUES (?, 'plugin', ?, ?, FALSE, ?, ?, ?, ?)`,
+				w.ID, w.Version, w.Source, w.Signature, w.PermissionsHash, w.CommitStamp, w.CommitStamp).Error
 		}
 		replaced = rows[0].Version
 
 		return tx.Exec(`UPDATE plugins SET
 				previous_version = CASE WHEN version <> ? THEN version ELSE previous_version END,
-				version = ?, source = ?, signature = ?, permissions_granted_hash = ?, updated_at = now()
+			version = ?, source = ?, signature = ?, permissions_granted_hash = ?, updated_at = ?
 			WHERE id = ?`,
-			w.Version, w.Version, w.Source, w.Signature, w.PermissionsHash, w.ID).Error
+			w.Version, w.Version, w.Source, w.Signature, w.PermissionsHash, w.CommitStamp, w.ID).Error
 	})
 	if err != nil {
 		return "", err

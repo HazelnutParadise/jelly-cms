@@ -17,6 +17,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/cache"
+	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/queue"
 	"github.com/HazelnutParadise/jelly-cms/internal/settings"
 	"github.com/HazelnutParadise/jelly-cms/internal/syslog"
@@ -115,6 +116,13 @@ func queueConfig(ctx context.Context) connConfig {
 	return resolveConn(ctx, keyQueueDriver, keyQueueURL, envQueueURL, queue.DriverPostgres)
 }
 
+func queueDriverAllowed(driver string) bool {
+	if !queueDrivers[driver] {
+		return false
+	}
+	return driver != queue.DriverMemory || os.Getenv("JELLY_TEST_POSTGRES") == "1"
+}
+
 // queueWorkers returns the worker count: JELLY_QUEUE_WORKERS, then the setting.
 func queueWorkers(ctx context.Context) int {
 	if n, err := strconv.Atoi(strings.TrimSpace(os.Getenv(envQueueWorkers))); err == nil && n >= 1 && n <= maxQueueWorkers {
@@ -178,6 +186,20 @@ func (rt *infraRuntime) activeQueue(ctx context.Context) (queue.Queue, connConfi
 // activeQueueLocked is activeQueue for a caller that already holds rt.mu.
 func (rt *infraRuntime) activeQueueLocked(ctx context.Context) (queue.Queue, connConfig, error) {
 	cfg := queueConfig(ctx)
+	if systemQueueRecoveryPending(data.DB) {
+		return nil, cfg, errors.New("queue transfer recovery is pending")
+	}
+	if !queueDriverAllowed(cfg.Driver) {
+		return nil, cfg, errors.New("queue driver is not allowed in production")
+	}
+	if shared, actual, ok := systemQueueForDB(data.DB); ok {
+		if actual.signature() != cfg.signature() {
+			requestSystemQueueRecovery(data.DB)
+			return nil, cfg, errors.New("queue configuration changed; runtime recovery is pending")
+		}
+		rt.queue, rt.queueSig = shared, actual.signature()
+		return shared, actual, nil
+	}
 	if rt.queue != nil && rt.queueSig == cfg.signature() {
 		return rt.queue, cfg, nil
 	}
@@ -217,6 +239,9 @@ func probeCache(ctx context.Context, cfg connConfig) (time.Duration, error) {
 
 // probeQueue opens a queue for cfg, pings it and closes it. The active queue is untouched.
 func probeQueue(ctx context.Context, cfg connConfig, workers int) (time.Duration, error) {
+	if !queueDriverAllowed(cfg.Driver) {
+		return 0, errors.New("queue driver is not allowed in production")
+	}
 	q, err := queue.Open(queue.Config{Driver: cfg.Driver, URL: cfg.URL, Workers: workers})
 	if err != nil {
 		return 0, err
@@ -528,6 +553,9 @@ func (rt *infraRuntime) handleQueuePut(c echo.Context) error {
 		} else if rawURL != "" {
 			return infraError(c, http.StatusBadRequest, "The "+current.Driver+" driver takes no connection URL")
 		}
+		if _, activeCfg, active := systemQueueForDB(data.DB); active && newConnConfig(current.Driver, rawURL, "request").signature() != activeCfg.signature() {
+			return infraError(c, http.StatusConflict, "Use a managed queue switch before changing the active queue connection")
+		}
 		kv[keyQueueURL] = rawURL
 	}
 	if len(kv) > 0 {
@@ -551,7 +579,7 @@ func (rt *infraRuntime) handleQueueTest(c echo.Context) error {
 	if driver == "" {
 		driver = current.Driver
 	}
-	if !queueDrivers[driver] {
+	if !queueDriverAllowed(driver) {
 		return infraError(c, http.StatusBadRequest, "Unknown queue driver")
 	}
 	rawURL := strings.TrimSpace(req.URL)
@@ -576,19 +604,23 @@ type queueSwitchRequest struct {
 }
 
 // handleQueueSwitch moves every queued job from the active queue to the new
-// one, then makes the new one active. It refuses while jobs are running on the
-// old queue, because those would be acknowledged against the wrong backend. It
-// runs before the response is written, so the 202 means the move is done.
-// Settings are saved first and reverted when the move fails, so a restart
-// during the move never points at a backend that has lost jobs.
+// one, then makes the new one active. A durable journal records the transfer;
+// target acceptance precedes the settings cutover, and source confirmation
+// follows it. Failed recovery keeps workers stopped until the journal resolves.
 func (rt *infraRuntime) handleQueueSwitch(c echo.Context) error {
 	var req queueSwitchRequest
 	if err := c.Bind(&req); err != nil {
 		return infraError(c, http.StatusBadRequest, "Invalid request body")
 	}
 	ctx := c.Request().Context()
+	gateCtx, releaseGate, gateErr := acquireExclusiveSystemWrite(ctx, data.DB)
+	if gateErr != nil {
+		return infraError(c, http.StatusServiceUnavailable, "Site write coordination is unavailable")
+	}
+	defer releaseGate()
+	ctx = gateCtx
 	to := normalizeDriver(req.To)
-	if !queueDrivers[to] {
+	if !queueDriverAllowed(to) {
 		return infraError(c, http.StatusBadRequest, "Unknown queue driver")
 	}
 
@@ -601,6 +633,7 @@ func (rt *infraRuntime) handleQueueSwitch(c echo.Context) error {
 	if to == fromCfg.Driver {
 		return infraError(c, http.StatusConflict, "The queue already uses the "+to+" driver")
 	}
+	_, _, sharedRuntime := systemQueueForDB(data.DB)
 
 	target, source := settings.Get(ctx, keyQueueURL), "settings"
 	if env := strings.TrimSpace(os.Getenv(envQueueURL)); env != "" {
@@ -621,41 +654,54 @@ func (rt *infraRuntime) handleQueueSwitch(c echo.Context) error {
 		return c.JSON(http.StatusUnprocessableEntity, map[string]string{"error": "Connection test failed: " + safeError(err, cfg.URL)})
 	}
 
-	stats, err := from.Stats(ctx)
-	if err != nil {
-		_ = next.Close()
-		return infraError(c, http.StatusServiceUnavailable, "Current queue is unavailable")
-	}
-	running := 0
-	for _, s := range stats {
-		running += s.Running
-	}
-	if running > 0 {
-		_ = next.Close()
-		return infraError(c, http.StatusConflict, "Jobs are running on the current queue; switch when they finish")
+	if !sharedRuntime {
+		stats, err := from.Stats(ctx)
+		if err != nil {
+			_ = next.Close()
+			return infraError(c, http.StatusServiceUnavailable, "Current queue is unavailable")
+		}
+		running := 0
+		for _, s := range stats {
+			running += s.Running
+		}
+		if running > 0 {
+			_ = next.Close()
+			return infraError(c, http.StatusConflict, "Jobs are running on the current queue; switch when they finish")
+		}
 	}
 
 	actor := infraActor(c)
-	previousURL := settings.Get(ctx, keyQueueURL)
-	saved := map[string]string{keyQueueDriver: to}
-	if source == "request" {
-		saved[keyQueueURL] = cfg.URL
-	}
-	if err := settings.Set(ctx, actor, saved); err != nil {
-		_ = next.Close()
-		return settingsWriteError(c, err)
-	}
-	if err := queue.Switch(ctx, from, next); err != nil {
-		revert := map[string]string{keyQueueDriver: fromCfg.Driver}
-		if _, changed := saved[keyQueueURL]; changed {
-			revert[keyQueueURL] = previousURL
+	switchQueue := func(active queue.Queue) error {
+		stats, statErr := active.Stats(ctx)
+		if statErr != nil {
+			return statErr
 		}
-		if rerr := settings.Set(ctx, actor, revert); rerr != nil {
-			log.Printf("infra: revert queue settings after failed switch: %v", rerr)
+		running := 0
+		for _, s := range stats {
+			running += s.Running
 		}
+		if running > 0 {
+			return queue.ErrJobRunning
+		}
+		cutover := map[string]string{keyQueueDriver: to}
+		if source == "request" {
+			cutover[keyQueueURL] = cfg.URL
+		}
+		return durableQueueTransfer(ctx, data.DB, active, next, fromCfg, cfg, actor, func() error {
+			return settings.Set(ctx, actor, cutover)
+		})
+	}
+	sharedSwitch, switchErr := switchSystemQueue(ctx, data.DB, next, cfg, switchQueue)
+	if !sharedSwitch {
+		switchErr = switchQueue(from)
+	}
+	if switchErr != nil {
 		_ = next.Close()
-		log.Printf("infra: queue switch %s -> %s failed: %s", fromCfg.Driver, to, safeError(err, cfg.URL))
-		return infraError(c, http.StatusInternalServerError, "Queue switch failed; the previous queue is still active")
+		log.Printf("infra: queue switch %s -> %s failed: %s", fromCfg.Driver, to, safeError(switchErr, cfg.URL))
+		if errors.Is(switchErr, queue.ErrJobRunning) {
+			return infraError(c, http.StatusConflict, "Jobs are running on the current queue; switch when they finish")
+		}
+		return infraError(c, http.StatusInternalServerError, "Queue switch failed; the previous queue remains authoritative")
 	}
 	_ = from.Close()
 	rt.queue, rt.queueSig = next, cfg.signature()

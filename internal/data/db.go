@@ -135,6 +135,11 @@ func MigrateDB(db *gorm.DB) error {
 	if db == nil {
 		return fmt.Errorf("database not initialized")
 	}
+	// Refuse a database from a newer release before AutoMigrate or the OAuth
+	// migration can make any changes to it.
+	if err := checkSchemaNotNewer(db); err != nil {
+		return err
+	}
 
 	if err := db.AutoMigrate(
 		&core.User{},
@@ -160,13 +165,16 @@ func MigrateDB(db *gorm.DB) error {
 	if err := migrateOAuthIdentities(db); err != nil {
 		return err
 	}
-	if err := checkSchemaNotNewer(db); err != nil {
-		return err
-	}
 	if err := runEmbeddedMigrations(db); err != nil {
 		return err
 	}
-	return recordSchemaMigrations(db)
+	if err := recordSchemaMigrations(db); err != nil {
+		return err
+	}
+	if err := reconcileLegacyProductVariants(db); err != nil {
+		return err
+	}
+	return reconcileLegacyPostSources(db)
 }
 
 // embeddedMigrationFiles holds the SQL migrations shipped with the binary.
@@ -184,10 +192,10 @@ const embeddedMigrationLockClass = 731984201
 const firstEmbeddedMigration = 2
 
 // runEmbeddedMigrations applies every embedded migration numbered 0002 and up,
-// in ascending order. Each file runs in its own transaction under
-// pg_advisory_xact_lock(731984201, N), N being the file's number, so
-// concurrent processes serialise per migration. Every file is written to be
-// idempotent, so running the whole set again on a migrated database is a no-op.
+// in ascending order, grouped by numeric prefix. Each unapplied group runs in
+// its own transaction under pg_advisory_xact_lock(731984201, N), N being the
+// group's number, so concurrent processes serialise per migration. Applied
+// groups are skipped; legacy product data reconciliation runs separately.
 func runEmbeddedMigrations(db *gorm.DB) error {
 	if db == nil {
 		return fmt.Errorf("database not initialized")
@@ -205,6 +213,10 @@ func runEmbeddedMigrations(db *gorm.DB) error {
 	}
 	sort.Strings(names)
 
+	// Files with the same numeric prefix are one migration group. Keep the
+	// stable filename order within that group and commit all of its SQL together.
+	groups := make(map[int][]string)
+	var numbers []int
 	for _, name := range names {
 		number, err := embeddedMigrationNumber(name)
 		if err != nil {
@@ -213,27 +225,169 @@ func runEmbeddedMigrations(db *gorm.DB) error {
 		if number < firstEmbeddedMigration {
 			continue
 		}
+		if _, ok := groups[number]; !ok {
+			numbers = append(numbers, number)
+		}
+		groups[number] = append(groups[number], name)
+	}
+	sort.Ints(numbers)
 
-		migration, err := fs.ReadFile(embeddedMigrationFiles, path.Join("migrations", name))
+	for _, number := range numbers {
+		applied, err := schemaVersionApplied(db, number)
 		if err != nil {
-			return fmt.Errorf("read migration %s: %w", name, err)
+			return err
+		}
+		if applied {
+			continue
+		}
+
+		migrations := make(map[string][]byte, len(groups[number]))
+		for _, name := range groups[number] {
+			migration, err := fs.ReadFile(embeddedMigrationFiles, path.Join("migrations", name))
+			if err != nil {
+				return fmt.Errorf("read migration %s: %w", name, err)
+			}
+			migrations[name] = migration
 		}
 
 		err = db.Transaction(func(tx *gorm.DB) error {
+			// Check before and after taking the xact lock. This avoids waiting on
+			// already committed versions and handles another process winning the
+			// migration race while we wait.
+			applied, err := schemaVersionApplied(tx, number)
+			if err != nil || applied {
+				return err
+			}
 			lock := fmt.Sprintf("SELECT pg_advisory_xact_lock(%d, %d)", embeddedMigrationLockClass, number)
 			if err := tx.Exec(lock).Error; err != nil {
-				return fmt.Errorf("lock migration %s: %w", name, err)
+				return fmt.Errorf("lock migration group %d: %w", number, err)
 			}
-			if err := tx.Exec(string(migration)).Error; err != nil {
-				return fmt.Errorf("apply migration %s: %w", name, err)
+			applied, err = schemaVersionApplied(tx, number)
+			if err != nil || applied {
+				return err
 			}
-			return nil
+			for _, name := range groups[number] {
+				if err := tx.Exec(string(migrations[name])).Error; err != nil {
+					return fmt.Errorf("apply migration %s: %w", name, err)
+				}
+			}
+			return recordMigrationGroup(tx, number, groups[number])
 		})
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// recordMigrationGroup writes its version only after every file sharing that
+// number has succeeded in the same transaction. Migration 0016 creates the
+// marker table, so it also backfills legacy versions before recording 0016.
+func recordMigrationGroup(tx *gorm.DB, number int, names []string) error {
+	var exists bool
+	if err := tx.Raw("SELECT to_regclass('schema_migrations') IS NOT NULL").Scan(&exists).Error; err != nil {
+		return fmt.Errorf("check schema migration marker: %w", err)
+	}
+	if !exists {
+		return nil
+	}
+	if number >= 16 {
+		for version := 1; version <= schemaBackfillThrough; version++ {
+			if err := tx.Exec(
+				"INSERT INTO schema_migrations (version, name) VALUES (?, ?) ON CONFLICT (version) DO NOTHING",
+				version, fmt.Sprintf("%04d_backfilled", version),
+			).Error; err != nil {
+				return fmt.Errorf("backfill migration %d: %w", version, err)
+			}
+		}
+	}
+	if len(names) == 0 {
+		return fmt.Errorf("migration group %d has no files", number)
+	}
+	if err := tx.Exec(
+		"INSERT INTO schema_migrations (version, name) VALUES (?, ?) ON CONFLICT (version) DO NOTHING",
+		number, names[0],
+	).Error; err != nil {
+		return fmt.Errorf("record migration group %d: %w", number, err)
+	}
+	return nil
+}
+
+func schemaVersionApplied(db *gorm.DB, version int) (bool, error) {
+	var exists bool
+	if err := db.Raw("SELECT to_regclass('schema_migrations') IS NOT NULL").Scan(&exists).Error; err != nil {
+		return false, fmt.Errorf("check schema migration marker: %w", err)
+	}
+	if !exists {
+		return false, nil
+	}
+	var count int64
+	if err := db.Raw("SELECT count(*) FROM schema_migrations WHERE version = ?", version).Scan(&count).Error; err != nil {
+		return false, fmt.Errorf("read migration marker %d: %w", version, err)
+	}
+	return count > 0, nil
+}
+
+// reconcileLegacyProductVariants keeps the legacy product fields represented
+// by a default variant, including products created after migration 0009 ran.
+// Products with any existing variant are left unchanged. The separate lock
+// avoids rerunning migration DDL or changing the schema-version contract.
+func reconcileLegacyProductVariants(db *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(731984201, 10009)").Error; err != nil {
+			return fmt.Errorf("lock legacy product variant reconciliation: %w", err)
+		}
+		if err := tx.Exec(`
+			INSERT INTO product_variants (product_id, name, sku, price, compare_at_price, stock, position, status, created_at, updated_at)
+			SELECT p.id,
+			       '',
+			       COALESCE(p.sku, ''),
+			       GREATEST(COALESCE(p.price, 0), 0),
+			       GREATEST(COALESCE(p.compare_at_price, 0), 0),
+			       GREATEST(COALESCE(p.stock, 0), 0),
+			       0,
+			       CASE WHEN COALESCE(p.status, 'draft') = 'active' THEN 'active' ELSE 'draft' END,
+			       now(),
+			       now()
+			FROM products p
+			WHERE NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id)
+		`).Error; err != nil {
+			return fmt.Errorf("reconcile legacy product variants: %w", err)
+		}
+		return nil
+	})
+}
+
+// reconcileLegacyPostSources preserves the source fields introduced by
+// migration 0015 for rows written after that migration ran. Existing non-NULL
+// source values are never changed; the separate lock avoids rerunning DDL.
+func reconcileLegacyPostSources(db *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(731984201, 10015)").Error; err != nil {
+			return fmt.Errorf("lock legacy post source reconciliation: %w", err)
+		}
+		updates := []struct {
+			name string
+			sql  string
+		}{
+			{"posts markdown source", `UPDATE posts
+				SET source = meta->>'markdown', format = 'md'
+				WHERE source IS NULL AND meta->>'markdown' IS NOT NULL`},
+			{"posts legacy format", `UPDATE posts SET format = 'html' WHERE format IS NULL`},
+			{"posts render version", `UPDATE posts SET render_version = 0 WHERE render_version IS NULL`},
+			{"posts render trust", `UPDATE posts SET render_trust = 'strict' WHERE render_trust IS NULL`},
+			{"revisions markdown source", `UPDATE revisions
+				SET source = meta->>'markdown', format = 'md'
+				WHERE source IS NULL AND meta->>'markdown' IS NOT NULL`},
+			{"revisions legacy format", `UPDATE revisions SET format = 'html' WHERE format IS NULL`},
+		}
+		for _, update := range updates {
+			if err := tx.Exec(update.sql).Error; err != nil {
+				return fmt.Errorf("reconcile %s: %w", update.name, err)
+			}
+		}
+		return nil
+	})
 }
 
 // embeddedMigrationNumber parses the numeric prefix of a file such as

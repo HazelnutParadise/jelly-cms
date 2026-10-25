@@ -63,10 +63,15 @@ func (q *postgresQueue) Enqueue(ctx context.Context, j Job) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	requestedID := ""
+	if uuidPattern.MatchString(j.ID) {
+		requestedID = j.ID
+	}
 	if j.MaxAttempts <= 0 {
 		j.MaxAttempts = DefaultMaxAttempts
 	}
-	if j.RunAt.IsZero() {
+	runAtUnspecified := j.RunAt.IsZero()
+	if runAtUnspecified {
 		j.RunAt = time.Now().UTC()
 	}
 	payload := string(j.Payload)
@@ -78,8 +83,8 @@ func (q *postgresQueue) Enqueue(ctx context.Context, j Job) (string, error) {
 		dedupe = j.DedupeKey
 	}
 	var id any // nil lets the table default generate one
-	if uuidPattern.MatchString(j.ID) {
-		id = j.ID
+	if requestedID != "" {
+		id = requestedID
 	}
 	var got []string
 	err = db.Raw(`INSERT INTO jobs (id, queue, kind, payload, attempts, max_attempts, run_at, dedupe_key)
@@ -92,20 +97,41 @@ func (q *postgresQueue) Enqueue(ctx context.Context, j Job) (string, error) {
 	if len(got) == 1 {
 		return got[0], nil
 	}
-	// Nothing inserted: the dedupe key (or a reused ID) already exists.
+	// An explicit ID is an idempotency key only for the same immutable job.
+	// Attempts and state are deliberately excluded because reservation changes
+	// them after the original enqueue.
+	if requestedID != "" {
+		var matchingID string
+		if err := db.Raw(`SELECT id::text FROM jobs
+			WHERE id = ?::uuid AND queue = ? AND kind = ? AND payload = ?::jsonb
+			  AND dedupe_key IS NOT DISTINCT FROM ? AND max_attempts = ?
+			  AND (? OR run_at = ?::timestamptz)`,
+			requestedID, j.Queue, j.Kind, payload, dedupe, j.MaxAttempts, runAtUnspecified, j.RunAt.UTC()).Scan(&matchingID).Error; err != nil {
+			return "", fmt.Errorf("queue: look up explicit ID replay: %w", err)
+		}
+		if matchingID != "" {
+			return matchingID, nil
+		}
+		var existingID string
+		if err := db.Raw(`SELECT id::text FROM jobs WHERE id = ?::uuid`, requestedID).Scan(&existingID).Error; err != nil {
+			return "", fmt.Errorf("queue: look up reused ID: %w", err)
+		}
+		if existingID != "" {
+			return "", fmt.Errorf("queue: explicit job ID %s already belongs to a different job", requestedID)
+		}
+	}
+	// Nothing inserted: the dedupe key (or an explicit ID) already exists.
 	if j.DedupeKey != "" {
 		var existing string
 		if err := db.Raw(`SELECT id::text FROM jobs WHERE dedupe_key = ?`, j.DedupeKey).Scan(&existing).Error; err != nil {
 			return "", fmt.Errorf("queue: look up duplicate: %w", err)
 		}
 		if existing != "" {
+			if requestedID != "" && !strings.EqualFold(existing, requestedID) {
+				return "", fmt.Errorf("queue: dedupe key %q already belongs to job %s", j.DedupeKey, existing)
+			}
 			return existing, nil
 		}
-	}
-	if id != nil {
-		// The ID was taken without a matching dedupe key; insert under a new one.
-		j.ID = ""
-		return q.Enqueue(ctx, j)
 	}
 	return "", errors.New("queue: enqueue stored nothing")
 }
@@ -149,6 +175,29 @@ func (q *postgresQueue) Reserve(ctx context.Context, queues []string, worker str
 func (q *postgresQueue) Ack(ctx context.Context, id string) error {
 	return q.update(ctx, id, `UPDATE jobs SET state = 'done', finished_at = now(), locked_by = NULL, locked_until = NULL WHERE id = ?::uuid`)
 }
+
+func (q *postgresQueue) ExtendLease(ctx context.Context, id, worker string, lease time.Duration) error {
+	if lease <= 0 {
+		return errors.New("queue: lease duration must be positive")
+	}
+	db, err := q.db(ctx)
+	if err != nil {
+		return err
+	}
+	if !uuidPattern.MatchString(id) {
+		return ErrNotFound
+	}
+	res := db.Exec(`UPDATE jobs SET locked_until=? WHERE id=?::uuid AND state='running' AND locked_by=? AND locked_until>now()`, time.Now().Add(lease).UTC(), id, worker)
+	if res.Error != nil {
+		return fmt.Errorf("queue: extend lease: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("queue: lease is no longer owned by worker")
+	}
+	return nil
+}
+
+var _ LeaseExtender = (*postgresQueue)(nil)
 
 func (q *postgresQueue) Fail(ctx context.Context, id string, cause error, retryAt *time.Time) error {
 	db, err := q.db(ctx)
@@ -374,6 +423,80 @@ func (q *postgresQueue) Drain(ctx context.Context, limit int) ([]Job, error) {
 	}
 	return out, nil
 }
+
+func (q *postgresQueue) SnapshotQueued(ctx context.Context, limit int) ([]Job, error) {
+	db, err := q.db(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var rows []jobRow
+	query := `SELECT ` + jobColumns + ` FROM jobs WHERE state='queued' ORDER BY run_at,created_at`
+	if limit > 0 {
+		query += ` LIMIT ?`
+		err = db.Raw(query, limit).Scan(&rows).Error
+	} else {
+		err = db.Raw(query).Scan(&rows).Error
+	}
+	if err != nil {
+		return nil, fmt.Errorf("queue: snapshot: %w", err)
+	}
+	out := make([]Job, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, r.job())
+	}
+	return out, nil
+}
+
+func (q *postgresQueue) ConfirmQueued(ctx context.Context, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	db, err := q.db(ctx)
+	if err != nil {
+		return err
+	}
+	seen := make(map[string]struct{}, len(ids))
+	unique := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		if !uuidPattern.MatchString(id) {
+			return fmt.Errorf("queue: invalid transfer job id %q", id)
+		}
+		unique = append(unique, id)
+	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		var rows []struct {
+			ID    string
+			State string
+		}
+		if err := tx.Raw(`SELECT id::text AS id, state FROM jobs WHERE id IN ? FOR UPDATE`, unique).Scan(&rows).Error; err != nil {
+			return fmt.Errorf("queue: verify transfer source: %w", err)
+		}
+		queued := make([]string, 0, len(rows))
+		for _, row := range rows {
+			if row.State != "queued" {
+				return fmt.Errorf("queue: source job %s changed state while transfer was in progress", row.ID)
+			}
+			queued = append(queued, row.ID)
+		}
+		if len(queued) == 0 {
+			return nil
+		}
+		res := tx.Exec(`DELETE FROM jobs WHERE id IN ? AND state='queued'`, queued)
+		if res.Error != nil {
+			return fmt.Errorf("queue: confirm transfer: %w", res.Error)
+		}
+		if res.RowsAffected != int64(len(queued)) {
+			return errors.New("queue: source jobs changed during transfer confirmation")
+		}
+		return nil
+	})
+}
+
+var _ TransferSource = (*postgresQueue)(nil)
 
 func (q *postgresQueue) Ping(ctx context.Context) (time.Duration, error) {
 	db, err := q.db(ctx)

@@ -104,7 +104,14 @@ func interactiveOnly(next echo.HandlerFunc) echo.HandlerFunc {
 // plugin whose row says disabled stays unloaded. A directory without a row
 // keeps loading, as it did before the plugins table existed.
 func PluginEnabledFilter() func(pluginID string) bool {
+	recoveryErr := recoverPluginInstallJournals()
+	if recoveryErr != nil {
+		log.Printf("plugin installation recovery failed; plugins remain unloaded: %v", recoveryErr)
+	}
 	return func(pluginID string) bool {
+		if recoveryErr != nil {
+			return false
+		}
 		var rows []struct {
 			Enabled bool
 		}
@@ -247,6 +254,17 @@ func nonNilSlice[T any](items []T) []T {
 // enable starts the plugin and stores the flag. A plugin that fails to start
 // stays disabled and the response says so.
 func (a *pluginDetailAPI) enable(c echo.Context) error {
+	err := withPluginInstallLock(c.Request().Context(), c.Param("id"), func() error { return a.enableLocked(c) })
+	if errors.Is(err, errPluginNotFound) {
+		return pluginFailure(c, err)
+	}
+	if errors.Is(err, errPluginRecoveryPending) {
+		return infraError(c, http.StatusConflict, "Plugin recovery is pending")
+	}
+	return err
+}
+
+func (a *pluginDetailAPI) enableLocked(c echo.Context) error {
 	ctx := c.Request().Context()
 	row, _, err := findPlugin(c.Param("id"))
 	if err != nil {
@@ -278,6 +296,17 @@ func (a *pluginDetailAPI) enable(c echo.Context) error {
 // disable stores the flag and unloads the plugin. The flag is written first, so
 // a failed unload never leaves a plugin that restarts enabled.
 func (a *pluginDetailAPI) disable(c echo.Context) error {
+	err := withPluginInstallLock(c.Request().Context(), c.Param("id"), func() error { return a.disableLocked(c) })
+	if errors.Is(err, errPluginNotFound) {
+		return pluginFailure(c, err)
+	}
+	if errors.Is(err, errPluginRecoveryPending) {
+		return infraError(c, http.StatusConflict, "Plugin recovery is pending")
+	}
+	return err
+}
+
+func (a *pluginDetailAPI) disableLocked(c echo.Context) error {
 	ctx := c.Request().Context()
 	row, err := findPluginRow(c.Param("id"))
 	if err != nil {
@@ -302,6 +331,17 @@ func (a *pluginDetailAPI) disable(c echo.Context) error {
 // snapshots and plugin data stay so a reinstall finds them again. With false they
 // are deleted with the plugin.
 func (a *pluginDetailAPI) uninstall(c echo.Context) error {
+	err := withPluginInstallLock(c.Request().Context(), c.Param("id"), func() error { return a.uninstallLocked(c) })
+	if errors.Is(err, errPluginNotFound) {
+		return pluginFailure(c, err)
+	}
+	if errors.Is(err, errPluginRecoveryPending) {
+		return infraError(c, http.StatusConflict, "Plugin recovery is pending")
+	}
+	return err
+}
+
+func (a *pluginDetailAPI) uninstallLocked(c echo.Context) error {
 	ctx := c.Request().Context()
 	id := c.Param("id")
 	row, err := findPluginRow(id)
@@ -322,10 +362,28 @@ func (a *pluginDetailAPI) uninstall(c echo.Context) error {
 		}
 	}
 
-	if err := os.RemoveAll(filepath.Join(pluginDirRoot, row.ID)); err != nil {
-		log.Printf("plugin %s: remove files: %v", row.ID, err)
-
+	backupName := fmt.Sprintf(".jelly-plugin-uninstall-%s-%d", row.ID, time.Now().UnixNano())
+	treeSHA256, err := pluginTreeDigest(filepath.Join(pluginDirRoot, row.ID))
+	if err != nil {
+		return infraError(c, http.StatusConflict, "Plugin files could not be safely removed")
+	}
+	j := pluginInstallJournal{Action: "uninstall", ID: row.ID, Version: row.Version, TreeSHA256: treeSHA256, Backup: backupName, Phase: "prepared"}
+	journalPath := pluginInstallJournalPath(row.ID)
+	if err := writePluginInstallJournal(journalPath, j); err != nil {
+		return infraError(c, http.StatusInternalServerError, "Plugin uninstall could not be prepared")
+	}
+	j.Journaled = true
+	if err := os.Rename(filepath.Join(pluginDirRoot, row.ID), pluginTransactionPath(backupName)); err != nil {
+		_ = os.Remove(journalPath)
 		return infraError(c, http.StatusInternalServerError, "Plugin files could not be removed")
+	}
+	j.Phase = "swapped"
+	if err := writePluginInstallJournal(journalPath, j); err != nil {
+		if restoreErr := os.Rename(pluginTransactionPath(backupName), filepath.Join(pluginDirRoot, row.ID)); restoreErr != nil {
+			return infraError(c, http.StatusInternalServerError, "Plugin uninstall recovery is pending")
+		}
+		_ = os.Remove(journalPath)
+		return infraError(c, http.StatusInternalServerError, "Plugin uninstall could not be prepared")
 	}
 
 	err = data.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -344,7 +402,20 @@ func (a *pluginDetailAPI) uninstall(c echo.Context) error {
 		return tx.Exec(`DELETE FROM plugins WHERE id = ?`, row.ID).Error
 	})
 	if err != nil {
+		absent, checkErr := pluginInstallRowAbsent(ctx, row.ID)
+		if checkErr == nil && absent {
+			if cleanupErr := finishPluginArchiveCommit(j); cleanupErr != nil {
+				log.Printf("plugin %s: post-uninstall cleanup deferred: %v", row.ID, cleanupErr)
+			}
+			return c.JSON(http.StatusOK, map[string]any{"removed": row.ID})
+		}
+		if checkErr == nil {
+			return pluginFailure(c, errors.Join(err, rollbackPluginArchive(j)))
+		}
 		return pluginFailure(c, err)
+	}
+	if cleanupErr := finishPluginArchiveCommit(j); cleanupErr != nil {
+		log.Printf("plugin %s: post-uninstall cleanup deferred: %v", row.ID, cleanupErr)
 	}
 	syslog.Audit(ctx, pluginActorID(c), "plugin.uninstall", map[string]any{"plugin": row.ID, "keep_settings": keep})
 
@@ -703,14 +774,27 @@ type extensionView struct {
 
 // extensionProviders lists the providers a point can use: the builtin one for
 // shipped points, then every provider registered by a loaded plugin.
-func extensionProviders(point string) []string {
+func extensionProviders(point string, requestContexts ...context.Context) []string {
+	ctx := context.Background()
+	if len(requestContexts) > 0 && requestContexts[0] != nil {
+		ctx = requestContexts[0]
+	}
 	providers := []string{}
+	seen := make(map[string]bool)
 	if ext.Shipped(point) {
 		providers = append(providers, extensionBuiltinID)
+		seen[extensionBuiltinID] = true
 	}
 	for _, provider := range ext.Resolve(point) {
-		if provider.ID != extensionBuiltinID {
+		if provider.ID != extensionBuiltinID && !seen[provider.ID] {
 			providers = append(providers, provider.ID)
+			seen[provider.ID] = true
+		}
+	}
+	for _, id := range liveExtensionPluginIDs(ctx, extensionDatabase(ctx), point) {
+		if !seen[id] {
+			providers = append(providers, id)
+			seen[id] = true
 		}
 	}
 
@@ -718,9 +802,17 @@ func extensionProviders(point string) []string {
 }
 
 // extensionActive returns the active provider ids of point in position order.
-func extensionActive(point string) ([]string, error) {
+func extensionActive(point string, requestContexts ...context.Context) ([]string, error) {
+	ctx := context.Background()
+	if len(requestContexts) > 0 && requestContexts[0] != nil {
+		ctx = requestContexts[0]
+	}
 	var ids []string
-	err := data.DB.Table("extension_bindings").
+	db := extensionDatabase(ctx)
+	if db == nil {
+		return nil, gorm.ErrInvalidDB
+	}
+	err := db.WithContext(ctx).Table("extension_bindings").
 		Where("point = ?", point).
 		Order("position ASC, provider_id ASC").
 		Pluck("provider_id", &ids).Error
@@ -753,12 +845,16 @@ func resolveExtension(point string, active, providers []string) *string {
 	return nil
 }
 
-func buildExtensionView(point string) (extensionView, error) {
-	active, err := extensionActive(point)
+func buildExtensionView(point string, requestContexts ...context.Context) (extensionView, error) {
+	ctx := context.Background()
+	if len(requestContexts) > 0 && requestContexts[0] != nil {
+		ctx = requestContexts[0]
+	}
+	active, err := extensionActive(point, ctx)
 	if err != nil {
 		return extensionView{}, err
 	}
-	providers := extensionProviders(point)
+	providers := extensionProviders(point, ctx)
 
 	return extensionView{
 		Point:     point,
@@ -770,10 +866,11 @@ func buildExtensionView(point string) (extensionView, error) {
 }
 
 func (a *pluginDetailAPI) listExtensions(c echo.Context) error {
+	ctx := c.Request().Context()
 	points := ext.Points()
 	views := make([]extensionView, 0, len(points))
 	for _, point := range points {
-		view, err := buildExtensionView(point)
+		view, err := buildExtensionView(point, ctx)
 		if err != nil {
 			return pluginFailure(c, err)
 		}
@@ -808,7 +905,7 @@ func (a *pluginDetailAPI) putExtension(c echo.Context) error {
 		return infraError(c, http.StatusBadRequest, fmt.Sprintf("At most %d providers can be active", extensionMaxProviders))
 	}
 
-	providers := extensionProviders(point)
+	providers := extensionProviders(point, ctx)
 	known := make(map[string]bool, len(providers))
 	for _, provider := range providers {
 		known[provider] = true
@@ -842,7 +939,7 @@ func (a *pluginDetailAPI) putExtension(c echo.Context) error {
 	}
 	syslog.Audit(ctx, pluginActorID(c), "extension.bind", map[string]any{"point": point, "count": len(body.Active)})
 
-	view, err := buildExtensionView(point)
+	view, err := buildExtensionView(point, ctx)
 	if err != nil {
 		return pluginFailure(c, err)
 	}
