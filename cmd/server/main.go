@@ -89,6 +89,7 @@ func run(ctx context.Context) error {
 	server.RegisterRoutes(e, tm, pluginRuntime)
 
 	go runTrashPurge(ctx)
+	go runLogsPrune(ctx)
 	go runOrderExpiry(ctx)
 	go server.RerenderStalePosts(ctx)
 
@@ -152,6 +153,35 @@ func runTrashPurge(ctx context.Context) {
 			return
 		case <-ticker.C:
 			purge()
+		}
+	}
+}
+
+// runLogsPrune removes system log rows past their retention window at start
+// and then every 24 hours until ctx is done. It does nothing while the site is
+// not installed (data.DB nil).
+func runLogsPrune(ctx context.Context) {
+	prune := func() {
+		if data.DB == nil {
+			return
+		}
+		removed, err := server.PruneSystemLogs(ctx, data.DB, time.Now().UTC())
+		if err != nil && ctx.Err() == nil {
+			log.Printf("Log prune: %v", err)
+		}
+		if removed > 0 {
+			log.Printf("Log prune: removed %d expired rows", removed)
+		}
+	}
+	prune()
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			prune()
 		}
 	}
 }

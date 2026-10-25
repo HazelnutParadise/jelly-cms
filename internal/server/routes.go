@@ -37,7 +37,9 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	if e.IPExtractor == nil {
 		e.IPExtractor = trustedProxyExtractorFromEnv()
 	}
+	wireLogSinks()
 	e.Use(syslog.RequestID())
+	e.Use(syslog.AccessLog())
 	e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
 		Limit:   globalBodyLimit,
 		Skipper: isUploadRoute,
@@ -71,7 +73,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	}
 
 	// Error pages (JSON for APIs, admin screen under /admin, theme elsewhere).
-	e.HTTPErrorHandler = newHTTPErrorHandler(tm)
+	e.HTTPErrorHandler = withRequestIDInErrorBody(newHTTPErrorHandler(tm))
 
 	// ⌘K palette
 	registerPaletteRoutes(e)

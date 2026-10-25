@@ -105,7 +105,6 @@ type systemEndpoint struct {
 // systemAdminEndpoints lists the admin API endpoints that are not implemented
 // yet. Each one answers 501 for admins and 401/403 for everyone else.
 var systemAdminEndpoints = []systemEndpoint{
-	{http.MethodPut, "/api/admin/settings"},
 	{http.MethodGet, "/api/admin/settings/injection"},
 	{http.MethodPut, "/api/admin/settings/injection"},
 	{http.MethodGet, "/api/admin/maintenance"},
@@ -125,11 +124,6 @@ var systemAdminEndpoints = []systemEndpoint{
 	{http.MethodGet, "/api/admin/not-found"},
 	{http.MethodPost, "/api/admin/not-found/:id/ignore"},
 	{http.MethodDelete, "/api/admin/not-found"},
-
-	{http.MethodGet, "/api/admin/logs"},
-	{http.MethodGet, "/api/admin/logs/stream"},
-	{http.MethodGet, "/api/admin/logs/export"},
-	{http.MethodGet, "/api/admin/logs/summary"},
 
 	{http.MethodGet, "/api/admin/update"},
 	{http.MethodPost, "/api/admin/update/check"},
@@ -225,6 +219,7 @@ var systemPublicEndpoints = []systemEndpoint{
 // registerSystemRoutes mounts the system endpoints and pages. It must run
 // before the /:slug catch-all is registered.
 func registerSystemRoutes(e *echo.Echo) {
+	registerLogRoutes(e)
 	for _, ep := range systemAdminEndpoints {
 		e.Add(ep.Method, ep.Path, notImplemented, auth.RequireRole("admin"))
 	}

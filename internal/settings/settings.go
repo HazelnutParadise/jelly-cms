@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"sort"
 	"strconv"
@@ -90,8 +91,9 @@ func Specs() []Spec {
 	return out
 }
 
-// Get returns the stored value for key, or the registered default when the
-// row is missing, the database is not ready or the key is unknown.
+// Get returns the plaintext value for key, or the registered default when the
+// row is missing, the database is not ready or the key is unknown. Sealed
+// values are opened here; a value that cannot be opened returns "" and is logged.
 // TODO(08a): cache the reads through internal/cache.
 func Get(ctx context.Context, key string) string {
 	spec, ok := Lookup(key)
@@ -105,12 +107,17 @@ func Get(ctx context.Context, key string) string {
 	if err := data.DB.WithContext(ctx).Where("key = ?", key).First(&opt).Error; err != nil {
 		return spec.Default
 	}
-	return opt.Value
+	plain, err := revealStored(key, opt.Value)
+	if err != nil {
+		log.Printf("settings: reveal %s: %v", key, err)
+		return ""
+	}
+	return plain
 }
 
-// Set validates every key and size first, then writes all values in one
-// transaction and emits one audit entry that lists the keys. Nothing is
-// written when any key is unknown or too large.
+// Set validates every key and size first, then seals the values that need it,
+// writes all values in one transaction and emits one audit entry that lists
+// the keys. Nothing is written when any key is unknown or too large.
 func Set(ctx context.Context, actor uint, kv map[string]string) error {
 	keys := make([]string, 0, len(kv))
 	for key, value := range kv {
@@ -140,9 +147,21 @@ func Set(ctx context.Context, actor uint, kv map[string]string) error {
 	if data.DB == nil {
 		return ErrDatabaseMissing
 	}
+	stored := make(map[string]string, len(keys))
+	for _, key := range keys {
+		value := kv[key]
+		if sealed(key) {
+			sealedValue, err := sealValue(key, value)
+			if err != nil {
+				return fmt.Errorf("seal %s: %w", key, err)
+			}
+			value = sealedValue
+		}
+		stored[key] = value
+	}
 	err := data.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, key := range keys {
-			opt := core.Option{Key: key, Value: kv[key]}
+			opt := core.Option{Key: key, Value: stored[key]}
 			err := tx.Clauses(clause.OnConflict{
 				Columns:   []clause.Column{{Name: "key"}},
 				DoUpdates: clause.AssignmentColumns([]string{"value"}),
@@ -190,6 +209,14 @@ var secretKey = regexp.MustCompile(`(secret|password|key|token|iv)(_enc)?$`)
 func Masked(key, value string) string {
 	if value == "" || !secretKey.MatchString(key) {
 		return value
+	}
+	return maskTail(value)
+}
+
+// maskTail keeps the last four characters of a non-empty value.
+func maskTail(value string) string {
+	if value == "" {
+		return ""
 	}
 	runes := []rune(value)
 	if len(runes) <= 4 {
