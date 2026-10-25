@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
+	"github.com/HazelnutParadise/jelly-cms/internal/backup"
 	"github.com/HazelnutParadise/jelly-cms/internal/config"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
@@ -92,10 +93,32 @@ func run(ctx context.Context) error {
 	go runTrashPurge(ctx)
 	go runLogsPrune(ctx)
 	go runRedirectHits(ctx)
+	go runBackupSchedule(ctx)
 	go runOrderExpiry(ctx)
 	go server.RerenderStalePosts(ctx)
 
 	return runHTTPServer(ctx, e, ":8080")
+}
+
+// runBackupSchedule checks every 30 seconds whether the daily scheduled backup
+// is due. Two checks fall in every minute, so the due minute is never missed,
+// and backup.RunScheduledIfDue starts at most one backup per day.
+func runBackupSchedule(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C:
+			if data.DB == nil {
+				continue
+			}
+			if err := backup.RunScheduledIfDue(ctx, now); err != nil && ctx.Err() == nil {
+				log.Printf("Scheduled backup: %v", err)
+			}
+		}
+	}
 }
 
 // runOrderExpiry releases stock and coupon holds for orders whose payment

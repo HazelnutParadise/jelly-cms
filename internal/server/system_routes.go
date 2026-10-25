@@ -116,15 +116,6 @@ var systemAdminEndpoints = []systemEndpoint{
 	{http.MethodPut, "/api/admin/mail/settings"},
 	{http.MethodPost, "/api/admin/mail/test"},
 
-	{http.MethodGet, "/api/admin/backups"},
-	{http.MethodPost, "/api/admin/backups"},
-	{http.MethodPost, "/api/admin/backups/:id/retry"},
-	{http.MethodGet, "/api/admin/backups/:id/download"},
-	{http.MethodPost, "/api/admin/backups/:id/restore"},
-	{http.MethodDelete, "/api/admin/backups/:id"},
-	{http.MethodPut, "/api/admin/backups/schedule"},
-	{http.MethodPost, "/api/admin/export"},
-	{http.MethodGet, "/api/admin/exports/:id/download"},
 	{http.MethodPost, "/api/admin/import/wxr"},
 	{http.MethodGet, "/api/admin/import"},
 	{http.MethodGet, "/api/admin/import/:id"},
@@ -187,6 +178,7 @@ func registerSystemRoutes(e *echo.Echo) {
 	registerSEORoutes(e)
 	registerInjectionRoutes(e)
 	registerMaintenanceRoutes(e)
+	registerBackupRoutes(e)
 	for _, ep := range systemAdminEndpoints {
 		e.Add(ep.Method, ep.Path, notImplemented, auth.RequireRole("admin"))
 	}
