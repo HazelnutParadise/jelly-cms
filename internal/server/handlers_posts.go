@@ -263,6 +263,11 @@ func updatePost(c echo.Context) error {
 	if nextType, ok := updates["type"].(string); ok && user.Role == "author" && nextType != "post" {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
 	}
+	_, seoInput := input["seo_index"]
+	_, seoAIInput := input["seo_ai"]
+	if (seoInput || seoAIInput) && user.Role == "author" {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
+	}
 	updates["updated_at"] = time.Now()
 	if _, explicit := input["published_at"]; !explicit && existing.PublishedAt == nil {
 		if status, ok := updates["status"].(string); ok && status == "published" {
@@ -528,16 +533,23 @@ func postUpdates(input map[string]json.RawMessage) (map[string]interface{}, erro
 		"source": {}, "format": {},
 		"template": {}, "meta": {}, "published_at": {},
 		"excerpt": {}, "cover": {}, "visibility": {}, "allow_comments": {}, "pinned": {},
+		"seo_index": {}, "seo_ai": {},
 	} {
 		raw, ok := input[key]
 		if !ok {
 			continue
 		}
 		switch key {
-		case "title", "slug", "content", "source", "format", "type", "status", "template", "excerpt", "cover", "visibility":
+		case "title", "slug", "content", "source", "format", "type", "status", "template", "excerpt", "cover", "visibility", "seo_index", "seo_ai":
 			var value string
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
+			}
+			if key == "seo_index" && value != "inherit" && value != "index" && value != "noindex" {
+				return nil, errors.New("invalid seo_index")
+			}
+			if key == "seo_ai" && value != "inherit" && value != "allow" && value != "noai" {
+				return nil, errors.New("invalid seo_ai")
 			}
 			if key == "type" && value != "post" && value != "page" {
 				return nil, errors.New("invalid content type")

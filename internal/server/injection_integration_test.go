@@ -16,6 +16,7 @@ package server
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"strings"
@@ -76,7 +77,7 @@ func TestInjectionNotOnCommerceByDefault(t *testing.T) {
 	h := archivesHarness(t)
 	admin := h.user("admin", "s08b-commerce-admin")
 	token := h.token(admin)
-	shopper := h.user("author", "s08b-commerce-shopper")
+	shopper := h.user("customer", "s08b-commerce-shopper")
 	shopperToken := h.token(shopper)
 
 	const probe = `<meta name="inject-probe-commerce" content="yes">`
@@ -93,19 +94,19 @@ func TestInjectionNotOnCommerceByDefault(t *testing.T) {
 		}
 	})
 
-	// Registered commerce placeholder: /account skips the injection by default.
-	r := h.request(http.MethodGet, "/account", "", shopperToken, echo.MIMETextHTML, "")
-	h.mustNoPanic(r, "GET /account by default")
+	// /account redirects staff to the admin; a customer's own page is /account/orders.
+	r := h.request(http.MethodGet, "/account/orders", "", shopperToken, echo.MIMETextHTML, "")
+	h.mustNoPanic(r, "GET /account/orders by default")
 	if strings.Contains(r.body, probe) {
-		t.Errorf("GET /account outputs the injection while inject_on_commerce is off")
+		t.Errorf("GET /account/orders outputs the injection while inject_on_commerce is off")
 	}
 
 	s08bSetOptions(t, h, token, map[string]string{"inject_on_commerce": "true"})
-	on := h.request(http.MethodGet, "/account", "", shopperToken, echo.MIMETextHTML, "")
-	h.mustNoPanic(on, "GET /account with inject_on_commerce")
-	s08bWant(t, "GET /account with inject_on_commerce=true", on, http.StatusOK)
+	on := h.request(http.MethodGet, "/account/orders", "", shopperToken, echo.MIMETextHTML, "")
+	h.mustNoPanic(on, "GET /account/orders with inject_on_commerce")
+	s08bWant(t, "GET /account/orders with inject_on_commerce=true", on, http.StatusOK)
 	if !strings.Contains(on.body, probe) {
-		t.Errorf("GET /account does not output the injection with inject_on_commerce=true")
+		t.Errorf("GET /account/orders does not output the injection with inject_on_commerce=true")
 	}
 }
 
@@ -155,7 +156,13 @@ func TestInjectionWriteNeedsAdminInteractiveAndPassword(t *testing.T) {
 	read := h.request(http.MethodGet, "/api/admin/settings/injection", "", adminJWT, echo.MIMEApplicationJSON, "")
 	h.mustNoPanic(read, "GET /api/admin/settings/injection")
 	s08bWant(t, "GET /api/admin/settings/injection", read, http.StatusOK)
-	archivesWantText(t, "GET /api/admin/settings/injection", read.body, probe)
+	// The value comes back as JSON, which escapes quotes and angle brackets, so compare the decoded field.
+	var stored struct {
+		HeadAll string `json:"head_all"`
+	}
+	if err := json.Unmarshal([]byte(read.body), &stored); err != nil || stored.HeadAll != probe {
+		t.Errorf("GET /api/admin/settings/injection head_all = %q (decode error %v), want %q", stored.HeadAll, err, probe)
+	}
 	archivesWantText(t, "/", archivesPage(t, h, "/"), probe)
 }
 

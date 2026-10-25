@@ -39,6 +39,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	}
 	// Permalinks rewrite the path before routing (permalink.go, ticket 08b).
 	e.Pre(permalinkRouting)
+	e.Pre(indexNowKeyRouting)
 	wireLogSinks()
 	e.Use(syslog.RequestID())
 	e.Use(syslog.AccessLog())
@@ -51,6 +52,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	e.Use(installStateMiddleware)
 	e.Use(I18nMiddleware)
 	e.Use(maintenanceMiddleware(tm))
+	e.Use(crawlerGuard)
 	e.Use(redirectMiddleware)
 	e.Use(enforceStaffAdminAPIs)
 	e.Use(enforceStaffAdminPages)

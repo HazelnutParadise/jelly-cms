@@ -151,6 +151,7 @@ func shopPage(tm *theme.Manager, template, title string, stub map[string]interfa
 		for key, value := range stub {
 			data[key] = value
 		}
+		applyPublicSEO(c, datapkg.DB, template, data)
 		html, err := tm.RenderWithDB(template, data, datapkg.DB)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "Template render error: "+err.Error())

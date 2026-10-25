@@ -105,15 +105,6 @@ type systemEndpoint struct {
 // systemAdminEndpoints lists the admin API endpoints that are not implemented
 // yet. Each one answers 501 for admins and 401/403 for everyone else.
 var systemAdminEndpoints = []systemEndpoint{
-	{http.MethodGet, "/api/admin/settings/injection"},
-	{http.MethodPut, "/api/admin/settings/injection"},
-	{http.MethodGet, "/api/admin/maintenance"},
-	{http.MethodPut, "/api/admin/maintenance"},
-
-	{http.MethodGet, "/api/admin/seo/robots-preview"},
-	{http.MethodGet, "/api/admin/seo/crawler-stats"},
-	{http.MethodGet, "/api/admin/seo/overrides"},
-
 	{http.MethodGet, "/api/admin/update"},
 	{http.MethodPost, "/api/admin/update/check"},
 	{http.MethodPost, "/api/admin/update/apply"},
@@ -182,11 +173,6 @@ var systemAdminEndpoints = []systemEndpoint{
 // systemPublicEndpoints are served without login. They are registered before
 // the /:slug catch-all, which is registered last in RegisterRoutes.
 var systemPublicEndpoints = []systemEndpoint{
-	{http.MethodGet, "/robots.txt"},
-	{http.MethodGet, "/sitemap.xml"},
-	{http.MethodGet, "/sitemap-*"},
-	{http.MethodGet, "/llms.txt"},
-	{http.MethodGet, "/.well-known/tdmrep.json"},
 	{http.MethodGet, "/c/:slug/feed.xml"},
 	{http.MethodGet, "/author/:u/feed.xml"},
 }
@@ -198,6 +184,9 @@ func registerSystemRoutes(e *echo.Echo) {
 	registerInfraRoutes(e)
 	registerRedirectRoutes(e)
 	registerFeedRoutes(e)
+	registerSEORoutes(e)
+	registerInjectionRoutes(e)
+	registerMaintenanceRoutes(e)
 	for _, ep := range systemAdminEndpoints {
 		e.Add(ep.Method, ep.Path, notImplemented, auth.RequireRole("admin"))
 	}

@@ -41,7 +41,7 @@ func maintenanceMiddleware(tm *theme.Manager) echo.MiddlewareFunc {
 			}
 			db = db.WithContext(c.Request().Context())
 			var rows []core.Option
-			keys := []string{maintenanceEnabledKey, maintenanceMessageKey, maintenanceStartedKey}
+			keys := []string{maintenanceEnabledKey, maintenanceMessageKey, maintenanceStartedKey, maintenanceRetryAfterKey}
 			if err := db.Where("key IN ?", keys).Find(&rows).Error; err != nil {
 				return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
 			}
@@ -58,7 +58,11 @@ func maintenanceMiddleware(tm *theme.Manager) echo.MiddlewareFunc {
 				return next(c)
 			}
 
-			c.Response().Header().Set(echo.HeaderRetryAfter, strconv.Itoa(maintenanceRetryAfter))
+			retryAfter := maintenanceRetryAfter
+			if n, err := strconv.Atoi(values[maintenanceRetryAfterKey]); err == nil && n >= 1 && n <= maintenanceRetryAfterMax {
+				retryAfter = n
+			}
+			c.Response().Header().Set(echo.HeaderRetryAfter, strconv.Itoa(retryAfter))
 			c.Response().Header().Set(echo.HeaderCacheControl, "no-store")
 			if isAPIPath(path) {
 				return c.JSON(http.StatusServiceUnavailable, map[string]interface{}{
@@ -93,7 +97,7 @@ func maintenanceMiddleware(tm *theme.Manager) echo.MiddlewareFunc {
 				"Message":        values[maintenanceMessageKey],
 				"StartedAt":      startedAt,
 				"ElapsedMinutes": elapsed,
-				"RetryAfter":     maintenanceRetryAfter,
+				"RetryAfter":     retryAfter,
 			}, db)
 			if err != nil {
 				log.Printf("render maintenance page: %v", err)

@@ -93,6 +93,7 @@ func publicRender(c echo.Context, tm *theme.Manager, db *gorm.DB, file, title st
 	values["SiteTitle"] = siteTitle
 	values["Title"] = title
 	values["CurrentPath"] = c.Request().URL.Path
+	applyPublicSEO(c, db, file, values)
 
 	body, err := tm.RenderWithDB(file, values, db)
 	if err != nil {
