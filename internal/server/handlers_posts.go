@@ -15,6 +15,8 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/markup"
+	"github.com/HazelnutParadise/jelly-cms/internal/redirects"
+	"github.com/HazelnutParadise/jelly-cms/internal/syslog"
 	"github.com/goccy/go-json"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -124,6 +126,11 @@ func createPost(c echo.Context) error {
 			return err
 		}
 		if err := applyPostTerms(tx, &post, input); err != nil {
+			return err
+		}
+		// A new post must be reachable at its own URL, so drop any automatic
+		// redirect that still sends that path elsewhere after a slug change.
+		if err := redirects.ReleaseAutoPath(tx, publicPostPath(post.Type, post.Slug)); err != nil {
 			return err
 		}
 		kind := "manual"
@@ -241,6 +248,9 @@ func updatePost(c echo.Context) error {
 			updates["published_at"] = updates["updated_at"]
 		}
 	}
+	oldPath := publicPostPath(existing.Type, existing.Slug)
+	newPath := publicPostPath(nextForRender.Type, nextForRender.Slug)
+	slugRedirectSkipped := ""
 	err = data.DB.Transaction(func(tx *gorm.DB) error {
 		write := tx.Model(&core.Post{}).Where("id = ?", id)
 		if user.Role == "author" {
@@ -272,6 +282,15 @@ func updatePost(c echo.Context) error {
 				return err
 			}
 		}
+		// Changing the slug or type moves the public URL. The old URL gets an
+		// automatic 301 (ticket 08b).
+		if oldPath != newPath && existing.Slug != "" {
+			skipped, err := redirects.SlugChangeRedirect(tx, oldPath, newPath, user.ID)
+			if err != nil {
+				return err
+			}
+			slugRedirectSkipped = skipped
+		}
 		return nil
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -282,6 +301,14 @@ func updatePost(c echo.Context) error {
 	}
 	if err != nil {
 		return termWriteError(c, err, "Unable to update post")
+	}
+	if slugRedirectSkipped != "" {
+		syslog.Emit(c.Request().Context(), syslog.Entry{
+			Level:   syslog.LevelWarn,
+			Source:  syslog.SourceApp,
+			Message: "slug redirect not created",
+			Fields:  map[string]any{"reason": slugRedirectSkipped, "post_id": id},
+		})
 	}
 	var updated core.Post
 	read := data.DB.Where("id = ?", id).Preload("Categories").Preload("Tags")

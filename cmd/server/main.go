@@ -15,6 +15,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/i18n"
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
+	"github.com/HazelnutParadise/jelly-cms/internal/redirects"
 	"github.com/HazelnutParadise/jelly-cms/internal/server"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/goccy/go-json"
@@ -90,6 +91,7 @@ func run(ctx context.Context) error {
 
 	go runTrashPurge(ctx)
 	go runLogsPrune(ctx)
+	go runRedirectHits(ctx)
 	go runOrderExpiry(ctx)
 	go server.RerenderStalePosts(ctx)
 
@@ -182,6 +184,26 @@ func runLogsPrune(ctx context.Context) {
 			return
 		case <-ticker.C:
 			prune()
+		}
+	}
+}
+
+// runRedirectHits writes redirect hit counts to the database every 30 seconds
+// until ctx is done. Counts not yet written when the process exits are lost.
+func runRedirectHits(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if data.DB == nil {
+				continue
+			}
+			if err := redirects.FlushHits(); err != nil {
+				log.Printf("Redirect hit flush: %v", err)
+			}
 		}
 	}
 }

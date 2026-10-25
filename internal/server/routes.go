@@ -49,6 +49,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	e.Use(installStateMiddleware)
 	e.Use(I18nMiddleware)
 	e.Use(maintenanceMiddleware(tm))
+	e.Use(redirectMiddleware)
 	e.Use(enforceStaffAdminAPIs)
 	e.Use(enforceStaffAdminPages)
 	registerUploadRoutes(e)

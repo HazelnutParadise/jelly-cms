@@ -46,7 +46,7 @@ import (
 //	  GET    /maintenance                      PUT    /maintenance
 //	SEO
 //	  GET    /seo/robots-preview   GET /seo/crawler-stats   GET /seo/overrides
-//	Redirects and 404s
+//	Redirects and 404s (live, redirects_api.go)
 //	  GET    /redirects                        POST   /redirects
 //	  PUT    /redirects/:id                    DELETE /redirects/:id
 //	  POST   /redirects/test                   POST[I] /redirects/import
@@ -113,17 +113,6 @@ var systemAdminEndpoints = []systemEndpoint{
 	{http.MethodGet, "/api/admin/seo/robots-preview"},
 	{http.MethodGet, "/api/admin/seo/crawler-stats"},
 	{http.MethodGet, "/api/admin/seo/overrides"},
-
-	{http.MethodGet, "/api/admin/redirects"},
-	{http.MethodPost, "/api/admin/redirects"},
-	{http.MethodPut, "/api/admin/redirects/:id"},
-	{http.MethodDelete, "/api/admin/redirects/:id"},
-	{http.MethodPost, "/api/admin/redirects/test"},
-	{http.MethodPost, "/api/admin/redirects/import"},
-	{http.MethodGet, "/api/admin/redirects/export.csv"},
-	{http.MethodGet, "/api/admin/not-found"},
-	{http.MethodPost, "/api/admin/not-found/:id/ignore"},
-	{http.MethodDelete, "/api/admin/not-found"},
 
 	{http.MethodGet, "/api/admin/update"},
 	{http.MethodPost, "/api/admin/update/check"},
@@ -208,6 +197,7 @@ var systemPublicEndpoints = []systemEndpoint{
 func registerSystemRoutes(e *echo.Echo) {
 	registerLogRoutes(e)
 	registerInfraRoutes(e)
+	registerRedirectRoutes(e)
 	for _, ep := range systemAdminEndpoints {
 		e.Add(ep.Method, ep.Path, notImplemented, auth.RequireRole("admin"))
 	}
