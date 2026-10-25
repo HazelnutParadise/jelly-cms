@@ -96,7 +96,7 @@ import (
 //	  PATCH|DELETE /media/files/:id            POST   /media/files/:id/replace
 //	  POST   /media/fetch
 //
-// Live in this branch: /healthz, the settings tabs, uploads and the admin pages above.
+// Live in this branch: /healthz, the settings tabs, uploads, the WXR import API (import_api.go) and the admin pages above.
 type systemEndpoint struct {
 	Method string
 	Path   string
@@ -115,14 +115,6 @@ var systemAdminEndpoints = []systemEndpoint{
 	{http.MethodGet, "/api/admin/mail/settings"},
 	{http.MethodPut, "/api/admin/mail/settings"},
 	{http.MethodPost, "/api/admin/mail/test"},
-
-	{http.MethodPost, "/api/admin/import/wxr"},
-	{http.MethodGet, "/api/admin/import"},
-	{http.MethodGet, "/api/admin/import/:id"},
-	{http.MethodPut, "/api/admin/import/:id/mapping"},
-	{http.MethodPost, "/api/admin/import/:id/dry-run"},
-	{http.MethodPost, "/api/admin/import/:id/run"},
-	{http.MethodPost, "/api/admin/import/:id/cancel"},
 
 	{http.MethodGet, "/api/admin/store"},
 	{http.MethodPost, "/api/admin/store/refresh"},
@@ -179,6 +171,7 @@ func registerSystemRoutes(e *echo.Echo) {
 	registerInjectionRoutes(e)
 	registerMaintenanceRoutes(e)
 	registerBackupRoutes(e)
+	registerImportRoutes(e)
 	for _, ep := range systemAdminEndpoints {
 		e.Add(ep.Method, ep.Path, notImplemented, auth.RequireRole("admin"))
 	}

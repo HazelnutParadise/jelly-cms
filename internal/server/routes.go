@@ -24,7 +24,7 @@ const globalBodyLimit = "2M"
 // isUploadRoute reports whether the matched route accepts file uploads.
 func isUploadRoute(c echo.Context) bool {
 	switch c.Path() {
-	case "/api/admin/media", "/api/admin/media/:filename", "/api/admin/plugins/upload":
+	case "/api/admin/media", "/api/admin/media/:filename", "/api/admin/plugins/upload", "/api/admin/import/wxr":
 		return true
 	}
 	return false

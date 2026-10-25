@@ -309,13 +309,21 @@ func TestImportAuthorsBecomeInvitedUsers(t *testing.T) {
 		t.Fatalf("run = %d: %s", r.code, r.body)
 	}
 
-	// Ticket 06 owns user_invites; the imported author is recorded there as invited.
+	// Ticket 06 owns user_invites: the invited state lives on users.status and the
+	// invitation row is linked by user_id.
 	var status string
-	if err := h.db.Raw("SELECT status FROM user_invites WHERE email = 'alice@old.example.test'").Scan(&status).Error; err != nil {
-		t.Fatalf("read user_invites: %v", err)
+	if err := h.db.Raw("SELECT status FROM users WHERE email = 'alice@old.example.test'").Scan(&status).Error; err != nil {
+		t.Fatalf("read users: %v", err)
 	}
 	if status != "invited" {
-		t.Errorf("invite status for alice = %q, want invited", status)
+		t.Errorf("user status for alice = %q, want invited", status)
+	}
+	var invites int64
+	if err := h.db.Raw("SELECT COUNT(*) FROM user_invites WHERE kind = 'invite' AND user_id = (SELECT id FROM users WHERE email = 'alice@old.example.test')").Scan(&invites).Error; err != nil {
+		t.Fatalf("read user_invites: %v", err)
+	}
+	if invites != 1 {
+		t.Errorf("invite rows for alice = %d, want 1", invites)
 	}
 	var user struct {
 		Role     string `gorm:"column:role"`
