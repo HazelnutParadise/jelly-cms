@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/labstack/echo/v4"
 )
 
@@ -96,7 +97,7 @@ import (
 //	  PATCH|DELETE /media/files/:id            POST   /media/files/:id/replace
 //	  POST   /media/fetch
 //
-// Live in this branch: /healthz, the settings tabs, uploads, the WXR import API (import_api.go), the update API (update_api.go) and the admin pages above.
+// Live in this branch: /healthz, the settings tabs, uploads, the WXR import API (import_api.go), the update API (update_api.go), the plugin detail API (plugin_detail_api.go) and the admin pages above.
 type systemEndpoint struct {
 	Method string
 	Path   string
@@ -114,18 +115,6 @@ var systemAdminEndpoints = []systemEndpoint{
 	{http.MethodPost, "/api/admin/store/install"},
 	{http.MethodPost, "/api/admin/store/update"},
 	{http.MethodPost, "/api/admin/plugins/install-url"},
-	{http.MethodGet, "/api/admin/plugins/:id"},
-	{http.MethodPost, "/api/admin/plugins/:id/enable"},
-	{http.MethodPost, "/api/admin/plugins/:id/disable"},
-	{http.MethodDelete, "/api/admin/plugins/:id"},
-	{http.MethodGet, "/api/admin/plugins/:id/settings"},
-	{http.MethodPut, "/api/admin/plugins/:id/settings"},
-	{http.MethodPost, "/api/admin/plugins/:id/settings/reset"},
-	{http.MethodPost, "/api/admin/plugins/:id/test"},
-	{http.MethodPost, "/api/admin/plugins/:id/actions/:action"},
-	{http.MethodGet, "/api/admin/plugins/:id/logs"},
-	{http.MethodGet, "/api/admin/extensions"},
-	{http.MethodPut, "/api/admin/extensions/:point"},
 
 	{http.MethodGet, "/api/admin/media/policies"},
 	{http.MethodPost, "/api/admin/media/policies"},
@@ -155,7 +144,7 @@ var systemPublicEndpoints = []systemEndpoint{
 
 // registerSystemRoutes mounts the system endpoints and pages. It must run
 // before the /:slug catch-all is registered.
-func registerSystemRoutes(e *echo.Echo) {
+func registerSystemRoutes(e *echo.Echo, pluginRuntime *plugin.Runtime) {
 	registerLogRoutes(e)
 	registerInfraRoutes(e)
 	registerRedirectRoutes(e)
@@ -166,6 +155,7 @@ func registerSystemRoutes(e *echo.Echo) {
 	registerBackupRoutes(e)
 	registerImportRoutes(e)
 	registerUpdateRoutes(e)
+	registerPluginDetailRoutes(e, pluginRuntime)
 	for _, ep := range systemAdminEndpoints {
 		e.Add(ep.Method, ep.Path, notImplemented, auth.RequireRole("admin"))
 	}

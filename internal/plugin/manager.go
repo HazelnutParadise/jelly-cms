@@ -46,6 +46,9 @@ type pluginState struct {
 // errRuntimeClosed reports a load or reload attempted on a closed runtime.
 var errRuntimeClosed = errors.New("plugin runtime is closed")
 
+// ErrPluginNotLoaded reports a request for a plugin that is not running.
+var ErrPluginNotLoaded = errors.New("plugin is not loaded")
+
 // NewRuntime creates an empty plugin runtime. RunWorkerIfRequested must have
 // been called first, otherwise a child process could recurse into the normal
 // program start-up instead of serving plugin requests.
@@ -203,6 +206,13 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool, expected
 // LoadAll loads every plugin directory inside pluginDir. Failures are
 // collected and reported together, a broken plugin never hides the others.
 func (m *Runtime) LoadAll(ctx context.Context, pluginDir string) error {
+	return m.LoadWhere(ctx, pluginDir, nil)
+}
+
+// LoadWhere is LoadAll restricted to the plugins include accepts. A nil
+// include loads everything. A plugin whose manifest cannot be read is passed to
+// Load so the failure is reported with the other load failures.
+func (m *Runtime) LoadWhere(ctx context.Context, pluginDir string, include func(pluginID string) bool) error {
 	entries, err := os.ReadDir(pluginDir)
 	if err != nil {
 		return fmt.Errorf("read plugin directory %s: %w", pluginDir, err)
@@ -250,6 +260,12 @@ func (m *Runtime) LoadAll(ctx context.Context, pluginDir string) error {
 			path = resolved
 		case !entry.IsDir():
 			continue
+		}
+
+		if include != nil {
+			if meta, _, err := readPluginManifest(path); err == nil && !include(meta.ID) {
+				continue
+			}
 		}
 
 		if err := m.Load(ctx, path); err != nil {
@@ -313,6 +329,44 @@ func (m *Runtime) GetPlugin(pluginID string) (*PluginMetadata, error) {
 	meta := state.meta
 
 	return &meta, nil
+}
+
+// IsLoaded reports whether the plugin currently runs in this runtime.
+func (m *Runtime) IsLoaded(pluginID string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	_, ok := m.plugins[pluginID]
+
+	return ok
+}
+
+// Invoke runs one hook for a single plugin and reports its failure to the
+// caller. It is for requests the admin starts, such as a plugin action. Unlike
+// CallHook, a failure is returned instead of only logged.
+func (m *Runtime) Invoke(ctx context.Context, pluginID string, hook Hook, data map[string]interface{}) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	m.mu.RLock()
+	state, ok := m.plugins[pluginID]
+	m.mu.RUnlock()
+
+	if !ok {
+		return ErrPluginNotLoaded
+	}
+
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("encode payload for hook %s: %w", hook, err)
+	}
+
+	if len(payload) > maxPayloadBytes {
+		return fmt.Errorf("payload for hook %s exceeds %d bytes", hook, maxPayloadBytes)
+	}
+
+	return state.call(ctx, hook, payload)
 }
 
 // CallHook hands the payload to every callback registered for the hook. A
@@ -428,6 +482,31 @@ func (s *pluginState) dispatch(hook Hook, payload []byte) error {
 	return nil
 }
 
+// call runs one hook and returns its error. A stopped or dead plugin answers
+// ErrPluginNotLoaded instead of waiting for a worker that is gone.
+func (s *pluginState) call(ctx context.Context, hook Hook, payload []byte) error {
+	s.execMu.Lock()
+	defer s.execMu.Unlock()
+
+	if s.closed || s.invalid {
+		return ErrPluginNotLoaded
+	}
+
+	if _, err := s.worker.request(ctx, workerRequest{
+		Op:      opHook,
+		Hook:    string(hook),
+		Payload: payload,
+	}, workerStepTimeout); err != nil {
+		if !s.worker.alive() {
+			s.invalid = true
+		}
+
+		return fmt.Errorf("hook %s: %w", hook, err)
+	}
+
+	return nil
+}
+
 // shutdown runs the OnShutdown hook of the plugin exactly once and reclaims its
 // worker.
 func (s *pluginState) shutdown(ctx context.Context, payload []byte) error {
@@ -498,7 +577,8 @@ func readPluginManifest(dir string) (PluginMetadata, string, error) {
 		return meta, "", fmt.Errorf("read manifest %s: %w", manifestPath, err)
 	}
 
-	if err := json.Unmarshal(data, &meta); err != nil {
+	meta, err = ParseManifest(data)
+	if err != nil {
 		return meta, "", fmt.Errorf("invalid manifest %s: %w", manifestPath, err)
 	}
 

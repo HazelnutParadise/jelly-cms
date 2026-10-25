@@ -197,7 +197,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	registerContentRoutes(e, tm, renderAdmin)
 
 	// System endpoints and public feeds. They must precede the /:slug catch-all.
-	registerSystemRoutes(e)
+	registerSystemRoutes(e, pluginRuntime)
 	// Accounts: self-service, user administration, notifications (ticket 06).
 	registerAccountRoutes(e, renderAdmin)
 	registerUserRoutes(e, renderAdmin)

@@ -10,6 +10,7 @@ package ext
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -40,6 +41,25 @@ var (
 	declared  = map[string]bool{PointMediaProcessor: true}
 	providers = map[string][]Provider{}
 )
+
+// Points lists every shipped and declared point in name order.
+func Points() []string {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	points := make([]string, 0, len(shipped)+len(declared))
+	for point := range shipped {
+		points = append(points, point)
+	}
+	for point := range declared {
+		if !shipped[point] {
+			points = append(points, point)
+		}
+	}
+	sort.Strings(points)
+
+	return points
+}
 
 // Known reports whether point is shipped or declared.
 func Known(point string) bool {

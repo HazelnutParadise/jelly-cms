@@ -129,7 +129,7 @@ func run(parent context.Context) error {
 		// Load all plugins if database is connected
 		if config.GlobalConfig != nil && data.DB != nil {
 			os.MkdirAll("data/plugins", 0755)
-			if err := pluginRuntime.LoadAll(context.Background(), "data/plugins"); err != nil {
+			if err := pluginRuntime.LoadWhere(context.Background(), "data/plugins", server.PluginEnabledFilter()); err != nil {
 				log.Printf("Failed to load plugins: %v", err)
 			}
 		}

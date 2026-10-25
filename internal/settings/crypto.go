@@ -182,6 +182,45 @@ func openValue(key, stored string) (string, error) {
 	return string(plain), nil
 }
 
+// SealBytes encrypts plain with the same sealing key as the sealed options.
+// purpose is bound as additional data, so a value sealed for one purpose does
+// not open under another. The result is the nonce followed by the ciphertext.
+func SealBytes(purpose string, plain []byte) ([]byte, error) {
+	subkey, err := settingsKey(true)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := newGCM(subkey)
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+	return gcm.Seal(nonce, nonce, plain, []byte(purpose)), nil
+}
+
+// OpenBytes reverses SealBytes for the same purpose.
+func OpenBytes(purpose string, sealed []byte) ([]byte, error) {
+	subkey, err := settingsKey(false)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := newGCM(subkey)
+	if err != nil {
+		return nil, err
+	}
+	if len(sealed) < gcm.NonceSize() {
+		return nil, errors.New("settings: malformed sealed bytes")
+	}
+	plain, err := gcm.Open(nil, sealed[:gcm.NonceSize()], sealed[gcm.NonceSize():], []byte(purpose))
+	if err != nil {
+		return nil, errors.New("settings: sealed bytes failed to open")
+	}
+	return plain, nil
+}
+
 // revealStored returns the plaintext of a stored value for server-side use.
 func revealStored(key, stored string) (string, error) {
 	if !sealed(key) {
