@@ -53,13 +53,15 @@ func s08bInjectionPut(t *testing.T, h *accessHarness, jwt string, fields map[str
 
 func TestInjectionRendersOnPublicPagesOnly(t *testing.T) {
 	h := archivesHarness(t)
-	admin := h.user("admin", "s08b-inject-admin")
+	admin := s08bPasswordUser(t, h, "s08b-inject-admin", "admin")
 	token := h.token(admin)
 	author := h.user("author", "s08b-inject-author")
 	s08bSeedPost(t, h, author, s08bPost{title: "Inject Probe Post", slug: "inject-probe"})
 
 	const probe = `<meta name="inject-probe-all" content="yes">`
-	s08bSetOptions(t, h, token, map[string]string{"inject_head_all": probe})
+	if r := s08bInjectionPut(t, h, token, map[string]string{"head_all": probe, "current_password": s08bInjectionPassword}); r.code != http.StatusOK {
+		t.Fatalf("seed public-page injection = %d: %s", r.code, r.body)
+	}
 
 	archivesWantText(t, "/", archivesPage(t, h, "/"), probe)
 	archivesWantText(t, "/post/inject-probe", archivesPage(t, h, "/post/inject-probe"), probe)
@@ -75,13 +77,15 @@ func TestInjectionRendersOnPublicPagesOnly(t *testing.T) {
 
 func TestInjectionNotOnCommerceByDefault(t *testing.T) {
 	h := archivesHarness(t)
-	admin := h.user("admin", "s08b-commerce-admin")
+	admin := s08bPasswordUser(t, h, "s08b-commerce-admin", "admin")
 	token := h.token(admin)
 	shopper := h.user("customer", "s08b-commerce-shopper")
 	shopperToken := h.token(shopper)
 
 	const probe = `<meta name="inject-probe-commerce" content="yes">`
-	s08bSetOptions(t, h, token, map[string]string{"inject_head_all": probe})
+	if r := s08bInjectionPut(t, h, token, map[string]string{"head_all": probe, "current_password": s08bInjectionPassword}); r.code != http.StatusOK {
+		t.Fatalf("seed commerce injection = %d: %s", r.code, r.body)
+	}
 
 	t.Run("checkout", func(t *testing.T) {
 		r := h.request(http.MethodGet, "/checkout", "", shopperToken, echo.MIMETextHTML, "")
@@ -101,7 +105,10 @@ func TestInjectionNotOnCommerceByDefault(t *testing.T) {
 		t.Errorf("GET /account/orders outputs the injection while inject_on_commerce is off")
 	}
 
-	s08bSetOptions(t, h, token, map[string]string{"inject_on_commerce": "true"})
+	onCommerce := s08bInteractive(h, http.MethodPut, "/api/admin/settings/injection", strings.NewReader(`{"on_commerce":true,"current_password":"Inject08b-Password!"}`), token, echo.MIMEApplicationJSON)
+	if onCommerce.code != http.StatusOK {
+		t.Fatalf("enable commerce injection through the dedicated API = %d: %s", onCommerce.code, onCommerce.body)
+	}
 	on := h.request(http.MethodGet, "/account/orders", "", shopperToken, echo.MIMETextHTML, "")
 	h.mustNoPanic(on, "GET /account/orders with inject_on_commerce")
 	s08bWant(t, "GET /account/orders with inject_on_commerce=true", on, http.StatusOK)
@@ -201,14 +208,16 @@ func TestInjectionSizeLimitAndAudit(t *testing.T) {
 
 func TestInjectionContentHeadOnlyOnContentPages(t *testing.T) {
 	h := archivesHarness(t)
-	admin := h.user("admin", "s08b-content-head-admin")
+	admin := s08bPasswordUser(t, h, "s08b-content-head-admin", "admin")
 	token := h.token(admin)
 	author := h.user("author", "s08b-content-head-author")
 	s08bSeedPost(t, h, author, s08bPost{title: "Content Head Post", slug: "content-head-post"})
 	s08bSeedPost(t, h, author, s08bPost{title: "Content Head Page", slug: "content-head-page", typ: "page"})
 
 	const probe = `<meta name="content-head-probe" content="yes">`
-	s08bSetOptions(t, h, token, map[string]string{"inject_head_content": probe})
+	if r := s08bInjectionPut(t, h, token, map[string]string{"head_content": probe, "current_password": s08bInjectionPassword}); r.code != http.StatusOK {
+		t.Fatalf("seed content-page injection = %d: %s", r.code, r.body)
+	}
 
 	archivesWantText(t, "/post/content-head-post", archivesPage(t, h, "/post/content-head-post"), probe)
 	archivesWantText(t, "/content-head-page", archivesPage(t, h, "/content-head-page"), probe)
