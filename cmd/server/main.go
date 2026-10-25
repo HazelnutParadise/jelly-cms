@@ -19,6 +19,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/redirects"
 	"github.com/HazelnutParadise/jelly-cms/internal/server"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
+	"github.com/HazelnutParadise/jelly-cms/internal/update"
 	"github.com/goccy/go-json"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -27,17 +28,64 @@ import (
 func main() {
 	plugin.RunWorkerIfRequested()
 
+	// The updater runs "jelly-cms healthcheck" on a freshly installed binary
+	// before it trusts it. The check touches nothing else and exits at once.
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		if err := update.WriteHealthcheck(os.Stdout); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
+	// A binary that two starts in a row failed to confirm is replaced by the
+	// previous one before anything else runs (ticket 08c).
+	relaunch, err := update.GuardStartup()
+	if err != nil {
+		log.Printf("update: startup guard: %v", err)
+	}
+	if relaunch {
+		if err := update.Relaunch(); err != nil {
+			log.Printf("update: relaunch restored executable: %v", err)
+		} else {
+			return
+		}
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	// Let run's deferred cleanup finish before deciding the process exit code.
-	if err := run(ctx); err != nil {
-		log.Printf("HTTP server stopped: %v", err)
+	runErr := run(ctx)
+	if runErr != nil {
+		log.Printf("HTTP server stopped: %v", runErr)
+	}
+	// An apply or rollback asked for a restart. The new process starts after the
+	// old server has stopped, so it can bind the same address. This happens even
+	// when the shutdown reported an error.
+	if update.RestartPending() {
+		if err := update.Relaunch(); err != nil {
+			log.Printf("update: relaunch after restart request: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if runErr != nil {
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context) error {
+func run(parent context.Context) error {
+	// An update restart request stops the server the same way a signal does.
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+	go func() {
+		select {
+		case <-update.RestartRequested():
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
 	// Initialize Echo
 	e := echo.New()
 	e.JSONSerializer = &JSONSerializer{} // Use goccy/go-json
@@ -97,6 +145,10 @@ func run(ctx context.Context) error {
 	go runOrderExpiry(ctx)
 	go server.RerenderStalePosts(ctx)
 
+	// The server is about to serve; an applied version has now started cleanly.
+	if err := update.ConfirmStarted(); err != nil {
+		log.Printf("update: confirm start: %v", err)
+	}
 	return runHTTPServer(ctx, e, ":8080")
 }
 
