@@ -50,9 +50,11 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		}
 		defer src.Close()
 
-		// Ensure uploads directory exists
-		os.MkdirAll("data/uploads", 0755)
-		dstPath := filepath.Join("data/uploads", file.Filename)
+		// Ensure uploads directory exists. The name is reduced to a safe
+		// single element so a crafted filename cannot leave data/uploads.
+		name := sanitizeFilename(file.Filename)
+		os.MkdirAll(uploadsRoot, 0755)
+		dstPath := filepath.Join(uploadsRoot, name)
 		dst, err := os.Create(dstPath)
 		if err != nil {
 			return err
@@ -63,7 +65,7 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 			return err
 		}
 
-		return c.JSON(http.StatusOK, map[string]string{"url": "/uploads/" + file.Filename})
+		return c.JSON(http.StatusOK, map[string]string{"url": "/uploads/" + name})
 	}, middleware.BodyLimit(uploadBodyLimit))
 
 	content.DELETE("/media/:filename", func(c echo.Context) error {

@@ -89,15 +89,9 @@ import (
 //	  POST   /plugins/:id/settings/reset       POST   /plugins/:id/test
 //	  POST   /plugins/:id/actions/:action      GET    /plugins/:id/logs
 //	  GET    /extensions                       PUT    /extensions/:point
-//	Media policies, groups and files
-//	  GET|POST /media/policies                 PUT|DELETE /media/policies/:id
-//	  POST   /media/policies/:id/test          POST   /media/policies/:id/default
-//	  POST   /media/policies/:id/move          GET|POST /media/groups
-//	  PUT|DELETE /media/groups/:id             GET|POST /media/files
-//	  PATCH|DELETE /media/files/:id            POST   /media/files/:id/replace
-//	  POST   /media/fetch
+//	Media policies, groups and files: media_api.go (live)
 //
-// Live in this branch: /healthz, the settings tabs, uploads, the WXR import API (import_api.go), the update API (update_api.go), the plugin detail API (plugin_detail_api.go), the store and install-from-URL API (store_api.go) and the admin pages above.
+// Live in this branch: /healthz, the settings tabs, uploads, the WXR import API (import_api.go), the update API (update_api.go), the plugin detail API (plugin_detail_api.go), the store and install-from-URL API (store_api.go), the attachment API (media_api.go) and the admin pages above.
 type systemEndpoint struct {
 	Method string
 	Path   string
@@ -109,24 +103,6 @@ var systemAdminEndpoints = []systemEndpoint{
 	{http.MethodGet, "/api/admin/mail/settings"},
 	{http.MethodPut, "/api/admin/mail/settings"},
 	{http.MethodPost, "/api/admin/mail/test"},
-
-	{http.MethodGet, "/api/admin/media/policies"},
-	{http.MethodPost, "/api/admin/media/policies"},
-	{http.MethodPut, "/api/admin/media/policies/:id"},
-	{http.MethodDelete, "/api/admin/media/policies/:id"},
-	{http.MethodPost, "/api/admin/media/policies/:id/test"},
-	{http.MethodPost, "/api/admin/media/policies/:id/default"},
-	{http.MethodPost, "/api/admin/media/policies/:id/move"},
-	{http.MethodGet, "/api/admin/media/groups"},
-	{http.MethodPost, "/api/admin/media/groups"},
-	{http.MethodPut, "/api/admin/media/groups/:id"},
-	{http.MethodDelete, "/api/admin/media/groups/:id"},
-	{http.MethodGet, "/api/admin/media/files"},
-	{http.MethodPost, "/api/admin/media/files"},
-	{http.MethodPatch, "/api/admin/media/files/:id"},
-	{http.MethodDelete, "/api/admin/media/files/:id"},
-	{http.MethodPost, "/api/admin/media/files/:id/replace"},
-	{http.MethodPost, "/api/admin/media/fetch"},
 }
 
 // systemPublicEndpoints are served without login. They are registered before
@@ -151,6 +127,7 @@ func registerSystemRoutes(e *echo.Echo, pluginRuntime *plugin.Runtime) {
 	registerUpdateRoutes(e)
 	registerPluginDetailRoutes(e, pluginRuntime)
 	registerStoreRoutes(e, pluginRuntime)
+	registerMediaRoutes(e)
 	for _, ep := range systemAdminEndpoints {
 		e.Add(ep.Method, ep.Path, notImplemented, auth.RequireRole("admin"))
 	}

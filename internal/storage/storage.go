@@ -1,6 +1,6 @@
 // Package storage is the attachment storage driver interface. Drivers:
-// local (files under a root directory, implemented here) and s3 (minio-go,
-// stub). Plugins may provide drivers through the media.storage extension point.
+// local (local.go, files under a root directory) and s3 (minio-go, stub). Plugins
+// may provide drivers through the media.storage extension point.
 package storage
 
 import (
@@ -8,9 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -63,92 +61,8 @@ func CleanPath(p string) (string, error) {
 	return clean, nil
 }
 
-// Local stores objects below Root. It serves nothing itself; /uploads does.
-type Local struct {
-	Root string
-}
-
-// NewLocal returns a local driver rooted at root.
-func NewLocal(root string) *Local {
-	return &Local{Root: root}
-}
-
-func (l *Local) resolve(p string) (string, error) {
-	clean, err := CleanPath(p)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(l.Root, filepath.FromSlash(clean)), nil
-}
-
-// Put writes r to p, creating parent directories. size is advisory.
-// TODO(08d): write to a temporary file and rename.
-func (l *Local) Put(ctx context.Context, p string, r io.Reader, size int64, contentType string) error {
-	full, err := l.resolve(p)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-		return fmt.Errorf("storage: create directory: %w", err)
-	}
-	f, err := os.OpenFile(full, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
-	if err != nil {
-		return fmt.Errorf("storage: create %s: %w", p, err)
-	}
-	defer f.Close()
-	if _, err := io.Copy(f, r); err != nil {
-		return fmt.Errorf("storage: write %s: %w", p, err)
-	}
-	return nil
-}
-
-// Open opens p for reading.
-func (l *Local) Open(_ context.Context, p string) (io.ReadCloser, error) {
-	full, err := l.resolve(p)
-	if err != nil {
-		return nil, err
-	}
-	return os.Open(full)
-}
-
-// Stat returns the size and modification time of p.
-func (l *Local) Stat(_ context.Context, p string) (Info, error) {
-	full, err := l.resolve(p)
-	if err != nil {
-		return Info{}, err
-	}
-	st, err := os.Stat(full)
-	if err != nil {
-		return Info{}, err
-	}
-	return Info{Path: p, Size: st.Size(), ModTime: st.ModTime()}, nil
-}
-
-// Delete removes p.
-func (l *Local) Delete(_ context.Context, p string) error {
-	full, err := l.resolve(p)
-	if err != nil {
-		return err
-	}
-	return os.Remove(full)
-}
-
-// URL returns "" because the local driver is served by the /uploads route.
-func (l *Local) URL(string) string { return "" }
-
-// Test checks that the root exists and is a directory.
-func (l *Local) Test(context.Context) error {
-	st, err := os.Stat(l.Root)
-	if err != nil {
-		return err
-	}
-	if !st.IsDir() {
-		return fmt.Errorf("storage: %s is not a directory", l.Root)
-	}
-	return nil
-}
-
-// S3 is a stub for the S3-compatible driver (minio-go, ticket 08d).
+// S3 is a stub for the S3-compatible driver. minio-go is not in go.mod yet, so
+// every operation reports ErrNotImplemented and the policy is kept but unusable.
 type S3 struct {
 	Endpoint string
 	Bucket   string
@@ -159,14 +73,17 @@ func NewS3(endpoint, bucket string) *S3 {
 	return &S3{Endpoint: endpoint, Bucket: bucket}
 }
 
+// ErrS3Disabled names the state of the S3 driver so admins see why a policy fails.
+var ErrS3Disabled = fmt.Errorf("%w: the s3 driver is not enabled in this build", ErrNotImplemented)
+
 func (s *S3) Put(context.Context, string, io.Reader, int64, string) error {
-	return ErrNotImplemented
+	return ErrS3Disabled
 }
-func (s *S3) Open(context.Context, string) (io.ReadCloser, error) { return nil, ErrNotImplemented }
-func (s *S3) Stat(context.Context, string) (Info, error)          { return Info{}, ErrNotImplemented }
-func (s *S3) Delete(context.Context, string) error                { return ErrNotImplemented }
+func (s *S3) Open(context.Context, string) (io.ReadCloser, error) { return nil, ErrS3Disabled }
+func (s *S3) Stat(context.Context, string) (Info, error)          { return Info{}, ErrS3Disabled }
+func (s *S3) Delete(context.Context, string) error                { return ErrS3Disabled }
 func (s *S3) URL(string) string                                   { return "" }
-func (s *S3) Test(context.Context) error                          { return ErrNotImplemented }
+func (s *S3) Test(context.Context) error                          { return ErrS3Disabled }
 
 var (
 	_ Driver = (*Local)(nil)

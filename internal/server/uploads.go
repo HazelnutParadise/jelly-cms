@@ -48,6 +48,12 @@ func serveUpload(c echo.Context) error {
 	if err != nil {
 		return echo.ErrNotFound
 	}
+	// Dot-prefixed names are temporary files of an unfinished write.
+	for _, segment := range strings.Split(clean, "/") {
+		if strings.HasPrefix(segment, ".") {
+			return echo.ErrNotFound
+		}
+	}
 	full := filepath.Join(uploadsRoot, filepath.FromSlash(clean))
 	f, err := os.Open(full)
 	if err != nil {

@@ -200,7 +200,9 @@ func TestMediaFileUploadLimitsTypesAndSanitizedName(t *testing.T) {
 		t.Errorf(".exe upload = %d, want 415", r.code)
 	}
 
-	r := medUpload(h, token, "../../evil\x01name.png", medPNG())
+	// Go's multipart parser rejects most control bytes in a filename before the handler runs, so the
+	// control character here is a tab, which still must not survive into the stored name.
+	r := medUpload(h, token, "../../evil\tname.png", medPNG())
 	if r.code < 200 || r.code > 299 {
 		t.Fatalf("PNG with a hostile name = %d, want 2xx: %s", r.code, r.body)
 	}
