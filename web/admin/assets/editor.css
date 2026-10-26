@@ -20,3 +20,8 @@
 .focus-mode:not(.focus-dark){color-scheme:light;--surface:#fff;--surface-mid:#fafafb;--surface-high:#edeef1;--ink:#15161a;--muted:#5f6470;--line:#e6e7eb;--outline:#d9dbe0}
 
 @media(max-width:700px){.jelly-editor button[data-view=split]{display:none}.jelly-editor[data-view=layout] .editor-outline{display:block;width:100%;padding:10px;border:0;border-bottom:1px solid var(--line)}.jelly-editor[data-view=layout] .editor-outline>#editorTOC,.jelly-editor[data-view=layout] .editor-outline>#editorStats,.jelly-editor[data-view=layout] .editor-outline>.label{display:none}#editorPalette{display:flex;flex-wrap:wrap;gap:4px}#editorPalette>.label{width:100%}}
+
+/* Editor-local theme toggles must also recolor the shared diagram surface. */
+.jelly-editor.editor-dark,.focus-mode.focus-dark { --surface-low:color-mix(in srgb,var(--ink) 5%,var(--surface)); }
+.focus-mode:not(.focus-dark) { --surface-low:color-mix(in srgb,var(--ink) 3.5%,var(--surface)); }
+.editor-preview .jc-mermaid { min-width:0; }

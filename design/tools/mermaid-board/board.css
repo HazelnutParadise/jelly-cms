@@ -55,16 +55,15 @@ body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;colo
 .prose .hint{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-top:.5em}
 
 /* 圖表框：結構樣式由 jelly-mermaid.js 以行內 style 保證，顏色由主題的 --pele-* 對應 */
-.jc-mermaid{margin:1.5em 0 0;padding:24px;background:var(--surface-low);border-radius:0 1rem 0 1rem;max-width:100%;overflow-x:auto;box-sizing:border-box;
+.jc-mermaid{margin:1.5em 0;padding:24px;background:var(--surface-low);border-radius:0 1rem 0 1rem;max-width:100%;overflow-x:auto;box-sizing:border-box;
   --pele-bg:var(--surface-low);--pele-fg:var(--ink);--pele-muted:var(--muted);--pele-line:color-mix(in srgb,var(--ink) 72%,var(--surface));
   --pele-surface:var(--surface);--pele-surface-alt:var(--surface-mid);--pele-border:color-mix(in srgb,var(--ink) 30%,var(--surface));
   --pele-accent:var(--secondary);--pele-critical:var(--error);--pele-error:var(--error);--pele-font:var(--font);--pele-radius:3px;
   --pele-series-1:var(--primary);--pele-series-2:var(--secondary);--pele-series-3:var(--accent);--pele-series-4:var(--warning);--pele-series-5:var(--ink)}
 .prose.m .jc-mermaid{padding:16px}
 .jc-mermaid svg{display:block;margin:0 auto;height:auto}
-.jc-mermaid-error{display:flex;gap:8px;align-items:flex-start;margin-top:.75em!important;padding:10px 14px;font-size:14px;line-height:1.6;
+.jc-mermaid-error{margin-top:.75em!important;padding:10px 14px;font-size:14px;line-height:1.6;
   color:color-mix(in srgb,var(--error) 70%,var(--ink));background:color-mix(in srgb,var(--error) 9%,var(--surface));border-left:3px solid var(--error);border-radius:0 .5rem 0 .5rem}
-.jc-mermaid-error .ic{width:16px;height:16px;margin-top:4px;color:var(--error)}
 
 .spec{box-sizing:border-box;width:440px;flex:0 0 auto;background:#F5F5F7;border-radius:0 24px 0 24px;padding:28px;display:flex;flex-direction:column;gap:12px;font-size:14px;line-height:1.6;margin-top:28px}
 .spec h3{font-size:20px;margin-top:8px}
@@ -76,3 +75,8 @@ body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;colo
 .jc-mermaid::-webkit-scrollbar{height:6px}
 .jc-mermaid::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--ink) 35%,transparent);border-radius:0 3px 0 3px}
 .jc-mermaid::-webkit-scrollbar-track{background:transparent}
+
+.editor-example{width:1280px;border-radius:0 12px 0 12px}
+.editor-example-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 20px;border-bottom:1px solid var(--outline);font-size:14px}
+.editor-example-toolbar>div{display:flex;gap:4px}.editor-example-toolbar span{padding:6px 10px}.editor-example-toolbar .on{background:var(--surface-mid);border-radius:0 6px 0 6px}
+.editor-example-panes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);min-height:420px}.editor-example-panes>pre{margin:0;padding:28px 20px;border-right:1px solid var(--outline);font:14px/1.8 ui-monospace,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.editor-example-panes>article{padding:24px 28px;min-width:0}.editor-example-panes h2{margin-top:0}

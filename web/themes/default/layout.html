@@ -78,6 +78,21 @@
             --measure: 40em;
             --container: {{if eq $containerWidth "full"}}100%{{else if eq $containerWidth "narrow"}}46rem{{else}}74rem{{end}};
         }
+        .jc-mermaid {
+            --pele-bg: var(--surface-low);
+            --pele-fg: var(--ink);
+            --pele-muted: var(--muted);
+            --pele-line: color-mix(in srgb, var(--ink) 72%, var(--surface));
+            --pele-surface: var(--surface);
+            --pele-surface-alt: var(--surface-mid);
+            --pele-border: color-mix(in srgb, var(--ink) 30%, var(--surface));
+            --pele-accent: var(--secondary);
+            --pele-critical: var(--error);
+            --pele-error: var(--error);
+            --pele-font: var(--font);
+            --pele-radius: 3px;
+        }
+        .jc-mermaid-error { --mermaid-error: var(--error); }
         @media (prefers-color-scheme: dark) {
             :root {
                 color-scheme: dark;
@@ -508,6 +523,7 @@
         }
     </style>
     <link rel="stylesheet" href="/theme/assets/content.css">
+    {{contentAssets .}}
     {{- with .RobotsMeta}}
     <meta name="robots" content="{{.}}">
     {{- end}}
@@ -674,17 +690,7 @@
         update();
     })();
     </script>
-<script>
-(function () {
-    function script(src) { var el = document.createElement('script'); el.src = src; el.defer = true; document.head.appendChild(el); }
-    if (document.querySelector('.jc-math[data-tex]')) {
-        var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = '/vendor/katex/katex.min.css'; document.head.appendChild(css);
-        var math = document.createElement('script'); math.src = '/vendor/katex/katex.min.js'; math.onload = function () { if (window.JellyComponents) window.JellyComponents.init(document); }; document.head.appendChild(math);
-    }
-    if (document.querySelector('[data-jc], .jc-widget, .jc-math[data-tex]')) script('/theme/assets/jelly-components.js');
-    if (document.querySelector('[data-reveal], [data-hover], [data-scroll], [data-delay], [data-dur], [data-stagger], [data-once]')) script('/theme/assets/jelly-motion.js');
-})();
-</script>
+
 {{- with .Inject}}{{.Footer}}{{end}}
 </body>
 

@@ -3,8 +3,8 @@
 Epic：編輯與發布（內容語法）
 User Story：作者在文章或頁面寫 ```` ```mermaid ```` 程式碼區塊，儲存後訪客在公開頁看到圖表，配色與字型跟著網站主題，手機上不會撐壞版面；語法寫錯時看得到原文與錯誤提示，其他圖照常顯示；原文永遠保存在文章裡，隨時可以再編輯。站長不需要裝外掛、不需要加腳本，頁面也不從任何外部網址載入資源。
 來源：GitHub issue HazelnutParadise/jelly-cms#22（原生支援 Mermaid，使用 Pele 渲染）。
-Blocked by：無，可以獨立於 main 合併。與草稿 PR #26（工作單 09 編輯器，分支 `claude/pr-g-editor`）有重疊，調和方式見下方「與工作單 09 的相依」；誰後合併誰負責調和。
-Status：draft（本工作單只交付契約、設計板、骨架與失敗的驗收測試；實作由另一批代理依本文件完成）
+Blocked by：無。工作單 09 已合併，Mermaid 的編輯預覽、原稿與匯出已依本文件完成調和。
+Status：implemented（實作與本機功能驗收完成；完整回歸、CI、線上畫布與合併紀錄見 PR #32）
 設計稿：`design/project/Mermaid.dc.html`（新板，前台第一排最右；圖表是 Pele 1.9.0 的實際輸出）。
 
 ## 上游事實（查證日期 2026-10-24）
@@ -26,19 +26,19 @@ Status：draft（本工作單只交付契約、設計板、骨架與失敗的驗
 
 ## 流程與驗收
 
-- [ ] 作者在文章或頁面寫 ```` ```mermaid ```` 區塊並儲存，訪客打開公開頁看到圖表；儲存的 `content` 只有 `<pre><code class="language-mermaid">` 與逸出後的原文，從不儲存 SVG。
-- [ ] 作者重新打開編輯器，原文（`meta.markdown`）與儲存前完全相同。
-- [ ] 訪客在同一頁看到多張圖（流程圖、循序圖、ER 圖，含中文標籤），每張圖畫在原本程式碼區塊的位置，原本的 `<pre>` 隱藏但留在 DOM。
-- [ ] 訪客打開沒有 Mermaid 的頁面時，頁面完全不載入 Pele 與整合腳本。
-- [ ] 圖表的文字、線條、節點底色跟著主題變數走，亮色與深色模式都一致；中文標籤用主題字型（Noto Sans TC）。
-- [ ] 訪客在 390px 手機上整頁沒有橫向溢出；縮不下的寬圖只在圖表框內橫向捲動。
-- [ ] 語法錯誤、不支援的圖種、原文過長、Pele 沒載入或沒輸出時，訪客看到原文與「圖表無法顯示：…」提示（英文介面為「Diagram could not be displayed: …」），同頁其他圖照常顯示。
-- [ ] 同一頁重複呼叫整合腳本不會重畫或重複產生圖；原文變了才重畫，舊圖移除；程式碼區塊被移除時對應的圖一起清掉。
-- [ ] 惡意圖表（`click` 指向 `javascript:`、標籤內嵌 `<script>` 或 `<img onerror>`、`tel:`、`//host` 連結）不會執行任何腳本，輸出沒有 `javascript:`、`on*` 屬性、`script`、`foreignObject`；外部連結帶 `rel="noopener noreferrer"`。
-- [ ] 封鎖所有外部網域後，圖表仍完整畫出，頁面沒有任何外部請求。
-- [ ] Pele 以建置後的單檔自帶在 `web/admin/assets/pele/`，附 `LICENSE` 與 `VERSION`（版本、來源 commit、建置日期）；`scripts/vendor/pele.sh` 可重現；`docs/release-checklist.md` 列出它。
-- [ ] 主題作者照「主題整合」一節在自己的 `layout.html` 呼叫 `{{contentAssets .}}` 就能支援圖表；`docs/mermaid.md` 寫明作者用法、支援的圖種、上限與主題整合方式。
-- [ ] 編輯預覽顯示圖表：main 沒有編輯預覽，這一條在工作單 09 合併後驗收（見「與工作單 09 的相依」）。
+- [x] 作者在文章或頁面寫 ```` ```mermaid ```` 區塊並儲存，訪客打開公開頁看到圖表；儲存的 `content` 只有 `<pre><code class="language-mermaid">` 與逸出後的原文，從不儲存 SVG。
+- [x] 作者重新打開編輯器，原文（`meta.markdown`）與儲存前完全相同。
+- [x] 訪客在同一頁看到多張圖（流程圖、循序圖、ER 圖，含中文標籤），每張圖畫在原本程式碼區塊的位置，原本的 `<pre>` 隱藏但留在 DOM。
+- [x] 訪客打開沒有 Mermaid 的頁面時，頁面完全不載入 Pele 與整合腳本。
+- [x] 圖表的文字、線條、節點底色跟著主題變數走，亮色與深色模式都一致；中文標籤用主題字型（Noto Sans TC）。
+- [x] 訪客在 390px 手機上整頁沒有橫向溢出；縮不下的寬圖只在圖表框內橫向捲動。
+- [x] 語法錯誤、不支援的圖種、原文過長、Pele 沒載入或沒輸出時，訪客看到原文與「圖表無法顯示：…」提示（英文介面為「Diagram could not be displayed: …」），同頁其他圖照常顯示。
+- [x] 同一頁重複呼叫整合腳本不會重畫或重複產生圖；原文變了才重畫，舊圖移除；程式碼區塊被移除時對應的圖一起清掉。
+- [x] 惡意圖表（`click` 指向 `javascript:`、標籤內嵌 `<script>` 或 `<img onerror>`、`tel:`、`//host` 連結）不會執行任何腳本，輸出沒有 `javascript:`、`on*` 屬性、`script`、`foreignObject`；外部連結帶 `rel="noopener noreferrer"`。
+- [x] 封鎖所有外部網域後，圖表仍完整畫出，頁面沒有任何外部請求。
+- [x] Pele 以建置後的單檔自帶在 `web/admin/assets/pele/`，附 `LICENSE` 與 `VERSION`（版本、來源 commit、建置日期）；`scripts/vendor/pele.sh` 可重現；`docs/release-checklist.md` 列出它。
+- [x] 主題作者照「主題整合」一節在自己的 `layout.html` 呼叫 `{{contentAssets .}}` 就能支援圖表；`docs/mermaid.md` 寫明作者用法、支援的圖種、上限與主題整合方式。
+- [x] 編輯預覽顯示圖表，涵蓋載入失敗重試與延遲回應隔離（見「與工作單 09 的相依」）。
 
 ## 錯誤與邊界
 
@@ -48,12 +48,12 @@ Status：draft（本工作單只交付契約、設計板、骨架與失敗的驗
 
 ### 儲存與輸出（不改資料表）
 
-- 文章與頁面沿用既有欄位：`content` 是編輯器轉出的 HTML，原文在 `meta.markdown`。marked 15 對 ```` ```mermaid ```` 的輸出是 `<pre><code class="language-mermaid">…逸出後原文…\n</code></pre>`（已驗證）；伺服器不改寫這段，前台以 `safeHTML` 輸出。`post.html` 經 `headingIDs` 重新序列化時，`&quot;` 會變成 `&#34;`，解碼後的文字不變；測試比對解碼後的文字。
+- 文章與頁面沿用工作單 09 的欄位與渲染流程：原稿保存在 `source`，物件型 `meta` 另雙寫 `meta.markdown`；合法非物件 metadata 保持不變。`internal/markup` 將 Mermaid 圍欄輸出為 `<pre><code class="language-mermaid">…逸出後原文…\n</code></pre>`，不經 Chroma，也不儲存 SVG。既有 HTML 寫入仍經原有淨化；`&quot;` 與 `&#34;` 可被正規化，測試比對解碼後的圖表原文、原稿及建立後重開的內容穩定性。
 - 不新增資料遷移、不新增 API。
 
 ### 主題整合：`contentAssets`（`internal/theme/content_assets.go`）
 
-- `func ContentAssets(contents ...string) template.HTML`：任一內容以 HTML 解析後含有 class 清單包含 `language-mermaid` 的 `<code>` 元素時，依序回傳下面三個標籤（各一次，不論幾張圖）；否則回傳空字串。純文字或行內程式碼裡出現「language-mermaid」字樣、`language-mermaidx`、非 `<code>` 元素上的同名 class 都不算。
+- `func ContentAssets(contents ...string) template.HTML`：任一內容以 HTML 解析後含有 class 清單包含 `language-mermaid` 的 `<code>` 元素時，依序回傳下面三個標籤（各一次，不論幾張圖）；沒有 Mermaid 時不輸出這三個標籤；數學、互動元件與動效依 `markup.Features` 載入各自資產，完全沒有功能需求時才回空字串。純文字或行內程式碼裡出現「language-mermaid」字樣、`language-mermaidx`、非 `<code>` 元素上的同名 class 都不算。
 
   ```html
   <script src="/admin/assets/pele/pele.global.js" defer></script>
@@ -61,7 +61,7 @@ Status：draft（本工作單只交付契約、設計板、骨架與失敗的驗
   <script>document.addEventListener("DOMContentLoaded",function(){window.JellyMermaid&&window.JellyMermaid.render(document)});</script>
   ```
 
-  第三個標籤的確切寫法可以不同，但必須是行內腳本、在 `DOMContentLoaded` 呼叫 `JellyMermaid.render(document)`，且位在 `jelly-mermaid.js` 之後。所有網址都是站內絕對路徑 `/admin/assets/…`。
+  第三個標籤的確切寫法可以不同，但必須是行內腳本、在 `DOMContentLoaded` 呼叫 `JellyMermaid.render(document)`，且位在 `jelly-mermaid.js` 之後。Mermaid 資產都是站內絕對路徑 `/admin/assets/…`，既有元件與數學資產使用 `/theme/assets/…`、`/vendor/…`。
 - 模板函式 `contentAssets`（由 `(*Manager).templateFuncs` 提供給所有主題，骨架已註冊）：主題在 `layout.html` 的 `<head>` 寫 `{{contentAssets .}}`。它從模板資料（`map[string]interface{}`）讀 `Post`、`Page`（`core.Post` 或 `*core.Post` 的 `Content`）與 `Content`（`string` 或 `template.HTML`），其他鍵（`Posts`、`Featured` 等列表）一律不看；`nil`、非 map、型別不符都回空字串，不得讓模板執行失敗。
 - 預設主題 `web/themes/default/layout.html`：在 `<head>` 呼叫 `{{contentAssets .}}`，並在主題 `<style>` 定義 `.jc-mermaid`、`.jc-mermaid-error` 與下表的 `--pele-*` 對應（亮暗共用同一組對應，靠主題變數本身在深色模式改值）：
 
@@ -92,7 +92,7 @@ Status：draft（本工作單只交付契約、設計板、骨架與失敗的驗
   - 失敗：`<pre>` 不隱藏，緊接 `<p class="jc-mermaid-error" role="status">`，文字為「前綴＋原因」，以 `textContent` 寫入（可以另放一個裝飾用的 `<svg>` 圖示，不得有其他元素）。
 - 重複呼叫：同一個 `<pre>` 原文沒變就保留原本的 figure 與 SVG 元素（不重畫、不換節點）；原文變了先移除舊 figure 或舊提示再處理；失敗變成功時移除提示並隱藏 `<pre>`，成功變失敗時移除 figure 並顯示 `<pre>`。`root` 內沒有對應 `<pre>` 的 `figure.jc-mermaid` 與 `p.jc-mermaid-error`（原本的區塊被移除或內容被替換）要清掉；若用 `pele.mount()`，清掉時呼叫 `Mounted.destroy()`。同一區塊之後永遠只有一個 figure 或一個提示。
 - 呼叫 Pele 的選項由腳本固定，不讀原文或頁面提供的設定：`idPrefix` 每張圖唯一（只含英數、`-`、`_`）、`fontFamily` 取 figure 的計算字型、`maxWidth` 取 figure 內容寬、`linkSchemes: ['http','https','mailto']`、`images: false`、`linkRel: 'noopener noreferrer'`、`limit: 50000`、`responsive: true`。用 `mount()` 時另設 `zoom: false` 並以 `sanitize` 掛上下面的淨化器。
-- 插入前的淨化（不論 Pele 是否已過濾）：以 `DOMParser`（`image/svg+xml`）解析，解析失敗當成渲染失敗；移除 `script`、`foreignObject`（以及 `iframe`、`object`、`embed`）元素；移除所有名稱以 `on` 開頭的屬性；`href` 與 `xlink:href` 只留 `http:`、`https:`、`mailto:` 或沒有 scheme 且不以 `//` 開頭的站內相對路徑，其他值連同屬性移除；指向其他來源的 `http(s)` 連結設定 `rel="noopener noreferrer"`。
+- 插入前另以 SVG 元素／屬性允許清單及 CSSOM 宣告解析淨化，保留 Pele 必要的內部色彩變數、字型與圖形樣式；拒絕外部資源、CSS URL／逸出／註解、動畫及非 SVG 命名空間。只有 `<a>` 可保留允許的導航連結，`<use>` 只保留本地 `#id`。基礎限制（不論 Pele 是否已過濾）：以 `DOMParser`（`image/svg+xml`）解析，解析失敗當成渲染失敗；移除 `script`、`foreignObject`（以及 `iframe`、`object`、`embed`）元素；移除所有名稱以 `on` 開頭的屬性；`href` 與 `xlink:href` 只留 `http:`、`https:`、`mailto:` 或沒有 scheme 且不以 `//` 開頭的站內相對路徑，其他值連同屬性移除；指向其他來源的 `http(s)` 連結設定 `rel="noopener noreferrer"`。
 - 原因文字（`<原因>`）：
   - 原文超過 50,000：繁中「圖表原文超過 50000 字元」、英文「Diagram source exceeds 50000 characters」，不呼叫 Pele。
   - `window.pele` 不存在：「繪圖元件沒有載入」／「The diagram renderer did not load」。
@@ -156,7 +156,7 @@ Status：draft（本工作單只交付契約、設計板、骨架與失敗的驗
 
 ## 與工作單 12（issue #18 零 CDN，另一個新 PR）的調和
 
-`Mermaid.dc.html` 沿用目前所有板的 helmet，從 Google Fonts 載字型。工作單 12 會把所有板改成自帶的 `design/project/fonts.css`；後合併的一方把這張板（`design/tools/mermaid-board/board.css` 或 `build.cjs` 裡的 helmet）一併改掉，並讓 12 的外部資源檢查涵蓋它。
+`Mermaid.dc.html` 的產生器讀取 `web/admin/assets/fonts/` 的兩套自帶字型並內嵌於板，不向 Google Fonts 或其他外部來源載入資源。
 
 ## 決策紀錄
 
@@ -183,7 +183,7 @@ Status：draft（本工作單只交付契約、設計板、骨架與失敗的驗
 1. M1 主題整合：`ContentAssets`、`contentAssetsForTemplate`；預設主題 `layout.html` 在 `<head>` 呼叫 `{{contentAssets .}}` 並加上 `.jc-mermaid`、`.jc-mermaid-error` 與 `--pele-*` 對應。要通過：`internal/theme/content_assets_test.go` 全部；`internal/server/mermaid_integration_test.go` 的 `TestMermaidPostPageLoadsDiagramAssets`、`TestMermaidStaticPageLoadsDiagramAssets`、`TestMermaidPagesWithoutDiagramsLoadNoAssets`、`TestMermaidSourceSurvivesAdminSaveAndReopen`。
 2. M2 Pele 自帶：`scripts/vendor/pele.sh`、執行後產生的 `web/admin/assets/pele/` 三個檔、`docs/release-checklist.md` 的套件清單。要通過：`TestMermaidVendoredPelePackage`（`jelly-mermaid.js` 的存在檢查在 M3 才會通過）。
 3. M3 整合腳本：`web/admin/assets/jelly-mermaid.js`。要通過：`TestMermaidVendoredFilesAreServed`、`TestMermaidVendoredPelePackage`，以及 `scripts/acceptance/mermaid.spec.mjs` 全部檢查。
-4. M4 文件與驗收：`docs/mermaid.md`；主代理以真實伺服器跑 `scripts/acceptance/mermaid.spec.mjs`（1280／390、亮／暗、封鎖外部網域）並對照 `Mermaid.dc.html` 截圖；板標題移除「（尚未實作）」並發布線上畫布。09 合併後補驗編輯預覽。
+4. M4 文件與驗收：`docs/mermaid.md`；主代理以真實伺服器跑 `scripts/acceptance/mermaid.spec.mjs`（1280／390、亮／暗、封鎖外部網域）並對照 `Mermaid.dc.html` 截圖；板標題移除「（尚未實作）」並發布線上畫布。編輯預覽與離線匯出同輪驗收；列印時取消螢幕用的 75% 最小寬度，完整縮至紙寬。
 
 ## issue #22 驗收條件對照
 
@@ -191,7 +191,7 @@ Status：draft（本工作單只交付契約、設計板、骨架與失敗的驗
 |---|---|
 | 文章與頁面的 Mermaid 在公開頁正確，原文不遺失 | `TestMermaidPostPageLoadsDiagramAssets`、`TestMermaidStaticPageLoadsDiagramAssets`；spec「三種圖…」「頁面（type=page）…」 |
 | 儲存後重新開啟正確 | `TestMermaidSourceSurvivesAdminSaveAndReopen`；spec「儲存後重新開啟：原文不遺失」 |
-| 編輯預覽正確 | 09 合併後：預覽更新呼叫 `JellyMermaid.render(previewRoot)`，以 spec 的重複呼叫與改原文情境在預覽根元素重跑（見「與工作單 09 的相依」第 3 點） |
+| 編輯預覽正確 | 預覽更新呼叫 `JellyMermaid.render(previewRoot)`，以 spec 的重複呼叫與改原文情境在預覽根元素重跑（見「與工作單 09 的相依」第 3 點） |
 | 流程圖、循序圖、ER 圖實例，中文標籤、同頁多張 | spec「三種圖（中文標籤）在同一頁都畫成 SVG…」 |
 | 反覆編輯不重複產生、清理舊資源 | spec「重複呼叫 JellyMermaid.render(document) 不重畫也不重複產生」「改原文後重畫且只剩一個 figure…」「錯誤修正後重畫…」；`TestMermaidSourceSurvivesAdminSaveAndReopen` 的更新段 |
 | 桌面與手機，配色一致、無整頁橫向溢出 | spec「手機 390…」「配色跟隨主題（light）」「配色跟隨主題（dark）」；主代理對照 `Mermaid.dc.html` 截圖 |

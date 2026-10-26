@@ -9,7 +9,7 @@
  const user = window.JellyEditorUser || {}, storageKey = 'jelly.editor.' + (user.ID || user.id || user.Username || user.username || 'self');
  const read = (key, fallback) => { try { return JSON.parse(localStorage.getItem(storageKey + '.' + key)) ?? fallback; } catch (_) { return fallback; } };
  const store = (key, value) => { try { localStorage.setItem(storageKey + '.' + key, JSON.stringify(value)); } catch (_) {} };
- let programmatic = false, savedSnapshot = null;
+ let programmatic = false, savedSnapshot = null, renderSequence = 0, mermaidLoadPromise = null;
  let postId = Number(location.pathname.split('/').pop()) || 0, initialized = !postId, dirty = false, generation = 0, timer, controller, lastRenderSource = '', blocks = [], selectedBlock, schema = { Blocks: [], Slash: [] }, slashItems = [], slashIndex = 0, dismissedSlash = '', exportFormat = 'jmd', autoBusy = false, lastAutosave = '', idleTimer;
  form.inert=!initialized;
  const api = window.JellyEditor = { ready:initialized, format: 'jmd', baseUpdatedAt: undefined, save: async () => false };
@@ -41,21 +41,36 @@
   }
   cursor();render();
  };
+ function loadEditorScript(src, ready) {
+  if(ready())return Promise.resolve();
+  return new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=()=>ready()?resolve():reject(Error('Script did not initialize'));script.onerror=()=>{script.remove();reject(Error('Script failed to load'));};document.head.append(script);});
+ }
+ function ensureMermaid() {
+  if(window.pele&&window.JellyMermaid)return Promise.resolve();
+  if(!mermaidLoadPromise)mermaidLoadPromise=loadEditorScript('/admin/assets/pele/pele.global.js',()=>!!window.pele).then(()=>loadEditorScript('/admin/assets/jelly-mermaid.js',()=>!!window.JellyMermaid)).catch(error=>{mermaidLoadPromise=null;throw error;});
+  return mermaidLoadPromise;
+ }
  async function render() {
-  const source=api.getValue(), seq=generation;
+  const source=api.getValue(), gen=generation, seq=++renderSequence, current=()=>seq===renderSequence&&gen===generation;
   if(!navigator.onLine){notice(tr('Offline'),'offline-status');return;}
   if(controller)controller.abort();controller=new AbortController();
   try {
    const response=await fetch('/api/admin/render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source,post_id:postId||undefined,mode:'fragment',sourcemap:true,expand:true}),signal:controller.signal});
-   const result=await response.json();if(seq!==generation)return;
+   if(!current())return;
+   const result=await response.json();if(!current())return;
+   if(!response.ok){diagnostics(result.diagnostics||[]);notice(tr(response.status===429?'RateLimit':'RenderFailed'),'render-error');return;}
+   const features=result.features||result.Features||[], hasMermaid=features.includes('mermaid');
+   let mermaidError=null;
+   if(hasMermaid){try{await ensureMermaid();}catch(error){mermaidError=error;}if(!current())return;}
    diagnostics(result.diagnostics||[]);
-   if(!response.ok){notice(tr(response.status===429?'RateLimit':'RenderFailed'),'render-error');return;}
    $('editorPreview').innerHTML=result.html;
    window.JellyComponents?.init($('editorPreview'));window.JellyMotion?.init($('editorPreview'));
+   if(hasMermaid&&!mermaidError){await window.JellyMermaid.render($('editorPreview'));if(!current())return;}
    blocks=(result.blocks||[]).map(b=>({kind:b.Kind??b.kind,name:b.Name??b.name,attrs:b.Attrs??b.attrs??{},start:b.StartLine??b.start_line,end:b.EndLine??b.end_line}));lastRenderSource=source;
    outline(result.toc||[],result.stats||{});if(root.dataset.view==='layout')paintLayout();
-   if($('editorNotice').dataset.testid!=='save-conflict')notice('');
-  } catch(error){if(error.name!=='AbortError' && seq===generation)notice(tr(navigator.onLine?'RenderFailed':'Offline'),navigator.onLine?'render-error':'offline-status');}
+   if(mermaidError){if($('editorNotice').dataset.testid!=='save-conflict')notice(tr('RenderFailed'),'render-error');}
+   else if($('editorNotice').dataset.testid!=='save-conflict')notice('');
+  } catch(error){if(error.name!=='AbortError' && current())notice(tr(navigator.onLine?'RenderFailed':'Offline'),navigator.onLine?'render-error':'offline-status');}
  }
  function diagnostics(items) { const target=$('editorDiagnostics');target.replaceChildren();for(const d of items){const b=document.createElement('button');b.type='button';b.textContent=`${tr('Line')} ${d.Line??d.line}: ${d.Message??d.message}`;b.onclick=()=>goLine(d.Line??d.line);target.append(b);} }
  function outline(toc,stats){$('editorTOC').replaceChildren();for(const h of toc){const b=document.createElement('button');b.type='button';b.textContent=h.Text??h.text;b.style.paddingLeft=((h.Level??h.level)-1)*10+'px';b.onclick=()=>{const n=Array.from($('editorPreview').querySelectorAll('[id]')).find(n=>n.id===(h.ID??h.id));if(n){n.scrollIntoView({block:'center'});if(n.dataset.line)goLine(+n.dataset.line);}};$('editorTOC').append(b);} $('editorStats').replaceChildren();for(const [key,label] of [['Chars','Chars'],['Words','Words'],['Minutes','Minutes'],['Images','Images'],['Links','Links'],['Todos','Todos']]){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=tr(label);dd.textContent=stats[key]??stats[key.toLowerCase()]??0;$('editorStats').append(dt,dd);} }
@@ -149,6 +164,7 @@
   const documentHTML=new DOMParser().parseFromString(html,'text/html'),section=document.createElement('section');section.id='editorPrintDocument';section.className='editor-print-document';
   const style=document.createElement('style');style.media='print';style.textContent=Array.from(documentHTML.querySelectorAll('style')).map(s=>s.textContent).join('\n')+'\n@page{margin:18mm}body{background:white!important;color:black!important}pre,figure,table{break-inside:avoid}';section.append(style);
   const body=document.createElement('div');body.innerHTML=documentHTML.body.innerHTML;body.querySelectorAll('script').forEach(s=>s.remove());section.append(body);document.body.append(section);window.JellyComponents?.init(body);
+  if(body.querySelector('pre > code.language-mermaid')){await ensureMermaid();await window.JellyMermaid.render(body);}
   await document.fonts.ready;await Promise.all(Array.from(section.querySelectorAll('img')).map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.onload=img.onerror=resolve;})));
   await new Promise(resolve=>requestAnimationFrame(resolve));window.print();
  }

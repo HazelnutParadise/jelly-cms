@@ -242,8 +242,11 @@ func TestMermaidSourceSurvivesAdminSaveAndReopen(t *testing.T) {
 	if again.Meta.Markdown != mermaidITMarkdown {
 		t.Errorf("reopened meta.markdown = %q, want the original source %q", again.Meta.Markdown, mermaidITMarkdown)
 	}
-	if again.Content != mermaidITHTML {
-		t.Errorf("reopened content = %q, want the stored HTML %q (no SVG is ever stored)", again.Content, mermaidITHTML)
+	if post.Content != again.Content {
+		t.Errorf("reopened content = %q, want the created content %q (saving and reopening must not mutate stored HTML)", again.Content, post.Content)
+	}
+	if strings.Contains(strings.ToLower(again.Content), "<svg") || strings.Contains(strings.ToLower(again.Content), "<script") {
+		t.Errorf("reopened content contains rendered SVG or script; Mermaid output must never be stored: %q", again.Content)
 	}
 
 	path := "/post/mermaid-saved-diagram"

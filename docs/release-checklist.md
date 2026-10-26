@@ -4,6 +4,11 @@
 
 ## 1. 自帶套件更新到最新版
 
+| 套件 | 目錄 | 重建腳本 |
+|---|---|---|
+| Noto Sans TC／Bricolage Grotesque 字型 | `web/admin/assets/fonts/` | `scripts/vendor/fonts.sh` |
+| Pele | `web/admin/assets/pele/` | `scripts/vendor/pele.sh` |
+
 - 列出 `web/` 下所有自帶的第三方套件：每個套件目錄都有 `VERSION`（目前版本、來源 commit 或 tag、建置日期）與 `LICENSE`。
 - 逐一查上游最新版本（GitHub Releases、npm 或上游網站），以 `scripts/vendor/<套件>.sh` 重新取得或重新建置到最新版，更新 `VERSION`。
 - 上游有破壞性變更時先在本機跑過受影響的頁面再決定是否升版；不升版要在 `VERSION` 寫明原因與追蹤的 issue。

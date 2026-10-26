@@ -16,6 +16,8 @@ import (
 	"github.com/yuin/goldmark/parser"
 	gmhtml "github.com/yuin/goldmark/renderer/html"
 	"github.com/yuin/goldmark/text"
+	htmlnode "golang.org/x/net/html"
+	"golang.org/x/net/html/atom"
 )
 
 func renderMarkdown(source string, sourceMap bool) (string, []TOCEntry, error) {
@@ -436,12 +438,56 @@ func normalizeIDs(s string) (string, []TOCEntry) {
 }
 
 func detectFeatures(s string) []string {
-	checks := []struct{ name, pattern string }{{"accordion", `class="jc-accordion"`}, {"math", `class="jc-math"`}, {"motion", `data-(reveal|hover|scroll|delay|dur|stagger|once)`}, {"tabs", `data-jc="tabs"`}, {"carousel", `data-jc="carousel"`}, {"lightbox", `data-jc="lightbox"`}, {"counter", `data-jc="counter"`}, {"countdown", `data-jc="countdown"`}, {"compare", `data-jc="compare"`}, {"widget", `class="jc-widget"`}}
-	var out []string
-	for _, c := range checks {
-		if regexp.MustCompile(c.pattern).MatchString(s) {
-			out = append(out, c.name)
+	root := &htmlnode.Node{Type: htmlnode.ElementNode, Data: "div", DataAtom: atom.Div}
+	nodes, err := htmlnode.ParseFragment(strings.NewReader(s), root)
+	if err != nil {
+		return nil
+	}
+	features := make(map[string]bool)
+	var walk func(*htmlnode.Node)
+	walk = func(n *htmlnode.Node) {
+		if n.Type == htmlnode.ElementNode {
+			classes := make(map[string]bool)
+			attrs := make(map[string]string, len(n.Attr))
+			present := make(map[string]bool, len(n.Attr))
+			for _, attr := range n.Attr {
+				attrs[attr.Key] = attr.Val
+				present[attr.Key] = true
+				if attr.Key == "class" {
+					for _, class := range strings.Fields(attr.Val) {
+						classes[class] = true
+					}
+				}
+			}
+			if classes["jc-accordion"] {
+				features["accordion"] = true
+			}
+			if classes["jc-math"] {
+				features["math"] = true
+			}
+			if classes["jc-widget"] {
+				features["widget"] = true
+			}
+			if n.Data == "code" && classes["language-mermaid"] {
+				features["mermaid"] = true
+			}
+			if present["data-reveal"] || present["data-hover"] || present["data-scroll"] || present["data-delay"] || present["data-dur"] || present["data-stagger"] || present["data-once"] {
+				features["motion"] = true
+			}
+			if kind := attrs["data-jc"]; kind == "tabs" || kind == "carousel" || kind == "lightbox" || kind == "counter" || kind == "countdown" || kind == "compare" {
+				features[kind] = true
+			}
 		}
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	for _, n := range nodes {
+		walk(n)
+	}
+	var out []string
+	for name := range features {
+		out = append(out, name)
 	}
 	sort.Strings(out)
 	return out

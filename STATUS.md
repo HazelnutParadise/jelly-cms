@@ -2,6 +2,12 @@
 
 ## 目前驗收狀態
 
+- PR #32：工作單 11 已完成 Mermaid 原生支援，整合已合併的工作單 09。原稿保留於既有欄位，伺服器只輸出逸出文字，不儲存 SVG；公開頁、編輯預覽、離線 HTML 與 PDF 列印共用自帶 Pele 1.9.0 與同一支繪圖腳本，沒有新增資料遷移或 API。
+- PR #32 安全與狀態：固定繪圖選項與 50,000 字元上限，SVG 元素／屬性與 CSS 宣告淨化，封鎖外部圖片、外部 SVG 引用、危險網址、腳本、事件與動畫。等待字型期間的原稿變動、區塊移除、重複呼叫、缺少元件後重試，以及移除 Mermaid 標記後恢復原文均有回歸。
+- PR #32 本機驗證：主代理重跑公開頁 13/13、編輯器 7/7 瀏覽器驗收，包含繁中／英文、390px／1280px、亮／暗、失敗重試、延遲載入隔離、離線 HTML 與真實 A4 PDF。PDF 12 個唯一標籤全部可擷取，手機仍只在圖表框內捲動；公開頁四組截圖沒有例外、外部請求或整頁溢出，圖表字型與文字色符合主題。證據 `/tmp/jelly32-ui/evidence.json`、`/tmp/jelly32-browser-public-final.log`、`/tmp/jelly32-browser-editor-verified.log`。
+- PR #32 檢查：主代理的 Mermaid／匯出競態回歸通過（server 11.378 秒），markup／theme 全套、NATS 競態、go vet、原生及 Windows／macOS amd64 編譯通過。舊草稿測試把等價的 HTML 引號編碼當成資料變更，已依實作前失敗證據改為驗證解碼原文與保存後內容穩定，另明確拒絕儲存 SVG／script。獨立審查找到的原文隱藏與 PDF 寬圖裁切均已修正並重驗。
+- PR #32 交付：Mermaid 設計板、產生器與 canvas 索引同版，字型完全自帶。完整 PostgreSQL／Redis 競態套件、必要 CI、線上畫布同步、合併與分支清理結果見 [PR #32](https://github.com/HazelnutParadise/jelly-cms/pull/32) 最終紀錄。沒有部署。
+
 - PR #31：工作單 14 已實作獨立 agent API、16 項權限、金鑰建立／輪替／撤銷／停啟用與軟刪除、探索端點、OpenAPI 與 Agent Skill。共用 main 的 handler、角色、設定登記表與遮罩，新增 0025 遷移，保留既有帳號、商店、系統、編輯器與 WebMCP。
 - PR #31 一致性：獨立審查找到的權限復活、跨文章／頁面刪除、輪替回應金鑰錯配、同名競態、混合型別設定與 chunked／超限／根路徑稽核缺口已補確定性回歸。請求先同交易保留 agent event 與 system log，初寫失敗不執行業務；結算失敗保留 status=0，不偽稱已回滾業務。商品版本防覆蓋涵蓋庫存、規格與分類的整個交易。
 - PR #31 本機驗證：主代理重跑 agent、共用帳號與新增回歸競態批次通過（server 64.767 秒）；NATS 競態、go vet、原生及 Windows／macOS amd64 編譯通過。OpenAPI 標準驗證與 34 個真實正常／錯誤回應的 schema 比對通過。完整 PostgreSQL／Redis 批次曾在 40 分鐘到期，且六個既有外掛案例超過 5 秒握手期限；原失敗案例與到期時的分類案例另批重跑通過（36.974 秒），尚未據此認定根因已修正。

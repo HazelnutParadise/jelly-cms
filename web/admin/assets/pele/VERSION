@@ -1,0 +1,9 @@
+Pele
+Version: 1.9.0
+Source: https://github.com/obsidianmd/pele
+Commit: e7f092a4de147cc32210913c20e36eaa5fcd0ef1
+Package: https://registry.npmjs.org/pele/-/pele-1.9.0.tgz
+Package integrity: sha512-KUmBt7P5JduVKQaP6FKfXiRgH3LBVIKsmdgPJZU7jD3ye6F+Z8fbms+OjivE7rWY09Qx+5X65VKe/9ywKFJ9Sw==
+File: dist/pele.global.js
+File SHA-256: 323c16de7844d4b609743f70449ebce041a531e4f48f23b1e9e7ec9d3b917287
+Build date (UTC): 2026-10-26

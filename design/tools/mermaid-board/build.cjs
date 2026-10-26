@@ -7,7 +7,6 @@ const MARK = '<svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d=
 const ICON = {
   search: '<svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
   menu: '<svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
-  warn: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l10 18H2zM12 10v5M12 18v.5"/></svg>',
   swipe: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/></svg>',
 };
 const fig = (id, minWidth) => {
@@ -16,7 +15,7 @@ const fig = (id, minWidth) => {
   return `<figure class="jc-mermaid">${styled}</figure>`;
 };
 const pre = src => `<pre><code class="language-mermaid">${esc(src)}</code></pre>`;
-const errorP = msg => `<p class="jc-mermaid-error" role="status">${ICON.warn}<span>圖表無法顯示：${esc(msg)}</span></p>`;
+const errorP = msg => `<p class="jc-mermaid-error" role="status">圖表無法顯示：${esc(msg)}</p>`;
 
 const desktop = (dark) => {
   const k = dark ? 'D' : 'L';
@@ -68,7 +67,7 @@ const tooLong = `<p>原文超過 50 000 字元時不交給 Pele，直接提示�
   …（共 51 230 字元）</code></pre>
   ${errorP('圖表原文超過 50000 字元')}
   <p>英文介面的同一行文字：</p>
-  <p class="jc-mermaid-error" role="status">${ICON.warn}<span>Diagram could not be displayed: Diagram source exceeds 50000 characters</span></p>`;
+  <p class="jc-mermaid-error" role="status">Diagram could not be displayed: Diagram source exceeds 50000 characters</p>`;
 
 const spec = `<div class="spec">
   <div class="lbl">規格摘要（契約見 docs/tickets/11-mermaid.md）</div>
@@ -95,11 +94,22 @@ const spec = `<div class="spec">
     <tr><td>--pele-series-1…5</td><td>primary、secondary、accent、warning、ink</td></tr>
   </table>
   <h3 class="d">版面</h3>
-  <ul><li>圖表框 <code>max-width:100%</code>、<code>overflow-x:auto</code>，只有框內捲動。</li><li>SVG 隨框寬縮放，最小為原寬 75%。</li><li>原文超過 50 000 字元、語法錯誤、不支援的圖種：保留原文並提示，同頁其他圖照常。</li><li>連結只留 http(s)、mailto 與站內路徑，外部連結加 <code>rel="noopener noreferrer"</code>。</li></ul>
+  <ul><li>圖表框 <code>max-width:100%</code>、<code>overflow-x:auto</code>，只有框內捲動。</li><li>SVG 隨框寬縮放，最小為原寬 75%。</li><li>列印或存成 PDF 時縮至紙張寬度，整張圖完整保留。</li><li>原文超過 50 000 字元、語法錯誤、不支援的圖種：保留原文並提示，同頁其他圖照常。</li><li>連結只留 http(s)、mailto 與站內路徑，外部連結加 <code>rel="noopener noreferrer"</code>。</li></ul>
+</div>`;
+
+const FONT_CSS = ['noto-sans-tc', 'bricolage-grotesque'].map((name, index) => {
+  const bytes = fs.readFileSync(path.join(__dirname, '../../../web/admin/assets/fonts', name + '.woff2'));
+  const family = index === 0 ? 'Noto Sans TC' : 'Bricolage Grotesque';
+  return `@font-face{font-family:"${family}";src:url(data:font/woff2;base64,${bytes.toString('base64')}) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}`;
+}).join('\n');
+const editorPreview = dark => `<div class="fr editor-example${dark ? ' dk' : ''}">
+  <div class="topline"></div>
+  <div class="editor-example-toolbar"><strong>用圖表說清楚發布流程</strong><div><span>原稿</span><span class="on">分割</span><span>預覽</span></div><span>已儲存</span></div>
+  <div class="editor-example-panes"><pre><code>${esc('```mermaid\n' + S.sources.flow + '\n```')}</code></pre><article class="prose"><h2>流程圖</h2>${fig('flow' + (dark ? 'D' : 'L'))}<p>原稿更新後，預覽使用同一支繪圖腳本重新繪製。</p></article></div>
 </div>`;
 
 const CSS = fs.readFileSync(path.join(__dirname, 'board.css'), 'utf8');
-const W = 2680, H = 4380;
+const W = 2680, H = 5000;
 const html = `<!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -110,10 +120,8 @@ const html = `<!doctype html>
 <body>
 <x-dc>
 <helmet>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
 <style>
+${FONT_CSS}
 ${CSS}
 </style>
 </helmet>
@@ -121,6 +129,7 @@ ${CSS}
   <div class="intro"><span class="stripe"></span><div class="lbl">前台 · 內容元件（工作單 11）</div><h1 class="d">Mermaid 圖表</h1><p>文章與頁面裡的 <code>mermaid</code> 程式碼區塊在瀏覽器以自帶的 Pele 畫成 SVG。下圖的圖表都是 Pele 1.9.0 的實際輸出，套上預設主題的配色對應。</p></div>
   <section><div class="row-title"><span class="d">桌面 1280</span><span class="chip">亮色</span><span class="chip dk">深色</span></div>
     <div class="row">${desktop(false)}${desktop(true)}</div></section>
+  <section><div class="row-title"><span class="d">編輯預覽</span><span class="chip">與公開內容共用</span></div><div class="row">${editorPreview(false)}${editorPreview(true)}</div></section>
   <section><div class="row-title"><span class="d">手機 390</span><span class="chip">三種圖</span><span class="chip">過寬</span><span class="chip warn">錯誤狀態</span></div>
     <div class="row">
       ${phone('亮色 · 流程圖、循序圖、ER 圖', false, three("L"), 1900)}

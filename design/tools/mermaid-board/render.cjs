@@ -89,7 +89,7 @@ const D = {
   const out = await p.evaluate(({ jobs, bad }) => {
     const o = {};
     for (const [id, src, w] of jobs) {
-      const r = window.pele.render(src, { maxWidth: w, idPrefix: 'mb-' + id + '-', fontFamily: '"Noto Sans TC", sans-serif', fontSize: 15, linkSchemes: ['http', 'https', 'mailto'], linkRel: 'noopener noreferrer' });
+      const r = window.pele.render(src, { maxWidth: w, idPrefix: 'mb-' + id + '-', fontFamily: '"Noto Sans TC", sans-serif', fontSize: 15, images: false, limit: 50000, responsive: true, linkSchemes: ['http', 'https', 'mailto'], linkRel: 'noopener noreferrer' });
       o[id] = { svg: r.svg, width: r.width, height: r.height };
     }
     try { window.pele.render(bad); } catch (e) { o.badMsg = e.message; o.badCode = e.code; }
