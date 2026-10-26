@@ -511,6 +511,14 @@
       "x": 15200,
       "y": 0
     },
+    "Mermaid.dc.html": {
+      "x": 18660,
+      "y": 0,
+      "w": 2680,
+      "h": 5000,
+      "title": "前台 · Mermaid 圖表",
+      "expand": "fill"
+    },
     "Coupons.dc.html": {
       "w": 1440,
       "h": 1280,
@@ -660,6 +668,7 @@
     "Search.dc.html",
     "NotFound.dc.html",
     "Maintenance.dc.html",
+    "Mermaid.dc.html",
     "Shop.dc.html",
     "ShopCategory.dc.html",
     "Product.dc.html",

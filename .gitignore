@@ -3,4 +3,7 @@
 
 # 設計稿截圖（本機驗證用）
 design/shots/
+
+# Mermaid 板的中間檔（design/tools/mermaid-board/render.cjs 產生）
+design/tools/mermaid-board/svgs.json
 __pycache__/

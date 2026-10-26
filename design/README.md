@@ -11,6 +11,7 @@ Jelly CMS 全部畫面的設計稿原始檔。程式與這裡必須一致：改�
 | 來源 | 板 | 怎麼改 |
 |---|---|---|
 | 手寫 | 前台原有頁面、登入安裝手機版、後台原有功能（Main、PostList、Post、Page、Search、NotFound、Login、Install、MobileHome、MobileAdmin、Dashboard、Posts、Editor、Media、Products、ProductEditor、Orders、OrderDetail、Themes、Plugins、Settings、Cart、Product、Shop） | 直接改 `.dc.html` |
+| 腳本 | Mermaid（圖表是 Pele 的實際輸出） | 改 `tools/mermaid-board/` 的 `build.cjs`、`board.css` 或 `render.cjs`，在 repo 根目錄執行 `node design/tools/mermaid-board/render.cjs && node design/tools/mermaid-board/build.cjs`；升級 Pele 後也要重跑 |
 | 產生 | 其餘由 `gen/*.py` 產出的板 | 改 `gen/` 裡的腳本，再執行腳本重新產生，不要直接改產出的 `.dc.html` |
 
 重新產生：

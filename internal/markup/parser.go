@@ -274,6 +274,12 @@ func (p *pipeline) prepare() (string, error) {
 					i = stop
 					continue
 				}
+				if strings.EqualFold(language, "mermaid") {
+					b.WriteString(p.placeholderAt(`<pre><code class="language-mermaid">`+esc(code)+"\n</code></pre>", start) + "\n")
+					p.blocks = append(p.blocks, Block{Kind: "code", Name: lang, StartLine: start, EndLine: stop})
+					i = stop
+					continue
+				}
 				if lang != "" {
 					if strings.EqualFold(language, "markdown") {
 						b.WriteString(p.placeholderAt(`<pre><code class="language-markdown">`+esc(code)+`</code></pre>`, start) + "\n")

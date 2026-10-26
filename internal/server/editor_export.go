@@ -350,6 +350,21 @@ func buildStandaloneHTMLDocument(ctx context.Context, body, title, lang string) 
 		scripts.WriteString(escapeScriptClosingTags(string(js)))
 		scripts.WriteString("</script>")
 	}
+	if featureSet["mermaid"] {
+		pele, err := os.ReadFile("web/admin/assets/pele/pele.global.js")
+		if err != nil {
+			return "", fmt.Errorf("read Pele runtime: %w", err)
+		}
+		mermaid, err := os.ReadFile("web/admin/assets/jelly-mermaid.js")
+		if err != nil {
+			return "", fmt.Errorf("read Mermaid runtime: %w", err)
+		}
+		scripts.WriteString("<script>")
+		scripts.WriteString(escapeScriptClosingTags(string(pele)))
+		scripts.WriteString("</script><script>")
+		scripts.WriteString(escapeScriptClosingTags(string(mermaid)))
+		scripts.WriteString("</script><script>document.addEventListener('DOMContentLoaded',function(){if(window.JellyMermaid)window.JellyMermaid.render(document)})</script>")
+	}
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
