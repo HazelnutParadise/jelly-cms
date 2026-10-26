@@ -3,7 +3,7 @@
 Epic：系統與維運
 User Story：站長在一個分頁式設定頁完成網站、網址、搜尋引擎與 AI 爬蟲、程式碼注入、維護模式、郵件、快取與佇列、更新的設定；管理轉址與 404；看系統日誌；備份、匯出、還原；從 WordPress 匯入；從應用市場安裝與更新外掛與主題、調整外掛設定與擴充點；管理附件的儲存策略與分組。
 Blocked by：05（維護模式中介層與選項、`content.css`）、06（`internal/notify`、`RequireInteractive`、員工閘、`user_invites`）、07（金流與運送分頁由 07 註冊）、09（`markup.Flatten` 供匯出）。本工作單在同一條 main 上接續時以各該契約為準；本分支放標示「shared with ticket NN」的最小存根。
-Status：in_progress（接續 PR #27 的既有 worktree 與 claude/pr-f-system 分支；以完整使用流程、本機驗收及必要 CI 為交付條件）
+Status：implementation_verified（接續 PR #27 的既有 worktree 與 claude/pr-f-system 分支；本機使用流程已驗收，最新完整競態測試、必要 CI 與交付結果見 [PR #27](https://github.com/HazelnutParadise/jelly-cms/pull/27)）
 設計稿：`design/project/Settings、SettingsRoutes、SettingsCrawlers、Redirects、Logs、Update、UpdateContainer、Infra、Backup、Import、AppStore、PluginDetail、MediaPolicies、Media、Palette、States.dc.html`；本工作單先補：`Settings` 板補齊沒畫的分頁（網站、登入與註冊、留言、郵件與通知、SEO 預設）並統一所有板的分頁列；`SettingsRoutes` 預設網址改成 `/post/{slug}`、每頁 10；`Redirects` 板補 SEO 預設分頁；`Infra` 板移除 Memcached；`canvas.json` 把 Palette 與 States 的「尚未實作」拿掉。
 
 ## PR #27 接手驗收紀錄
@@ -17,7 +17,13 @@ Status：in_progress（接續 PR #27 的既有 worktree 與 claude/pr-f-system �
 5. **08e 畫面與完整流程**：取代系統佔位頁並同步本機設計板；繁中／英文、390px／1280px、亮／暗、錯誤與載入狀態、離線資源和真實操作驗收。依既有分工在推送後於 PR 請 Claude 同步線上畫布，收到完成回報才標已同步。
 6. **交付**：主代理審查完整差異，重跑專用 PostgreSQL 全套競態測試、格式／vet／原生與跨平台編譯；更新 STATUS 與 PR，推送、必要 CI 全綠後合併 main，清理已合併分支。部署與真實收款不屬此階段。
 
-已確認的原始缺口：系統頁面仍為佔位、mail 與分類／作者 Feed 回 501、Redis／S3 為存根、worker／scheduler 沒有完整啟動接點；通用設定可寫注入鍵、佇列切換先刪來源、外掛換檔後寫 DB 失敗不回復、完整還原遭不可變更 trigger 阻擋。需以獨立回歸測試先重現，修正後重跑。原有測試與四項 CI 目前通過不代表以上流程已完成。
+接手時確認的缺口為系統佔位頁、mail 與分類／作者 Feed 回 501、Redis／S3 存根，以及 worker／scheduler 啟動接點不完整。通用設定可寫注入鍵、佇列切換先刪來源、外掛換檔後寫 DB 失敗不回復、完整還原遭不可變更 trigger 阻擋，也已由獨立回歸先重現再修正。接手時原有測試與四項 CI 通過，未涵蓋這些使用流程。
+
+## 接手後驗證成果
+
+工作單 08 的系統畫面、通知投遞、Redis／NATS／S3、背景工作、備份還原與更新保護、外掛安裝與擴充、附件搬移已接線。主代理完成 136 組畫面檢查及真實匯入、SMTP、備份還原、佇列切換、外掛搜尋與附件讀回；本機設計板隨畫面提交，線上畫布已在 PR 請 Claude 同步，尚未收到完成回報。
+
+媒體並行資料保護另有失敗寫入所有權、實際儲存位置與 S3 目標讀取驗證的獨立回歸，主代理先重現再驗證修正。針對性競態回歸 46.593 秒通過，瀏覽器背景搬移保留附件 ID、網址、路徑與內容。完整測試、必要 CI、合併與分支清理結果見 PR；不將本工作單視為完整 CMS 七個里程碑驗收，也沒有部署或真實收款。
 
 ## 先修的安全問題（08a 第一批）
 

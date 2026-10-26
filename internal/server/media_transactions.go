@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -91,7 +92,7 @@ func copyMediaObject(ctx context.Context, src, dst storage.Driver, sourcePath, d
 		err = dst.Put(ctx, destinationPath, reader, row.Size, row.Mime)
 	}
 	if err != nil {
-		cleanupMediaObject(ctx, dst, destinationPath)
+		// A failed write does not establish ownership of the destination.
 		return fmt.Errorf("media: write destination object: %w", err)
 	}
 	if _, err := io.Copy(io.Discard, reader); err != nil {
@@ -113,7 +114,7 @@ func copyMediaObject(ctx context.Context, src, dst storage.Driver, sourcePath, d
 // policy row lock serializes filename allocation per policy; object writes are
 // compensated if the insert or transaction commit fails.
 func insertMediaFile(ctx context.Context, in mediaStoreInput) (mediaFileRow, error) {
-	drv, err := policyDriver(in.Policy)
+	drv, err := policyDriver(in.Policy, ctx)
 	if err != nil {
 		return mediaFileRow{}, err
 	}
@@ -220,7 +221,7 @@ func randomMediaObjectPath(policyID int64, name string) (string, error) {
 // a database failure. Remote drivers use immutable candidate objects and only
 // switch the row after the candidate has been stored.
 func replaceMediaObject(ctx context.Context, row mediaFileRow, policy mediaPolicyRow, prepared mediaPrepared) (mediaFileRow, error) {
-	drv, err := policyDriver(policy)
+	drv, err := policyDriver(policy, ctx)
 	if err != nil {
 		return mediaFileRow{}, err
 	}
@@ -404,7 +405,7 @@ func moveLegacyMedia(c echo.Context, oldName, newName string) error {
 		return c.JSON(415, map[string]string{"error": "Renaming must keep the file type"})
 	}
 	newPath := newName
-	drv, err := policyDriver(policy)
+	drv, err := policyDriver(policy, ctx)
 	if err != nil {
 		return mediaStoreError(c, err)
 	}
@@ -482,18 +483,72 @@ func rewriteForMediaFile(tx *gorm.DB, row mediaFileRow, oldDriver, newDriver str
 }
 
 func mediaStorageSame(a, b mediaPolicyRow) bool {
-	if a.Driver != b.Driver || a.Config != b.Config {
+	if a.Driver != b.Driver {
 		return false
 	}
-	if a.Driver == storage.DriverS3 {
-		left, err := openMediaCredentials(a.SecretEnc)
-		if err != nil {
-			return false
+	switch a.Driver {
+	case storage.DriverLocal:
+		// policyDriver uses distinct fixed roots for backups and attachments.
+		return (a.Purpose == "backup") == (b.Purpose == "backup")
+	case storage.DriverS3:
+		normalize := func(raw string) (*storage.S3, bool) {
+			var cfg mediaS3StoredConfig
+			if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
+				return nil, false
+			}
+			drv, err := storage.NewS3WithConfig(storage.S3Config{
+				Endpoint: cfg.Endpoint, Bucket: cfg.Bucket, Prefix: cfg.Prefix, Secure: cfg.Secure,
+			})
+			if err != nil {
+				return nil, false
+			}
+			// S3 exposes the normalized endpoint without its scheme. Match the
+			// constructor's scheme override when comparing the transport as well.
+			secure := cfg.Secure
+			endpoint := strings.ToLower(strings.TrimSpace(cfg.Endpoint))
+			if strings.HasPrefix(endpoint, "https://") {
+				secure = true
+			} else if strings.HasPrefix(endpoint, "http://") {
+				secure = false
+			}
+			return drv, secure
 		}
-		right, err := openMediaCredentials(b.SecretEnc)
-		return err == nil && left == right
+		left, leftSecure := normalize(a.Config)
+		right, rightSecure := normalize(b.Config)
+		return left != nil && right != nil && left.Endpoint == right.Endpoint &&
+			left.Bucket == right.Bucket && left.Prefix == right.Prefix && leftSecure == rightSecure
+	default:
+		return mediaPluginDriver.MatchString(a.Driver)
 	}
-	return bytes.Equal(a.SecretEnc, b.SecretEnc)
+}
+
+func verifyMediaMoveTarget(ctx context.Context, drv storage.Driver, row mediaFileRow) error {
+	if row.Size < 0 || row.Size == int64(^uint64(0)>>1) {
+		return errors.New("media: target size is invalid")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	in, err := drv.Open(ctx, row.Path)
+	if err != nil {
+		return fmt.Errorf("media: open target object %q: %w", row.Path, err)
+	}
+	defer in.Close()
+	digest := sha256.New()
+	size, err := io.Copy(digest, io.LimitReader(in, row.Size+1))
+	if err != nil {
+		return fmt.Errorf("media: read target object %q: %w", row.Path, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if size != row.Size {
+		return fmt.Errorf("media: target size mismatch (got %d, want %d)", size, row.Size)
+	}
+	if row.Sha256 != "" && fmt.Sprintf("%x", digest.Sum(nil)) != row.Sha256 {
+		return errors.New("media: target checksum mismatch")
+	}
+	return nil
 }
 
 func mediaMoveDestinationPath(ctx context.Context, tx *gorm.DB, drv storage.Driver, policyID int64, row mediaFileRow, sameStorage bool) (string, bool, error) {
@@ -534,11 +589,11 @@ func moveMediaPolicy(ctx context.Context, fromID, toID int64) (int64, error) {
 	if src.Purpose != dst.Purpose || src.Purpose != mediaPurposeMedia {
 		return 0, errors.New("media: policies must both be attachment policies")
 	}
-	srcDriver, err := policyDriver(src)
+	srcDriver, err := policyDriver(src, ctx)
 	if err != nil {
 		return 0, err
 	}
-	dstDriver, err := policyDriver(dst)
+	dstDriver, err := policyDriver(dst, ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -582,6 +637,10 @@ func moveMediaPolicy(ctx context.Context, fromID, toID int64) (int64, error) {
 				copied = append(copied, destinationPath)
 				if !sameStorage {
 					originals = append(originals, row.Path)
+				}
+			} else if dst.Driver == storage.DriverS3 {
+				if err := verifyMediaMoveTarget(ctx, dstDriver, row); err != nil {
+					return err
 				}
 			}
 			newRow := row
