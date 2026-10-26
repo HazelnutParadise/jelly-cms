@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var extensionRuntimeState struct {
@@ -150,7 +152,7 @@ func storagePolicyProviderAllowed(ctx context.Context, db *gorm.DB, id string) b
 	return false
 }
 
-func extensionSearchPosts(ctx context.Context, db *gorm.DB, query string, page, size int) ([]searchResult, int64, bool) {
+func extensionSearchPosts(ctx context.Context, db *gorm.DB, query string, prepared theme.SearchQuery, page, size int) ([]searchResult, int64, bool) {
 	id, isJS := extensionSelection(ctx, db, ext.PointSearchEngine)
 	if !isJS || id == extensionBuiltinID {
 		return nil, 0, false
@@ -196,73 +198,54 @@ func extensionSearchPosts(ctx context.Context, db *gorm.DB, query string, page, 
 		seen[id] = struct{}{}
 		ids = append(ids, id)
 	}
-	results, total, err := searchPublicPostsByIDs(db, query, ids, page, size)
+	results, total, err := searchPublicPostsByIDs(ctx, db, prepared, ids, page, size)
 	if err != nil {
 		return nil, 0, false
 	}
 	return results, total, true
 }
 
-func searchPublicPostsByIDs(db *gorm.DB, query string, ids []uint, page, size int) ([]searchResult, int64, error) {
+func searchPublicPostsByIDs(ctx context.Context, db *gorm.DB, query theme.SearchQuery, ids []uint, page, size int) ([]searchResult, int64, error) {
 	if len(ids) == 0 {
 		return []searchResult{}, 0, nil
 	}
-	var publicIDs []uint
-	if err := archivePublicPosts(db).Where("posts.id IN ?", ids).Pluck("posts.id", &publicIDs).Error; err != nil {
-		return nil, 0, err
+	page, size = normalizeSearchPage(page, size)
+	offset, ok := searchOffset(page, size)
+	if !ok {
+		return []searchResult{}, 0, nil
 	}
-	if page < 1 {
-		page = 1
-	}
-	if size < 1 {
-		size = publicPostsPageSize
-	}
-	start := ^uint64(0)
-	if uint64(page-1) <= ^uint64(0)/uint64(size) {
-		start = uint64(page-1) * uint64(size)
-	}
-	public := make(map[uint]struct{}, len(publicIDs))
-	for _, id := range publicIDs {
-		public[id] = struct{}{}
-	}
-	total := int64(0)
-	pageCapacity := size
-	if pageCapacity > len(public) {
-		pageCapacity = len(public)
-	}
-	pageIDs := make([]uint, 0, pageCapacity)
-	for _, id := range ids {
-		if _, ok := public[id]; !ok {
-			continue
+	var idArray strings.Builder
+	idArray.WriteByte('{')
+	for i, id := range ids {
+		if i > 0 {
+			idArray.WriteByte(',')
 		}
-		if uint64(total) >= start && len(pageIDs) < size {
-			pageIDs = append(pageIDs, id)
-		}
-		total++
+		idArray.WriteString(strconv.FormatUint(uint64(id), 10))
 	}
-	if len(pageIDs) == 0 {
-		return []searchResult{}, total, nil
-	}
+	idArray.WriteByte('}')
+	var total int64
 	var posts []core.Post
-	if err := archivePublicPosts(db).Select("posts.id, posts.title, posts.slug, posts.content, posts.excerpt, posts.author_id, posts.cover, posts.published_at, posts.created_at, posts.updated_at").
-		Preload("Author").Where("posts.id IN ?", pageIDs).Find(&posts).Error; err != nil {
+	order := clause.Expr{SQL: "array_position(?::bigint[], posts.id)", Vars: []interface{}{idArray.String()}, WithoutParentheses: true}
+	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		publicScope := archivePublicPosts(tx).Where("posts.id IN ?", ids)
+		if err := publicScope.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+			return err
+		}
+		queryDB := publicScope.Session(&gorm.Session{}).
+			Select("posts.id, posts.title, posts.slug, posts.content, posts.excerpt, posts.author_id, posts.cover, posts.published_at, posts.created_at, posts.updated_at").
+			Preload("Author").Order(order).Limit(size).Offset(offset)
+		return queryDB.Find(&posts).Error
+	}, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
+	if err != nil {
 		return nil, 0, err
-	}
-	byID := make(map[uint]core.Post, len(posts))
-	for _, post := range posts {
-		byID[post.ID] = post
 	}
 	results := make([]searchResult, 0, len(posts))
-	for _, id := range pageIDs {
-		post, ok := byID[id]
-		if !ok {
-			continue
-		}
+	for _, post := range posts {
 		source := post.Excerpt
-		if plainText(source) == "" || !containsFold(plainText(source), query) {
+		if !query.Contains(plainText(source)) {
 			source = post.Content
 		}
-		results = append(results, searchResult{Post: post, Title: theme.Highlight(post.Title, query), Snippet: theme.Snippet(source, query, 100)})
+		results = append(results, searchResult{Post: post, Title: query.Highlight(post.Title), Snippet: query.Snippet(source, 100)})
 	}
 	return results, total, nil
 }

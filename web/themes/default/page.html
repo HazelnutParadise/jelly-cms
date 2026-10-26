@@ -1,10 +1,34 @@
 {{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+<style>
+    .static-page { display: grid; grid-template-columns: minmax(0, 1fr) 22.5rem; gap: 4rem; align-items: start; }
+    .static-page-content { min-width: 0; }
+    .static-page-aside { display: grid; gap: .75rem; }
+    .page-art { position: relative; aspect-ratio: 1; background: var(--dark); border-radius: 0 1.5rem 0 1.5rem; overflow: hidden; }
+    .page-art i { position: absolute; width: 38%; aspect-ratio: 1; border-radius: 0 24% 0 24%; }
+    .page-art i:nth-child(1) { left: 12%; top: 12%; background: var(--secondary); opacity: .85; }
+    .page-art i:nth-child(2) { left: 32%; top: 30%; background: var(--accent); opacity: .85; }
+    .page-art i:nth-child(3) { left: 50%; top: 48%; background: var(--primary); opacity: .92; rotate: -7deg; }
+    .page-quicklinks { display: grid; gap: .75rem; padding: 1.5rem; background: var(--surface-low); border-radius: var(--r-md); }
+    .page-quicklinks .button { justify-content: flex-start; }
+    @media (max-width: 900px) { .static-page { grid-template-columns: minmax(0, 1fr); gap: 2rem; } }
+</style>
 <article class="static-page">
-    <header class="article-head">
-        <span class="stripes" aria-hidden="true"></span>
-        <div class="label">頁面</div>
-        <h1>{{.Page.Title}}</h1>
-    </header>
-    <div class="prose">{{.Content}}</div>
+    <div class="static-page-content">
+        <header class="article-head">
+            <span class="stripes" aria-hidden="true"></span>
+            <div class="label">{{if $en}}Page{{else}}頁面{{end}}</div>
+            <h1>{{.Page.Title}}</h1>
+        </header>
+        <div class="prose">{{.Content}}</div>
+    </div>
+    <aside class="static-page-aside" aria-label="{{if $en}}Page links{{else}}頁面連結{{end}}">
+        <div class="page-art" aria-hidden="true"><i></i><i></i><i></i></div>
+        <nav class="page-quicklinks" aria-label="{{if $en}}Quick links{{else}}快速連結{{end}}">
+            <div class="label">{{if $en}}Quick links{{else}}快速連結{{end}}</div>
+            <a class="button button-tonal" href="/posts"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></svg>{{if $en}}All posts{{else}}所有文章{{end}}</a>
+            <a class="button button-tonal" href="/search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>{{if $en}}Search this site{{else}}搜尋站內{{end}}</a>
+        </nav>
+    </aside>
 </article>
 {{end}}

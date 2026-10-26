@@ -799,7 +799,7 @@ func (r *runner) rewriteLinks(ctx context.Context) error {
 			return "/"
 		})
 		if next != content {
-			if err := r.db.WithContext(ctx).Exec("UPDATE posts SET content = ? WHERE id = ?", next, id).Error; err != nil {
+			if err := r.db.WithContext(ctx).Model(&core.Post{}).Where("id = ?", id).UpdateColumns(map[string]interface{}{"content": next}).Error; err != nil {
 				return err
 			}
 		}

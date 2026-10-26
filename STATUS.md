@@ -2,6 +2,11 @@
 
 ## 目前驗收狀態
 
+- PR #29：工作單 10 的 13 項修正與 B1–B10 已完成實作及本機功能驗收，已整合 main `c954b88`。搜尋先 trim、限制 100 字，再以共用可見文字及 Unicode fold 的三個內部欄位進行 SQL 計數與分頁，維持既有公開範圍、排序及回應格式。新增 0024 遷移與建立、更新、匯入、媒體改寫、版本還原及備份還原的同交易維護。
+- PR #29 資料驗證：主代理重跑專用 PostgreSQL 競態回歸通過（data 7.786、backup 33.333、importer 8.816、server 32.983 秒），涵蓋 201 筆跨批回填失敗回滾與重試、舊備份與不可信衍生值、設定／附件部分還原不改文章、SQL expression 拒絕、NULL 與軟刪除保留、搜尋列數上限及計數／分頁共用發布截止時間。獨立複審修正已確認問題後，沒有新增確認缺陷。
+- PR #29 畫面：主代理以最終版本執行 Chromium B1–B10，642 項通過、0 項失敗，證據 `/tmp/jelly29-browser/evidence.json`。涵蓋 1280px／390px、亮／暗、間距與對比、列表與靜態頁、目錄與上下篇、維護頁、實際點擊、字型載入及快取，外部請求與非預期錯誤皆為零。七張設計板與維護頁產生腳本隨實作更新，線上畫布同步完成與否以 PR 回報為準。
+- PR #29 交付驗證：NATS JetStream 競態測試、theme 競態測試、格式、go vet、原生／Windows／macOS 編譯及差異檢查通過。完整 PostgreSQL／Redis 競態測試、必要 CI、合併與分支清理結果見 [PR #29](https://github.com/HazelnutParadise/jelly-cms/pull/29) 的最終紀錄。沒有部署。
+
 - PR #27 接手檢查點：沿用 `.claude/worktrees/merge-main-after-ci-green-19092d` 與 `claude/pr-f-system`，接手提交為 `be9d4a3`，保留 Claude 已有 21 個提交。以工作單 08 的六項接手驗收為準，本機使用流程與設計驗收已完成。最新完整測試、必要 CI、合併與分支清理紀錄見 [PR #27](https://github.com/HazelnutParadise/jelly-cms/pull/27)。沒有部署。
 - PR #27 資料保護：主代理已重跑完整備份還原、不可變資料與稽核、遷移鎖、外掛安裝回復、設定存取及 SEO／Feed 回歸。遠端備份、網站時區的每日／每週保留、備份目的地引用保護與 IndexNow durable intent／鎖定修正已通過各自回歸；這些局部結果不代表最終完整套件已通過。
 - PR #27 更新：主代理親跑工作處理器整合與跨節點／取消備份回歸通過（server 4.069、backup 4.119 秒）。更新驗證後、換檔前建立本機資料庫備份，失敗不換檔，同工作重試只重用已驗證封存。正式環境排程前的 runtime 檢查已修正，容器／Kubernetes／套件管理的套用及退回均回 409；主代理競態回歸 7.123 秒通過。

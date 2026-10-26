@@ -21,9 +21,10 @@ import (
 const maintenanceRetryAfter = 600
 
 const (
-	maintenanceEnabledKey = "maintenance_enabled"
-	maintenanceMessageKey = "maintenance_message"
-	maintenanceStartedKey = "maintenance_started_at"
+	maintenanceEnabledKey  = "maintenance_enabled"
+	maintenanceMessageKey  = "maintenance_message"
+	maintenanceStartedKey  = "maintenance_started_at"
+	maintenanceTimezoneKey = "site_timezone"
 )
 
 var errInvalidMaintenanceSetting = errors.New("invalid maintenance setting")
@@ -31,7 +32,7 @@ var errInvalidMaintenanceSetting = errors.New("invalid maintenance setting")
 func maintenanceMiddleware(tm *theme.Manager) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			path := c.Request().URL.Path
+			path := c.Request().URL.EscapedPath()
 			if maintenanceBypass(path, nil) {
 				return next(c)
 			}
@@ -41,7 +42,7 @@ func maintenanceMiddleware(tm *theme.Manager) echo.MiddlewareFunc {
 			}
 			db = db.WithContext(c.Request().Context())
 			var rows []core.Option
-			keys := []string{maintenanceEnabledKey, maintenanceMessageKey, maintenanceStartedKey, maintenanceRetryAfterKey}
+			keys := []string{maintenanceEnabledKey, maintenanceMessageKey, maintenanceStartedKey, maintenanceRetryAfterKey, maintenanceTimezoneKey}
 			if err := db.Where("key IN ?", keys).Find(&rows).Error; err != nil {
 				return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
 			}
@@ -71,6 +72,12 @@ func maintenanceMiddleware(tm *theme.Manager) echo.MiddlewareFunc {
 				})
 			}
 
+			location := time.Local
+			if timezone := strings.TrimSpace(values[maintenanceTimezoneKey]); timezone != "" {
+				if configured, loadErr := time.LoadLocation(timezone); loadErr == nil {
+					location = configured
+				}
+			}
 			startedAt := time.Now()
 			if raw := values[maintenanceStartedKey]; raw != "" {
 				parsed, parseErr := time.Parse(time.RFC3339, raw)
@@ -80,6 +87,7 @@ func maintenanceMiddleware(tm *theme.Manager) echo.MiddlewareFunc {
 					startedAt = parsed
 				}
 			}
+			startedAt = startedAt.In(location)
 			elapsed := int(time.Since(startedAt) / time.Minute)
 			if elapsed < 0 {
 				elapsed = 0

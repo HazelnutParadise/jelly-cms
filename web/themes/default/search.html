@@ -1,8 +1,9 @@
 {{define "content"}}
 <style>
-    .search-band { width: 100vw; margin: 0 calc(50% - 50vw) 2rem; padding: clamp(2rem, 5vw, 3.5rem) var(--gutter); background: var(--warning); color: color-mix(in srgb, var(--warning) 35%, var(--dark)); }
+    .search-band { width: 100vw; margin: 0 calc(50% - 50vw) 2rem; padding: clamp(2rem, 5vw, 3.5rem) var(--gutter); background: var(--warning); color: color-mix(in srgb, var(--warning) 25%, var(--dark)); }
     .search-band-inner { max-width: var(--container); margin: 0 auto; display: grid; gap: .75rem; }
-    .search-band .label { color: color-mix(in srgb, var(--warning) 55%, var(--dark)); }
+    .search-band .label { color: color-mix(in srgb, var(--warning) 25%, var(--dark)); }
+    .search-band .stripes { background: linear-gradient(90deg, var(--dark) 0 52%, transparent 52% 60%, var(--dark) 60% 82%, transparent 82% 88%, var(--dark) 88% 100%); }
     .search-band h1 { font-size: clamp(1.75rem, 4vw, 3rem); overflow-wrap: anywhere; }
     .search-band .search-form { max-width: 48rem; }
     .search-band .field { min-height: 4rem; background: var(--surface); font-size: 1.25rem; font-weight: 700; }
@@ -14,7 +15,7 @@
     .search-hit h2 a { color: var(--ink); }
     .search-hit h2 a:hover { color: var(--link); }
     .search-hit p { max-width: var(--measure); color: var(--muted); }
-    .search-hit mark { padding: 0 .12em; color: inherit; background: color-mix(in srgb, var(--warning) 48%, var(--surface)); }
+    .search-hit mark { padding: 0 .12em; color: var(--ink); background: color-mix(in srgb, var(--warning) 48%, var(--surface)); }
     .search-empty { margin-top: 2rem; padding: clamp(1.5rem, 4vw, 2rem); background: var(--surface-low); border-radius: var(--r-md); display: flex; align-items: center; gap: 1.5rem; }
     .search-empty h2 { font-size: 1.375rem; }
     .search-empty p { color: var(--muted); }
@@ -33,17 +34,17 @@
     <div class="search-band-inner">
         <span class="stripes" aria-hidden="true"></span>
         <div class="label">搜尋</div>
-        <h1>{{if .Query}}「{{.Query}}」{{else}}搜尋文章{{end}}</h1>
+        <h1>{{if and .Query (not .SearchQueryTooLong)}}「{{.Query}}」{{else}}搜尋文章{{end}}</h1>
         <form class="search-form" role="search" action="/search" method="GET">
             <label class="visually-hidden" for="search-query">搜尋文章</label>
-            <input class="field" id="search-query" type="search" name="q" value="{{.Query}}" placeholder="搜尋文章">
+            <input class="field" id="search-query" type="search" name="q" value="{{if not .SearchQueryTooLong}}{{.Query}}{{end}}" placeholder="搜尋文章">
             <button class="button" type="submit"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>搜尋</button>
         </form>
-        {{if .Query}}<p class="search-count">找到 {{.Total}} 篇文章</p>{{else}}<p>輸入關鍵字，搜尋標題與內文。</p>{{end}}
+        {{if .SearchQueryTooLong}}<p class="search-error" role="alert">{{.T.searchQueryTooLong}}</p>{{else if .Query}}<p class="search-count">找到 {{.Total}} 篇文章</p>{{else}}<p>輸入關鍵字，搜尋標題與內文。</p>{{end}}
     </div>
 </header>
 
-{{if .Results}}
+{{if and .Results (not .SearchQueryTooLong)}}
 <ol class="search-results" aria-label="搜尋結果">
     {{range .Results}}
     <li class="search-hit">
@@ -53,14 +54,14 @@
     </li>
     {{end}}
 </ol>
-{{else if .Query}}
+{{else if and .Query (not .SearchQueryTooLong)}}
 <section class="search-empty" aria-live="polite">
     <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
     <div><h2>沒有找到「{{.Query}}」</h2><p>換個關鍵字，或從<a href="/posts">所有文章</a>慢慢逛。</p></div>
 </section>
 {{end}}
 
-{{if gt .TotalPages 1}}
+{{if and (not .SearchQueryTooLong) (gt .TotalPages 1)}}
 <nav class="pagination" aria-label="搜尋結果分頁">
     {{if gt .Page 1}}<a href="/search?q={{.Query | urlquery}}&amp;page={{sub .Page 1}}" class="button button-tonal"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>上一頁</a>{{end}}
     <span class="page-info">{{.Page}} / {{.TotalPages}}</span>

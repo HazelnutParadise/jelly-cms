@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/storage"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -441,7 +443,38 @@ func moveLegacyMedia(c echo.Context, oldName, newName string) error {
 
 func rewriteKnownMediaReferences(tx *gorm.DB, oldURL, newURL string) error {
 	oldURL, newURL = strings.ReplaceAll(oldURL, "\\", "%5C"), strings.ReplaceAll(newURL, "\\", "%5C")
-	for _, col := range []string{"content", "source", "excerpt", "cover"} {
+	var lastID uint
+	for {
+		var posts []struct {
+			ID      uint
+			Content sql.NullString
+			Excerpt sql.NullString
+		}
+		if err := tx.Raw(`SELECT id, content, excerpt FROM posts WHERE id > ? AND (strpos(content, ?) > 0 OR strpos(excerpt, ?) > 0) ORDER BY id LIMIT 200 FOR UPDATE`, lastID, oldURL, oldURL).Scan(&posts).Error; err != nil {
+			return fmt.Errorf("lock posts with media references: %w", err)
+		}
+		if len(posts) == 0 {
+			break
+		}
+		updates := make([]data.PostContentUpdate, 0, len(posts))
+		for _, post := range posts {
+			var content, excerpt *string
+			if post.Content.Valid {
+				next := strings.ReplaceAll(post.Content.String, oldURL, newURL)
+				content = &next
+			}
+			if post.Excerpt.Valid {
+				next := strings.ReplaceAll(post.Excerpt.String, oldURL, newURL)
+				excerpt = &next
+			}
+			updates = append(updates, data.PostContentUpdate{ID: post.ID, Content: content, Excerpt: excerpt})
+			lastID = post.ID
+		}
+		if err := data.UpdatePostContentAndSearchIndex(tx, updates); err != nil {
+			return fmt.Errorf("rewrite post media references: %w", err)
+		}
+	}
+	for _, col := range []string{"source", "cover"} {
 		query := fmt.Sprintf("UPDATE posts SET %s = replace(%s, ?, ?) WHERE strpos(%s, ?) > 0", col, col, col)
 		if err := tx.Exec(query, oldURL, newURL, oldURL).Error; err != nil {
 			return fmt.Errorf("rewrite posts.%s media URL: %w", col, err)

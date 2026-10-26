@@ -71,6 +71,9 @@ type Post struct {
 	Format        string `json:"format" gorm:"size:8;default:html"`
 	RenderVersion int    `json:"-" gorm:"default:0"`
 	RenderTrust   string `json:"-" gorm:"size:8;default:strict"`
+	SearchTitle   string `json:"-" gorm:"-:migration;column:search_title"`
+	SearchContent string `json:"-" gorm:"-:migration;column:search_content"`
+	SearchExcerpt string `json:"-" gorm:"-:migration;column:search_excerpt"`
 	SEOIndex      string `json:"seo_index" gorm:"column:seo_index;size:8;not null;default:inherit"`
 	SEOAI         string `json:"seo_ai" gorm:"column:seo_ai;size:8;not null;default:inherit"`
 }

@@ -63,6 +63,7 @@
             --primary-container: color-mix(in srgb, var(--primary) 14%, var(--surface));
             --on-primary-container: color-mix(in srgb, var(--primary) 75%, var(--ink));
             --on-dark: #F2F3F7;
+            --primary-button: color-mix(in srgb, var(--primary) 95%, var(--dark));
 
             --font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
             --font-display: "Bricolage Grotesque", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
@@ -137,7 +138,7 @@
 
 
         /* ---------- 裝飾線：賽車塗裝式的斜切三色短線 ---------- */
-        .stripes, .page-head::before, .section-head h2::before, .article-head::before, .rail-block h2::before, .colophon .label::before {
+        .stripes, .section-head h2::before, .rail-block h2::before, .colophon .label::before {
             content: "";
             display: block;
             width: 3.5rem;
@@ -146,7 +147,6 @@
             transform-origin: left bottom;
             background: linear-gradient(90deg, var(--primary) 0 52%, transparent 52% 60%, var(--secondary) 60% 82%, transparent 82% 88%, var(--accent) 88% 100%);
         }
-        .page-head::before, .article-head::before { margin-bottom: .25rem; }
         .section-head h2::before { width: 2.5rem; height: 2px; margin-bottom: .5rem; }
         .rail-block h2::before { width: 2rem; height: 2px; margin-bottom: .5rem; }
         .colophon .label::before { width: 2rem; height: 2px; margin-bottom: .6rem; }
@@ -197,8 +197,8 @@
             white-space: nowrap;
             transition: background-color .15s ease, color .15s ease, border-radius .2s ease;
         }
-        .button:hover { background: var(--primary); color: #fff; border-radius: 0 1.25rem 0 1.25rem; }
-        .button-primary { background: var(--primary); color: #fff; }
+        .button:hover { background: var(--primary-button); color: #fff; border-radius: 0 1.25rem 0 1.25rem; }
+        .button-primary { background: var(--primary-button); color: #fff; }
         .button-primary:hover { background: var(--ink); color: var(--surface); }
         .button-tonal { background: var(--surface-mid); color: var(--ink); }
         .button-tonal:hover { background: var(--ink); color: var(--surface); }
@@ -268,6 +268,8 @@
             align-items: start;
             {{end}}
         }
+        .shell-home { padding-top: 1rem; }
+        .shell-flush { padding-top: 0; }
         .main { min-width: 0; }
 
         .rail { display: grid; gap: .75rem; }
@@ -306,7 +308,7 @@
         .hero-art i:nth-child(4) { width: 18%; left: 12%; top: 66%; background: var(--warning); opacity: .95; }
         .hero-art i:nth-child(5) { width: 14%; left: 72%; top: 18%; background: var(--ink); opacity: .9; }
 
-        .home-hero { width: 100vw; margin: 0 calc(50% - 50vw) clamp(2.5rem, 6vw, 5rem); display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); color: var(--on-dark); background: var(--dark); overflow: hidden; }
+        .home-hero { width: 100vw; margin: 0 calc(50% - 50vw) .5rem; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); color: var(--on-dark); background: var(--dark); overflow: hidden; }
         .home-hero-copy { width: min(100%, 42rem); justify-self: end; padding: clamp(2.5rem, 7vw, 6rem) var(--gutter); display: grid; gap: 1.25rem; align-content: center; }
         .home-hero .label { color: color-mix(in srgb, var(--on-dark) 70%, transparent); }
         .home-hero .display { font-size: clamp(3.25rem, 8vw, 6.5rem); overflow-wrap: anywhere; }
@@ -318,14 +320,14 @@
         .home-hero .hero-art::before, .home-hero .hero-art::after { background: var(--on-dark); }
         .home-hero .hero-art i { animation: none; }
         .home-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; margin-bottom: clamp(2.5rem, 6vw, 4rem); }
-        .home-stats > div { min-width: 0; min-height: 5.5rem; display: flex; align-items: baseline; gap: .75rem; padding: 1rem 1.25rem; border-radius: var(--r-md); background: var(--secondary); color: #fff; }
-        .home-stats > div:nth-child(2) { background: var(--accent); color: color-mix(in srgb, var(--accent) 35%, var(--dark)); }
-        .home-stats > div:nth-child(3) { background: var(--warning); color: color-mix(in srgb, var(--warning) 35%, var(--dark)); }
+        .home-stats > div { min-width: 0; min-height: 5.5rem; display: flex; align-items: baseline; gap: .75rem; padding: 1rem 1.25rem; border-radius: var(--r-md); background: color-mix(in srgb, var(--secondary) 95%, var(--dark)); color: #fff; }
+        .home-stats > div:nth-child(2) { background: var(--accent); color: color-mix(in srgb, var(--accent) 25%, var(--dark)); }
+        .home-stats > div:nth-child(3) { background: var(--warning); color: color-mix(in srgb, var(--warning) 25%, var(--dark)); }
         .home-stats strong { font: 800 clamp(1.5rem, 4vw, 2.5rem)/1 var(--font-display); letter-spacing: -.04em; overflow-wrap: anywhere; }
         .home-stats span { font-size: .875rem; font-weight: 700; }
         .home-latest { margin-bottom: clamp(3rem, 7vw, 5rem); }
         .home-entries { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
-        .home-intro { width: 100vw; margin: 0 calc(50% - 50vw) clamp(2.5rem, 6vw, 4rem); padding: clamp(2.5rem, 6vw, 4rem) var(--gutter); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 2rem; color: color-mix(in srgb, var(--accent) 35%, var(--dark)); background: var(--accent); border-radius: 0 clamp(3rem, 12vw, 13rem) 0 0; }
+        .home-intro { width: 100vw; margin: 0 calc(50% - 50vw) clamp(2.5rem, 6vw, 4rem); padding: clamp(2.5rem, 6vw, 4rem) var(--gutter); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 2rem; color: color-mix(in srgb, var(--accent) 25%, var(--dark)); background: var(--accent); border-radius: 0 clamp(3rem, 12vw, 13rem) 0 0; }
         .home-intro .display { font-size: clamp(2.25rem, 5vw, 4rem); }
         .home-intro p { max-width: 34em; line-height: 1.7; }
 
@@ -474,10 +476,18 @@
             .entry-date { display: none !important; }
             .hero-copy { margin-right: 0; }
             .article-foot { flex-direction: column; align-items: stretch; }
-            .home-hero { margin-bottom: 1.5rem; }
-            .home-hero-copy { gap: 1rem; padding-block: 2rem; }
-            .home-hero .display { font-size: clamp(2.75rem, 13vw, 3.5rem); }
-            .home-hero .hero-art { aspect-ratio: 2.2 / 1; }
+            .shell-home { padding-top: 0; }
+            .home-hero { position: relative; display: block; margin-bottom: .375rem; }
+            .home-hero-copy { position: relative; z-index: 1; gap: .625rem; padding-block: 1.75rem 1.5rem; }
+            .home-hero .label, .home-hero .search-form { display: none; }
+            .home-hero .display { font-size: 2.75rem; line-height: 1.08; letter-spacing: -.04em; }
+            .home-tagline { font-size: .9375rem; }
+            .home-hero .hero-art { position: absolute; right: 0; top: 0; width: 44%; height: 100%; min-height: 0; aspect-ratio: auto; background: transparent; }
+            .home-hero .hero-art i { width: 76%; }
+            .home-hero .hero-art i:nth-child(1) { left: 32%; top: -16%; }
+            .home-hero .hero-art i:nth-child(2) { display: none; }
+            .home-hero .hero-art i:nth-child(3) { left: 6%; top: 24%; }
+            .home-hero .hero-art i:nth-child(4), .home-hero .hero-art i:nth-child(5), .home-hero .hero-art::before, .home-hero .hero-art::after { display: none; }
             .home-hero .search-form { flex-wrap: nowrap; }
             .home-hero .search-form .field { flex-basis: 0; }
             .home-hero .search-form .button { width: auto; }
@@ -540,7 +550,7 @@
         </div>
     </header>
 
-    <div class="shell">
+    <div class="shell{{if .IsHome}} shell-home{{else if or .IsPost .IsSearch}} shell-flush{{end}}">
         {{if and $sidebar (eq $sidebarPosition "left")}}{{template "rail" .}}{{end}}
         <main id="main" class="main">
             {{template "content" .}}

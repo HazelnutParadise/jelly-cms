@@ -1036,5 +1036,7 @@
     "sys_s3SessionToken": "Session token（選填）",
     "sys_clearS3Credentials": "清除全部已儲存的 S3 憑證",
     "sys_s3CredentialsHint": "只有 S3 策略需要填寫 S3 設定。已儲存的憑證只顯示遮罩，留空保留；勾選清除會刪除全部憑證。",
-    "sys_s3CredentialsPair": "新的 S3 憑證請同時填寫 Access key 與 Secret key。"
+    "sys_s3CredentialsPair": "新的 S3 憑證請同時填寫 Access key 與 Secret key。",
+    "errorNotFoundBody": "這一塊果凍掉到桌子底下了。網址可能打錯，或者文章已經被移走。",
+    "searchQueryTooLong": "搜尋字詞最多 100 個字"
 }

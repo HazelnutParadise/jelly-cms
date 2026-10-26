@@ -469,6 +469,11 @@ func applyDatabaseAndFiles(ctx context.Context, m Manifest, stage, journal strin
 				return err
 			}
 		}
+		if _, restoringPosts := m.Tables["posts"]; restoringPosts {
+			if err := data.RebuildAllPostSearchIndex(tx); err != nil {
+				return fmt.Errorf("backup: rebuild restored post search index: %w", err)
+			}
+		}
 		if err := resetSequences(tx, order); err != nil {
 			return err
 		}
