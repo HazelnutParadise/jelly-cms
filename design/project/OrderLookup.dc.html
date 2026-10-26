@@ -85,21 +85,23 @@ body{font-size:15px}
       <span class="stripe"></span>
       <div class="lbl">沒有帳號也能查</div>
       <h1 class="d" style="font-size:56px;letter-spacing:-.04em">查訂單</h1>
-      <p style="margin:0;color:#5F6470;font-size:17px;line-height:1.7;max-width:26em">輸入訂單編號和下單用的 Email，我們寄一個 15 分鐘有效的連結給你。信裡的連結點開就是訂單頁。</p>
+      <p style="margin:0;color:#5F6470;font-size:17px;line-height:1.7;max-width:26em">輸入訂單編號和下單用的 Email。如果資料相符，我們會寄出 15 分鐘有效的連結，點開即可查看訂單。</p>
       <form style="display:flex;flex-direction:column;gap:14px;max-width:420px" onsubmit="return false">
         <div><label class="flbl" for="no">訂單編號</label><input id="no" class="field" type="text" placeholder="JL-2026-0417" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:700"></div>
         <div><label class="flbl" for="em">下單的 Email</label><input id="em" class="field" type="email" placeholder="you@example.com"></div>
         <button class="btn p" type="button" style="align-self:flex-start;min-height:52px"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 7l9 6 9-6"/></svg>寄查詢連結給我</button>
-        <div style="font-size:13px;color:#5F6470">訂單編號在確認信的主旨。找不到信？<a href="#">重寄確認信</a></div>
+        <div style="font-size:13px;color:#5F6470">訂單編號在確認信的主旨裡。</div>
       </form>
     </section>
     <aside style="background:#15161A;color:#fff;border-radius:0 32px 0 32px;padding:32px;display:flex;flex-direction:column;gap:16px;position:relative;overflow:hidden">
       <div style="position:absolute;left:460px;top:200px;width:204px;height:240px;opacity:0.85" aria-hidden="true"><span class="cube" style="left:24px;top:22px;width:77px;height:77px;background:#2F6BFF;opacity:.85"></span><span class="cube" style="left:62px;top:72px;width:77px;height:77px;background:#13C2A3;opacity:.85"></span><span class="cube" style="left:101px;top:125px;width:77px;height:77px;background:#E8285B;opacity:.92;transform:rotate(-7deg)"></span><span class="cube" style="left:29px;top:185px;width:34px;height:34px;background:#F5B800"></span><span class="cube" style="left:151px;top:41px;width:24px;height:24px;background:#15161A;opacity:.9"></span></div>
       <div class="lbl" style="color:#9A9FAB">寄出後</div>
-      <div style="display:flex;align-items:center;gap:12px"><span style="width:44px;height:44px;background:#13C2A3;color:#0B3A31;display:grid;place-items:center;border-radius:0 12px 0 12px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg></span><div><b style="font-size:17px">連結寄到 ti•••@example.com 了</b><div style="font-size:13px;color:#C9CBD3">15 分鐘內有效，沒收到請看垃圾信。</div></div></div>
+      <div style="display:flex;align-items:center;gap:12px"><span style="width:44px;height:44px;background:#13C2A3;color:#0B3A31;display:grid;place-items:center;border-radius:0 12px 0 12px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg></span><div><b style="font-size:17px">如果編號和 Email 相符，系統會寄出查詢連結到 ti•••@example.com</b><div style="font-size:13px;color:#C9CBD3">不論是否相符都顯示同一句；連結 15 分鐘有效，沒收到請看垃圾信。</div></div></div>
       <div style="border-top:1px solid #2A2B31;padding-top:16px;display:flex;flex-direction:column;gap:8px;font-size:14px;color:#C9CBD3;position:relative">
         <b style="color:#fff">為什麼不直接顯示？</b>
         <span>訂單裡有地址和電話。只知道編號的人（例如看到你的包裹）不該看得到。</span>
+        <b style="color:#fff;margin-top:8px">沒收到信？</b>
+        <span>先看看垃圾信匣，再確認編號和 Email 與下單時相同後重新送出。</span>
         <b style="color:#fff;margin-top:8px">想以後不用查？</b>
         <span>結帳時勾「建立帳號」，訂單都在<a href="Account.dc.html" style="color:#fff;text-decoration:underline">會員中心</a>。</span>
       </div>

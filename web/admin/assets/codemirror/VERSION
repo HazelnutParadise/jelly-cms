@@ -1,0 +1,49 @@
+CodeMirror 6 bundle for Jelly CMS (window.JellyCM)
+build date: 2026-10-24
+bundler: esbuild 0.28.2
+@codemirror/autocomplete 6.20.4 source git+https://code.haverbeke.berlin/codemirror/autocomplete.git commit 5e4c57ab8d0bfd0a8428c6c129741f4a47faa8fc
+tarball https://registry.npmjs.org/@codemirror/autocomplete/-/autocomplete-6.20.4.tgz integrity sha512-yF8RhOf2SXlg00+qtupzLhrglcas61boqaONiNcbPIebHCpJocpqTBA6dyrtUrQO47hqyTdeob/3XnYilT7TaQ==
+@codemirror/commands 6.11.1 source git+https://code.haverbeke.berlin/codemirror/commands.git commit 5d2ddbbf485a7e8b17c69cf58ebaebf8e375036c
+tarball https://registry.npmjs.org/@codemirror/commands/-/commands-6.11.1.tgz integrity sha512-O/4hG3SC1YwcmQ0d2UVNDs+AsaNWd1iHVxbTeEBuqH+6bExAiPK3iS/BvpY6rZGURALv4ZD3sIgcCmRvw3ehBg==
+@codemirror/lang-css 6.3.1 source https://github.com/codemirror/lang-css.git commit 253b0baa868d87d0a57fd9e1ac5415b20881ccaf
+tarball https://registry.npmjs.org/@codemirror/lang-css/-/lang-css-6.3.1.tgz integrity sha512-kr5fwBGiGtmz6l0LSJIbno9QrifNMUusivHbnA1H6Dmqy4HZFte3UAICix1VuKo0lMPKQr2rqB+0BkKi/S3Ejg==
+@codemirror/lang-html 6.4.12 source git+https://code.haverbeke.berlin/codemirror/lang-html.git commit de1fbd825c6f5b2a3d4c7a6bceba328b8e4ad036
+tarball https://registry.npmjs.org/@codemirror/lang-html/-/lang-html-6.4.12.tgz integrity sha512-pw2ReWKUqSkbvh76RAT4NYxiogRu+PWkR2ukAwO9uOgrm8uipkzjtKKtNpyeAQwHOqxEeSvAXZ6vr3AfyB9y/w==
+@codemirror/lang-javascript 6.2.5 source git+https://github.com/codemirror/lang-javascript.git commit a202a000e8d3d107d1c340db933d9f09a828308a
+tarball https://registry.npmjs.org/@codemirror/lang-javascript/-/lang-javascript-6.2.5.tgz integrity sha512-zD4e5mS+50htS7F+TYjBPsiIFGanfVqg4HyUz6WNFikgOPf2BgKlx+TQedI1w6n/IqRBVBbBWmGFdLB/7uxO4A==
+@codemirror/lang-markdown 6.5.2 source git+https://code.haverbeke.berlin/codemirror/lang-markdown.git commit f90daf6e56a72f1cf8bbe10b07867f535d0ad2e4
+tarball https://registry.npmjs.org/@codemirror/lang-markdown/-/lang-markdown-6.5.2.tgz integrity sha512-AwBOdkWYuA//WcM0xO5PfHPUcmz/O2i5o0Nsg1U69SII/loCJlFI1Romd9xp2HYb1kYJRGZotyqRghuHH5n8Kw==
+@codemirror/language 6.13.1 source git+https://code.haverbeke.berlin/codemirror/language.git commit 21a38068286652eceb17d8e02da88cbed52f8263
+tarball https://registry.npmjs.org/@codemirror/language/-/language-6.13.1.tgz integrity sha512-zfvU2r3TyylQLMj/te+5CnQ0rSqZi8B1oTCBbQkagcLW4Xc6imab6qN+pEJhsuNOLaJqiRyBXp9UhWA1DhVvDw==
+@codemirror/lint 6.9.7 source git+https://code.haverbeke.berlin/codemirror/lint.git commit dc7cf103c2f7730b93c52d7350955c43bbb58f66
+tarball https://registry.npmjs.org/@codemirror/lint/-/lint-6.9.7.tgz integrity sha512-28/+iWLYxKxsvGYhSYL7zaCZqLz5+FFFDq9tVsvGv9kv8RY4fFAchJ5WX9M3YrrRlTIsECjsXPqeNgnSmNP2dg==
+@codemirror/search 6.7.2 source git+https://code.haverbeke.berlin/codemirror/search.git commit 4437667eaa9badaba21f151bfc0db8494de0fb81
+tarball https://registry.npmjs.org/@codemirror/search/-/search-6.7.2.tgz integrity sha512-gUYkYhT2+n/+VGZ+8EzE5WFkYZUZYm1VOKDudIsNqh42uRVQJ0a6Yss9sdKT3MeOYfuL1N6AZA57oza0Oyr0LA==
+@codemirror/state 6.7.6 source git+https://code.haverbeke.berlin/codemirror/state.git commit 651084c8a322b3a19b2bb3e00eee7d4a61d641af
+tarball https://registry.npmjs.org/@codemirror/state/-/state-6.7.6.tgz integrity sha512-kAz+AncRtKuIknedxT1bq4XwXv4UowhbkHU1myPrtVb/jZtImWuV5BXzv5vK6i3kYACsdiZiQKFQQ5Mq7elW8w==
+@codemirror/streamparser 6.0.0 source git+https://code.haverbeke.berlin/codemirror/streamparser.git commit e8750deb555c08c6b9cea9956daf748c23e3da92
+tarball https://registry.npmjs.org/@codemirror/streamparser/-/streamparser-6.0.0.tgz integrity sha512-JTFPF6xrfjt0mnfGPgzcLiMwYmvIyNaoizp8BYzv8FE8KrT6GBGDZ190rtt+O7Wke3gG/MFHyiY9YGNeimof4w==
+@codemirror/view 6.43.15 source git+https://code.haverbeke.berlin/codemirror/view.git commit da63d53a7b1f9011a09481f5fa2397294104d73a
+tarball https://registry.npmjs.org/@codemirror/view/-/view-6.43.15.tgz integrity sha512-HHsfpqFeHyXLs983pSRe38Xajs0vFWZQ2BuX0m7Ki8w3jZ5iD8cuR3lBz2/5/X53Dhf32SBHKh6rtSTB6tKeGw==
+@lezer/common 1.5.4 source git+https://code.haverbeke.berlin/lezer/common.git commit ac5937bfa48c32cb51b618f60708241459d8528f
+tarball https://registry.npmjs.org/@lezer/common/-/common-1.5.4.tgz integrity sha512-xt3Q4z64xM+xhg4M7NXqw1N//1O74bUFo5kz6fwMeC4qwxSuRdwkYSmjcqCEEKYkNw5e67f2hcNqBoNERAEU0w==
+@lezer/css 1.3.9 source git+https://code.haverbeke.berlin/lezer/css.git commit 78087d942b033f4e5979ca12dfbea76ea2b881a5
+tarball https://registry.npmjs.org/@lezer/css/-/css-1.3.9.tgz integrity sha512-ZmzgvTOBdJWGIsY/ItAfN7UW8DV802oZG+jeG6E508SwEzz5YhuAajptpWPICvIyqYAD2+VjMdOS40GgGkyEOQ==
+@lezer/highlight 1.2.5 source git+https://code.haverbeke.berlin/lezer/highlight.git commit 411321ba47cffc8845e79e1a3c773e0bcaf8b5b5
+tarball https://registry.npmjs.org/@lezer/highlight/-/highlight-1.2.5.tgz integrity sha512-O1GMVKgtf5YspFaRzpmqkVgMtIk2HG9uMAbH6wdAIdNh3TVzCsch/+cRi+6l2//UGDKe6NB9BW3cvuR5ezMQ0w==
+@lezer/html 1.3.13 source https://github.com/lezer-parser/html.git commit 36d7e20ef97982ed97e27ab63151326b8ed2ba53
+tarball https://registry.npmjs.org/@lezer/html/-/html-1.3.13.tgz integrity sha512-oI7n6NJml729m7pjm9lvLvmXbdoMoi2f+1pwSDJkl9d68zGr7a9Btz8NdHTGQZtW2DA25ybeuv/SyDb9D5tseg==
+@lezer/javascript 1.5.6 source git+https://code.haverbeke.berlin/lezer/javascript.git commit 9855b3be37aca31f9723be7b00180fa3d2256c81
+tarball https://registry.npmjs.org/@lezer/javascript/-/javascript-1.5.6.tgz integrity sha512-sEvOqpl4vJQca0NugSQK02vQPbc5KrvoojnYGoqqFgFO0MtcYhwGiHKVEB+LuXYJnfyXo4QPA8ztbrEa4Fw5NA==
+@lezer/lr 1.4.11 source git+https://code.haverbeke.berlin/lezer/lr.git commit 22814e6ac99851b40c706f743b19f33bb076411a
+tarball https://registry.npmjs.org/@lezer/lr/-/lr-1.4.11.tgz integrity sha512-UwgZcl1R66H2hDzBrA7kWyYmX6s8p5TQ+e/t7CuvgCtBEPxbEPaHYHu+pJBvTvDotEJpuQkJjbXuHiw5Cixxgw==
+@lezer/markdown 1.8.1 source git+https://code.haverbeke.berlin/lezer/markdown.git commit ae90a5acdebd1e0359696e9e277d8cec35585df1
+tarball https://registry.npmjs.org/@lezer/markdown/-/markdown-1.8.1.tgz integrity sha512-M5YmEcKWO4mJ45Y1hECwqyu8cLv25EiXOK554PVOvDOWOP0olwelHHQUWr9sjF+d1bENVhy0nfJ8E57XZUTiXg==
+@marijn/find-cluster-break 1.0.4 source git+https://code.haverbeke.berlin/marijn/find-cluster-break.git commit 098961685c964055851434a40cbffb815057cc06
+tarball https://registry.npmjs.org/@marijn/find-cluster-break/-/find-cluster-break-1.0.4.tgz integrity sha512-Wy0V7+SGUjnF9/TkiM1hKVDPj7jKXduPNboMVtHTA8dySMURWqfg/JZ9E2Sq8JgSJmkl7k7Qe9FLeMSrSraWmQ==
+crelt 1.0.7 source git+https://code.haverbeke.berlin/marijn/crelt.git commit 86f0f8a7ebc3a8655aa55c307e5f2d97c72c2d46
+tarball https://registry.npmjs.org/crelt/-/crelt-1.0.7.tgz integrity sha512-aK6BbWfhf4U/wCcLHKPJl/xa6VkVstRaPywWtMKGwuOLc/wZTyQYuoxgvZnNsBvv7Kg3YTBQYYBCggcviQczuA==
+style-mod 4.1.4 source git+https://code.haverbeke.berlin/marijn/style-mod.git commit c90c6b05cb22b55eeaab6de045ad1b55a0275e6c
+tarball https://registry.npmjs.org/style-mod/-/style-mod-4.1.4.tgz integrity sha512-XXWIQt633/EpAFx8aZDOTjBzrCaGmhvEQlQo6MVPfa2OzO2cWo+4hV9h+6UkHYlXGfy+ODXKUdP7Pthmcu5ATw==
+w3c-keyname 2.2.8 source git+https://github.com/marijnh/w3c-keyname.git commit 5ea93b04bb62230c7de4165e3a9b5c840f05cd44
+tarball https://registry.npmjs.org/w3c-keyname/-/w3c-keyname-2.2.8.tgz integrity sha512-dpojBhNsCNN7T82Tm7k26A6G9ML3NkhDsnw9n/eoxSRlVBB4CEtIQ/KTCLI2Fwf3ataSXRhYFkQi3SlnFwPvPQ==

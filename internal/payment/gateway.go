@@ -2,8 +2,27 @@ package payment
 
 import (
 	"context"
+	"errors"
 	"time"
 )
+
+// ErrNotSupported is returned by QueryOrder and Refund when the provider has no
+// such operation (or it is not implemented yet). Callers must not treat it as
+// a successful query or refund.
+var ErrNotSupported = errors.New("payment: operation not supported")
+
+// ErrNotImplemented marks skeleton functions of ticket 07 that are not filled in yet.
+var ErrNotImplemented = errors.New("payment: not implemented")
+
+// Capabilities describes what a provider can do, for the checkout page.
+type Capabilities struct {
+	// Methods lists the payment method ids the provider handles, such as
+	// credit_card, atm, cvs or bank_transfer.
+	Methods []string
+	// Offline is true when the payment is confirmed by a person (bank transfer)
+	// instead of by a notification from the provider.
+	Offline bool
+}
 
 // PaymentGateway defines the interface for payment gateways
 type PaymentGateway interface {
@@ -21,6 +40,9 @@ type PaymentGateway interface {
 
 	// GetName returns the gateway name
 	GetName() string
+
+	// Capabilities returns the payment methods and whether the provider is offline
+	Capabilities() Capabilities
 }
 
 // CreateOrderRequest contains information needed to create a payment order
@@ -28,6 +50,8 @@ type CreateOrderRequest struct {
 	OrderID       string    // Internal order ID
 	Amount        int64     // Amount in smallest currency unit (e.g., cents)
 	Currency      string    // Currency code (e.g., "TWD", "USD")
+	Method        string    // Shop method id: credit_card, atm, cvs, bank_transfer.
+	AccessToken   string    // Local-only proof used to link a guest to checkout; never sent to a provider.
 	Description   string    // Order description
 	CustomerName  string    // Customer name
 	CustomerEmail string    // Customer email
@@ -53,14 +77,19 @@ type CreateOrderResponse struct {
 
 // CallbackData contains data from payment gateway callback
 type CallbackData struct {
-	OrderID        string
-	GatewayOrderID string
-	Status         PaymentStatus
-	Amount         int64
-	Currency       string
-	TransactionID  string
-	PaidAt         time.Time
-	RawData        map[string]interface{}
+	// OrderID is retained for the original payment API and equals the merchant trade number.
+	OrderID         string
+	Provider        string
+	MerchantTradeNo string
+	Method          string
+	DedupeKey       string
+	GatewayOrderID  string
+	Status          PaymentStatus
+	Amount          int64
+	Currency        string
+	TransactionID   string
+	PaidAt          time.Time
+	RawData         map[string]interface{}
 }
 
 // PaymentStatus represents the payment status
@@ -111,8 +140,12 @@ type ECPayConfig struct {
 	HashKey    string
 	HashIV     string
 	IsTestMode bool
-	ReturnURL  string
-	NotifyURL  string
+	// ReturnURL is ECPay's server-to-server POST notification URL.
+	ReturnURL string
+	// NotifyURL is retained for compatibility with older callers.
+	NotifyURL string
+	// ClientBackURL is a read-only browser return URL.
+	ClientBackURL string
 }
 
 // NewebPayConfig contains NewebPay (藍新) configuration

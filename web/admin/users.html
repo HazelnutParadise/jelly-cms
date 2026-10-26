@@ -1,0 +1,775 @@
+{{define "title"}}{{.T.users}}{{end}}
+{{define "content"}}
+<style>
+.accounts-page{--ac-line:var(--outline);--ac-card:var(--surface);min-width:0}
+.accounts-page .page-header{align-items:center}
+.accounts-page .page-header h1{margin:0}
+.accounts-page .users-toolbar,.accounts-page .users-filters,.accounts-page .users-bulk{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}
+.accounts-page .users-filters{margin:.75rem 0}
+.accounts-page .role-tabs{display:flex;gap:.25rem;overflow-x:auto;padding:.2rem;background:var(--surface-low);border-radius:var(--r-sm)}
+.accounts-page .role-tabs button{min-height:2.15rem;padding:.25rem .7rem;border:0;border-radius:var(--r-sm);background:transparent;color:var(--muted);font-weight:700;white-space:nowrap;cursor:pointer}
+.accounts-page .role-tabs button[aria-pressed=true]{background:var(--ink);color:var(--surface)}
+.accounts-page .users-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(17rem,22rem);gap:1rem;align-items:start}
+.accounts-page .users-main,.accounts-page .users-side{min-width:0}
+.accounts-page .users-card{background:var(--ac-card);border-radius:var(--r-md);padding:1rem;box-shadow:inset 0 0 0 1px var(--outline)}
+.accounts-page .users-table-wrap{overflow-x:auto}
+.accounts-page .users-table{min-width:760px}
+.accounts-page .user-cell{display:flex;align-items:center;gap:.7rem;min-width:12rem}
+.accounts-page .user-meta{min-width:0}
+.accounts-page .user-meta strong,.accounts-page .user-meta span{display:block;overflow-wrap:anywhere}
+.accounts-page .user-meta span,.accounts-page .user-secondary{font-size:.8rem;color:var(--muted)}
+.accounts-page .user-last-login{max-width:13rem;font-size:.8rem;color:var(--muted)}
+.accounts-page .user-actions{display:flex;justify-content:flex-end;gap:.25rem}
+.accounts-page .users-status{min-height:1.5rem;margin:.5rem 0;color:var(--muted)}
+.accounts-page .users-status.error{color:var(--error)}
+.accounts-page .users-status.success{color:var(--success)}
+.accounts-page .users-table tbody tr[aria-selected=true] td{background:var(--primary-container)}
+.accounts-page .invite-role{display:grid;gap:.5rem;margin:.75rem 0}
+.accounts-page .invite-role label{display:flex;align-items:flex-start;gap:.65rem;padding:.65rem;border:1px solid var(--outline);border-radius:var(--r-sm);cursor:pointer}
+.accounts-page .invite-role input{margin-top:.15rem}
+.accounts-page .invite-result{overflow-wrap:anywhere;padding:.75rem;background:var(--surface-low);border-radius:var(--r-sm)}
+.accounts-page .invite-result a{overflow-wrap:anywhere}
+.accounts-page .matrix-wrap{overflow:auto}
+.accounts-page .matrix{min-width:580px}
+.accounts-page .matrix th:not(:first-child),.accounts-page .matrix td:not(:first-child){text-align:center}
+.accounts-page .modal-overlay{position:fixed;inset:0;z-index:1000;background:color-mix(in srgb,var(--ink) 45%,transparent);display:flex;justify-content:flex-end}
+.accounts-page .modal-overlay[hidden]{display:none}
+.accounts-page .account-sheet{width:min(34rem,100%);height:100%;overflow:auto;padding:1.5rem;background:var(--surface);border-radius:0 0 0 1.5rem;box-shadow:0 0 0 1px var(--outline)}
+.accounts-page .sheet-actions{position:sticky;bottom:-1.5rem;display:flex;flex-wrap:wrap;gap:.5rem;margin:1.25rem -1.5rem -1.5rem;padding:1rem 1.5rem 1.5rem;background:var(--surface);border-top:1px solid var(--outline)}
+.accounts-page .user-fields{display:grid;gap:.85rem}
+.accounts-page .content-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem}
+.accounts-page .content-count{padding:.65rem;background:var(--surface-low);border-radius:var(--r-sm)}
+.accounts-page .content-count b{display:block;font-size:1.2rem}
+.accounts-page .page-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+.accounts-page .inline-result{margin-top:.75rem}
+@media(max-width:900px){.accounts-page .users-layout{grid-template-columns:minmax(0,1fr)}.accounts-page .users-side{order:-1}.accounts-page .users-side .users-card{max-width:none}}
+@media(max-width:600px){
+ .accounts-page .content{padding-inline:.8rem}
+ .accounts-page .page-header{align-items:flex-start}
+ .accounts-page .page-actions,.accounts-page .page-actions .btn{width:100%}
+ .accounts-page .users-card{padding:.8rem}
+ .accounts-page .users-filters>*{width:100%}
+ .accounts-page .users-filters input,.accounts-page .users-filters select{width:100%}
+ .accounts-page .users-bulk>*{flex:1 1 auto}
+ .accounts-page .users-table{min-width:0}
+ .accounts-page .users-table thead{display:none}
+ .accounts-page .users-table,.accounts-page .users-table tbody,.accounts-page .users-table tr,.accounts-page .users-table td{display:block;width:100%}
+ .accounts-page .users-table tr{padding:.65rem 0;border-bottom:1px solid var(--outline)}
+ .accounts-page .users-table td{padding:.25rem .2rem;border:0}
+ .accounts-page .users-table td:first-child{float:left;width:2rem}
+ .accounts-page .users-table td:nth-child(2){min-height:3rem}
+ .accounts-page .users-table td:nth-child(3),.accounts-page .users-table td:nth-child(4),.accounts-page .users-table td:nth-child(5){padding-left:2.2rem}
+ .accounts-page .users-table td:nth-child(3)::before{content:attr(data-label) "：";color:var(--muted)}
+ .accounts-page .users-table td:nth-child(4)::before{content:attr(data-label) "：";color:var(--muted)}
+ .accounts-page .users-table td:nth-child(5)::before{content:attr(data-label) "：";color:var(--muted)}
+ .accounts-page .users-table td:last-child{padding-left:2rem}
+ .accounts-page .user-actions{justify-content:flex-start}
+}
+</style>
+<div class="accounts-page" id="usersPage" aria-busy="true">
+    <div class="page-header">
+        <div class="page-title-wrapper">
+            <h1>{{if eq .Lang "en"}}Users{{else}}使用者{{end}}</h1>
+            <p class="page-description">{{if eq .Lang "en"}}Invite and manage accounts, roles and access.{{else}}邀請並管理成員、角色與登入權限。{{end}}</p>
+        </div>
+        <div class="page-actions">
+            <button class="btn btn-secondary" type="button" id="showRoles">{{if eq .Lang "en"}}Roles and permissions{{else}}角色與權限{{end}}</button>
+            <a class="btn btn-primary" href="#invite">{{if eq .Lang "en"}}Invite user{{else}}邀請使用者{{end}}</a>
+        </div>
+    </div>
+    <p id="usersStatus" class="users-status" role="status" aria-live="polite"></p>
+    <div class="users-layout">
+        <section class="users-main" aria-label="{{if eq .Lang "en"}}Users{{else}}使用者{{end}}">
+            <div class="users-toolbar">
+                <nav class="role-tabs" id="roleTabs" aria-label="{{if eq .Lang "en"}}Filter by role{{else}}依角色篩選{{end}}">
+                    <button type="button" data-role="" aria-pressed="true">{{if eq .Lang "en"}}All{{else}}全部{{end}} <span data-count="all">—</span></button>
+                    <button type="button" data-role="admin" aria-pressed="false">{{if eq .Lang "en"}}Administrators{{else}}管理員{{end}} <span data-count-role="admin">—</span></button>
+                    <button type="button" data-role="editor" aria-pressed="false">{{if eq .Lang "en"}}Editors{{else}}編輯{{end}} <span data-count-role="editor">—</span></button>
+                    <button type="button" data-role="author" aria-pressed="false">{{if eq .Lang "en"}}Authors{{else}}作者{{end}} <span data-count-role="author">—</span></button>
+                    <button type="button" data-role="customer" aria-pressed="false">{{if eq .Lang "en"}}Customers{{else}}顧客{{end}} <span data-count-role="customer">—</span></button>
+                </nav>
+            </div>
+            <div class="users-filters">
+                <label class="filter-item"><span>{{if eq .Lang "en"}}Search{{else}}搜尋{{end}}</span><input id="userSearch" type="search" autocomplete="off" placeholder="{{if eq .Lang "en"}}Name, username or email{{else}}姓名、帳號或 Email{{end}}"></label>
+                <label class="filter-item"><span>{{if eq .Lang "en"}}Status{{else}}狀態{{end}}</span>
+                    <select id="userStatusFilter"><option value="">{{if eq .Lang "en"}}All statuses{{else}}全部狀態{{end}}</option><option value="active">{{if eq .Lang "en"}}Active{{else}}啟用{{end}}</option><option value="invited">{{if eq .Lang "en"}}Invitation pending{{else}}邀請中{{end}}</option><option value="disabled">{{if eq .Lang "en"}}Disabled{{else}}停用{{end}}</option></select>
+                </label>
+            </div>
+            <div class="users-bulk users-card" id="bulkActions" hidden>
+                <strong><span id="selectedCount">0</span> {{if eq .Lang "en"}}selected{{else}}位已選{{end}}</strong>
+                <button class="btn btn-secondary btn-sm" type="button" data-bulk="enable">{{if eq .Lang "en"}}Enable{{else}}啟用{{end}}</button>
+                <button class="btn btn-secondary btn-sm" type="button" data-bulk="disable">{{if eq .Lang "en"}}Disable{{else}}停用{{end}}</button>
+                <label class="filter-item"><span class="sr-only">{{if eq .Lang "en"}}Set selected role{{else}}設定所選角色{{end}}</span><select id="bulkRole"><option value="">{{if eq .Lang "en"}}Choose role{{else}}選擇角色{{end}}</option><option value="admin">{{if eq .Lang "en"}}Administrator{{else}}管理員{{end}}</option><option value="editor">{{if eq .Lang "en"}}Editor{{else}}編輯{{end}}</option><option value="author">{{if eq .Lang "en"}}Author{{else}}作者{{end}}</option></select></label>
+                <button class="btn btn-secondary btn-sm" type="button" data-bulk="set_role">{{if eq .Lang "en"}}Change role{{else}}變更角色{{end}}</button>
+                <button class="btn btn-danger btn-sm" type="button" data-bulk="delete">{{if eq .Lang "en"}}Delete{{else}}刪除{{end}}</button>
+                <button class="btn btn-text btn-sm" type="button" id="clearSelection">{{if eq .Lang "en"}}Clear{{else}}清除選取{{end}}</button>
+            </div>
+            <div class="users-card">
+                <div id="usersLoading" class="loading-spinner"><span class="spinner" aria-hidden="true"><i></i></span><span>{{if eq .Lang "en"}}Loading users…{{else}}正在載入使用者…{{end}}</span></div>
+                <div id="usersError" class="alert alert-danger" role="alert" hidden></div>
+                <div class="table-wrapper users-table-wrap" id="usersTableWrap" hidden>
+                    <table class="users-table">
+                        <thead><tr><th><input id="selectAllUsers" type="checkbox" aria-label="{{if eq .Lang "en"}}Select all users on this page{{else}}選取本頁全部使用者{{end}}"></th><th>{{if eq .Lang "en"}}User{{else}}使用者{{end}}</th><th>{{if eq .Lang "en"}}Role{{else}}角色{{end}}</th><th>{{if eq .Lang "en"}}Last login{{else}}最後登入{{end}}</th><th>{{if eq .Lang "en"}}Status{{else}}狀態{{end}}</th><th class="actions">{{if eq .Lang "en"}}Actions{{else}}操作{{end}}</th></tr></thead>
+                        <tbody id="usersRows"></tbody>
+                    </table>
+                </div>
+                <div id="usersEmpty" class="empty-state" hidden><span class="empty-title">{{if eq .Lang "en"}}No users found{{else}}找不到使用者{{end}}</span><span class="empty-description">{{if eq .Lang "en"}}Try another search or filter.{{else}}請調整搜尋文字或篩選條件。{{end}}</span></div>
+                <button class="btn btn-secondary" id="retryUsers" type="button" hidden>{{if eq .Lang "en"}}Retry{{else}}重試{{end}}</button>
+                <nav class="pagination" id="usersPagination" aria-label="{{if eq .Lang "en"}}User pages{{else}}使用者分頁{{end}}" hidden>
+                    <button class="btn btn-secondary btn-sm" id="previousUsers" type="button">{{if eq .Lang "en"}}Previous{{else}}上一頁{{end}}</button>
+                    <span class="page-info" id="usersPageInfo"></span>
+                    <button class="btn btn-secondary btn-sm" id="nextUsers" type="button">{{if eq .Lang "en"}}Next{{else}}下一頁{{end}}</button>
+                </nav>
+            </div>
+            <section class="section users-card" id="rolesSection">
+                <div class="section-head"><div><h2>{{if eq .Lang "en"}}Role permissions{{else}}角色權限矩陣{{end}}</h2><p class="muted">{{if eq .Lang "en"}}Read-only matrix supplied by the server.{{else}}由伺服器提供的唯讀權限矩陣。{{end}}</p></div><button class="btn btn-text btn-sm" id="retryRoles" type="button">{{if eq .Lang "en"}}Reload{{else}}重新載入{{end}}</button></div>
+                <div id="rolesStatus" class="users-status" role="status"></div>
+                <div class="matrix-wrap" id="rolesMatrix"></div>
+            </section>
+        </section>
+        <aside class="users-side" id="invite">
+            <section class="users-card">
+                <div class="section-head"><div><h2>{{if eq .Lang "en"}}Invite a user{{else}}邀請使用者{{end}}</h2><p class="muted">{{if eq .Lang "en"}}The link is valid for seven days.{{else}}邀請連結 7 天有效。{{end}}</p></div></div>
+                <form id="inviteForm" novalidate>
+                    <div class="form-group"><label for="inviteEmail">Email</label><input id="inviteEmail" name="email" type="email" autocomplete="email" required maxlength="254"></div>
+                    <fieldset class="form-group"><legend class="label">{{if eq .Lang "en"}}Role{{else}}角色{{end}}</legend>
+                        <div class="invite-role">
+                            <label><input type="radio" name="role" value="editor" checked><span><strong>{{if eq .Lang "en"}}Editor{{else}}編輯{{end}}</strong><span class="hint">{{if eq .Lang "en"}}Manage all content and comments.{{else}}管理所有內容與留言。{{end}}</span></span></label>
+                            <label><input type="radio" name="role" value="author"><span><strong>{{if eq .Lang "en"}}Author{{else}}作者{{end}}</strong><span class="hint">{{if eq .Lang "en"}}Write and publish own content.{{else}}撰寫與發布自己的內容。{{end}}</span></span></label>
+                            <label><input type="radio" name="role" value="admin"><span><strong>{{if eq .Lang "en"}}Administrator{{else}}管理員{{end}}</strong><span class="hint">{{if eq .Lang "en"}}Full site access.{{else}}擁有完整網站管理權限。{{end}}</span></span></label>
+                        </div>
+                    </fieldset>
+                    <div class="form-group"><label for="inviteNote">{{if eq .Lang "en"}}Message (optional){{else}}附一句話（可選）{{end}}</label><textarea id="inviteNote" name="note" rows="3" maxlength="500"></textarea></div>
+                    <button class="btn btn-primary" id="sendInvite" type="submit">{{if eq .Lang "en"}}Create invitation{{else}}建立邀請{{end}}</button>
+                </form>
+                <div id="inviteStatus" class="users-status" role="status" aria-live="polite"></div>
+                <div id="inviteLinkBox" class="invite-result" hidden><p>{{if eq .Lang "en"}}Invitation link (shown only now):{{else}}邀請連結（僅在這裡顯示）：{{end}}</p><p><a id="inviteLink" rel="noreferrer"></a></p><button class="btn btn-secondary btn-sm" type="button" id="copyInvite">{{if eq .Lang "en"}}Copy link{{else}}複製連結{{end}}</button></div>
+            </section>
+        </aside>
+    </div>
+</div>
+
+<div class="accounts-page">
+    <div class="modal-overlay" id="userDialog" hidden>
+        <section class="account-sheet" role="dialog" aria-modal="true" aria-labelledby="userDialogTitle">
+            <div class="modal-header"><h2 id="userDialogTitle"></h2></div>
+            <p class="users-status" id="dialogStatus" role="status" aria-live="polite"></p>
+            <div id="dialogBody"></div>
+            <div class="sheet-actions" id="dialogActions"></div>
+        </section>
+    </div>
+</div>
+{{end}}
+{{define "scripts"}}
+<script>
+(function () {
+    'use strict';
+    const en = document.documentElement.lang === 'en';
+    const text = {
+        loadError: en ? 'Could not load users.' : '無法載入使用者。',
+        apiError: en ? 'The server could not complete the request.' : '伺服器無法完成這項要求。',
+        offline: en ? 'You are offline. Reconnect and retry.' : '目前離線，請連線後重試。',
+        timeout: en ? 'The request timed out. You can retry.' : '連線逾時，請重試。',
+        unauthorized: en ? 'Your session expired. Sign in again.' : '登入已逾期，請重新登入。',
+        forbidden: en ? 'You do not have permission to do this.' : '你沒有權限執行這項操作。',
+        inviteFailed: en ? 'Invitation was not created.' : '邀請未建立。',
+        inviteSuccess: en ? 'Invitation created. Copy the one-time link now.' : '邀請已建立，請立即複製一次性連結。',
+        deleteTitle: en ? 'Delete user' : '刪除使用者',
+        reassign: en ? 'Reassign content to' : '將內容轉移給',
+        noTransfer: en ? 'Select an active writer when the account owns content.' : '若帳號仍有內容，必須選擇啟用中的寫作者。',
+        delete: en ? 'Delete permanently' : '永久刪除',
+        cancel: en ? 'Cancel' : '取消',
+        save: en ? 'Save changes' : '儲存變更',
+        close: en ? 'Close' : '關閉',
+        currentUser: en ? 'You cannot change your own role or delete yourself.' : '不能變更自己的角色或刪除自己。',
+        confirmBulk: en ? 'Apply this action to the selected users?' : '確定要對已選使用者執行此操作？',
+        rolesFailed: en ? 'Could not load the role matrix.' : '無法載入角色權限矩陣。',
+        emptyMatrix: en ? 'The server returned no role matrix.' : '伺服器未提供權限矩陣。'
+    };
+    const $ = (id) => document.getElementById(id);
+    const page = $('usersPage');
+    const status = $('usersStatus');
+    const rows = $('usersRows');
+    const selected = new Set();
+    const state = { q: '', role: '', status: '', page: 1, perPage: 25, total: 0, users: [], currentUserID: null, busy: false, seq: 0, inviteURL: '' };
+    const roleNames = { admin: en ? 'Administrator' : '管理員', editor: en ? 'Editor' : '編輯', author: en ? 'Author' : '作者', customer: en ? 'Customer' : '顧客' };
+    const statusNames = { active: en ? 'Active' : '啟用', invited: en ? 'Invitation pending' : '邀請中', disabled: en ? 'Disabled' : '停用' };
+    const permissionNames = {
+        admin_access: en ? 'Access the admin area' : '進入管理後台',
+        users_manage: en ? 'Manage users' : '管理使用者',
+        settings_manage: en ? 'Manage site settings' : '管理網站設定',
+        themes_manage: en ? 'Manage themes' : '管理外觀主題',
+        plugins_manage: en ? 'Manage plugins' : '管理外掛',
+        content_manage: en ? 'Manage all content' : '管理所有內容',
+        own_content_manage: en ? 'Manage own content' : '管理個人內容',
+        comments_manage: en ? 'Review comments' : '審核留言',
+        orders_manage: en ? 'Manage orders' : '管理訂單',
+        products_manage: en ? 'Manage products' : '管理商品'
+    };
+    let searchTimer = 0;
+    let dialogFocus = null;
+
+    function node(tag, cls, value) {
+        const el = document.createElement(tag);
+        if (cls) el.className = cls;
+        if (value !== undefined && value !== null) el.textContent = String(value);
+        return el;
+    }
+    function setMessage(el, message, kind) {
+        el.textContent = message || '';
+        el.classList.toggle('error', kind === 'error');
+        el.classList.toggle('success', kind === 'success');
+    }
+    function errorMessage(response, error) {
+        if (error && error.name === 'AbortError') return text.timeout;
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return text.offline;
+        if (response && response.status === 401) return text.unauthorized;
+        if (response && response.status === 403) return text.forbidden;
+        if (response && response.status === 501) return (en ? 'Account API is not implemented yet (HTTP 501).' : '帳號 API 尚未實作（HTTP 501）。');
+        if (response) return text.apiError;
+        if (error instanceof TypeError) return text.apiError;
+        return error && error.message ? error.message : text.apiError;
+    }
+    async function request(path, options) {
+        const controller = new AbortController();
+        const timer = window.setTimeout(() => controller.abort(), 20000);
+        const opts = Object.assign({ mode: 'same-origin', credentials: 'same-origin', cache: 'no-store', signal: controller.signal }, options || {});
+        if (opts.method && !['GET', 'HEAD', 'OPTIONS'].includes(opts.method.toUpperCase())) {
+            opts.headers = Object.assign({ 'X-Jelly-CSRF': '1', 'Accept': 'application/json' }, opts.headers || {});
+        } else opts.headers = Object.assign({ 'Accept': 'application/json' }, opts.headers || {});
+        try {
+            const response = await fetch(path, opts);
+            let body = null;
+            try { body = await response.json(); } catch (_) {}
+            return { response, body };
+        } catch (error) {
+            throw new Error(errorMessage(null, error));
+        } finally {
+            window.clearTimeout(timer);
+        }
+    }
+    function labelRole(role) { return roleNames[role] || role || '—'; }
+    function formatDate(value) {
+        if (!value) return en ? 'Never' : '從未登入';
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat(en ? 'en' : 'zh-TW', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+    }
+    function setBusy(value) {
+        state.busy = value;
+        page.setAttribute('aria-busy', String(value));
+        page.querySelectorAll('button,input,select,textarea').forEach((el) => {
+            if (!el.closest('#userDialog') && !el.closest('#inviteLinkBox')) el.disabled = value;
+        });
+        $('previousUsers').disabled = value || state.page <= 1;
+        $('nextUsers').disabled = value || state.page * state.perPage >= state.total;
+    }
+    function renderCounts(counts) {
+        counts = counts && typeof counts === 'object' ? counts : {};
+        const all = $('roleTabs').querySelector('[data-count="all"]');
+        if (all) all.textContent = Number.isFinite(Number(counts.all)) ? String(Number(counts.all)) : '0';
+        Object.keys(roleNames).forEach((role) => {
+            const el = $('roleTabs').querySelector('[data-count-role="' + role + '"]');
+            const count = Number(counts.role && counts.role[role]);
+            if (el) el.textContent = Number.isFinite(count) ? String(count) : '0';
+        });
+    }
+    function createBadge(value, tone) {
+        const badge = node('span', 'badge' + (tone ? ' badge-' + tone : ''), value);
+        return badge;
+    }
+    function renderRows(users) {
+        rows.replaceChildren();
+        state.users = users;
+        users.forEach((user) => {
+            const tr = node('tr');
+            tr.dataset.id = String(user.id);
+            tr.setAttribute('aria-selected', String(selected.has(String(user.id))));
+            const checkCell = node('td');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = selected.has(String(user.id));
+            checkbox.dataset.selectUser = String(user.id);
+            checkbox.setAttribute('aria-label', (en ? 'Select ' : '選取 ') + (user.display_name || user.username || user.email || user.id));
+            checkCell.appendChild(checkbox);
+            tr.appendChild(checkCell);
+
+            const identity = node('td');
+            const userCell = node('div', 'user-cell');
+            const avatar = node('span', 'avatar avatar-sm', (user.display_name || user.username || user.email || '?').trim().slice(0, 1).toUpperCase());
+            if (typeof user.avatar_url === 'string' && user.avatar_url) {
+                let avatarURL = null;
+                try {
+                    const url = new URL(user.avatar_url, window.location.origin);
+                    if (url.origin === window.location.origin) avatarURL = url.href;
+                } catch (_) {}
+                if (avatarURL) {
+                    const image = document.createElement('img');
+                    image.src = avatarURL;
+                    image.alt = '';
+                    avatar.replaceChildren(image);
+                }
+            }
+            userCell.appendChild(avatar);
+            const meta = node('div', 'user-meta');
+            const displayName = node('strong', '', user.display_name || user.username || user.email || '—');
+            meta.appendChild(displayName);
+            const email = node('span', '', user.email || user.username || '—');
+            meta.appendChild(email);
+            if (state.currentUserID !== null && String(state.currentUserID) === String(user.id)) {
+                const self = node('span', 'badge', en ? 'You' : '你');
+                meta.appendChild(self);
+            }
+            userCell.appendChild(meta);
+            identity.appendChild(userCell);
+            tr.appendChild(identity);
+
+            const roleCell = node('td');
+            roleCell.dataset.label = en ? 'Role' : '角色';
+            roleCell.appendChild(createBadge(labelRole(user.role), user.role === 'admin' ? 'danger' : user.role === 'editor' ? 'info' : 'primary'));
+            tr.appendChild(roleCell);
+
+            const lastCell = node('td', 'user-last-login');
+            lastCell.dataset.label = en ? 'Last login' : '最後登入';
+            lastCell.appendChild(node('span', '', formatDate(user.last_login_at)));
+            if (user.last_login_device) lastCell.appendChild(node('span', 'user-secondary', ' · ' + user.last_login_device));
+            tr.appendChild(lastCell);
+
+            const statusCell = node('td');
+            statusCell.dataset.label = en ? 'Status' : '狀態';
+            let statusText = statusNames[user.status] || user.status || '—';
+            if (user.status === 'invited' && user.invite_expires_at) {
+                const expiry = new Date(user.invite_expires_at);
+                if (!Number.isNaN(expiry.getTime())) {
+                    const days = Math.max(0, Math.ceil((expiry.getTime() - Date.now()) / 86400000));
+                    statusText += en ? ' · expires in ' + days + 'd' : ' · ' + days + ' 天後過期';
+                }
+            }
+            statusCell.appendChild(createBadge(statusText, user.status === 'active' ? 'success' : user.status === 'invited' ? 'warning' : ''));
+            if (user.pending_email) statusCell.appendChild(node('span', 'hint', (en ? 'Email pending: ' : '待確認 Email：') + user.pending_email));
+            tr.appendChild(statusCell);
+
+            const actionCell = node('td', 'actions');
+            const actions = node('div', 'user-actions');
+            const edit = node('button', 'btn btn-text btn-sm btn-icon', '✎');
+            edit.type = 'button'; edit.dataset.action = 'edit'; edit.dataset.id = user.id;
+            edit.setAttribute('aria-label', en ? 'Edit user' : '編輯使用者'); actions.appendChild(edit);
+            const more = node('button', 'btn btn-text btn-sm', en ? 'More' : '更多');
+            more.type = 'button'; more.dataset.action = 'menu'; more.dataset.id = user.id;
+            actions.appendChild(more);
+            actionCell.appendChild(actions);
+            tr.appendChild(actionCell);
+            rows.appendChild(tr);
+        });
+        $('usersTableWrap').hidden = users.length === 0;
+        $('usersEmpty').hidden = users.length !== 0;
+        $('usersPagination').hidden = state.total <= state.perPage;
+        $('usersPageInfo').textContent = (en ? 'Page ' : '第 ') + state.page + (en ? ' of ' : ' / ') + Math.max(1, Math.ceil(state.total / state.perPage));
+        $('previousUsers').disabled = state.page <= 1 || state.busy;
+        $('nextUsers').disabled = state.page * state.perPage >= state.total || state.busy;
+        $('selectAllUsers').checked = users.length > 0 && users.every((user) => selected.has(String(user.id)));
+        renderSelected();
+    }
+    function renderSelected() {
+        $('bulkActions').hidden = selected.size === 0;
+        $('selectedCount').textContent = String(selected.size);
+        $('selectAllUsers').checked = state.users.length > 0 && state.users.every((user) => selected.has(String(user.id)));
+    }
+    async function loadUsers() {
+        const seq = ++state.seq;
+        $('usersLoading').hidden = false;
+        $('usersError').hidden = true;
+        $('usersEmpty').hidden = true;
+        $('usersTableWrap').hidden = true;
+        $('retryUsers').hidden = true;
+        setBusy(true);
+        const params = new URLSearchParams({ page: String(state.page), per_page: String(state.perPage) });
+        if (state.q) params.set('q', state.q);
+        if (state.role) params.set('role', state.role);
+        if (state.status) params.set('status', state.status);
+        try {
+            const result = await request('/api/admin/users?' + params.toString());
+            if (seq !== state.seq) return;
+            if (!result.response.ok) throw Object.assign(new Error(errorMessage(result.response)), { response: result.response, body: result.body });
+            if (!result.body || !Array.isArray(result.body.items) || !Number.isFinite(Number(result.body.total))) throw new Error(text.loadError);
+            state.total = Number(result.body.total);
+            renderCounts(result.body.counts);
+            renderRows(result.body.items);
+            $('usersLoading').hidden = true;
+            setMessage(status, '', '');
+        } catch (error) {
+            if (seq !== state.seq) return;
+            $('usersLoading').hidden = true;
+            $('usersTableWrap').hidden = true;
+            $('usersEmpty').hidden = true;
+            $('usersError').textContent = error.message || text.loadError;
+            $('usersError').hidden = false;
+            $('retryUsers').hidden = false;
+            setMessage(status, '', '');
+        } finally {
+            if (seq === state.seq) setBusy(false);
+        }
+    }
+    async function loadCurrentUser() {
+        try {
+            const result = await request('/api/account/profile');
+            if (result.response.ok && result.body && result.body.id !== undefined) state.currentUserID = result.body.id;
+        } catch (_) {}
+    }
+    async function loadRoles() {
+        const out = $('rolesMatrix');
+        setMessage($('rolesStatus'), en ? 'Loading role permissions…' : '正在載入角色權限…', '');
+        out.replaceChildren();
+        try {
+            const result = await request('/api/admin/roles');
+            if (!result.response.ok) throw new Error(errorMessage(result.response));
+            const body = result.body;
+            const roles = Array.isArray(body) ? body : body && Array.isArray(body.roles) ? body.roles : [];
+            const permissions = body && Array.isArray(body.permissions) ? body.permissions : [];
+            if (!roles.length) throw new Error(text.emptyMatrix);
+            const table = node('table', 'matrix');
+            const head = document.createElement('thead');
+            const header = document.createElement('tr');
+            header.appendChild(node('th', '', en ? 'Permission' : '權限'));
+            roles.forEach((role) => header.appendChild(node('th', '', role.name || role.label || labelRole(role.key || role.role))));
+            head.appendChild(header); table.appendChild(head);
+            const bodyEl = document.createElement('tbody');
+            if (permissions.length) {
+                permissions.forEach((permission) => {
+                    const row = document.createElement('tr');
+                    row.appendChild(node('td', '', permissionNames[permission.key] || permission.name || permission.label || permission.key));
+                    roles.forEach((role) => {
+                        const roleKey = role.key || role.role;
+                        const value = role.permissions && role.permissions[permission.key] !== undefined ? role.permissions[permission.key] :
+                            permission.roles && permission.roles[roleKey] !== undefined ? permission.roles[roleKey] : false;
+                        row.appendChild(node('td', '', value === true ? '✓' : value || '—'));
+                    });
+                    bodyEl.appendChild(row);
+                });
+            } else {
+                const first = roles[0];
+                const keys = Array.isArray(first.permissions) ? first.permissions : first.permissions && typeof first.permissions === 'object' ? Object.keys(first.permissions) : [];
+                keys.forEach((key) => {
+                    const row = document.createElement('tr');
+                    const permissionKey = typeof key === 'string' ? key : key.name || key.key;
+                    row.appendChild(node('td', '', permissionNames[permissionKey] || permissionKey));
+                    roles.forEach((role) => {
+                        const perms = role.permissions;
+                        const value = Array.isArray(perms) ? perms.includes(key) : perms && typeof perms === 'object' ? perms[key] : false;
+                        row.appendChild(node('td', '', value === true ? '✓' : value || '—'));
+                    });
+                    bodyEl.appendChild(row);
+                });
+            }
+            table.appendChild(bodyEl); out.appendChild(table);
+            setMessage($('rolesStatus'), '', '');
+        } catch (error) {
+            setMessage($('rolesStatus'), error.message || text.rolesFailed, 'error');
+        }
+    }
+    function openDialog(title, body, actions) {
+        dialogFocus = document.activeElement;
+        $('userDialogTitle').textContent = title;
+        $('dialogBody').replaceChildren(body);
+        $('dialogActions').replaceChildren(...actions);
+        $('dialogStatus').textContent = '';
+        $('userDialog').hidden = false;
+        $('userDialog').classList.add('open');
+        const focusable = $('userDialog').querySelector('input,select,textarea,button');
+        if (focusable) focusable.focus();
+    }
+    function closeDialog() {
+        $('userDialog').hidden = true;
+        $('userDialog').classList.remove('open');
+        $('dialogBody').replaceChildren();
+        $('dialogActions').replaceChildren();
+        if (dialogFocus && dialogFocus.isConnected) dialogFocus.focus();
+    }
+    function actionButton(label, action, cls) {
+        const button = node('button', 'btn ' + (cls || 'btn-secondary'), label);
+        button.type = 'button'; button.dataset.dialogAction = action; return button;
+    }
+    async function postAction(path, method, body) {
+        const options = { method: method || 'POST' };
+        if (body !== undefined) {
+            options.headers = { 'Content-Type': 'application/json' };
+            options.body = JSON.stringify(body);
+        }
+        return request(path, options);
+    }
+    async function runUserOperation(user, operation, payload) {
+        const id = encodeURIComponent(user.id);
+        let path = '/api/admin/users/' + id;
+        let method = 'POST';
+        if (operation === 'patch') { method = 'PATCH'; }
+        if (operation === 'resend') path += '/invite/resend';
+        if (operation === 'revoke-invite') path += '/invite/revoke';
+        if (operation === 'reset') path += '/reset-password';
+        if (operation === 'sessions') path += '/revoke-sessions';
+        if (operation === 'delete') { method = 'DELETE'; path += payload && payload.reassign_to ? '?reassign_to=' + encodeURIComponent(payload.reassign_to) : ''; }
+        const result = await postAction(path, method, operation === 'sessions' || operation === 'resend' || operation === 'revoke-invite' ? undefined : payload);
+        if (!result.response.ok) {
+            if (operation === 'delete' && result.response.status === 409 && result.body && Number.isFinite(Number(result.body.posts))) {
+                openDeleteDialog(user, result.body);
+                return false;
+            }
+            throw new Error(errorMessage(result.response));
+        }
+        const oneTimeLink = operation === 'reset' && result.body && result.body.reset_url ? [result.body.reset_url, en ? 'Password reset link (one-time)' : '重設密碼連結（一次性）'] :
+            operation === 'resend' && result.body && result.body.invite_url ? [result.body.invite_url, en ? 'Invitation link (one-time)' : '邀請連結（一次性）'] : null;
+        if (operation === 'delete' || operation === 'revoke-invite') selected.delete(String(user.id));
+        await loadUsers();
+        if (oneTimeLink) showOneTimeLink(oneTimeLink[0], oneTimeLink[1], $('usersStatus'));
+        return true;
+    }
+    function showOneTimeLink(value, title, target) {
+        const url = safeInternalURL(value);
+        if (!url) { setMessage(target, en ? 'The server returned an invalid link.' : '伺服器回傳的連結無效。', 'error'); return; }
+        const box = node('div', 'alert alert-info inline-result');
+        box.appendChild(node('strong', '', title));
+        const link = document.createElement('a'); link.href = url; link.textContent = url; link.rel = 'noreferrer';
+        box.appendChild(link);
+        const copy = actionButton(en ? 'Copy' : '複製', 'copy-link', 'btn-secondary btn-sm');
+        copy.dataset.copyValue = url; box.appendChild(copy);
+        target.replaceChildren(box);
+    }
+    function safeInternalURL(value) {
+        if (typeof value !== 'string' || !value.trim()) return null;
+        try {
+            const url = new URL(value, window.location.origin);
+            if (url.origin !== window.location.origin || !/^\/(invite|password-reset)\//.test(url.pathname)) return null;
+            return url.href;
+        } catch (_) { return null; }
+    }
+    $('usersStatus').addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-dialog-action="copy-link"]');
+        if (!button) return;
+        try { await navigator.clipboard.writeText(button.dataset.copyValue); button.textContent = en ? 'Copied' : '已複製'; }
+        catch (_) { button.textContent = en ? 'Select and copy the link above' : '請選取上方連結複製'; }
+    });
+    function openUserMenu(user, opener) {
+        const list = node('div', 'user-fields');
+        const add = (label, action) => {
+            const button = actionButton(label, action);
+            button.dataset.userID = user.id;
+            button.classList.add('dialog-operation');
+            list.appendChild(button);
+        };
+        if (user.status === 'invited') {
+            add(en ? 'Resend invitation' : '重寄邀請', 'resend');
+            add(en ? 'Revoke invitation' : '撤銷邀請', 'revoke-invite');
+        } else {
+            add(user.status === 'disabled' ? (en ? 'Enable account' : '啟用帳號') : (en ? 'Disable account' : '停用帳號'), user.status === 'disabled' ? 'enable' : 'disable');
+            add(en ? 'Send password reset link' : '寄送重設密碼連結', 'reset');
+        }
+        add(en ? 'Sign out all devices' : '登出所有裝置', 'sessions');
+        const del = actionButton(en ? 'Delete user' : '刪除使用者', 'delete', 'btn-danger');
+        del.dataset.userID = user.id; del.classList.add('dialog-operation'); list.appendChild(del);
+        openDialog((user.display_name || user.email || user.username), list, [actionButton(text.close, 'close')]);
+        const first = list.querySelector('button');
+        if (first) first.focus();
+        if (opener) dialogFocus = opener;
+    }
+    async function openDeleteDialog(user, counts) {
+        if (state.currentUserID !== null && String(state.currentUserID) === String(user.id)) {
+            setMessage($('usersStatus'), text.currentUser, 'error');
+            return;
+        }
+        const body = node('div', 'user-fields');
+        body.appendChild(node('p', '', en ? 'Content ownership must be reassigned before deletion.' : '刪除前必須先處理此帳號名下的內容。'));
+        const stats = node('div', 'content-counts');
+        [['posts', en ? 'Posts' : '文章'], ['pages', en ? 'Pages' : '頁面'], ['comments', en ? 'Comments' : '留言']].forEach(([key, label]) => {
+            const box = node('div', 'content-count', label);
+            box.appendChild(node('b', '', counts[key] || 0));
+            stats.appendChild(box);
+        });
+        body.appendChild(stats);
+        const selectLabel = node('label', '', text.reassign);
+        const select = document.createElement('select');
+        select.id = 'reassignTarget';
+        select.appendChild(new Option(en ? 'Choose an active writer' : '選擇啟用中的寫作者', ''));
+        body.appendChild(selectLabel); body.appendChild(select);
+        body.appendChild(node('p', 'hint', text.noTransfer));
+        body.appendChild(node('p', 'alert alert-danger', en ? 'This cannot be undone. All sessions and linked identities will be removed.' : '刪除後無法復原，登入裝置與第三方帳號關聯也會移除。'));
+        const deleteButton = actionButton(text.delete, 'confirm-delete', 'btn-danger');
+        deleteButton.dataset.userID = user.id;
+        openDialog(text.deleteTitle, body, [deleteButton, actionButton(text.cancel, 'close')]);
+        deleteButton.disabled = true;
+        select.addEventListener('change', () => { deleteButton.disabled = !select.value; });
+        try {
+            const result = await request('/api/admin/users?status=active&per_page=100&page=1');
+            if (!result.response.ok || !result.body || !Array.isArray(result.body.items)) throw new Error(errorMessage(result.response));
+            result.body.items.filter((candidate) => candidate.id != user.id && ['admin', 'editor', 'author'].includes(candidate.role) && candidate.status === 'active').forEach((candidate) => {
+                select.appendChild(new Option((candidate.display_name || candidate.username || candidate.email) + ' · ' + labelRole(candidate.role), String(candidate.id)));
+            });
+            select.disabled = false;
+        } catch (error) {
+            $('dialogStatus').textContent = error.message;
+            $('dialogStatus').classList.add('error');
+        }
+    }
+    function editUser(user) {
+        const form = node('form', 'user-fields');
+        const displayLabel = node('label', '', en ? 'Display name' : '顯示名稱');
+        const display = document.createElement('input'); display.type = 'text'; display.maxLength = 120; display.value = user.display_name || ''; display.name = 'display_name';
+        const roleLabel = node('label', '', en ? 'Role' : '角色');
+        const role = document.createElement('select'); role.name = 'role';
+        ['admin', 'editor', 'author', 'customer'].forEach((key) => role.appendChild(new Option(labelRole(key), key)));
+        role.value = user.role;
+        const statusLabel = node('label', '', en ? 'Status' : '狀態');
+        const accountStatus = document.createElement('select'); accountStatus.name = 'status';
+        if (user.status === 'invited') accountStatus.appendChild(new Option(statusNames.invited, 'invited'));
+        ['active', 'disabled'].forEach((key) => accountStatus.appendChild(new Option(statusNames[key], key)));
+        accountStatus.value = ['active', 'disabled', 'invited'].includes(user.status) ? user.status : 'active';
+        form.append(displayLabel, display, roleLabel, role, statusLabel, accountStatus);
+        const save = actionButton(text.save, 'save-user', 'btn-primary');
+        save.dataset.userID = user.id;
+        openDialog(en ? 'Edit user' : '編輯使用者', form, [save, actionButton(text.cancel, 'close')]);
+        if (state.currentUserID !== null && String(state.currentUserID) === String(user.id)) {
+            role.disabled = true; accountStatus.disabled = true;
+            $('dialogStatus').textContent = text.currentUser;
+        }
+        if (user.status === 'invited') accountStatus.disabled = true;
+    }
+    async function submitBulk(action) {
+        if (!selected.size) return;
+        if (!window.confirm(text.confirmBulk)) return;
+        const body = { ids: Array.from(selected).map((id) => Number(id)), action };
+        if (action === 'set_role') {
+            const role = $('bulkRole').value;
+            if (!role) { setMessage(status, en ? 'Choose a role first.' : '請先選擇角色。', 'error'); return; }
+            body.role = role;
+        }
+        setBusy(true);
+        try {
+            const result = await postAction('/api/admin/users/bulk', 'POST', body);
+            if (!result.response.ok) throw new Error(errorMessage(result.response));
+            const updated = Number(result.body && result.body.updated) || 0;
+            const skipped = result.body && Array.isArray(result.body.skipped) ? result.body.skipped : [];
+            selected.clear();
+            await loadUsers();
+            const details = skipped.map((item) => '#' + item.id + ': ' + (item.reason || (en ? 'skipped' : '已略過'))).join('; ');
+            const summary = (en ? 'Updated ' : '已更新 ') + updated + (en ? ' users; skipped ' : ' 位使用者；略過 ') + skipped.length + (en ? '.' : ' 位。');
+            setMessage(status, summary + (details ? ' ' + details : ''), skipped.length ? 'error' : 'success');
+        } catch (error) {
+            setMessage(status, error.message, 'error');
+        } finally { setBusy(false); }
+    }
+
+    $('inviteForm').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (state.busy) return;
+        const form = event.currentTarget;
+        const email = $('inviteEmail').value.trim();
+        const role = form.querySelector('[name=role]:checked').value;
+        if (!email || !form.reportValidity()) return;
+        $('inviteLinkBox').hidden = true;
+        setMessage($('inviteStatus'), en ? 'Creating invitation…' : '正在建立邀請…', '');
+        $('sendInvite').disabled = true;
+        try {
+            const result = await postAction('/api/admin/users/invite', 'POST', { email, role, note: $('inviteNote').value.trim() });
+            if (result.response.status !== 201 || !result.body || !result.body.invite_url) throw new Error(errorMessage(result.response));
+            const url = safeInternalURL(result.body.invite_url);
+            if (!url) throw new Error(en ? 'The server returned an invalid invitation link.' : '伺服器回傳了無效的邀請連結。');
+            state.inviteURL = url;
+            $('inviteLink').href = url; $('inviteLink').textContent = url;
+            $('inviteLinkBox').hidden = false;
+            setMessage($('inviteStatus'), text.inviteSuccess, 'success');
+            form.reset();
+            await loadUsers();
+        } catch (error) {
+            setMessage($('inviteStatus'), error.message || text.inviteFailed, 'error');
+        } finally { $('sendInvite').disabled = false; }
+    });
+    $('copyInvite').addEventListener('click', async () => {
+        if (!state.inviteURL) return;
+        try { await navigator.clipboard.writeText(state.inviteURL); setMessage($('inviteStatus'), en ? 'Copied.' : '已複製。', 'success'); }
+        catch (_) { setMessage($('inviteStatus'), en ? 'Copy is unavailable; select the link above.' : '無法使用剪貼簿，請選取上方連結複製。', 'error'); }
+    });
+    $('roleTabs').addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-role]');
+        if (!button) return;
+        $('roleTabs').querySelectorAll('button').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+        state.role = button.dataset.role; state.page = 1; selected.clear(); loadUsers();
+    });
+    $('userSearch').addEventListener('input', () => {
+        window.clearTimeout(searchTimer);
+        searchTimer = window.setTimeout(() => { state.q = $('userSearch').value.trim(); state.page = 1; loadUsers(); }, 250);
+    });
+    $('userStatusFilter').addEventListener('change', () => { state.status = $('userStatusFilter').value; state.page = 1; selected.clear(); loadUsers(); });
+    $('selectAllUsers').addEventListener('change', (event) => {
+        state.users.forEach((user) => event.target.checked ? selected.add(String(user.id)) : selected.delete(String(user.id)));
+        renderRows(state.users);
+    });
+    rows.addEventListener('change', (event) => {
+        const input = event.target.closest('input[data-select-user]');
+        if (!input) return;
+        if (input.checked) selected.add(input.dataset.selectUser); else selected.delete(input.dataset.selectUser);
+        renderRows(state.users);
+    });
+    rows.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const user = state.users.find((item) => String(item.id) === String(button.dataset.id));
+        if (!user) return;
+        if (button.dataset.action === 'edit') editUser(user);
+        if (button.dataset.action === 'menu') openUserMenu(user, button);
+    });
+    $('userDialog').addEventListener('click', async (event) => {
+        if (event.target === $('userDialog')) { closeDialog(); return; }
+        const button = event.target.closest('[data-dialog-action]');
+        if (!button || state.busy) return;
+        const action = button.dataset.dialogAction;
+        if (action === 'close') { closeDialog(); return; }
+        if (action === 'copy-link') {
+            try { await navigator.clipboard.writeText(button.dataset.copyValue); button.textContent = en ? 'Copied' : '已複製'; }
+            catch (_) { $('dialogStatus').textContent = en ? 'Copy unavailable; select the link.' : '無法使用剪貼簿，請選取連結複製。'; }
+            return;
+        }
+        const user = state.users.find((item) => String(item.id) === String(button.dataset.userID));
+        if (!user) return;
+        try {
+            setBusy(true);
+            if (action === 'save-user') {
+                const form = $('dialogBody').querySelector('form');
+                const patch = { display_name: form.elements.display_name.value.trim() };
+                if (!form.elements.role.disabled) patch.role = form.elements.role.value;
+                if (!form.elements.status.disabled && user.status !== 'invited') patch.status = form.elements.status.value;
+                const result = await postAction('/api/admin/users/' + encodeURIComponent(user.id), 'PATCH', patch);
+                if (!result.response.ok) throw new Error(errorMessage(result.response));
+                closeDialog(); await loadUsers(); return;
+            }
+            if (action === 'confirm-delete') {
+                const reassign = $('reassignTarget').value;
+                if (!reassign) throw new Error(text.noTransfer);
+                const deleted = await runUserOperation(user, 'delete', { reassign_to: reassign });
+                if (deleted && !$('userDialog').hidden) closeDialog();
+                return;
+            }
+            let succeeded;
+            if (action === 'enable' || action === 'disable') {
+                succeeded = await runUserOperation(user, 'patch', { status: action === 'enable' ? 'active' : 'disabled' });
+            } else {
+                succeeded = await runUserOperation(user, action);
+            }
+            if (succeeded && !$('userDialog').hidden) closeDialog();
+        } catch (error) {
+            setMessage($('dialogStatus'), error.message, 'error');
+        } finally { setBusy(false); }
+    });
+    $('userDialog').addEventListener('keydown', (event) => { if (event.key === 'Escape') closeDialog(); });
+    $('retryUsers').addEventListener('click', loadUsers);
+    $('retryRoles').addEventListener('click', loadRoles);
+    $('showRoles').addEventListener('click', () => $('rolesSection').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    $('previousUsers').addEventListener('click', () => { if (state.page > 1) { state.page--; loadUsers(); } });
+    $('nextUsers').addEventListener('click', () => { if (state.page * state.perPage < state.total) { state.page++; loadUsers(); } });
+    $('clearSelection').addEventListener('click', () => { selected.clear(); renderRows(state.users); });
+    $('bulkActions').addEventListener('click', (event) => {
+        const button = event.target.closest('[data-bulk]');
+        if (button) submitBulk(button.dataset.bulk);
+    });
+    window.addEventListener('online', () => { if ($('usersError').hidden === false) loadUsers(); });
+    loadCurrentUser().finally(loadUsers);
+    loadRoles();
+})();
+</script>
+{{end}}

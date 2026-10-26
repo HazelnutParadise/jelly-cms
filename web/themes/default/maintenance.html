@@ -29,32 +29,34 @@
             text-rendering: optimizeLegibility;
         }
         *, *::before, *::after { box-sizing: border-box; }
-        body { min-width: 320px; min-height: 100vh; margin: 0; display: flex; flex-direction: column; overflow-x: hidden; }
+        body { position: relative; min-width: 320px; min-height: 100vh; margin: 0; display: flex; flex-direction: column; overflow-x: hidden; }
         button, a { font: inherit; }
         a { color: inherit; text-decoration: none; }
         :focus-visible { outline: 3px solid #2F6BFF; outline-offset: 3px; }
         .topline { height: 3px; background: linear-gradient(90deg, #E8285B 0 64%, #2F6BFF 64% 86%, #13C2A3 86%); }
-        main { position: relative; isolation: isolate; display: flex; flex: 1; flex-direction: column; justify-content: center; width: min(100%, 900px); padding: clamp(2.5rem, 8vw, 5rem) clamp(1rem, 6vw, 5rem); }
+        main { position: relative; display: flex; flex: 1; flex-direction: column; justify-content: center; width: min(100%, 880px); padding: clamp(2.5rem, 8vw, 5rem) 80px; }
         .stripes { width: 3.5rem; height: 3px; transform: skewX(-32deg); background: linear-gradient(90deg, #E8285B 0 52%, transparent 52% 60%, #2F6BFF 60% 82%, transparent 82% 88%, #13C2A3 88%); }
         .label { margin-top: 1rem; color: #9A9FAB; font-size: .75rem; font-weight: 700; letter-spacing: .08em; }
         h1 { max-width: 12em; margin: 1rem 0; font: 800 clamp(2.75rem, 7vw, 4.5rem)/1.08 "Bricolage Grotesque", "Noto Sans TC", sans-serif; letter-spacing: -.04em; overflow-wrap: anywhere; }
         .message { max-width: 30em; margin: 0; color: #C9CBD3; font-size: clamp(1rem, 2vw, 1.125rem); line-height: 1.7; overflow-wrap: anywhere; }
         .actions { display: flex; flex-wrap: wrap; align-items: center; gap: .625rem; margin-top: 1.5rem; }
         .button { display: inline-flex; min-height: 2.875rem; align-items: center; justify-content: center; gap: .5rem; padding: .5rem 1.25rem; border: 0; border-radius: 0 .625rem 0 .625rem; background: #2A2B31; color: #fff; font-weight: 700; cursor: pointer; }
-        .button:hover { background: #E8285B; }
+        .button:hover { background: #DD2758; }
+        .icon { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.75; stroke-linecap: square; stroke-linejoin: miter; flex: 0 0 auto; }
         .button.secondary { background: #EDEEF1; color: #15161A; }
         .button.secondary:hover { background: #fff; }
-        .elapsed { color: #9A9FAB; font-size: .8125rem; }
-        .art { position: absolute; z-index: -1; right: max(2rem, calc((100vw - 1200px) / 2)); top: 16%; width: min(32vw, 27rem); aspect-ratio: .9; overflow: clip; opacity: .9; pointer-events: none; }
-        .art i { position: absolute; width: 44%; aspect-ratio: 1; border-radius: 0 24% 0 24%; }
-        .art i:nth-child(1) { left: 12%; top: 10%; background: #2F6BFF; opacity: .82; }
-        .art i:nth-child(2) { left: 34%; top: 32%; background: #13C2A3; opacity: .85; }
-        .art i:nth-child(3) { left: 56%; top: 56%; background: #E8285B; opacity: .92; transform: rotate(-7deg); }
-        .art i:nth-child(4) { left: 16%; top: 76%; width: 20%; background: #F5B800; }
+        .elapsed { flex-basis: 100%; overflow-wrap: anywhere; color: #9A9FAB; font-size: .8125rem; }
+        .art { position: absolute; left: max(880px, calc((100vw - 1440px) / 2 + 900px)); top: 16%; width: 442px; aspect-ratio: 442 / 520; overflow: clip; opacity: .9; pointer-events: none; }
+        .art i { position: absolute; width: 37.56%; aspect-ratio: 1; border-radius: 0 24% 0 24%; }
+        .art i:nth-child(1) { left: 11.76%; top: 9.04%; background: #2F6BFF; opacity: .82; }
+        .art i:nth-child(2) { left: 30.54%; top: 30%; background: #13C2A3; opacity: .85; }
+        .art i:nth-child(3) { left: 49.32%; top: 51.92%; background: #E8285B; opacity: .92; transform: rotate(-7deg); }
+        .art i:nth-child(4) { left: 14.03%; top: 76.92%; width: 16.52%; background: #F5B800; }
+        .art i:nth-child(5) { left: 74.21%; top: 16.92%; width: 11.76%; background: #15161A; opacity: .9; }
         footer { padding: 1.5rem clamp(1rem, 6vw, 5rem); color: #8A8F9C; font-size: .8125rem; }
         @media (max-width: 700px) {
-            main { width: 100%; padding-top: 3rem; }
-            .art { right: 0; top: auto; bottom: 5rem; width: 10rem; opacity: .22; }
+            main { width: 100%; padding: 3rem 1rem; }
+            .art { left: auto; right: 0; top: auto; bottom: 5rem; width: 10rem; opacity: .22; }
             h1 { max-width: 9em; font-size: clamp(2.5rem, 12vw, 3.75rem); }
             .actions { align-items: stretch; }
             .button { flex: 1 1 100%; }
@@ -67,15 +69,15 @@
 </head>
 <body>
     <div class="topline" aria-hidden="true"></div>
+    <div class="art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
     <main>
-        <div class="art" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         <span class="stripes" aria-hidden="true"></span>
         <p class="label">503 · 維護中</p>
         <h1>網站暫時維護中</h1>
         <p class="message">{{if .Message}}{{.Message}}{{else}}網站正在維護，完成後會立即恢復。{{end}}</p>
         <div class="actions">
-            <button class="button" id="reload" type="button">重新整理</button>
-            <a class="button secondary" href="/login">管理員登入</a>
+            <button class="button" id="reload" type="button"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>重新整理</button>
+            <a class="button secondary" href="/login"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4"/></svg>管理員登入</a>
             <span class="elapsed">維護開始於 {{.StartedAt.Format "2006年1月2日 15:04"}} · 已過 {{.ElapsedMinutes}} 分鐘</span>
         </div>
         <p class="label">伺服器建議 {{.RetryAfter}} 秒後再試</p>

@@ -77,8 +77,10 @@ type workerProcess struct {
 	ready     chan struct{}
 	readyOnce sync.Once
 	responses chan workerFrame
+	hostCalls chan workerFrame
 	readDone  chan struct{}
 	stop      chan struct{}
+	stdinMu   sync.Mutex
 
 	readMu  sync.Mutex
 	readErr error
@@ -134,6 +136,7 @@ func startWorker(ctx context.Context, pluginID string) (*workerProcess, error) {
 		workDir:   workDir,
 		ready:     make(chan struct{}),
 		responses: make(chan workerFrame, 1),
+		hostCalls: make(chan workerFrame, 1),
 		readDone:  make(chan struct{}),
 		stop:      make(chan struct{}),
 	}
@@ -216,6 +219,13 @@ func (w *workerProcess) readLoop() {
 
 				return
 			}
+		case frameTypeHostCall:
+			select {
+			case w.hostCalls <- frame:
+			default:
+				w.setReadError(errors.New("unexpected concurrent worker host call"))
+				return
+			}
 		default:
 			w.setReadError(fmt.Errorf("unknown worker frame type %q", frame.Type))
 
@@ -226,17 +236,31 @@ func (w *workerProcess) readLoop() {
 
 // request sends one request and waits for its response. Timeouts, cancellation
 // and protocol failures kill and reap the worker before returning.
-func (w *workerProcess) request(ctx context.Context, request workerRequest, timeout time.Duration) (workerFrame, error) {
+func (w *workerProcess) request(ctx context.Context, request workerRequest, timeout time.Duration, meta PluginMetadata, handler HostHandler) (workerFrame, error) {
 	request.ID = w.nextID.Add(1)
-	timer := time.NewTimer(timeout)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	deadline := time.Now().Add(timeout)
+	timer := time.NewTimer(time.Until(deadline))
 	defer timer.Stop()
+	hostDeadline := deadline.Add(-100 * time.Millisecond)
+	if !hostDeadline.After(time.Now()) {
+		hostDeadline = deadline
+	}
+	hostCtx, cancel := context.WithDeadline(ctx, hostDeadline)
+	defer cancel()
 
 	var ctxDone <-chan struct{}
 	if ctx != nil {
 		ctxDone = ctx.Done()
 	}
 	writeDone := make(chan error, 1)
-	go func() { writeDone <- writeFrame(w.stdin, request, maxFrameBytes) }()
+	go func() {
+		w.stdinMu.Lock()
+		defer w.stdinMu.Unlock()
+		writeDone <- writeFrame(w.stdin, request, maxFrameBytes)
+	}()
 	select {
 	case err := <-writeDone:
 		if err != nil {
@@ -254,40 +278,75 @@ func (w *workerProcess) request(ctx context.Context, request workerRequest, time
 		return workerFrame{}, fmt.Errorf("plugin worker %s request timed out after %s", request.Op, timeout)
 	}
 
-	select {
-	case frame := <-w.responses:
-		if frame.ID != request.ID {
+	var lastCallID uint64
+	callCount := 0
+	for {
+		select {
+		case hostCall := <-w.hostCalls:
+			if err := validateHostCall(hostCall, request.ID, lastCallID, callCount); err != nil {
+				w.terminate()
+				return workerFrame{}, err
+			}
+			lastCallID = hostCall.CallID
+			callCount++
+			reply := invokeHost(hostCtx, handler, meta, hostCall)
+			writeDone := make(chan error, 1)
+			go func() {
+				w.stdinMu.Lock()
+				defer w.stdinMu.Unlock()
+				writeDone <- writeFrame(w.stdin, reply, maxFrameBytes)
+			}()
+			var err error
+			select {
+			case err = <-writeDone:
+			case <-w.readDone:
+				w.terminate()
+				return workerFrame{}, w.exitError(request.Op)
+			case <-ctxDone:
+				w.terminate()
+				return workerFrame{}, ctx.Err()
+			case <-timer.C:
+				w.terminate()
+				return workerFrame{}, fmt.Errorf("plugin worker %s request timed out after %s", request.Op, timeout)
+			}
+			if err != nil {
+				w.terminate()
+				return workerFrame{}, fmt.Errorf("send host reply to plugin worker: %w", err)
+			}
+		case frame := <-w.responses:
+			if frame.ID != request.ID {
+				w.terminate()
+
+				return workerFrame{}, fmt.Errorf(
+					"plugin worker answered request %d while %d was pending",
+					frame.ID, request.ID,
+				)
+			}
+
+			if !frame.OK {
+				if frame.Error == "" {
+					frame.Error = "plugin worker reported an unspecified error"
+				}
+
+				return frame, errors.New(frame.Error)
+			}
+
+			return frame, nil
+		case <-w.readDone:
+			w.terminate()
+
+			return workerFrame{}, w.exitError(request.Op)
+		case <-ctxDone:
+			w.terminate()
+
+			return workerFrame{}, ctx.Err()
+		case <-timer.C:
 			w.terminate()
 
 			return workerFrame{}, fmt.Errorf(
-				"plugin worker answered request %d while %d was pending",
-				frame.ID, request.ID,
+				"plugin worker %s request timed out after %s", request.Op, timeout,
 			)
 		}
-
-		if !frame.OK {
-			if frame.Error == "" {
-				frame.Error = "plugin worker reported an unspecified error"
-			}
-
-			return frame, errors.New(frame.Error)
-		}
-
-		return frame, nil
-	case <-w.readDone:
-		w.terminate()
-
-		return workerFrame{}, w.exitError(request.Op)
-	case <-ctxDone:
-		w.terminate()
-
-		return workerFrame{}, ctx.Err()
-	case <-timer.C:
-		w.terminate()
-
-		return workerFrame{}, fmt.Errorf(
-			"plugin worker %s request timed out after %s", request.Op, timeout,
-		)
 	}
 }
 
@@ -302,7 +361,7 @@ func (w *workerProcess) shutdown(ctx context.Context, payload []byte) error {
 		return nil
 	}
 
-	_, err := w.request(ctx, workerRequest{Op: opShutdown, Payload: payload}, workerStepTimeout)
+	_, err := w.request(ctx, workerRequest{Op: opShutdown, Payload: payload}, workerStepTimeout, PluginMetadata{}, nil)
 	w.terminate()
 
 	return err

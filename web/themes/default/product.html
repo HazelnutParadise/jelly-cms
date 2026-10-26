@@ -1,0 +1,131 @@
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+{{- $root := . -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+{{with .Product}}
+{{- $p := . -}}
+{{- $pick := 0 -}}{{- $price := 0 -}}{{- $compare := 0 -}}{{- $stock := 0 -}}
+{{- range $root.Variants}}{{if and (eq $pick 0) (gt .Stock 0)}}{{$pick = .ID}}{{$price = .Price}}{{$compare = .CompareAtPrice}}{{$stock = .Stock}}{{end}}{{end -}}
+{{- if eq $pick 0}}{{range $i, $v := $root.Variants}}{{if eq $i 0}}{{$price = $v.Price}}{{$compare = $v.CompareAtPrice}}{{end}}{{end}}{{end -}}
+{{- $named := false -}}{{- range $root.Variants}}{{if .Name}}{{$named = true}}{{end}}{{end -}}
+{{- $single := 0 -}}{{- if and (not $named) (eq (len $root.Variants) 1)}}{{range $root.Variants}}{{$single = .ID}}{{$stock = .Stock}}{{end}}{{end -}}
+<div class="shop" data-page="product" data-lang="{{if $en}}en{{else}}zh-TW{{end}}" data-currency="{{$root.Currency}}">
+    <nav class="crumbs muted" aria-label="{{if $en}}Breadcrumb{{else}}路徑{{end}}">
+        <a href="/shop">{{if $en}}Shop{{else}}商店{{end}}</a>
+        {{with $root.Category}}<span aria-hidden="true">/</span><a href="/shop/c/{{.Slug}}">{{.Name}}</a>{{end}}
+        <span aria-hidden="true">/</span><b aria-current="page">{{.Title}}</b>
+    </nav>
+
+    <div class="pd">
+        <div class="pd-media">
+            <div class="pd-main" data-main-image>
+                {{if .Images}}{{range $i, $src := .Images}}{{if eq $i 0}}<img src="{{$src}}" alt="{{$p.Title}}">{{end}}{{end}}{{else}}<span>{{.Title}}</span>{{end}}
+            </div>
+            {{if gt (len .Images) 1}}
+            <div class="pd-thumbs" aria-label="{{if $en}}Photos{{else}}商品照片{{end}}">
+                {{range $i, $src := .Images}}<button type="button" data-thumb aria-pressed="{{if eq $i 0}}true{{else}}false{{end}}" aria-label="{{if $en}}Photo {{add $i 1}}{{else}}第 {{add $i 1}} 張照片{{end}}"><img src="{{$src}}" alt="" loading="lazy"></button>{{end}}
+            </div>
+            {{end}}
+        </div>
+
+        <div class="pd-info">
+            <span class="shop-stripe"></span>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                {{with $root.Category}}<a class="chip" href="/shop/c/{{.Slug}}">{{.Name}}</a>{{end}}
+                {{if $root.Variants}}
+                {{if le $stock 0}}<span class="chip dot bad" data-show-stock>{{if $en}}Sold out{{else}}售完{{end}}</span>
+                {{else if and (gt .LowStockThreshold 0) (le $stock .LowStockThreshold)}}<span class="chip dot warn" data-show-stock>{{if $en}}{{$stock}} left{{else}}剩 {{$stock}}{{end}}</span>
+                {{else}}<span class="chip dot ok" data-show-stock>{{if $en}}In stock{{else}}有貨{{end}}</span>{{end}}
+                {{end}}
+                {{if .ColdChain}}<span class="chip info">{{if $en}}Ships chilled{{else}}冷藏配送{{end}}</span>{{end}}
+            </div>
+            <h1>{{.Title}}</h1>
+            {{if $root.Variants}}
+            <div class="pd-price">
+                <span class="price" data-show-price>{{money $price}}</span>
+                <span class="visually-hidden">{{if $en}}Was{{else}}原價{{end}}</span><s data-show-compare{{if not (gt $compare $price)}} hidden{{end}}>{{if gt $compare $price}}{{money $compare}}{{end}}</s>
+            </div>
+            {{end}}
+            {{if .Summary}}<p class="pd-summary">{{.Summary}}</p>{{end}}
+
+            {{if $root.Variants}}
+            <form data-product data-low="{{.LowStockThreshold}}"{{if $single}} data-variant="{{$single}}"{{end}} novalidate>
+                {{if not $single}}
+                <fieldset style="margin-bottom: 1rem;">
+                    <legend class="shop-lbl" style="margin-bottom: .5rem;">{{if $en}}Options{{else}}規格{{end}}</legend>
+                    <div class="seg">
+                        {{range $root.Variants}}
+                        <label{{if le .Stock 0}} class="off"{{end}}><input type="radio" name="variant" value="{{.ID}}" data-price="{{.Price}}" data-compare="{{.CompareAtPrice}}" data-stock="{{.Stock}}"{{if eq .ID $pick}} checked{{end}}{{if le .Stock 0}} disabled{{end}}>{{if .Name}}{{.Name}}{{else}}{{if $en}}Standard{{else}}標準{{end}}{{end}} · {{if le .Stock 0}}{{if $en}}Sold out{{else}}售完{{end}}{{else if and (gt $p.LowStockThreshold 0) (le .Stock $p.LowStockThreshold)}}{{if $en}}{{.Stock}} left{{else}}剩 {{.Stock}}{{end}}{{else}}{{if $en}}In stock{{else}}有貨{{end}}{{end}} · {{money .Price}}</label>
+                        {{end}}
+                    </div>
+                </fieldset>
+                {{end}}
+                <div class="pd-buy">
+                    <div class="qty-box" role="group" aria-label="{{if $en}}Quantity{{else}}數量{{end}}">
+                        <button class="btn sm i" type="button" data-step="-1" aria-label="{{if $en}}Decrease{{else}}減一{{end}}">−</button>
+                        <input type="number" name="qty" value="1" min="1" max="{{if gt $stock 0}}{{if gt $stock 99}}99{{else}}{{$stock}}{{end}}{{else}}1{{end}}" inputmode="numeric" aria-label="{{if $en}}Quantity{{else}}數量{{end}}">
+                        <button class="btn sm i" type="button" data-step="1" aria-label="{{if $en}}Increase{{else}}加一{{end}}">+</button>
+                    </div>
+                    <button class="btn p" type="submit" data-add{{if le $stock 0}} disabled{{end}}>{{if $en}}Add to cart{{else}}加入購物車{{end}}</button>
+                </div>
+                <div data-buy-msg hidden></div>
+            </form>
+            {{else}}
+            <div class="notice warn">{{if $en}}This product is not available to buy right now.{{else}}這個商品目前無法購買。{{end}}</div>
+            {{end}}
+
+            {{if $root.Trust}}
+            <div class="trust">
+                {{range $root.Trust}}
+                <div>
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">{{if eq .Icon "truck"}}<path d="M2 6h12v10H2zM14 10h4l4 4v2h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>{{else if eq .Icon "card"}}<path d="M2 6h20v12H2zM2 10h20"/>{{else}}<path d="M4 12a8 8 0 1 0 3-6.3M4 4v4h4"/>{{end}}</svg>
+                    <b>{{.Title}}</b>{{if .Note}}<span>{{.Note}}</span>{{end}}
+                </div>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+    {{if or .DescriptionHTML .Attributes $root.Related}}
+    <div class="pd-more">
+        <div class="prose">
+            {{if .DescriptionHTML}}
+            <h2>{{if $en}}About this product{{else}}商品介紹{{end}}</h2>
+            {{.DescriptionHTML}}
+            {{end}}
+            {{if .Attributes}}
+            <h2>{{if $en}}Ingredients and details{{else}}成分與規格{{end}}</h2>
+            <dl class="spec">{{range .Attributes}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>{{end}}</dl>
+            {{end}}
+        </div>
+        {{if $root.Related}}
+        <aside class="related" aria-label="{{if $en}}Goes well with{{else}}一起買{{end}}">
+            <div class="shop-lbl">{{if $en}}Goes well with{{else}}一起買{{end}}</div>
+            {{range $root.Related}}
+            <div style="display: flex; gap: .5rem; align-items: center;">
+                <a class="rel" href="/shop/p/{{.Slug}}" style="flex: 1; min-width: 0;">
+                    <span class="thumb">{{if .Image}}<img src="{{.Image}}" alt="" loading="lazy">{{else}}{{initial .Title}}{{end}}</span>
+                    <span style="min-width: 0;"><b>{{.Title}}</b><div class="small muted">{{money .Price}}</div></span>
+                </a>
+                {{if and (gt .DefaultVariantID 0) (gt .Stock 0) (le .VariantCount 1)}}
+                <button class="btn t sm i" type="button" data-add-variant="{{.DefaultVariantID}}" aria-label="{{if $en}}Add {{.Title}} to cart{{else}}加入 {{.Title}} 到購物車{{end}}" title="{{if $en}}Add{{else}}加入{{end}}">+</button>
+                {{end}}
+            </div>
+            {{end}}
+        </aside>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{with $root.JSONLD}}<script type="application/ld+json">{{.}}</script>{{end}}
+{{else}}
+<div class="shop" data-page="none" data-lang="{{if $en}}en{{else}}zh-TW{{end}}">
+    <div class="empty">
+        <b>{{if $en}}This product is not available{{else}}找不到這個商品{{end}}</b>
+        <a class="btn t sm" href="/shop">{{if $en}}Back to the shop{{else}}回到商店{{end}}</a>
+    </div>
+</div>
+{{end}}
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}

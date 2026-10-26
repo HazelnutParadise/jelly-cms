@@ -1,0 +1,98 @@
+{{define "page-content"}}
+<style>
+.account-link{max-width:760px;margin:0 auto}
+.account-link .link-card{padding:clamp(1rem,4vw,2rem);border:1px solid var(--border);border-radius:var(--radius-card);background:var(--surface-raised)}
+.account-link .eyebrow{display:block;width:3.5rem;height:3px;margin-bottom:1rem;transform:skewX(-32deg);background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.account-link .intro{margin-bottom:1.25rem}
+.account-link .email{overflow-wrap:anywhere}
+.account-link form{display:grid;gap:1rem}
+.account-link label{display:block;margin-bottom:.35rem;font-weight:650}
+.account-link input{display:block;width:100%;min-height:2.8rem;padding:.65rem .8rem;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit}
+.account-link .button{width:100%}
+.account-link .link-status{min-height:1.5rem;margin:.75rem 0;color:var(--muted)}
+.account-link .link-status.error{color:var(--error)}
+.account-link .link-success,.account-link .link-expired{padding:1rem;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--surface)}
+.account-link .link-success h2,.account-link .link-expired h2{margin-bottom:.5rem}
+.account-link .password-meter{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:.5rem}
+.account-link .password-meter i{height:4px;background:var(--border);border-radius:2px}
+.account-link .password-meter i.on{background:var(--teal)}
+.account-link .hint{margin:.35rem 0 0;color:var(--muted);font-size:.875rem}
+@media(max-width:520px){.account-link{width:100%}}
+</style>
+<main class="account-link" id="invitePage" data-token="{{if not .LinkExpired}}{{.InviteToken}}{{end}}">
+    <section class="link-card" id="inviteFormPanel" {{if .LinkExpired}}hidden{{end}}>
+        <span class="eyebrow" aria-hidden="true"></span>
+        <h1>{{if eq .Lang "en"}}Accept your invitation{{else}}接受邀請{{end}}</h1>
+        <p class="intro">{{if eq .Lang "en"}}You were invited to join the site as a member. Set your account name and password to continue.{{else}}你已受邀加入網站，設定帳號名稱與密碼即可完成加入。{{end}}</p>
+        <p><strong>{{if eq .Lang "en"}}Invited email{{else}}受邀 Email{{end}}：</strong><span class="email">{{if not .LinkExpired}}{{.Email}}{{end}}</span></p>
+        <p class="link-status" id="inviteStatus" role="status" aria-live="polite"></p>
+        <form id="inviteAcceptForm" novalidate>
+            <div><label for="inviteUsername">{{if eq .Lang "en"}}Username{{else}}使用者名稱{{end}}</label><input id="inviteUsername" name="username" type="text" minlength="1" maxlength="50" pattern="[A-Za-z0-9._-]+" autocomplete="username" value="{{if not .LinkExpired}}{{.Username}}{{end}}" required><p class="hint">{{if eq .Lang "en"}}Letters, numbers, dots, dashes and underscores.{{else}}可使用英文字母、數字、句點、連字號與底線。{{end}}</p></div>
+            <div><label for="inviteDisplayName">{{if eq .Lang "en"}}Display name (optional){{else}}顯示名稱（選填）{{end}}</label><input id="inviteDisplayName" name="display_name" type="text" maxlength="120" autocomplete="name"></div>
+            <div><label for="invitePassword">{{if eq .Lang "en"}}Password{{else}}密碼{{end}}</label><input id="invitePassword" name="password" type="password" minlength="8" maxlength="72" autocomplete="new-password" required><div class="password-meter" id="inviteMeter" aria-hidden="true"><i></i><i></i><i></i><i></i></div><p class="hint">{{if eq .Lang "en"}}Use at least 8 characters.{{else}}請使用至少 8 個字元。{{end}}</p></div>
+            <div><label for="invitePasswordAgain">{{if eq .Lang "en"}}Confirm password{{else}}再次輸入密碼{{end}}</label><input id="invitePasswordAgain" type="password" minlength="8" maxlength="72" autocomplete="new-password" required></div>
+            <button class="button" id="inviteSubmit" type="submit">{{if eq .Lang "en"}}Create account{{else}}建立帳號{{end}}</button>
+        </form>
+        <p class="hint">{{if eq .Lang "en"}}This link expires after seven days and can be used once.{{else}}此連結 7 天後失效，且只能使用一次。{{end}}</p>
+    </section>
+    <section class="link-expired" id="inviteExpired" role="alert" {{if not .LinkExpired}}hidden{{end}}>
+        <h2>{{if eq .Lang "en"}}This invitation is no longer valid{{else}}邀請連結已失效{{end}}</h2>
+        <p>{{if eq .Lang "en"}}It may have expired or already been used. Ask the site administrator to send a new invitation.{{else}}連結可能已過期或使用過，請聯絡網站管理員重新寄送邀請。{{end}}</p>
+        <a class="button button-secondary" href="{{.BackURL}}">{{if eq .Lang "en"}}Return to sign in{{else}}返回登入{{end}}</a>
+    </section>
+    <section class="link-success" id="inviteSuccess" role="status" hidden>
+        <h2>{{if eq .Lang "en"}}Your account is ready{{else}}帳號已建立{{end}}</h2>
+        <p>{{if eq .Lang "en"}}Sign in with your new account to continue.{{else}}請使用新帳號登入。{{end}}</p>
+        <a class="button" href="{{.BackURL}}">{{if eq .Lang "en"}}Sign in{{else}}前往登入{{end}}</a>
+    </section>
+</main>
+<script>
+(function () {
+    'use strict';
+    const root = document.getElementById('invitePage');
+    const form = document.getElementById('inviteAcceptForm');
+    const status = document.getElementById('inviteStatus');
+    const en = document.documentElement.lang === 'en';
+    let busy = false;
+    function fail(text) { status.textContent = text; status.classList.add('error'); }
+    function apiFailure(statusCode) {
+        if (statusCode === 400) return en ? 'Check the information and try again.' : '請檢查輸入資料後重試。';
+        if (statusCode === 409) return en ? 'This username or email is already in use.' : '使用者名稱或 Email 已有人使用。';
+        if (statusCode === 429) return en ? 'Too many attempts. Wait a moment and retry.' : '嘗試次數過多，請稍後再試。';
+        return en ? 'The account could not be created. Please retry.' : '無法建立帳號，請重試。';
+    }
+    document.getElementById('invitePassword').addEventListener('input', (event) => {
+        const value = event.target.value;
+        const score = value.length < 8 ? 0 : Math.min(4, 1 + Number(/[A-Z]/.test(value)) + Number(/[0-9]/.test(value)) + Number(/[^A-Za-z0-9]/.test(value)));
+        document.querySelectorAll('#inviteMeter i').forEach((bar, index) => bar.classList.toggle('on', index < score));
+    });
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (busy || !form.reportValidity()) return;
+        const password = document.getElementById('invitePassword').value;
+        if (password !== document.getElementById('invitePasswordAgain').value) { fail(en ? 'Passwords do not match.' : '兩次輸入的密碼不一致。'); return; }
+        busy = true; const submit = document.getElementById('inviteSubmit'); submit.disabled = true;
+        status.textContent = en ? 'Creating your account…' : '正在建立帳號…'; status.classList.remove('error');
+        const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 15000);
+        try {
+            const response = await fetch('/api/invites/accept', {
+                method: 'POST', credentials: 'same-origin', cache: 'no-store', signal: controller.signal,
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-Jelly-CSRF': '1' },
+                body: JSON.stringify({
+                    token: root.dataset.token,
+                    username: document.getElementById('inviteUsername').value.trim(),
+                    display_name: document.getElementById('inviteDisplayName').value.trim(),
+                    password
+                })
+            });
+            if (response.status === 410) { document.getElementById('inviteFormPanel').hidden = true; document.getElementById('inviteExpired').hidden = false; return; }
+            if (!response.ok) { fail(apiFailure(response.status)); return; }
+            document.getElementById('inviteFormPanel').hidden = true;
+            document.getElementById('inviteSuccess').hidden = false;
+        } catch (error) {
+            fail(!navigator.onLine ? (en ? 'You are offline. Reconnect and retry.' : '目前離線，請連線後重試。') : error.name === 'AbortError' ? (en ? 'Request timed out. Retry.' : '連線逾時，請重試。') : (en ? 'Could not connect. Please retry.' : '連線失敗，請重試。'));
+        } finally { clearTimeout(timer); busy = false; submit.disabled = false; }
+    });
+})();
+</script>
+{{end}}

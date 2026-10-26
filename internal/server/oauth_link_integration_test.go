@@ -746,6 +746,15 @@ func TestOAuthAccountUnlinkRetainsHistoryAndEnforcesBackupLogin(t *testing.T) {
 				resetOAuthInputProviders(google)
 			}
 			rec := oauthAccountServe(h, http.MethodDelete, "/api/auth/identities/google", []*http.Cookie{freshLogin.jwtCookie}, nil, "", "")
+			if name == "OAuth source with nonempty password" {
+				if rec.Code != http.StatusOK {
+					t.Errorf("unlink with a valid local password backup returned %d, want 200", rec.Code)
+				}
+				if active, _ := oauthAccountIdentityCounts(t, h.db, fresh.ID, "google"); active != 0 {
+					t.Errorf("successful unlink retained the removed Google identity")
+				}
+				return
+			}
 			if rec.Code != http.StatusConflict {
 				t.Errorf("unlink without an available backup returned %d, want 409", rec.Code)
 			}
@@ -753,16 +762,6 @@ func TestOAuthAccountUnlinkRetainsHistoryAndEnforcesBackupLogin(t *testing.T) {
 				t.Errorf("rejected unlink removed the only active identity")
 			}
 		})
-	}
-	passwordUser := h.user("author", "oauth-account-password-backup")
-	passwordLogin := oauthAccountLoginFor(t, h, passwordUser)
-	oauthAccountSetPassword(t, h, passwordUser.ID, "real-local-password")
-	if err := oauthAccountInsertIdentity(h.db, passwordUser.ID, "google", "password-backup-google"); err != nil {
-		t.Fatal(err)
-	}
-	passwordUnlink := oauthAccountServe(h, http.MethodDelete, "/api/auth/identities/google", []*http.Cookie{passwordLogin.jwtCookie}, nil, "", "")
-	if passwordUnlink.Code != http.StatusOK {
-		t.Errorf("unlink with a valid local password backup returned %d, want 200", passwordUnlink.Code)
 	}
 }
 

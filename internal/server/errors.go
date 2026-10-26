@@ -79,6 +79,9 @@ func newHTTPErrorHandler(tm *theme.Manager) echo.HTTPErrorHandler {
 			if key, ok := errorTitles[code]; ok {
 				page.Title = translate(t, key)
 			}
+			if code == http.StatusNotFound {
+				page.Message = translate(t, "errorNotFoundBody")
+			}
 			values := map[string]interface{}{
 				"SiteTitle":   siteTitleOrDefault(),
 				"Title":       page.Title,
@@ -93,7 +96,7 @@ func newHTTPErrorHandler(tm *theme.Manager) echo.HTTPErrorHandler {
 				html, rerr = tm.RenderWithDB("error.html", values, data.DB)
 			}
 			if rerr == nil {
-				_ = c.HTMLBlob(code, html)
+				_ = renderedPublicHTML(c, code, html)
 				return
 			}
 			log.Printf("render theme error page: %v", rerr)

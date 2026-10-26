@@ -1,90 +1,169 @@
 {{define "title"}}{{.T.orders}}{{end}}
+{{define "styles"}}<link rel="stylesheet" href="/admin/assets/shop-admin.css">{{end}}
 {{define "content"}}
-<div class="page-header">
-    <div class="page-title-wrapper">
-        <h1>{{.T.orders}}</h1>
-    </div>
+<div class="sa-head">
+    <h1>{{.T.orders}}</h1>
+    <div class="sa-seg" id="segs" role="group" aria-label="{{.T.status}}"></div>
+    <span class="sa-grow"></span>
+    <a class="btn btn-secondary btn-sm" href="/admin/settings#payment" id="settingsLink"><svg class="icon" aria-hidden="true"><use href="#i-sliders"/></svg><span></span></a>
 </div>
-<div class="table-wrapper">
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>User</th>
-                <th>Total</th>
-                <th>{{.T.status}}</th>
-                <th>{{.T.date}}</th>
-                <th class="actions">{{.T.actions}}</th>
-            </tr>
-        </thead>
-        <tbody id="ordersList">
-            <tr>
-                <td colspan="6" class="table-empty">{{.T.loading}}</td>
-            </tr>
-        </tbody>
-    </table>
+<div class="sa-kpis" id="kpis" aria-live="polite"></div>
+<div class="sa-head" style="margin-bottom:.75rem">
+    <label class="sa-search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="q" autocomplete="off" enterkeyhint="search"></label>
+    <span class="sa-dates" role="group" id="dateGroup">
+        <label for="from" id="lFrom"></label><input type="date" id="from">
+        <label for="to" id="lTo"></label><input type="date" id="to">
+        <button type="button" class="btn btn-secondary btn-sm" id="last30"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg><span></span></button>
+        <button type="button" class="btn btn-text btn-sm" id="clearDates" hidden><span></span></button>
+    </span>
 </div>
+<div id="list" aria-live="polite" aria-busy="true"></div>
+<nav class="sa-pager" id="pager" hidden></nav>
 {{end}}
 {{define "scripts"}}
+<script src="/admin/assets/shop-admin.js"></script>
 <script>
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text == null ? '' : String(text);
-        return div.innerHTML;
+(function () {
+    'use strict';
+    const SA = window.ShopAdmin;
+    SA.extend({
+        zh: {
+            settingsLink: '金流・運送', searchPh: '訂單編號、姓名、Email', from: '從', to: '到', last30: '最近 30 天', clearDates: '清除日期',
+            kRevenue: '30 天營收', kOrders: '訂單數', kPending: '待處理', kAvg: '平均客單', k30: '最近 30 天',
+            colOrder: '訂單', colCustomer: '顧客', colItems: '品項', colTotal: '金額', colPay: '付款', colStatus: '狀態', colTime: '時間', colActions: '操作',
+            guest: '訪客', emptyTitle: '還沒有訂單', emptyText: '顧客下單後會出現在這裡。', noMatch: '沒有符合條件的訂單', clearFilter: '清除篩選', badRange: '開始日期不能晚於結束日期'
+        },
+        en: {
+            settingsLink: 'Payments & shipping', searchPh: 'Order number, name or email', from: 'From', to: 'To', last30: 'Last 30 days', clearDates: 'Clear dates',
+            kRevenue: 'Revenue, 30 days', kOrders: 'Orders', kPending: 'To handle', kAvg: 'Average order', k30: 'Last 30 days',
+            colOrder: 'Order', colCustomer: 'Customer', colItems: 'Items', colTotal: 'Total', colPay: 'Payment', colStatus: 'Status', colTime: 'Placed', colActions: 'Actions',
+            guest: 'Guest', emptyTitle: 'No orders yet', emptyText: 'Orders appear here once customers check out.', noMatch: 'No orders match', clearFilter: 'Clear filters', badRange: 'The start date must not be after the end date'
+        }
+    });
+    const t = SA.t, esc = SA.esc;
+    const $ = (id) => document.getElementById(id);
+    const PER = 20;
+    const SEGS = ['all', 'pending', 'paid', 'shipped', 'completed', 'cancelled', 'refunded', 'expired'];
+    const p0 = new URLSearchParams(location.search);
+    const dateOk = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s || '') ? s : '';
+    let st = { status: SEGS.includes(p0.get('status')) ? p0.get('status') : 'all', q: p0.get('q') || '', from: dateOk(p0.get('from')), to: dateOk(p0.get('to')), page: Math.max(1, +p0.get('page') || 1) };
+    let counts = {};
+    let seq = 0;
+
+    $('settingsLink').querySelector('span').textContent = t('settingsLink');
+    $('q').placeholder = t('searchPh');
+    $('q').setAttribute('aria-label', t('searchPh'));
+    $('q').value = st.q;
+    $('lFrom').textContent = t('from');
+    $('lTo').textContent = t('to');
+    $('dateGroup').setAttribute('aria-label', t('colTime'));
+    $('last30').querySelector('span').textContent = t('last30');
+    $('clearDates').querySelector('span').textContent = t('clearDates');
+    $('from').value = st.from;
+    $('to').value = st.to;
+
+    function renderSegs() {
+        $('segs').innerHTML = SEGS.map(s => {
+            const n = s === 'all' ? (counts.all != null ? counts.all : Object.keys(counts).reduce((a, k) => a + (+counts[k] || 0), 0)) : counts[s];
+            return '<button type="button" data-s="' + s + '" aria-pressed="' + (st.status === s) + '">' + esc(s === 'all' ? t('all') : t('st_' + s)) + (n ? ' <b>' + (+n) + '</b>' : '') + '</button>';
+        }).join('');
+        $('segs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { st.status = b.dataset.s; st.page = 1; load(); }));
     }
 
-    const STATUS_BADGE = { pending: 'warning', processing: 'info', paid: 'info', shipped: 'info', completed: 'success', cancelled: 'danger' };
+    function renderKpi(k) {
+        if (!k) { $('kpis').innerHTML = ''; return; }
+        const tile = (label, value, warn) => '<div class="sa-kpi' + (warn ? ' warn' : '') + '"><span class="label">' + esc(label) + '</span><b>' + esc(value) + '</b></div>';
+        $('kpis').innerHTML = tile(t('kRevenue'), SA.money(k.revenue_30d)) + tile(t('kOrders'), String(+k.orders_30d || 0)) + tile(t('kPending'), String(+k.pending || 0), (+k.pending || 0) > 0) + tile(t('kAvg'), SA.money(k.avg_order));
+    }
 
-    async function loadOrders() {
-        const res = await fetch('/api/admin/orders');
-        const orders = await res.json();
-        const tbody = document.getElementById('ordersList');
-        tbody.innerHTML = '';
+    function shipping(o) {
+        let s = o.shipping;
+        if (typeof s === 'string') { try { s = JSON.parse(s); } catch (e) { s = null; } }
+        return s && typeof s === 'object' ? s : {};
+    }
+    function customerName(o) {
+        const s = shipping(o);
+        return s.name || s.recipient || (o.user && (o.user.display_name || o.user.username)) || t('guest');
+    }
+    function itemsText(o) {
+        return (o.items || []).map(i => (i.title || (i.product && i.product.title) || '—') + (i.variant_name ? '（' + i.variant_name + '）' : '') + ' ×' + (+(i.qty != null ? i.qty : i.quantity) || 1)).join('、');
+    }
+    const total = (o) => o.total != null ? o.total : o.total_amount;
 
-        if (!orders.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="table-empty">—</td></tr>';
+    function render(data) {
+        const items = Array.isArray(data.items) ? data.items : [];
+        const box = $('list');
+        box.setAttribute('aria-busy', 'false');
+        if (!items.length) {
+            const filtered = st.q || st.status !== 'all' || st.from || st.to;
+            if (filtered) SA.state(box, 'empty', { title: t('noMatch'), actions: [{ label: t('clearFilter'), onClick: () => { st = { status: 'all', q: '', from: '', to: '', page: 1 }; $('q').value = ''; $('from').value = ''; $('to').value = ''; load(); } }] });
+            else SA.state(box, 'empty', { title: t('emptyTitle'), text: t('emptyText') });
+            $('pager').hidden = true;
             return;
         }
-
-        orders.forEach(o => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                    <td class="cell-mono">#${o.id}</td>
-                    <td class="cell-title">${escapeHtml(o.user ? o.user.username : 'Guest')}</td>
-                    <td class="cell-mono">$${(o.total_amount / 100).toFixed(2)}</td>
-                    <td><span class="badge badge-${STATUS_BADGE[o.status] || 'info'}">${escapeHtml(o.status)}</span></td>
-                    <td class="cell-muted">${new Date(o.created_at).toLocaleDateString()}</td>
-                    <td class="actions">
-                        <button class="btn btn-secondary btn-sm btn-icon" onclick="viewOrder(${o.id})" title="View" aria-label="View"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg></button>
-                        <button class="btn btn-text btn-sm" onclick="updateOrderStatus(${o.id})"><svg class="icon" aria-hidden="true"><use href="#i-pencil"/></svg>Update Status</button>
-                    </td>
-                `;
-            tbody.appendChild(tr);
+        let html = '<div class="table-wrapper"><table class="sa-table"><thead><tr><th>' + esc(t('colOrder')) + '</th><th>' + esc(t('colCustomer')) + '</th><th class="sa-hide-sm">' + esc(t('colItems')) + '</th><th class="sa-num">' + esc(t('colTotal')) + '</th><th class="sa-hide-sm">' + esc(t('colPay')) + '</th><th>' + esc(t('colStatus')) + '</th><th class="sa-hide-sm">' + esc(t('colTime')) + '</th><th class="actions">' + esc(t('colActions')) + '</th></tr></thead><tbody>';
+        items.forEach(o => {
+            const number = o.number || ('#' + o.id);
+            const pay = [SA.providerLabel(o.payment_provider), SA.methodLabel(o.payment_method)].filter(Boolean).join('・') || '—';
+            const it = itemsText(o);
+            html += '<tr><td><a class="sa-link cell-mono" href="/admin/orders/' + (+o.id) + '">' + esc(number) + '</a></td>' +
+                '<td><b>' + esc(customerName(o)) + '</b><span class="sa-sub">' + esc(o.email || '') + '</span></td>' +
+                '<td class="sa-hide-sm"><span class="sa-items" title="' + esc(it) + '">' + esc(it || '—') + '</span></td>' +
+                '<td class="sa-num">' + esc(SA.money(total(o), o.currency)) + '</td>' +
+                '<td class="sa-hide-sm">' + esc(pay) + '</td>' +
+                '<td>' + SA.badge('order', o.status) + '</td>' +
+                '<td class="cell-muted sa-hide-sm">' + esc(SA.date(o.created_at)) + '</td>' +
+                '<td class="actions"><a class="btn btn-secondary btn-sm btn-icon" href="/admin/orders/' + (+o.id) + '" title="' + esc(t('view')) + '" aria-label="' + esc(t('view') + ' ' + number) + '">' + SA.svg('i-eye') + '</a></td></tr>';
         });
-    }
-    function viewOrder(id) {
-        window.location.href = `/admin/orders/${id}`;
+        box.innerHTML = html + '</tbody></table></div>';
+        SA.pager($('pager'), { page: st.page, perPage: PER, total: +data.total || items.length, unit: t('unitOrders') }, (p) => { st.page = p; load(); });
     }
 
-    async function updateOrderStatus(id) {
-        const status = prompt('Enter new status (pending, processing, completed, cancelled):');
-        if (!status) return;
-
-        const res = await fetch(`/api/admin/orders/${id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status })
-        });
-
-        if (res.ok) {
-            alert('Order status updated!');
-            loadOrders();
-        } else {
-            const err = await res.json();
-            alert('Failed to update: ' + (err.error || 'Unknown error'));
+    async function load() {
+        const my = ++seq;
+        $('clearDates').hidden = !st.from && !st.to;
+        SA.setQuery({ status: st.status === 'all' ? '' : st.status, q: st.q, from: st.from, to: st.to, page: st.page > 1 ? st.page : '' });
+        renderSegs();
+        SA.state($('list'), 'loading');
+        const qs = new URLSearchParams({ page: st.page, per_page: PER });
+        ['q', 'from', 'to'].forEach(k => { if (st[k]) qs.set(k, st[k]); });
+        if (st.status !== 'all') qs.set('status', st.status);
+        try {
+            const data = await SA.api('GET', '/api/admin/orders?' + qs);
+            if (my !== seq) return;
+            const page = Array.isArray(data) ? { items: data, total: data.length } : (data || {});
+            counts = page.counts || {};
+            const pages = Math.max(1, Math.ceil((+page.total || 0) / PER));
+            if (st.page > pages && (+page.total || 0) > 0) { st.page = pages; return load(); }
+            renderSegs();
+            renderKpi(page.kpi);
+            render(page);
+        } catch (err) {
+            if (my !== seq || err.kind === 'aborted') return;
+            $('pager').hidden = true;
+            SA.state($('list'), 'error', { text: SA.errText(err), retry: load });
         }
     }
 
-    loadOrders();
+    function setDates(from, to) {
+        if (from && to && from > to) { SA.fieldError($('to'), t('badRange')); return; }
+        SA.fieldError($('to'), '');
+        st.from = from; st.to = to; st.page = 1;
+        load();
+    }
+    const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    $('from').addEventListener('change', () => setDates($('from').value, $('to').value));
+    $('to').addEventListener('change', () => setDates($('from').value, $('to').value));
+    $('last30').addEventListener('click', () => {
+        const now = new Date(), start = new Date(now.getTime() - 29 * 864e5);
+        $('from').value = iso(start); $('to').value = iso(now);
+        setDates($('from').value, $('to').value);
+    });
+    $('clearDates').addEventListener('click', () => { $('from').value = ''; $('to').value = ''; setDates('', ''); $('from').focus(); });
+    let timer = null;
+    $('q').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { st.q = $('q').value.trim(); st.page = 1; load(); }, 300); });
+    $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(timer); st.q = $('q').value.trim(); st.page = 1; load(); } });
+    load();
+})();
 </script>
 {{end}}

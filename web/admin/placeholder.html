@@ -1,0 +1,10 @@
+{{define "title"}}{{index .T .PageTitle}}{{end}}
+{{define "content"}}
+<div class="page-header">
+    <div class="page-title-wrapper">
+        <h1>{{index .T .PageTitle}}</h1>
+    </div>
+</div>
+{{template "empty-state" dict "title" (index .T "comingSoon") "description" (index .T "comingSoon")}}
+{{if .PluginID}}<p class="hint">{{.PluginID}}</p>{{end}}
+{{end}}

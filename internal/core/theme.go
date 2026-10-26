@@ -12,6 +12,11 @@ type ThemeConfig struct {
 	Colors       ThemeColors  `json:"colors,omitempty"`        // Default color scheme
 	Layout       ThemeLayout  `json:"layout,omitempty"`        // Default layout settings
 	CustomFields []ThemeField `json:"custom_fields,omitempty"` // Customizable fields
+	// WebMCPTools holds the raw webmcp_tools list: extra read-only WebMCP tools
+	// this theme offers while it is the active theme (ticket 13). It stays raw so
+	// a malformed entry skips that tool instead of breaking the theme; each entry
+	// decodes into WebMCPToolDecl.
+	WebMCPTools json.RawMessage `json:"webmcp_tools,omitempty"`
 }
 
 // ThemeColors defines the color scheme for a theme

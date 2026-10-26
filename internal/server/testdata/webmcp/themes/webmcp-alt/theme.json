@@ -1,0 +1,31 @@
+{
+  "name": "WebMCP Alt",
+  "version": "1.0.0",
+  "description": "Second theme fixture for ticket 13 tests.",
+  "author": "Jelly Team",
+  "webmcp_tools": [
+    {
+      "name": "theme_lookup",
+      "title": "Theme lookup",
+      "description": "A tool offered by the active theme.",
+      "input_schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "endpoint": "/api/public/site",
+      "annotations": {
+        "readOnlyHint": true
+      }
+    },
+    {
+      "name": "list_posts",
+      "description": "Duplicates a core tool.",
+      "endpoint": "/api/public/site"
+    },
+    {
+      "name": "fixture_ping",
+      "description": "Same name as a plugin tool.",
+      "endpoint": "/api/public/site"
+    }
+  ]
+}
