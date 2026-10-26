@@ -6,11 +6,10 @@ package server
 // 契約 section of the ticket plus its 「測試另外釘下的約定」. Several tests also call GET
 // /api/agent/v1/me from slot A3 to prove a key works or fails.
 //
-// These tests are expected to fail now: every /api/admin/agents and /api/agent/v1 route answers 501,
-// migration 0024_agents.sql does not exist and the pages are not limited to admins. Do not edit them to
-// match an implementation. They need JELLY_TEST_POSTGRES=1 and the dedicated PostgreSQL container.
-// Grace expiry is simulated by moving agent_keys.expires_at into the past with SQL; owner downgrade
-// and deletion change the users row with SQL.
+// These tests were introduced against the draft skeleton; they now define the regression contract.
+// The agent schema is migration 0025_agents.sql. They need JELLY_TEST_POSTGRES=1 and the dedicated
+// PostgreSQL container. Grace expiry is simulated by moving agent_keys.expires_at into the past with
+// SQL; owner downgrade and deletion change the users row with SQL.
 
 import (
 	"crypto/sha256"

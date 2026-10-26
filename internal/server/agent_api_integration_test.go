@@ -7,9 +7,9 @@ package server
 // Skill file). The contract is the 契約 section of the ticket plus its 「測試另外釘下的約定」; helpers
 // live in agent_keys_integration_test.go.
 //
-// These tests are expected to fail now: every /api/agent/v1 and /api/admin/agents route answers 501
-// and skills/jelly-cms/SKILL.md does not exist. Do not edit them to match an implementation. All but
-// TestAgentSkillFileDescribesDiscovery need JELLY_TEST_POSTGRES=1 and the dedicated PostgreSQL container.
+// These tests were introduced against the draft skeleton; they now define the regression contract.
+// All but TestAgentSkillFileDescribesDiscovery need JELLY_TEST_POSTGRES=1 and the dedicated PostgreSQL
+// container.
 
 import (
 	"encoding/json"
