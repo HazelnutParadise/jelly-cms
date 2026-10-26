@@ -233,7 +233,7 @@ func searchPublicPostsByIDs(ctx context.Context, db *gorm.DB, query theme.Search
 		}
 		queryDB := publicScope.Session(&gorm.Session{}).
 			Select("posts.id, posts.title, posts.slug, posts.content, posts.excerpt, posts.author_id, posts.cover, posts.published_at, posts.created_at, posts.updated_at").
-			Preload("Author").Order(order).Limit(size).Offset(offset)
+			Preload("Author").Clauses(clause.OrderBy{Expression: order}).Limit(size).Offset(offset)
 		return queryDB.Find(&posts).Error
 	}, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
 	if err != nil {
