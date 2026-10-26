@@ -630,6 +630,22 @@
       "h": 1000,
       "title": "前台 · 會員通知",
       "expand": "fill"
+    },
+    "Agents.dc.html": {
+      "x": 28880,
+      "y": 12380,
+      "w": 1440,
+      "h": 1100,
+      "title": "後台 · AI agent · 清單、建立與金鑰一次性顯示",
+      "expand": "fill"
+    },
+    "AgentDetail.dc.html": {
+      "x": 30400,
+      "y": 12380,
+      "w": 1440,
+      "h": 2500,
+      "title": "後台 · AI agent · 詳情、輪替對話框、提前撤銷與停用",
+      "expand": "fill"
     }
   },
   "order": [
@@ -699,6 +715,8 @@
     "Login2FA.dc.html",
     "InviteAccept.dc.html",
     "PasswordReset.dc.html",
+    "Agents.dc.html",
+    "AgentDetail.dc.html",
     "Settings.dc.html",
     "SettingsRoutes.dc.html",
     "SettingsCrawlers.dc.html",
@@ -767,7 +785,7 @@
       "y": 12120,
       "text": "後台 · 帳號與系統",
       "kind": "title1",
-      "maxW": 28800
+      "maxW": 31840
     },
     "s-system": {
       "x": 18160,

@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
@@ -590,6 +591,25 @@ func adminProductsUpdate(c echo.Context) error {
 		}
 		return productError(c, 500, "could not load product")
 	}
+	var agentBase time.Time
+	if base, ok := c.Get("agent.base_updated_at").(time.Time); ok {
+		agentBase = base
+		stamp := time.Now().UTC()
+		cas := tx.Model(&core.Product{}).Where("id = ? AND updated_at = ?", p.ID, agentBase).Update("updated_at", stamp)
+		if cas.Error != nil {
+			return productDBError(c, cas.Error)
+		}
+		if cas.RowsAffected != 1 {
+			var current core.Product
+			if err := tx.Select("updated_at").First(&current, p.ID).Error; err != nil {
+				return productError(c, 404, "Product not found")
+			}
+			return writeAPIError(c, http.StatusConflict, "version_conflict", "Product changed since it was read", map[string]any{"current_updated_at": current.UpdatedAt.Format(time.RFC3339Nano)})
+		}
+		if err := tx.Select("updated_at").First(&p, p.ID).Error; err != nil {
+			return productDBError(c, err)
+		}
+	}
 	if err := validateCategoryIDs(tx, in.CategoryIDs); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return productError(c, 400, "unknown category")
@@ -622,8 +642,23 @@ func adminProductsUpdate(c echo.Context) error {
 			p.Stock = *in.Stock
 		}
 	}
-	if err := tx.Select("title", "slug", "description", "price", "sku", "status", "compare_at_price", "low_stock_threshold", "requires_shipping", "cold_chain", "kind", "seo_title", "seo_description", "seo_index", "seo_ai", "images", "attributes", "related_ids", "stock").Save(&p).Error; err != nil {
-		return productDBError(c, err)
+	productFields := []string{"title", "slug", "description", "price", "sku", "status", "compare_at_price", "low_stock_threshold", "requires_shipping", "cold_chain", "kind", "seo_title", "seo_description", "seo_index", "seo_ai", "images", "attributes", "related_ids", "stock"}
+	if agentBase.IsZero() {
+		if err := tx.Select(productFields).Save(&p).Error; err != nil {
+			return productDBError(c, err)
+		}
+	} else {
+		result := tx.Model(&core.Product{}).Where("id = ? AND updated_at = ?", p.ID, p.UpdatedAt).Select(productFields).Updates(&p)
+		if result.Error != nil {
+			return productDBError(c, result.Error)
+		}
+		if result.RowsAffected != 1 {
+			var current core.Product
+			if err := tx.Select("updated_at").First(&current, p.ID).Error; err == nil {
+				return writeAPIError(c, http.StatusConflict, "version_conflict", "Product changed since it was read", map[string]any{"current_updated_at": current.UpdatedAt.Format(time.RFC3339Nano)})
+			}
+			return productError(c, http.StatusNotFound, "Product not found")
+		}
 	}
 	if in.CategoryIDs != nil {
 		if err := replaceProductCategories(tx, p.ID, in.CategoryIDs); err != nil {
@@ -636,6 +671,11 @@ func adminProductsUpdate(c echo.Context) error {
 	}
 	if err := tx.Commit().Error; err != nil {
 		return productDBError(c, err)
+	}
+	if !agentBase.IsZero() {
+		if err := data.DB.First(&p, uint(id)).Error; err != nil {
+			return productError(c, http.StatusInternalServerError, "product saved but could not load response")
+		}
 	}
 	view, err := loadAdminProduct(data.DB, &p)
 	if err != nil {

@@ -57,6 +57,29 @@ func newHTTPErrorHandler(tm *theme.Manager) echo.HTTPErrorHandler {
 		}
 
 		path := c.Request().URL.Path
+		if pathOrSubtree(path, "/api/agent/v1") {
+			codeName := "internal_error"
+			switch code {
+			case http.StatusNotFound:
+				codeName = "not_found"
+			case http.StatusMethodNotAllowed:
+				codeName = "method_not_allowed"
+			case http.StatusRequestEntityTooLarge:
+				codeName = "payload_too_large"
+			case http.StatusServiceUnavailable:
+				codeName = "service_unavailable"
+			case http.StatusBadRequest:
+				codeName = "bad_request"
+			case http.StatusForbidden:
+				codeName = "forbidden"
+			case http.StatusUnauthorized:
+				codeName = "key_invalid"
+			case http.StatusConflict:
+				codeName = "conflict"
+			}
+			_ = writeAPIError(c, code, codeName, message, nil)
+			return
+		}
 		if wantsJSON(c) {
 			_ = c.JSON(code, map[string]interface{}{"error": message, "code": code})
 			return

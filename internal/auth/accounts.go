@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/agent"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"gorm.io/gorm"
 )
@@ -70,14 +71,7 @@ func maskClientIP(remote string) string {
 	if err != nil {
 		host = strings.Trim(remote, "[]")
 	}
-	ip := net.ParseIP(host)
-	if ip == nil {
-		return ""
-	}
-	if ipv4 := ip.To4(); ipv4 != nil {
-		return ipv4.Mask(net.CIDRMask(24, 32)).String()
-	}
-	return ip.Mask(net.CIDRMask(48, 128)).String()
+	return agent.MaskIP(host)
 }
 
 // touchTokenUse records only coarse activity. The principal loader calls this

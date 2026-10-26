@@ -21,6 +21,7 @@ python3 design/gen/gen_editor.py   # 編輯器滿版、專心模式、斜線選�
 python3 design/gen/gen_update.py   # 版本更新（執行檔／容器）
 python3 design/gen/gen_front2.py   # 作者、標籤、彙整索引、商品分類、會員中心、訂單查詢
 python3 design/gen/gen_accounts.py # 登入驗證碼步驟、接受邀請、重設密碼
+python3 design/gen/gen_agents.py   # AI agent 清單、詳情與輪替對話框
 ```
 
 截圖檢查（需要 Playwright）：

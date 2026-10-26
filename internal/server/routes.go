@@ -42,6 +42,11 @@ func adminFontCacheHeaders(next echo.HandlerFunc) echo.HandlerFunc {
 
 // isUploadRoute reports whether the matched route accepts file uploads.
 func isUploadRoute(c echo.Context) bool {
+	// Agent routes apply their own body cap after authentication and auditing so
+	// oversized but authenticated requests still produce an audit event.
+	if c.Request().URL.Path == "/api/agent/v1" || strings.HasPrefix(c.Request().URL.Path, "/api/agent/v1/") {
+		return true
+	}
 	switch c.Path() {
 	case "/api/admin/media", "/api/admin/media/:filename", "/api/admin/media/files", "/api/admin/media/files/:id/replace", "/api/admin/plugins/upload", "/api/admin/import/wxr":
 		return true
@@ -231,6 +236,9 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	// WebMCP script, tool list and the public JSON API behind the tools (ticket 13).
 	registerWebMCPRoutes(e, tm, pluginRuntime)
 	registerPublicAPIRoutes(e)
+
+	// AI agent API and its admin screens (ticket 14)
+	registerAgentRoutes(e, tm, pluginRuntime, renderAdmin)
 
 	// Public Routes (Catch-all should be last)
 	registerAccountPages(e)
