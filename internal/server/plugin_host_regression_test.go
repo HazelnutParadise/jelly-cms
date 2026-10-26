@@ -164,7 +164,7 @@ func TestPluginHostStoreNamespaceNullAndPermissionDenial(t *testing.T) {
 		t.Fatalf("enable store plugin = %d: %s", r.code, r.body)
 	}
 	h.runtime.CallHook(plugin.Hook("StoreProbe"), map[string]any{})
-	h.logs.waitFor(t, "host-store-")
+	h.logs.waitFor(t, "] host-store-result:")
 	output := h.logs.snapshot()
 	storeMissing := strings.Contains(output, "host-store-api-missing")
 	storeError := strings.Contains(output, "host-store-error:")
@@ -199,7 +199,7 @@ func TestPluginHostStoreNamespaceNullAndPermissionDenial(t *testing.T) {
 		t.Fatalf("enable no-store-permission plugin = %d: %s", r.code, r.body)
 	}
 	h.runtime.CallHook(plugin.Hook("StoreDeniedProbe"), map[string]any{})
-	h.logs.waitFor(t, "host-store-denied")
+	h.logs.waitFor(t, "] host-store-denied:")
 	output = h.logs.snapshot()
 	denialMissing := strings.Contains(output, "host-store-denied-api-missing")
 	if strings.Contains(output, "host-store-denied-no-error") {
