@@ -94,7 +94,7 @@ const spec = `<div class="spec">
     <tr><td>--pele-series-1…5</td><td>primary、secondary、accent、warning、ink</td></tr>
   </table>
   <h3 class="d">版面</h3>
-  <ul><li>圖表框 <code>max-width:100%</code>、<code>overflow-x:auto</code>，只有框內捲動。</li><li>SVG 隨框寬縮放，最小為原寬 75%。</li><li>列印或存成 PDF 時縮至紙張寬度，整張圖完整保留。</li><li>原文超過 50 000 字元、語法錯誤、不支援的圖種：保留原文並提示，同頁其他圖照常。</li><li>連結只留 http(s)、mailto 與站內路徑，外部連結加 <code>rel="noopener noreferrer"</code>。</li></ul>
+  <ul><li>圖表框 <code>max-width:100%</code>、<code>overflow-x:auto</code>，只有框內捲動。</li><li>SVG 隨框寬縮放，最小為原寬 75%。</li><li>列印或存成 PDF 時縮至紙張寬度，整張圖完整保留。</li><li>圖表保留 Pele 的粗體與標題字重。</li><li>原文超過 50 000 字元、語法錯誤、不支援的圖種：保留原文並提示，同頁其他圖照常。</li><li>連結只留 http(s)、mailto 與站內路徑，外部連結加 <code>rel="noopener noreferrer"</code>。</li></ul>
 </div>`;
 
 const FONT_CSS = ['noto-sans-tc', 'bricolage-grotesque'].map((name, index) => {

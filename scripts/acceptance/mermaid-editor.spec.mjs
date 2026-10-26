@@ -139,7 +139,12 @@ try {
       if (!window.JellyMermaid) return { missing: true };
       const savedPele=window.pele, savedJelly=window.JellyMermaid, fontsDescriptor=Object.getOwnPropertyDescriptor(document.fonts,'ready'), colorResults=[];
       try {
-      const realPele=window.pele;
+      const realPele=window.pele,weightRoot=makeRoot(),weightPre=document.createElement('pre');
+      weightPre.innerHTML='<code class="language-mermaid">flowchart LR\n A["`**粗體**`"] --> B[普通]</code>';weightRoot.append(weightPre);
+      window.pele=realPele;await window.JellyMermaid.render(weightRoot);
+      const bold=Array.from(weightRoot.querySelectorAll('figure.jc-mermaid svg.pele text,figure.jc-mermaid svg.pele tspan')).filter(node=>node.textContent.includes('粗體'));
+      const boldRun=bold.find(node=>node.textContent.trim()==='粗體')||bold.at(-1);
+      const boldWeight=boldRun?getComputedStyle(boldRun).fontWeight:'missing-bold-label';weightRoot.remove();
       for (const color of ['rgb(21, 22, 26)', 'rgb(236, 237, 241)']) {
         const parent=makeRoot(); parent.style.setProperty('--ink',color);
         const themed=document.createElement('pre'); themed.innerHTML='<code class="language-mermaid">flowchart TD\n A-->B</code>'; parent.append(themed);
@@ -169,7 +174,7 @@ try {
       const removedPending=window.JellyMermaid.render(detachedRoot); detachedRoot.remove(); await window.JellyMermaid.render(document);
       await removedPending; const removedRootStayedGone=!document.body.contains(detachedRoot);
       const direct=document.createElement('pre');direct.className='mermaid-editor-probe';probeRoots.push(direct);direct.innerHTML='<code class="language-mermaid">DIRECT ROOT</code>';document.body.append(direct);await window.JellyMermaid.render(direct);direct.querySelector('code').remove();await window.JellyMermaid.render(direct);const directRootRestored=!direct.hidden&&!direct.nextElementSibling;direct.remove();
-      return { stable, unsafe, removed: !document.body.contains(first), errorShown, recovered, changedSourceUsed, removedRootStayedGone, directRootRestored, classRemovalRestoredSource, colorResults };
+      return { stable, unsafe, removed: !document.body.contains(first), errorShown, recovered, changedSourceUsed, removedRootStayedGone, directRootRestored, classRemovalRestoredSource, colorResults, boldWeight };
       } finally {
         window.pele=savedPele; window.JellyMermaid=savedJelly;
         if(fontsDescriptor)Object.defineProperty(document.fonts,'ready',fontsDescriptor);else delete document.fonts.ready;
@@ -182,6 +187,7 @@ try {
     assert(result.changedSourceUsed && result.removedRootStayedGone, 'delayed font wait rendered stale source or resurrected a removed root');
     assert(result.classRemovalRestoredSource&&result.directRootRestored,'removing the Mermaid class/code left source hidden or orphaned a figure');
     assert(result.colorResults[0] === 'rgb(21, 22, 26)' && result.colorResults[1] === 'rgb(236, 237, 241)', `parent theme colors did not reach SVG text: ${result.colorResults}`);
+    assert(result.boldWeight==='700',`real Pele bold text lost its font weight after SVG sanitization: ${result.boldWeight}`);
     assert(!/script|foreignObject|onload|evil\.test|javascript|animate/i.test(result.unsafe), `unsafe SVG survived: ${result.unsafe}`);
   });
   await check('localized responsive views and offline export controls work', async () => {
