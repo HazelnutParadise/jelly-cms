@@ -79,7 +79,8 @@ async function adminPost(path, data) {
 }
 
 async function setEnabled(value) {
-  await adminPost('/api/admin/settings', { webmcp_enabled: value });
+	const res = await api.put('/api/admin/settings', { data: { webmcp_enabled: value }, headers: csrf });
+	if (!res.ok()) throw new Error(`PUT /api/admin/settings answered ${res.status()}: ${await res.text()}`);
 }
 
 async function toolList() {

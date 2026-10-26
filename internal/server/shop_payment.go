@@ -378,7 +378,7 @@ func shopSandboxPage(c echo.Context, tm *theme.Manager) error {
 	if err != nil {
 		return c.NoContent(http.StatusInternalServerError)
 	}
-	return c.HTMLBlob(http.StatusOK, page)
+	return renderedPublicHTML(c, http.StatusOK, page)
 }
 
 func shopSandboxSimulate(c echo.Context) error {

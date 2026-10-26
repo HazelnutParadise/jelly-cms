@@ -86,6 +86,30 @@ func TestWebMCPInjectBeforeHeadEndPrefersHeadOverBody(t *testing.T) {
 	}
 }
 
+func TestWebMCPInjectBeforeHeadEndPreservesUnicodeAndFindsHead(t *testing.T) {
+	page := []byte("<html><head><title>Kİ中文</title></HEAD><body></body></html>")
+	original := append([]byte(nil), page...)
+	got := InjectBeforeHeadEnd(page, webmcpTestTag)
+	want := "<html><head><title>Kİ中文</title>" + webmcpTestTag + "</HEAD><body></body></html>"
+	if string(got) != want {
+		t.Errorf("injection = %q, want %q", got, want)
+	}
+	if !bytes.Equal(page, original) {
+		t.Errorf("input changed: got %q, want original %q", page, original)
+	}
+}
+
+func TestWebMCPInjectBeforeHeadEndDoesNotWriteIntoInputCapacity(t *testing.T) {
+	input := make([]byte, len("<head></head>"), 256)
+	copy(input, "<head></head>")
+	backing := input[:cap(input)]
+	original := append([]byte(nil), backing...)
+	_ = InjectBeforeHeadEnd(input, webmcpTestTag)
+	if !bytes.Equal(backing, original) {
+		t.Errorf("injection changed bytes in input backing array beyond visible length")
+	}
+}
+
 func TestWebMCPPlainTextParagraphs(t *testing.T) {
 	source := `<h2>小標題</h2><p>第一段 <strong>粗體</strong>  與
 <a href="/x">連結</a></p><script>alert("x")</script><style>p{color:red}</style>` +

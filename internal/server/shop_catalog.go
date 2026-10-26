@@ -193,7 +193,7 @@ func renderShopCatalog(tm *theme.Manager, c echo.Context, term *core.ProductCate
 	if err != nil {
 		return echo.NewHTTPError(500, "could not render shop page")
 	}
-	return c.HTMLBlob(http.StatusOK, html)
+	return renderedPublicHTML(c, http.StatusOK, html)
 }
 
 func shopCategorySubtreeIDs(root uint) ([]uint, error) {
@@ -601,7 +601,7 @@ func shopProductPage(tm *theme.Manager) echo.HandlerFunc {
 		if err != nil {
 			return echo.NewHTTPError(500, fmt.Sprintf("could not render product page: %v", err))
 		}
-		return c.HTMLBlob(200, html)
+		return renderedPublicHTML(c, http.StatusOK, html)
 	}
 }
 

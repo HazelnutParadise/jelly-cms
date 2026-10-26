@@ -156,6 +156,6 @@ func shopPage(tm *theme.Manager, template, title string, stub map[string]interfa
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "Template render error: "+err.Error())
 		}
-		return c.HTMLBlob(http.StatusOK, html)
+		return renderedPublicHTML(c, http.StatusOK, html)
 	}
 }

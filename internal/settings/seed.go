@@ -59,6 +59,7 @@ func seedSpecs() []Spec {
 		s("feed_items", KindInt, "20", "routes"),
 
 		s("seo_index_site", KindBool, "true", "crawlers"),
+		s("webmcp_enabled", KindBool, "true", "crawlers"),
 		s("seo_index_types", KindJSON, "{}", "crawlers"),
 		s("seo_images_index", KindBool, "true", "crawlers"),
 		s("seo_snippet_mode", KindString, "default", "crawlers"),

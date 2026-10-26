@@ -3,9 +3,9 @@
 Epic：前台主題與 AI 代理
 來源：GitHub issue HazelnutParadise/jelly-cms#7
 User Story：訪客請瀏覽器裡的 AI 代理「找這個網站上講某主題的文章」「摘要這篇」時，代理不必讀畫面、猜按鈕，而是在任何前台頁面直接呼叫網站宣告的唯讀工具，拿到結構化結果。不論用哪個主題都一樣；草稿、私密、排程與回收桶內容照樣拿不到；站長可以在後台關掉；外掛與主題可以用宣告的方式加自己的唯讀工具。
-Blocked by：無。05 的公開範圍 `publicPostVisibility`、`/api/search` 與主題錯誤頁已在 main。與草稿工作單的重疊與調和方式見「相依與調和」。
-Status：draft（本工作單只交付契約、設計板、可編譯骨架與失敗的驗收測試；實作由另一批代理依本文件完成）
-設計稿：`design/project/Settings.dc.html` 新增「同一頁 · 網站分頁」區塊，其中「搜尋引擎與 AI 代理」小節有 WebMCP 開關這一列（板高改為 1320）。前台畫面沒有改變，WebMCP 沒有可見介面。
+Blocked by：無。05、07、08、09 已在 main，已沿用公開範圍、商店主題渲染、動態設定頁、外掛啟停及 Request ID。
+Status：W1–W7 已實作並完成本機功能驗收，完整測試與交付結果見 STATUS.md 及 PR #30。
+設計稿：`design/project/SettingsCrawlers.dc.html`，由 `design/gen/gen_crawlers.py` 產生，開關位於「搜尋引擎與 AI 爬蟲」分頁。前台畫面沒有改變，WebMCP 沒有可見介面。
 
 ## 規格查證（2026-10-24）
 
@@ -22,19 +22,21 @@ Status：draft（本工作單只交付契約、設計板、可編譯骨架與失
 | 權限政策 | `Permissions-Policy: tools=()` 關閉整頁 | 政策功能名稱 `tools`，預設允許清單 `'self'` | 相同 |
 | 其他 | 沒寫 | `ModelContext` 另有 `getTools()`、`executeTool()` 與 `toolchange`、`toolactivated`、`toolcancel` 事件 | 不使用 |
 
+瀏覽器驗收使用可控宿主驗證註冊契約，不等同原生 AI 代理端到端驗收。返回快取以合成 persisted 事件及受控延遲回歸驗證；本機 Chromium 返回時重建文件，未觀察到原生快取恢復。
+
 規格是草案，欄位可能再變；相容層集中在 `web/jelly/webmcp.js` 的一個函式裡，變動時只改這一處。
 
 ## 完成條件
 
-- [ ] 訪客的瀏覽器若提供 `document.modelContext`（或只有舊的 `navigator.modelContext`），在預設主題的首頁、文章總覽、單篇、頁面、分類、彙整、搜尋與 404 頁，以及任何其他主題的同類頁面，都會註冊 `search_content`、`list_posts`、`get_post`、`get_site_info` 四個唯讀工具，加上已啟用外掛與使用中主題宣告的工具。
-- [ ] 訪客的瀏覽器不支援 WebMCP 時，頁面照常顯示，腳本不抓工具清單，console 沒有新增任何錯誤或警告。
-- [ ] 代理呼叫 `search_content` 拿到的文章與 `/search` 畫面一致；呼叫 `get_post` 拿到的標題與段落文字與單篇畫面一致，不含任何 HTML；草稿、私密、排程、回收桶與不存在的 slug 一律拿到同一個「找不到」回應。
-- [ ] 代理呼叫 `list_posts` 可以分頁列出公開文章，每頁預設 10、最多 50；呼叫 `get_site_info` 拿到網站名稱、描述、語言與網址。
-- [ ] 站長在後台設定頁關掉「WebMCP」後，前台頁面不載入腳本、不註冊任何工具，回應帶 `Permissions-Policy: tools=()`，`/_jelly/webmcp.js` 與 `/_jelly/webmcp-tools.json` 回 404；`/api/public/*` 照常可用；重新開啟後立即恢復。
-- [ ] 外掛作者在 `plugin.json`、主題作者在 `theme.json` 宣告 `webmcp_tools`，外掛載入（啟用）時或主題使用中時工具出現，卸載或換主題後消失；外部網址、後台路徑、名稱不合法、重名與格式錯誤的宣告被略過並記一則警告，且不影響外掛或主題本身載入。
-- [ ] 後台、登入、安裝、帳號頁與維護頁不載入 WebMCP 腳本；JSON 回應不受影響。
-- [ ] 文件 `docs/webmcp.md` 說明內建工具（名稱、輸入、回傳、註解）、如何關閉（後台開關與 `Permissions-Policy`）、外掛與主題如何宣告工具（欄位、驗證規則、優先順序、範例）。
-- [ ] 主代理依「驗收步驟」啟動真實伺服器，`scripts/acceptance/webmcp.spec.mjs` 全數通過。
+- [x] 訪客的瀏覽器若提供 `document.modelContext`（或只有舊的 `navigator.modelContext`），在預設主題的首頁、文章總覽、單篇、頁面、分類、彙整、搜尋與 404 頁，以及任何其他主題的同類頁面，都會註冊 `search_content`、`list_posts`、`get_post`、`get_site_info` 四個唯讀工具，加上已啟用外掛與使用中主題宣告的工具。
+- [x] 訪客的瀏覽器不支援 WebMCP 時，頁面照常顯示，腳本不抓工具清單，console 沒有新增任何錯誤或警告。
+- [x] 代理呼叫 `search_content` 拿到的文章與 `/search` 畫面一致；呼叫 `get_post` 拿到的標題與段落文字與單篇畫面一致，不含任何 HTML；草稿、私密、排程、回收桶與不存在的 slug 一律拿到同一個「找不到」回應。
+- [x] 代理呼叫 `list_posts` 可以分頁列出公開文章，每頁預設 10、最多 50；呼叫 `get_site_info` 拿到網站名稱、描述、語言與網址。
+- [x] 站長在後台設定頁關掉「WebMCP」後，前台頁面不載入腳本、不註冊任何工具，回應帶 `Permissions-Policy: tools=()`，`/_jelly/webmcp.js` 與 `/_jelly/webmcp-tools.json` 回 404；`/api/public/*` 照常可用；重新開啟後立即恢復。
+- [x] 外掛作者在 `plugin.json`、主題作者在 `theme.json` 宣告 `webmcp_tools`，外掛載入（啟用）時或主題使用中時工具出現，卸載或換主題後消失；外部網址、後台路徑、名稱不合法、重名與格式錯誤的宣告被略過並記一則警告，且不影響外掛或主題本身載入。
+- [x] 後台、登入、安裝、帳號頁與維護頁不載入 WebMCP 腳本；JSON 回應不受影響。
+- [x] 文件 `docs/webmcp.md` 說明內建工具（名稱、輸入、回傳、註解）、如何關閉（後台開關與 `Permissions-Policy`）、外掛與主題如何宣告工具（欄位、驗證規則、優先順序、範例）。
+- [x] 主代理依「驗收步驟」啟動真實伺服器，`scripts/acceptance/webmcp.spec.mjs` 全數通過。
 
 ## 錯誤與邊界
 
@@ -97,7 +99,7 @@ Status：draft（本工作單只交付契約、設計板、可編譯骨架與失
 - `GET /api/public/posts`：`{"items": [{"title", "excerpt", "url", "published_at"}], "page", "per_page", "total"}`。範圍與排序同 `/posts`：`type=post`、已發布、公開、`COALESCE(published_at, created_at)` 不在未來、未回收；置頂優先、再新到舊、再 id。`items` 沒有資料時是 `[]` 不是 `null`。
 - `GET /api/public/content/{slug}`：`{"type": "post"|"page", "title", "url", "published_at", "excerpt", "text"}`，範圍同上但 `type` 可為 post 或 page。不回 HTML。
 - `GET /api/public/site`：`{"name", "description", "language", "url"}`；`name` 取選項 `site_title`（空或沒有時 `Jelly CMS`），`description` 取 `site_description`（沒有時空字串），`language` 取 `site_language`（沒有時 `zh-TW`），`url` 是 `<請求 scheme>://<Host>/`。
-- 共同欄位規則：`url` 是站內路徑（文章 `/post/<slug>`、頁面 `/<slug>`）；`published_at` 是 RFC 3339，取 `COALESCE(published_at, created_at)`；`excerpt` 是純文字：手寫摘要去標籤後非空就用它，否則從內文自動截取最多 200 個字元（截斷時加「…」）；`text` 由 `theme.PlainTextParagraphs(content)` 產生：不含標籤、實體已解碼、略過 script 與 style、區塊內空白壓成一格、區塊之間空一行（`\n\n`）、頭尾無空白。
+- 共同欄位規則：`url` 是依目前固定網址設定產生的站內路徑；`published_at` 是 RFC 3339，取 `COALESCE(published_at, created_at)`；`excerpt` 是純文字：手寫摘要去標籤後非空就用它，否則從內文自動截取最多 200 個字元（截斷時加「…」）；`text` 由 `theme.PlainTextParagraphs(content)` 產生：不含標籤、實體已解碼、略過 script 與 style、區塊內空白壓成一格、區塊之間空一行（`\n\n`）、頭尾無空白。
 - 這些端點不需要登入，也不因登入身分多看到任何東西。
 
 ### 錯誤格式（與 issue #6 agent API 共用）
@@ -107,14 +109,14 @@ Status：draft（本工作單只交付契約、設計板、可編譯骨架與失
 ```
 
 - `code`：`not_found`（404）、`service_unavailable`（503，資料庫未初始化）、`internal_error`（500，不帶內部錯誤文字）。`message` 給人讀，不含 slug 是否存在的線索。
-- `correlation_id` 取這個請求的 request id。main 還沒有 request id 中介層，所以在回錯誤時若回應標頭 `X-Request-ID` 為空，就產生 `req_` 加 20 個小寫英數字的隨機值並設進 `X-Request-ID`；工作單 08 的 `RequestID` 中介層合併後改用它（`syslog.RequestIDContextKey`），格式相同。
+- `correlation_id` 沿用工作單 08 的 `RequestID` 中介層（`syslog.RequestIDContextKey`），與 `X-Request-ID` 相同。
 - 只有新端點用這個格式；`/api/search` 與其他既有端點維持原樣。
 
 ### 開關
 
 - 選項鍵 `webmcp_enabled`，值只能是 `"true"` 或 `"false"`；沒有這一列視為 `"true"`。
-- 寫入沿用 main 的 `POST /api/admin/settings`（只限 admin）；值不是這兩個字串時整個請求回 400、不寫入任何鍵。
-- 後台 `web/admin/settings.html` 的 General 分頁新增一列開關：`<input type="checkbox" id="webmcpEnabled" name="webmcp_enabled">`，載入時反映目前值（沒有列時勾選），儲存時送 `"true"`／`"false"`。對應設計板見 `Settings.dc.html` 的「搜尋引擎與 AI 代理」小節。
+- 寫入沿用 main 的 `PUT /api/admin/settings`（只限 admin）；值不是這兩個字串時整個請求回 400、不寫入任何鍵。
+- 後台 `web/admin/assets/system-admin.js` 在 crawlers 分頁動態產生一列開關：`<input type="checkbox" id="webmcpEnabled" name="webmcp_enabled">`，載入時反映目前值（沒有列時勾選），儲存時送 `"true"`／`"false"`。對應設計板為 `SettingsCrawlers.dc.html`。
 - 切換後下一個請求就生效，不需重啟。
 
 ### 宣告式擴充（外掛與主題）
@@ -147,17 +149,17 @@ Status：draft（本工作單只交付契約、設計板、可編譯骨架與失
 - ES module，原始檔不超過 8192 位元組，不含 `http://` 或 `https://` 字樣，只對同源路徑發請求；不需建置步驟、不引用第三方套件。
 - 相容層集中在一個函式：有 `document.modelContext` 且具 `registerTool` 就用它，否則看 `navigator.modelContext`，都沒有就回 null；讀取屬性時的例外也視為沒有。
 - 沒有宿主時什麼都不做：不抓工具清單、不寫 console。
-- 有宿主時：建一個 `AbortController`，`pagehide` 時 `abort()`；`fetch('/_jelly/webmcp-tools.json')`（同源、帶 signal），對每一筆呼叫 `registerTool({name, title, description, inputSchema: input_schema, annotations, execute}, {signal})`。`registerTool` 同步丟出的例外與回傳 Promise 的拒絕都要接住，任何情況都不能在 console 留下錯誤或未處理的拒絕。
+- 有宿主時：每次註冊建立獨立 `AbortController`，`pagehide` 時 `abort()`；從返回快取恢復（`pageshow.persisted`）後，以新控制器重新抓取清單（`cache: no-store`），舊請求與舊工具保持中止；`fetch('/_jelly/webmcp-tools.json')`（同源、帶 signal），對每一筆呼叫 `registerTool({name, title, description, inputSchema: input_schema, annotations, execute}, {signal})`。`registerTool` 同步丟出的例外與回傳 Promise 的拒絕都要接住，任何情況都不能在 console 留下錯誤或未處理的拒絕。
 - `execute(input, {signal})`：endpoint 裡的 `{name}` 以 `encodeURIComponent(input[name])` 取代；其餘 `input` 屬性（略過 `undefined`、`null`）轉成查詢參數；以 `fetch(url, {signal, credentials: 'same-origin', headers: {Accept: 'application/json'}})` 送 GET，解析 JSON 後原樣回傳，非 2xx 也回傳解析後的錯誤物件（例如 `{code: "not_found", …}`），網路錯誤、中止或非 JSON 時讓 Promise 拒絕。
 
-### Go 骨架（本工作單已建立）
+### Go 實作
 
 - `internal/core/webmcp.go`：`WebMCPToolDecl{Name, Title, Description string; InputSchema json.RawMessage; Endpoint string; Annotations WebMCPAnnotations}`、`WebMCPAnnotations{ReadOnlyHint, UntrustedContentHint, ConsequentialHint, Debugging bool}`，JSON 鍵為 `name`、`title`、`description`、`input_schema`、`endpoint`、`annotations`、`readOnlyHint`、`untrustedContentHint`、`consequentialHint`、`debugging`。
 - `internal/core/theme.go`：`ThemeConfig.WebMCPTools json.RawMessage`（`webmcp_tools`）。
-- `internal/plugin/types.go`：`PluginMetadata.WebMCPTools json.RawMessage`（`webmcp_tools`）；`internal/plugin/manager.go`：`(*Runtime).LoadedPlugins()`（目前回 nil）。
-- `internal/theme/inject.go`：`InjectBeforeHeadEnd`、`PlainTextParagraphs`（目前回零值）。
-- `internal/server/webmcp.go`：常數 `webmcpEnabledKey`、`webmcpScriptTag`、`webmcpScriptFile`，`registerWebMCPRoutes(e, tm, pluginRuntime)`（兩條路由目前回 501）。
-- `internal/server/public_api.go`：`registerPublicAPIRoutes(e)`（三條路由目前回 501）。
+- `internal/plugin/types.go`：`PluginMetadata.WebMCPTools json.RawMessage`（`webmcp_tools`）；`internal/plugin/manager.go`：`(*Runtime).LoadedPlugins()`（回傳依載入順序排列的獨立複本）。
+- `internal/theme/inject.go`：`InjectBeforeHeadEnd`、`PlainTextParagraphs`（已實作）。
+- `internal/server/webmcp.go`：常數 `webmcpEnabledKey`、`webmcpScriptTag`、`webmcpScriptFile`，`registerWebMCPRoutes(e, tm, pluginRuntime)`（回傳腳本與合併工具清單）。
+- `internal/server/public_api.go`：`registerPublicAPIRoutes(e)`（回傳公開內容與網站資訊，另提供 API 索引與 OpenAPI）。
 - `internal/server/routes.go`：在 `registerAccountPages` 與 `RegisterPublicRoutes` 之前註冊上面兩組路由。
 
 ### 安全規則
@@ -186,19 +188,15 @@ Status：draft（本工作單只交付契約、設計板、可編譯骨架與失
 15. `list_posts` 超過最後一頁回 200 與空陣列：代理翻到空頁就停。否決：照 `/posts` 回 404（代理要處理錯誤才知道結束）。
 16. `url` 用站內路徑，`get_site_info.url` 用請求的 scheme 與 Host 組出絕對網址：main 沒有「網站網址」選項。否決：每個項目都回絕對網址（依賴 Host 標頭，且 08 之後才會有網址設定）。
 17. 腳本上限 8 KiB、不含絕對網址，作為「腳本要小」與「不從外部載入」的可檢驗條件。
-18. main 沒有外掛啟用／停用 API，載入於 runtime 即視為啟用（啟動時 `LoadAll` 載入 `data/plugins` 下全部外掛）；測試以 `Runtime.Load`／`Unload` 模擬啟用與停用。08 的啟用／停用端點合併後沿用同一個判斷。
+18. 已沿用工作單 08 的外掛安裝與啟用／停用 API；工具清單只讀 runtime 已載入外掛，不重讀磁碟當作啟用狀態。
 19. `list_posts` 也標 `untrustedContentHint`：`excerpt` 和 `search_content` 的摘要一樣是作者寫的內容。否決：只標 `search_content` 與 `get_post`（同樣的內容換個工具就不提醒代理）。
 
 ## 相依與調和
 
-- 工作單 08（草稿 PR #27，`claude/pr-f-system`）：
-  - 設定登記表：`webmcp_enabled` 要以 `settings.Spec{Key: "webmcp_enabled", Kind: "bool", Default: "true", Tab: "crawlers"}` 登記到「搜尋引擎與 AI 爬蟲」分頁，寫入改走 `PUT /api/admin/settings`，「只接受 true／false」改由登記表的型別檢查負責；後台開關從 General 分頁移到 crawlers 分頁；設計板上的這一列從 `Settings.dc.html` 移到 `SettingsCrawlers.dc.html`（改 `design/gen/gen_crawlers.py` 後重新產生），並刪掉 `Settings.dc.html` 新增的「同一頁 · 網站分頁」區塊、板高改回。誰後合併誰調和，並同步更新本工作單與 08 的測試。
-  - Request ID：08 的 `RequestID` 中介層（`req_` 加 20 個小寫 base32 字元，`X-Request-ID`）合併後，新端點的 `correlation_id` 直接取它，不再自己產生。
-  - 保留路徑：08 若改寫 `/:slug` 的保留清單，`_jelly` 必須保留。
-  - 外掛：08 的 manifest v2、`plugins.enabled` 與啟用／停用端點合併後，「已啟用」以 08 的狀態為準，`webmcp_tools` 欄位名不變；停用的外掛不得出現在工具清單。
-- 工作單 07（草稿 PR #25，`claude/pr-e-shop`）：商店前台頁若不經 `publicRender`／`archiveRender` 渲染，後合併者要讓它們也經過同一個注入步驟。
-- issue #6（agent API，另一個新 PR）：共用本工作單的錯誤格式；先合併者把格式寫成共用的輔助函式，後合併者改用它。
-- 06、09 沒有重疊。
+- 工作單 08 已合併：設定以 `settings.Spec` 登記到 crawlers 分頁，使用 `PUT /api/admin/settings`；`webmcp_enabled` 在寫入任何選項前額外嚴格檢查 true／false。Request ID、外掛 manifest v2 與啟停狀態沿用 main。
+- 工作單 07 已合併：商店型錄、商品、購物車與沙盒付款主題頁使用共用注入步驟；ECPay 表單交接頁不屬主題頁。
+- `_jelly` 保留 slug。原 General 分頁追加的設計區塊已移除，維持 main 設定頁結構。
+- issue #6 可沿用公開 API 錯誤格式與輔助函式；其他既有 API 格式維持不變。
 
 ## 實作順序
 
@@ -208,8 +206,8 @@ Status：draft（本工作單只交付契約、設計板、可編譯骨架與失
 2. W2 公開 API：`internal/server/public_api.go` 三個端點與錯誤輔助函式。測試 `internal/server/webmcp_integration_test.go`：`TestWebMCPPublicPostsShape`、`TestWebMCPPublicPostsPaging`、`TestWebMCPPublicContentPostAndPage`、`TestWebMCPPublicContentHidesNonPublicLikeUnknown`、`TestWebMCPPublicSiteShape`。
 3. W3 腳本、清單與注入：`web/jelly/webmcp.js`、`/_jelly/*` 路由、內建工具清單、`publicRender`／`archiveRender`／錯誤處理器的注入、`_jelly` 保留 slug。測試：`TestWebMCPInjectsScriptOnceOnDefaultThemePages`、`TestWebMCPInjectsScriptOnceOnSecondTheme`、`TestWebMCPDoesNotInjectOutsideThemePages`、`TestWebMCPMaintenancePageHasNoScript`、`TestWebMCPReservedSlug`、`TestWebMCPScriptIsSmallSameOriginJavaScript`、`TestWebMCPToolListHasFourReadOnlyBuiltins`。
 4. W4 外掛與主題宣告：`Runtime.LoadedPlugins`、宣告驗證與合併、警告。測試：`TestWebMCPPluginToolsFollowLoadState`、`TestWebMCPSecondPluginDuplicateNameIsSkipped`、`TestWebMCPThemeToolsOnlyForActiveTheme`。
-5. W5 開關與後台：選項讀取、關閉時的 404 與標頭、設定寫入驗證、`settings.html` 的開關。測試：`TestWebMCPDisabledSwitchesOffScriptAndSendsPolicy`、`TestWebMCPSettingAcceptsOnlyBooleans`、`TestWebMCPAdminSettingsPageHasSwitch`。
-6. W6 瀏覽器驗收：`scripts/acceptance/webmcp.spec.mjs` 依「驗收步驟」全數通過；同時人工確認後台開關在 1280px 與 390px 和 `Settings.dc.html` 一致。
+5. W5 開關與後台：選項讀取、關閉時的 404 與標頭、設定寫入驗證、crawlers 分頁的動態開關。測試：`TestWebMCPDisabledSwitchesOffScriptAndSendsPolicy`、`TestWebMCPSettingAcceptsOnlyBooleans`、`TestWebMCPAdminSettingsPageHasSwitch`。
+6. W6 瀏覽器驗收：`scripts/acceptance/webmcp.spec.mjs` 依「驗收步驟」全數通過；同時人工確認後台開關在 1280px 與 390px 和 `SettingsCrawlers.dc.html` 一致。
 7. W7 文件與狀態：`docs/webmcp.md`；`STATUS.md` 記錄驗收結果。
 
 `TestWebMCPDoesNotInjectOutsideThemePages`、`TestWebMCPMaintenancePageHasNoScript`、`TestWebMCPPlainTextParagraphsEmpty` 是防護測試，骨架階段就會通過，實作後必須維持通過。
@@ -217,7 +215,7 @@ Status：draft（本工作單只交付契約、設計板、可編譯骨架與失
 ### 測試另外釘下的約定
 
 - 測試固定檔：`internal/server/testdata/webmcp/plugins/webmcp-fixture/`（`plugin.json` 含有效與無效的 `webmcp_tools`、空的 `index.js`）與 `internal/server/testdata/webmcp/themes/webmcp-alt/`（`<HEAD>` 大寫的 layout、`class="webmcp-alt-theme"` 標記、宣告 `theme_lookup`、重名的 `list_posts` 與 `fixture_ping`）。測試把它們複製到工作目錄的 `data/plugins/webmcp-fixture` 與 `web/themes/webmcp-alt`；第二個外掛 `webmcp-fixture-two` 由測試當場寫出。
-- 換主題走 `POST /api/admin/themes/activate {"name"}`；外掛啟用與停用用 `Runtime.Load`／`Runtime.Unload`；開關走 `POST /api/admin/settings {"webmcp_enabled": "true"|"false"}`。
+- 換主題走 `POST /api/admin/themes/activate {"name"}`；外掛啟用與停用用 整合測試的 `Runtime.Load`／`Runtime.Unload`，瀏覽器走 `POST /api/admin/plugins/{id}/enable`／`disable`；開關走 `PUT /api/admin/settings {"webmcp_enabled": "true"|"false"}`。
 - 工具清單：最上層鍵 `tools`；項目鍵 `name`、`title`、`description`、`input_schema`、`endpoint`、`annotations`、`source`；`source` 值 `core`、`plugin:<id>`、`theme:<目錄名>`；內建順序與 endpoint 見上表；`search_content` 的 `required` 恰為 `["q"]`、`get_post` 恰為 `["slug"]`、`list_posts` 有 `page` 與 `per_page` 且沒有必填。
 - 有效 64 字元名稱會列出、65 字元會略過；`fixture_events` 宣告 `readOnlyHint: false`、`consequentialHint: true`、`untrustedContentHint: true`，輸出必須是 true、省略、true。
 - 警告：標準 `log` 輸出的一行，同時包含 `webmcp`（不分大小寫）、來源字串與工具名稱。
@@ -226,9 +224,9 @@ Status：draft（本工作單只交付契約、設計板、可編譯骨架與失
 - 公開 API 回應鍵完全等於契約所列；`items` 是陣列；`published_at` 可解析為 RFC 3339 並等於種子時間；手寫摘要原樣回傳；自動摘要不超過 201 個字元（含「…」）；`text` 在段落間有換行、不含 `<` `>`、不含 script 內容。
 - 錯誤：`code` 為 `not_found`，`correlation_id` 符合 `^req_[0-9a-z]+$`、等於 `X-Request-ID`、每個請求不同；非公開與不存在的 slug 除 `X-Request-ID` 之外的標頭集合與本文都相同。
 - `get_site_info` 在 Host 為 `webmcp.example` 的 httptest 請求下 `url` 為 `http://webmcp.example/`；預設值 `Jelly CMS`、空字串、`zh-TW`。
-- 後台設定頁含 `<input … id="webmcpEnabled" … type="checkbox" …>` 與字串 `webmcp_enabled`。
+- 後台 `/admin/settings/crawlers` 渲染後含 `<input … id="webmcpEnabled" … type="checkbox" …>` 與設定鍵 `webmcp_enabled`；`/admin/settings` 依 main 轉址到 site 分頁。
 - `Permissions-Policy` 以逗號分隔的其中一項（去空白後）等於 `tools=()`。
-- 瀏覽器驗收的環境變數：`JELLY_BASE_URL`（預設 `http://127.0.0.1:8080`）、`JELLY_ADMIN_USER`、`JELLY_ADMIN_PASSWORD`、`PLAYWRIGHT_MODULE`（選用）。腳本以 `X-Jelly-CSRF: 1` 呼叫 `POST /auth/login`、`POST /api/admin/posts`、`POST /api/admin/settings`，自己建立並在結束時刪除測試文章，結束時把 `webmcp_enabled` 設回 `"true"`。
+- 瀏覽器驗收的環境變數：`JELLY_BASE_URL`（預設 `http://127.0.0.1:8080`）、`JELLY_ADMIN_USER`、`JELLY_ADMIN_PASSWORD`、`PLAYWRIGHT_MODULE`（選用）。腳本以 `X-Jelly-CSRF: 1` 呼叫 `POST /auth/login`、`POST /api/admin/posts`、`PUT /api/admin/settings`，自己建立並在結束時刪除測試文章，結束時把 `webmcp_enabled` 設回 `"true"`。
 - 瀏覽器驗收釘下的行為：`execute` 對 `get_post` 的非公開 slug 解析出 `{code: "not_found"}`；`list_posts` 收到 `per_page: 500` 回 `per_page: 50`；觸發 `pagehide` 後每一個註冊用的 signal 都已中止；`registerTool` 回傳被拒絕的 Promise 時 console 沒有錯誤；沒有宿主時不請求 `/_jelly/webmcp-tools.json`。
 
 ### 實作者的判斷邊界
@@ -283,4 +281,4 @@ JELLY_BASE_URL=http://127.0.0.1:8080 JELLY_ADMIN_USER=admin JELLY_ADMIN_PASSWORD
   node scripts/acceptance/webmcp.spec.mjs
 ```
 
-腳本最後印出「N/N checks passed」並以 0 結束才算通過。要驗外掛工具在瀏覽器裡註冊，把 `internal/server/testdata/webmcp/plugins/webmcp-fixture` 複製到工作目錄的 `data/plugins/` 後重啟伺服器再跑一次：情境 1 會要求清單裡的每一個工具（含外掛的）都被註冊。結束後停止伺服器、刪除工作目錄與 `jelly_webmcp_acceptance` 資料庫。
+腳本最後印出「N/N checks passed」並以 0 結束才算通過。要驗外掛工具在瀏覽器裡註冊，把 `internal/server/testdata/webmcp/plugins/webmcp-fixture/` 的內容打包成 ZIP，經 `POST /api/admin/plugins/upload` 上傳後，以 `POST /api/admin/plugins/webmcp-fixture/enable` 啟用，再跑一次：情境 1 會要求清單裡的每一個工具（含外掛的）都被註冊。結束後停止伺服器、刪除工作目錄與 `jelly_webmcp_acceptance` 資料庫。

@@ -1,10 +1,6 @@
 package server
 
-// WebMCP integration tests for ticket 13 (docs/tickets/13-webmcp.md): slots W2 (public JSON API behind the
-// tools), W3 (script, tool list and page injection), W4 (plugin and theme declarations) and W5 (the
-// webmcp_enabled switch and its settings UI). They are written before the implementation and are expected to
-// fail now: the routes answer 501, the theme pipeline does not inject the script, Runtime.LoadedPlugins
-// returns nil and the settings page has no switch. Do not edit them to match an implementation. Run with
+// WebMCP integration tests for ticket 13 (docs/tickets/13-webmcp.md). Run with
 // JELLY_TEST_POSTGRES=1; the harness skips otherwise.
 //
 // Fixtures live in testdata/webmcp: plugins/webmcp-fixture (a manifest with valid and invalid webmcp_tools
@@ -33,6 +29,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
+	"github.com/HazelnutParadise/jelly-cms/internal/settings"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
 )
@@ -109,9 +106,9 @@ func (h *webmcpHarness) adminJSON(method, path, body string) accessResult {
 
 func (h *webmcpHarness) setEnabled(t *testing.T, value string) {
 	t.Helper()
-	r := h.adminJSON(http.MethodPost, "/api/admin/settings", fmt.Sprintf(`{"webmcp_enabled":%q}`, value))
+	r := h.adminJSON(http.MethodPut, "/api/admin/settings", fmt.Sprintf(`{"webmcp_enabled":%s}`, value))
 	if r.code != http.StatusOK {
-		t.Fatalf("POST /api/admin/settings webmcp_enabled=%s status = %d, want 200; body=%q", value, r.code, archivesSnippet(r.body))
+		t.Fatalf("PUT /api/admin/settings webmcp_enabled=%s status = %d, want 200; body=%q", value, r.code, archivesSnippet(r.body))
 	}
 }
 
@@ -407,13 +404,21 @@ func TestWebMCPInjectsScriptOnceOnSecondTheme(t *testing.T) {
 	}
 }
 
+func TestWebMCPInjectsScriptOnShopCartAndProductPages(t *testing.T) {
+	h := newWebMCPHarness(t)
+	shopCatalogSeedProduct(t, h.accessHarness, shopCatalogProduct{title: "WebMCP 商品", slug: "webmcp-shop-item", price: 1200, stock: 3})
+	for _, path := range []string{"/shop", "/cart", "/shop/p/webmcp-shop-item"} {
+		webmcpWantInjectedOnce(t, path, h.page(path), http.StatusOK)
+	}
+}
+
 // TestWebMCPDoesNotInjectOutsideThemePages: admin screens, the login page, account pages and JSON answers
 // never reference the WebMCP script.
 func TestWebMCPDoesNotInjectOutsideThemePages(t *testing.T) {
 	h := newWebMCPHarness(t)
 	h.seed(t, pubThemePost{title: "JSON 搜尋目標", slug: "webmcp-json-target", content: "<p>jsonneedle</p>"})
 
-	for _, path := range []string{"/admin", "/admin/settings", "/admin/posts"} {
+	for _, path := range []string{"/admin", "/admin/settings/crawlers", "/admin/posts"} {
 		r := h.request(http.MethodGet, path, "", h.token, "text/html", "")
 		h.mustNoPanic(r, "GET "+path)
 		if r.code != http.StatusOK {
@@ -421,6 +426,16 @@ func TestWebMCPDoesNotInjectOutsideThemePages(t *testing.T) {
 		}
 		webmcpWantNotInjected(t, path, r)
 	}
+	for _, path := range []string{"/install", "/account/webmcp-no-such-page"} {
+		r := h.request(http.MethodGet, path, "", h.token, "text/html", "")
+		h.mustNoPanic(r, "GET "+path)
+		webmcpWantNotInjected(t, path, r)
+	}
+	rootSettings := h.request(http.MethodGet, "/admin/settings", "", h.token, "text/html", "")
+	if rootSettings.code != http.StatusFound || rootSettings.header.Get("Location") != "/admin/settings/site" {
+		t.Errorf("GET /admin/settings status/location = %d/%q, want redirect to /admin/settings/site", rootSettings.code, rootSettings.header.Get("Location"))
+	}
+	webmcpWantNotInjected(t, "/admin/settings", rootSettings)
 	login := h.page("/login")
 	if login.code != http.StatusOK {
 		t.Errorf("GET /login status = %d, want 200", login.code)
@@ -708,6 +723,7 @@ func TestWebMCPDisabledSwitchesOffScriptAndSendsPolicy(t *testing.T) {
 	}{
 		{"/", http.StatusOK},
 		{"/posts", http.StatusOK},
+		{"/shop", http.StatusOK},
 		{"/post/webmcp-switch-post", http.StatusOK},
 		{"/webmcp-switch-no-such-page", http.StatusNotFound},
 	}
@@ -767,10 +783,19 @@ func TestWebMCPSettingAcceptsOnlyBooleans(t *testing.T) {
 		t.Fatalf("option %s = %q (found %v), want \"false\"", webmcpEnabledKey, value, found)
 	}
 	for _, bad := range []string{"yes", "0", "", "FALSE "} {
-		r := h.adminJSON(http.MethodPost, "/api/admin/settings", fmt.Sprintf(`{"webmcp_enabled":%q}`, bad))
+		r := h.adminJSON(http.MethodPut, "/api/admin/settings", fmt.Sprintf(`{"webmcp_enabled":%q}`, bad))
 		if r.code != http.StatusBadRequest {
-			t.Errorf("POST webmcp_enabled=%q status = %d, want 400", bad, r.code)
+			t.Errorf("PUT webmcp_enabled=%q status = %d, want 400", bad, r.code)
 		}
+	}
+	// Validation is request-wide: rejecting webmcp_enabled must not persist a neighboring valid setting.
+	before, _ := maintenanceOption(t, h.accessHarness, "site_title")
+	atomic := h.adminJSON(http.MethodPut, "/api/admin/settings", `{"site_title":"should-not-stick","webmcp_enabled":""}`)
+	if atomic.code != http.StatusBadRequest {
+		t.Errorf("PUT mixed valid/invalid settings status = %d, want 400", atomic.code)
+	}
+	if after, _ := maintenanceOption(t, h.accessHarness, "site_title"); after != before {
+		t.Errorf("site_title changed to %q after rejected mixed settings request; want %q", after, before)
 	}
 	if value, _ := maintenanceOption(t, h.accessHarness, webmcpEnabledKey); value != "false" {
 		t.Errorf("option %s = %q after rejected writes, want it to stay \"false\"", webmcpEnabledKey, value)
@@ -786,17 +811,28 @@ func TestWebMCPAdminSettingsPageHasSwitch(t *testing.T) {
 	h := newWebMCPHarness(t)
 	r := h.request(http.MethodGet, "/admin/settings", "", h.token, "text/html", "")
 	h.mustNoPanic(r, "GET /admin/settings")
+	if r.code != http.StatusFound || r.header.Get("Location") != "/admin/settings/site" {
+		t.Fatalf("GET /admin/settings status/location = %d/%q, want 302 to /admin/settings/site", r.code, r.header.Get("Location"))
+	}
+	r = h.request(http.MethodGet, "/admin/settings/crawlers", "", h.token, "text/html", "")
+	h.mustNoPanic(r, "GET /admin/settings/crawlers")
 	if r.code != http.StatusOK {
-		t.Fatalf("GET /admin/settings status = %d, want 200", r.code)
+		t.Fatalf("GET /admin/settings/crawlers status = %d, want 200", r.code)
 	}
-	for _, want := range []string{`id="webmcpEnabled"`, `type="checkbox"`, webmcpEnabledKey} {
-		if !strings.Contains(r.body, want) {
-			t.Errorf("GET /admin/settings lacks %q", want)
-		}
+	// Crawlers controls are built client-side by showCrawlers; the static shell need not contain the checkbox.
+	js, err := os.ReadFile(filepath.Join(repoRoot(t), "web", "admin", "assets", "system-admin.js"))
+	if err != nil {
+		t.Fatalf("read system-admin.js: %v", err)
 	}
-	input := regexp.MustCompile(`<input[^>]*id="webmcpEnabled"[^>]*>`).FindString(r.body)
-	if !strings.Contains(input, `type="checkbox"`) {
-		t.Errorf("the webmcpEnabled control %q is not a checkbox", input)
+	if !strings.Contains(string(js), "showCrawlers") || !strings.Contains(string(js), webmcpEnabledKey) {
+		t.Fatal("system-admin.js does not render the WebMCP option in the crawlers settings UI")
+	}
+	spec, ok := settings.Lookup(webmcpEnabledKey)
+	if !ok {
+		t.Fatalf("settings registry has no %q option", webmcpEnabledKey)
+	}
+	if spec.Kind != settings.KindBool || spec.Default != "true" || spec.Tab != "crawlers" {
+		t.Errorf("%q setting = %+v, want boolean true by default on crawlers tab", webmcpEnabledKey, spec)
 	}
 }
 
@@ -892,6 +928,7 @@ func TestWebMCPPublicPostsPaging(t *testing.T) {
 	}{
 		{"", 1, 10, 10},
 		{"?per_page=500", 1, 50, 50},
+		{"?per_page=9223372036854775808", 1, 50, 50},
 		{"?per_page=50", 1, 50, 50},
 		{"?per_page=50&page=2", 2, 50, 2},
 		{"?per_page=0", 1, 10, 10},

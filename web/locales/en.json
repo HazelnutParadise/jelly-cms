@@ -735,6 +735,8 @@
     "sys_titleFormat": "Search result title format",
     "sys_ogImage": "Default sharing image URL",
     "sys_aiPreset": "AI crawler policy",
+    "sys_webmcpEnabled": "Allow browser AI tools (WebMCP)",
+    "sys_webmcpEnabledHint": "Provide read-only tools for searching, listing posts, reading public content, and site information. Reloaded public pages stop exposing tools when disabled.",
     "sys_blockTraining": "Block training, allow search",
     "sys_blockAll": "Block all",
     "sys_allowAll": "Allow all",

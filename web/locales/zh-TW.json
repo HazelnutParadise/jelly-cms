@@ -735,6 +735,8 @@
     "sys_titleFormat": "搜尋結果標題格式",
     "sys_ogImage": "預設分享圖片網址",
     "sys_aiPreset": "AI 爬蟲政策",
+    "sys_webmcpEnabled": "允許瀏覽器 AI 使用網站工具（WebMCP）",
+    "sys_webmcpEnabledHint": "提供搜尋、列出文章、讀取公開內容與網站資訊的唯讀工具。關閉後，重新載入的前台頁面不再提供工具。",
     "sys_blockTraining": "封鎖訓練，允許搜尋",
     "sys_blockAll": "全部封鎖",
     "sys_allowAll": "全部允許",

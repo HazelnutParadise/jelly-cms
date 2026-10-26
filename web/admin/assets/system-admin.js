@@ -64,7 +64,7 @@
         finally { el.disabled = false; el.removeAttribute('aria-busy'); }
     }
     function row(spec, value) {
-        const id = 'sys-' + spec.key + '-' + (++fieldCounter);
+        const id = spec.id || ('sys-' + spec.key + '-' + (++fieldCounter));
         const attrs = ' id="' + esc(id) + '" name="' + esc(spec.key) + '"' + (spec.required ? ' required' : '') + (spec.min != null ? ' min="' + spec.min + '"' : '') + (spec.max != null ? ' max="' + spec.max + '"' : '') + (spec.maxlength ? ' maxlength="' + spec.maxlength + '"' : '');
         value = value == null ? (spec.default == null ? '' : spec.default) : value;
         let input;
@@ -179,7 +179,7 @@
     async function showCrawlers(options) {
         const types = ['home','post','page','category','tag','author','archive','product','search','commerce','account'];
         const typeNames = {home:'homeShow',post:'posts',page:'pages',category:'category',tag:'tags',author:'author',archive:'archive',product:'products',search:'search',commerce:'commerce',account:'account'};
-        await settingForm('crawlers',[bool('seo_index_site','indexSite',true),bool('seo_images_index','imagesIndex',true),select('seo_snippet_mode','snippetMode',[['default','default'],['short','short'],['noarchive','noArchive']],'default'),optionSpec('seo_title_format','titleFormat','text',{default:'{title} - {site}'}),optionSpec('seo_default_og_image','ogImage','url'),bool('seo_indexnow_enabled','indexNow'),optionSpec('seo_indexnow_key','indexNowKey','secret'),select('ai_policy_preset','aiPreset',[['block_training_allow_search','blockTraining'],['block_all','blockAll'],['allow_all','allowAll']],'block_training_allow_search'),bool('ai_block_server_side','serverBlock'),bool('tdm_reservation','tdm'),optionSpec('tdm_policy_url','tdmPolicyURL','url'),bool('llms_txt_enabled','llmsEnabled'),optionSpec('llms_txt_intro','llmsIntro','textarea')],options);
+        await settingForm('crawlers',[bool('seo_index_site','indexSite',true),bool('seo_images_index','imagesIndex',true),select('seo_snippet_mode','snippetMode',[['default','default'],['short','short'],['noarchive','noArchive']],'default'),optionSpec('seo_title_format','titleFormat','text',{default:'{title} - {site}'}),optionSpec('seo_default_og_image','ogImage','url'),bool('seo_indexnow_enabled','indexNow'),optionSpec('seo_indexnow_key','indexNowKey','secret'),select('ai_policy_preset','aiPreset',[['block_training_allow_search','blockTraining'],['block_all','blockAll'],['allow_all','allowAll']],'block_training_allow_search'),optionSpec('webmcp_enabled','webmcpEnabled','bool',{id:'webmcpEnabled',default:true,hint:'webmcpEnabledHint'}),bool('ai_block_server_side','serverBlock'),bool('tdm_reservation','tdm'),optionSpec('tdm_policy_url','tdmPolicyURL','url'),bool('llms_txt_enabled','llmsEnabled'),optionSpec('llms_txt_intro','llmsIntro','textarea')],options);
         const currentTypes = JSON.parse(options.seo_index_types || '{}'); const typeValues = {}; types.forEach(key=>{typeValues[key]=currentTypes[key] !== false;});
         formCard('indexTypes',types.map(key => bool(key,typeNames[key])),typeValues,async data=>{await saveSettings({seo_index_types:Object.assign({},currentTypes,data)});await refresh();status(root,t('saved'),'success');});
         const bots = ['GPTBot','OAI-SearchBot','ChatGPT-User','ClaudeBot','Claude-SearchBot','Claude-User','Google-Extended','Applebot-Extended','CCBot','Bytespider','PerplexityBot','Perplexity-User'];
