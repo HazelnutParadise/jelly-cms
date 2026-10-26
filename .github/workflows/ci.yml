@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       JELLY_TEST_POSTGRES: "1"
+      JELLY_TEST_REDIS_URL: redis://127.0.0.1:56379
     services:
       postgres:
         image: postgres:16-alpine
@@ -30,12 +31,37 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 56379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
-      - run: go test -race ./... -count=1 -timeout=240s
+      - run: go test -race ./... -count=1 -timeout=1200s
+      - name: Start NATS JetStream
+        run: docker run -d --name jelly-ci-nats -p 54222:4222 nats:2-alpine -js
+      - name: Wait for NATS
+        run: |
+          for attempt in {1..30}; do
+            if (echo > /dev/tcp/127.0.0.1/54222) >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs jelly-ci-nats
+          exit 1
+      - name: Test NATS queue
+        env:
+          JELLY_TEST_NATS_URL: nats://127.0.0.1:54222
+        run: go test -race -tags nats ./internal/queue -count=1 -timeout=300s
 
   verify:
     runs-on: ubuntu-latest

@@ -20,6 +20,7 @@
     .toc-details[open] summary::after { content: "−"; }
     .toc { display: grid; margin-top: .5rem; }
     .toc a { padding: .45rem 0; border-top: 1px solid var(--outline); color: var(--ink); font-size: .875rem; font-weight: 600; overflow-wrap: anywhere; }
+    .toc [data-toc-level="3"] { padding-inline-start: 1rem; }
     .toc a:hover { color: var(--primary); }
     .post-author { display: grid; gap: .7rem; padding: 1.25rem; border-radius: var(--r-md); background: var(--surface-low); }
     .post-author-profile { display: flex; align-items: center; gap: .75rem; }
@@ -32,9 +33,10 @@
     .post-tags .label { margin-right: .25rem; }
     .post-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin-top: clamp(2.5rem, 5vw, 4rem); }
     .post-nav a { min-width: 0; display: grid; gap: .5rem; padding: 1.25rem; border-radius: var(--r-md); background: var(--surface-low); color: var(--ink); }
-    .post-nav a:last-child { background: var(--dark); color: var(--on-dark); text-align: right; }
+    .post-nav .post-nav-prev { grid-column: 1; }
+    .post-nav .post-nav-next { grid-column: 2; background: var(--dark); color: var(--on-dark); text-align: right; }
     .post-nav .label { display: inline-flex; align-items: center; gap: .4rem; color: var(--muted); }
-    .post-nav a:last-child .label { justify-content: flex-end; color: color-mix(in srgb, var(--on-dark) 65%, transparent); }
+    .post-nav .post-nav-next .label { justify-content: flex-end; color: color-mix(in srgb, var(--on-dark) 65%, transparent); }
     .post-nav strong { font-family: var(--font-display); font-size: 1.25rem; overflow-wrap: anywhere; }
     .article-foot { margin-top: 2rem; }
     .comments-entry { display: inline-flex; align-items: center; gap: .4rem; }
@@ -47,8 +49,8 @@
     @media (max-width: 720px) {
         .post-hero { margin-bottom: 2rem; padding-block: 2.25rem; }
         .post-nav { grid-template-columns: 1fr; }
-        .post-nav a:last-child { text-align: left; }
-        .post-nav a:last-child .label { justify-content: flex-start; }
+        .post-nav .post-nav-prev, .post-nav .post-nav-next { grid-column: 1; text-align: left; }
+        .post-nav .post-nav-next .label { justify-content: flex-start; }
     }
 </style>
 <div class="progress" id="reading-progress" aria-hidden="true"></div>
@@ -105,8 +107,8 @@
 {{end}}
 
 <nav class="post-nav" aria-label="文章導覽">
-    {{with .Prev}}<a href="/post/{{.Slug}}"><span class="label"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>上一篇</span><strong>{{.Title}}</strong></a>{{end}}
-    {{with .Next}}<a href="/post/{{.Slug}}"><span class="label">下一篇<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></span><strong>{{.Title}}</strong></a>{{end}}
+    {{with .Prev}}<a class="post-nav-prev" href="/post/{{.Slug}}"><span class="label"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>上一篇</span><strong>{{.Title}}</strong></a>{{end}}
+    {{with .Next}}<a class="post-nav-next" href="/post/{{.Slug}}"><span class="label">下一篇<svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></span><strong>{{.Title}}</strong></a>{{end}}
 </nav>
 <footer class="article-foot">
     <a href="/posts" class="button button-text"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>返回文章列表</a>

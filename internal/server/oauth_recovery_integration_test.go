@@ -135,6 +135,10 @@ func TestOAuthRecoveryRestoresLegacyUserAndConsumesGrantOnce(t *testing.T) {
 	if err := h.db.First(&after, legacy.ID).Error; err != nil {
 		t.Fatal(err)
 	}
+	// A successful recovery login records login activity; every other legacy
+	// account field must remain unchanged.
+	legacy.LastLoginAt, after.LastLoginAt = nil, nil
+	legacy.UpdatedAt, after.UpdatedAt = time.Time{}, time.Time{}
 	if !reflect.DeepEqual(legacy, after) {
 		t.Errorf("recovery altered legacy account fields: before=%+v after=%+v", legacy, after)
 	}

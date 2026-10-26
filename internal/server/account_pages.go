@@ -2,6 +2,8 @@ package server
 
 import (
 	"html/template"
+	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
@@ -21,11 +23,68 @@ var accountPageMessageIDs = []string{
 
 func registerAccountPages(e *echo.Echo) {
 	e.GET("/account", noStoreAccountPage(auth.RequireAuth(func(c echo.Context) error {
-		return renderAccountPage(c, "account.html")
+		user, err := auth.GetCurrentUser(c)
+		if err != nil || user == nil {
+			return echo.NewHTTPError(http.StatusUnauthorized)
+		}
+		lang := ""
+		if values := c.QueryParams()["lang"]; len(values) == 1 && supportedLanguage(values[0]) {
+			lang = values[0]
+		}
+		switch user.Role {
+		case "admin", "editor", "author":
+			target := "/admin/account?tab=identities"
+			if lang != "" {
+				target += "&lang=" + url.QueryEscape(lang)
+			}
+			return c.Redirect(http.StatusFound, target)
+		default:
+			target := "/account/orders"
+			if lang != "" {
+				target += "?lang=" + url.QueryEscape(lang)
+			}
+			return c.Redirect(http.StatusFound, target)
+		}
 	})))
 	e.GET("/account/recover", noStoreAccountPage(func(c echo.Context) error {
 		return renderAccountPage(c, "account_recover.html")
 	}))
+}
+
+func staffPageGate(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		user, ok := auth.GetUserFromContext(c)
+		if !ok || user == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+		}
+		switch user.Role {
+		case "admin", "editor", "author":
+			return next(c)
+		default:
+			return c.Redirect(http.StatusFound, "/")
+		}
+	}
+}
+
+func enforceStaffAdminPages(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		path := c.Request().URL.Path
+		if path != "/admin" && !strings.HasPrefix(path, "/admin/") || strings.HasPrefix(path, "/admin/assets/") {
+			return next(c)
+		}
+		user, err := auth.GetCurrentUser(c)
+		if err != nil {
+			returnURL := c.Request().URL.RequestURI()
+			return c.Redirect(http.StatusFound, "/login?redirect="+url.QueryEscape(returnURL))
+		}
+		switch user.Role {
+		case "admin", "editor", "author":
+			c.Set("user", user)
+			return next(c)
+		default:
+			return c.Redirect(http.StatusFound, "/")
+		}
+	}
 }
 
 func noStoreAccountPage(next echo.HandlerFunc) echo.HandlerFunc {

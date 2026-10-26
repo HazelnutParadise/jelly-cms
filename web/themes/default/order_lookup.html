@@ -1,0 +1,43 @@
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+<div class="shop" data-page="lookup" data-lang="{{if $en}}en{{else}}zh-TW{{end}}">
+    <div class="lookup">
+        <section style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <span class="shop-stripe"></span>
+            <div class="shop-lbl">{{if $en}}No account needed{{else}}沒有帳號也能查{{end}}</div>
+            <h1 class="page-title">{{if $en}}Find your order{{else}}查訂單{{end}}</h1>
+            <p class="muted" style="font-size: 1.0625rem; line-height: 1.7; max-width: 26em;">{{if $en}}Enter the order number and the email you ordered with. We'll email you a link that opens the order and stays valid for 15 minutes.{{else}}輸入訂單編號和下單用的 Email，我們會寄一個 15 分鐘內有效的連結給你，點開就是訂單頁。{{end}}</p>
+            <form data-lookup novalidate>
+                <div>
+                    <label class="flbl" for="lk-number">{{if $en}}Order number{{else}}訂單編號{{end}}</label>
+                    <input class="field mono" id="lk-number" name="number" type="text" autocomplete="off" autocapitalize="characters" placeholder="JL-2026-0001" required data-field="number" aria-describedby="err-number">
+                    <div class="ferr" id="err-number" data-err="number" hidden></div>
+                </div>
+                <div>
+                    <label class="flbl" for="lk-email">{{if $en}}Email used for the order{{else}}下單的 Email{{end}}</label>
+                    <input class="field" id="lk-email" name="email" type="email" autocomplete="email" required data-field="email" aria-describedby="err-lk-email">
+                    <div class="ferr" id="err-lk-email" data-err="email" hidden></div>
+                </div>
+                <div class="honeypot" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+                <button class="btn p lg" type="submit" style="align-self: flex-start;">{{if $en}}Email me the link{{else}}寄查詢連結給我{{end}}</button>
+                <div data-lookup-status hidden></div>
+                <p class="small muted">{{if $en}}The order number is in the subject of your confirmation email.{{else}}訂單編號在確認信的主旨裡。{{end}}</p>
+            </form>
+        </section>
+        <aside class="dark-card">
+            <div class="shop-lbl">{{if $en}}After you send{{else}}寄出後{{end}}</div>
+            <div class="notice ok" data-lookup-sent hidden tabindex="-1" role="status"><div data-sent-text></div></div>
+            <div class="divider">
+                <b>{{if $en}}Why not show the order right away?{{else}}為什麼不直接顯示？{{end}}</b>
+                <span>{{if $en}}Orders include an address and phone number. Someone who only knows the number, for example from your parcel, should not see them.{{else}}訂單裡有地址和電話。只知道編號的人（例如看到你的包裹）不該看得到。{{end}}</span>
+                <b style="margin-top: .5rem;">{{if $en}}No email?{{else}}沒收到信？{{end}}</b>
+                <span>{{if $en}}Check your spam folder, then make sure the number and email match the order and send again.{{else}}先看看垃圾信匣，再確認編號和 Email 與下單時相同後重新送出。{{end}}</span>
+                <b style="margin-top: .5rem;">{{if $en}}Skip this next time{{else}}想以後不用查？{{end}}</b>
+                <span>{{if $en}}Tick "create an account" at checkout and all your orders will be in <a href="/account/orders">your account</a>.{{else}}結帳時勾「建立帳號」，訂單都會在<a href="/account/orders">會員中心</a>。{{end}}</span>
+            </div>
+        </aside>
+    </div>
+</div>
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}

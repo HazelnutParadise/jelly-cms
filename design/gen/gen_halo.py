@@ -1,10 +1,8 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from gen import I, doc, ADMIN_CSS, FRONT_CSS, OUT, admin, front, cubes
+from gen import I, doc, ADMIN_CSS, FRONT_CSS, OUT, admin, front, cubes, SUB_CSS, profile_nav, settings_nav, pages
 
-CSS = ADMIN_CSS + '''
-.sub a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#5F6470;font-weight:600;font-size:13px}
-.sub a.on{background:#F3F3F5;color:#15161A}
+CSS = ADMIN_CSS + SUB_CSS + '''
 .nrow{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;padding:12px 10px;border-top:1px solid #EEEFF2;align-items:flex-start}
 .nrow.un{background:#F8F9FF}.nrow .t{font-size:12px;color:#5F6470;white-space:nowrap}
 .app{display:flex;flex-direction:column;gap:10px;padding:14px;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 14px 0 14px;background:#fff}
@@ -18,19 +16,70 @@ CSS = ADMIN_CSS + '''
 .pol .ico{width:36px;height:36px;border-radius:0 10px 0 10px;display:grid;place-items:center;color:#fff;flex:0 0 auto}
 '''
 
-def settings_nav(on):
-    items=[("globe","網站","Settings.dc.html"),("list","閱讀與網址","SettingsRoutes.dc.html"),("key","登入與註冊","Settings.dc.html"),("comment","留言","Settings.dc.html"),("card","金流","Settings.dc.html"),("truck","運送","Settings.dc.html"),("mail","郵件與通知","Settings.dc.html"),("db","快取與佇列","Infra.dc.html"),("terminal","程式碼注入","SettingsRoutes.dc.html"),("download","更新","Update.dc.html")]
-    return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px" aria-label="設定分類">'+"".join(f'<a href="{h}"{" class=\"on\"" if l==on else ""}>{I(ic,14)}{l}</a>' for ic,l,h in items)+'</nav>'
-
-def profile_nav(on):
-    items=[("user","基本資料"),("mail","通知"),("key","API 權杖"),("lock","密碼與安全"),("globe","登入裝置"),("link","第三方帳號")]
-    return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px">'+"".join(f'<a href="Profile.dc.html"{" class=\"on\"" if l==on else ""}>{I(ic,14)}{l}</a>' for ic,l in items)+'</nav>'
 
 B = {}
 
 # ---------- 通知中心 ----------
 def nrow(ic,color,title,body,t,un=False,actions=""):
     return f'<div class="nrow{" un" if un else ""}"><span style="width:36px;height:36px;background:{color};color:#fff;display:grid;place-items:center;border-radius:0 10px 0 10px">{I(ic,16)}</span><div><b style="font-size:13.5px">{title}</b><div style="font-size:13px;color:#3A3D45;margin-top:2px;line-height:1.5">{body}</div>{actions}</div><span class="t">{t}</span></div>'
+
+PREFERENCE_EVENTS = [
+    ("新留言待審", (True, True, False)),
+    ("有人回覆我的留言", (True, True, False)),
+    ("新訂單", (True, True, True)),
+    ("付款失敗或退款", (True, True, True)),
+    ("新裝置登入", (True, True, False)),
+    ("密碼變更", (True, True, False)),
+    ("有可用更新", (True, False, False)),
+    ("外掛失敗", (True, True, False)),
+]
+
+
+def preference_rows():
+    rows = []
+    for event, channels in PREFERENCE_EVENTS:
+        cells = "".join(
+            f'<td style="text-align:center"><span class="cb{" on" if enabled else ""}" role="checkbox" aria-checked="{str(enabled).lower()}" aria-label="{event} · {channel}"></span></td>'
+            for channel, enabled in zip(("站內", "Email", "Webhook"), channels)
+        )
+        rows.append(f"<tr><td>{event}</td>{cells}</tr>")
+    return "\n".join(rows)
+
+
+def profile_preferences():
+    return f'''<section class="card" id="notifications" style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">通知偏好</b><a class="btn t s" href="Profile.dc.html#notifications" style="margin-left:auto">Webhook 與勿擾設定</a></div>
+      <table style="font-size:12.5px"><thead><tr><th>事件</th><th style="text-align:center">站內</th><th style="text-align:center">Email</th><th style="text-align:center">Webhook</th></tr></thead><tbody>{preference_rows()}</tbody></table>
+      <div><label for="profileWebhook">Webhook 網址（僅 HTTPS）</label><input id="profileWebhook" class="ul" type="url" placeholder="https://…" autocomplete="url"></div>
+      <fieldset style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
+        <legend class="lbl">勿擾時段</legend>
+        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="profileQuietEnabled">啟用勿擾時段</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div><label for="profileQuietStart">開始</label><input id="profileQuietStart" class="ul" type="time"></div>
+          <div><label for="profileQuietEnd">結束</label><input id="profileQuietEnd" class="ul" type="time"></div>
+          <div><label for="profileQuietTZ">時區</label><input id="profileQuietTZ" class="ul" type="text" placeholder="Asia/Taipei" maxlength="64"></div>
+        </div>
+      </fieldset>
+    </section>'''
+
+
+profile_title, profile_css, profile_width, profile_height, profile_body = pages["Profile"]
+profile_height = max(profile_height, 2560)
+profile_anchor = '      <div>\n        <div class="lbl" style="margin-bottom:4px">密碼與安全</div>'
+if profile_anchor not in profile_body:
+    raise RuntimeError("Profile generator anchor changed; refusing to update the board")
+profile_body = profile_body.replace(profile_anchor, profile_preferences() + "\n" + profile_anchor, 1)
+profile_email_anchor = '        <div class="srow"><div><label for="p2">Email</label><div class="h">登入與通知。改了要輸入密碼，並到新信箱按確認連結。</div></div><div class="c"><input id="p2" class="ul" type="email" value="hazel@example.com"></div></div>'
+if profile_email_anchor not in profile_body:
+    raise RuntimeError("Profile email generator anchor changed; refusing to update the board")
+profile_email_state = '''        <div role="status" style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:#FCF0C8;color:#7A5200;border-radius:0 10px 0 10px;margin:0 0 12px">
+          <span class="chip warn">等待確認</span>
+          <div style="min-width:0;flex:1"><b>新 Email 等待確認</b><div style="font-size:12px;margin-top:4px">複製下方連結並開啟，完成新地址確認：<a href="/account/email/confirm?token=example-confirmation-token" rel="noreferrer">確認 Email</a></div></div>
+          <button class="btn t s" type="button">複製確認連結</button>
+        </div>'''
+profile_body = profile_body.replace(profile_email_anchor, profile_email_anchor + "\n" + profile_email_state, 1)
+B["Profile"] = (profile_title, profile_css, profile_width, profile_height, profile_body)
+
 B["Notifications"] = ("後台 · 通知中心", CSS, 1440, 1000, admin("", ["通知"],
   f'<button class="btn t" type="button">{I("check")}全部標為已讀</button><a class="btn t" href="Notifications.dc.html">{I("settings")}通知設定</a>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start">
@@ -39,7 +88,7 @@ B["Notifications"] = ("後台 · 通知中心", CSS, 1440, 1000, admin("", ["通
       {nrow("comment","#F5B800;color:#3A2E00","2 則新留言待審","阿凱、Mei 在「零失敗焦糖布丁」留言。","5 分鐘前",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="Comments.dc.html">{I("eye",12)}去審核</a><button class="btn x s" type="button">{I("check",12)}全部核准</button></div>')}
       {nrow("cart","#E8285B","新訂單 JL-2026-0417 · NT$ 880","Ting 下單，信用卡已付款。","16:02",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="OrderDetail.dc.html">{I("arrow-r",12)}看訂單</a></div>')}
       {nrow("alert","#9C2318","外掛「SEO Boost」載入失敗","v1.4.0 與目前版本不相容，已自動停用。網站照常運作。","15:40",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="PluginDetail.dc.html">{I("plug",12)}看外掛</a><a class="btn x s" href="Logs.dc.html">{I("terminal",12)}日誌</a></div>')}
-      {nrow("globe","#2F6BFF","新裝置登入：Firefox · Windows · 台北","不是你？立刻登出它並改密碼。","3 天前",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="Profile.dc.html">{I("lock",12)}登入裝置</a></div>')}
+      {nrow("globe","#2F6BFF","新裝置登入：Firefox · Windows","IP：114.25.88.x（已遮罩）。不是你？立刻登出它並改密碼。","3 天前",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="Profile.dc.html">{I("lock",12)}登入裝置</a></div>')}
       {nrow("download","#15161A","Jelly 0.9.4 可以更新","新增留言管理與回收桶。這台是容器，要換映像。","昨天")}
       {nrow("db","#13C2A3","每日備份完成 · 412 MB","已同步到 R2。","今天 03:00")}
       {nrow("check","#13C2A3","排程文章已發布","「開店第 200 天」在 09:00 上線。","今天 09:00")}
@@ -49,17 +98,19 @@ B["Notifications"] = ("後台 · 通知中心", CSS, 1440, 1000, admin("", ["通
     <aside class="card" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">我要收到什麼</b></div>
       <table style="font-size:12.5px"><thead><tr><th>事件</th><th style="text-align:center">站內</th><th style="text-align:center">Email</th><th style="text-align:center">Webhook</th></tr></thead><tbody>
-        <tr><td>新留言待審</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb"></span></td></tr>
-        <tr><td>有人回覆我的留言</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb"></span></td></tr>
-        <tr><td>新訂單</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td></tr>
-        <tr><td>付款失敗、退款</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td></tr>
-        <tr><td>新裝置登入</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb"></span></td></tr>
-        <tr><td>外掛失敗、更新可用</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb"></span></td><td style="text-align:center"><span class="cb"></span></td></tr>
-        <tr><td>備份結果</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb"></span></td><td style="text-align:center"><span class="cb"></span></td></tr>
-        <tr><td>排程發布</td><td style="text-align:center"><span class="cb on"></span></td><td style="text-align:center"><span class="cb"></span></td><td style="text-align:center"><span class="cb"></span></td></tr>
+        {preference_rows()}
       </tbody></table>
-      <div><span class="lbl">Webhook（送 JSON 到）</span><input class="ul" type="text" value="https://hooks.slack.com/services/…" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"><div style="font-size:12px;color:#5F6470;margin-top:6px">Slack、Discord、LINE Notify、Telegram 的格式由通知外掛提供；這裡是通用 JSON。</div></div>
-      <div style="font-size:12px;color:#5F6470;line-height:1.6">Email 走佇列寄出；SMTP 在「設定 › 郵件與通知」。靜音時段 23:00–08:00 只累積不推播。</div>
+      <div><label for="notificationWebhook">Webhook 網址（僅 HTTPS）</label><input id="notificationWebhook" class="ul" type="url" placeholder="https://…" autocomplete="url"><div style="font-size:12px;color:#5F6470;margin-top:6px">Webhook 目的地與勿擾時段可在個人帳號通知偏好設定。Email 走佇列寄出；SMTP 在「設定 › 郵件與通知」。</div></div>
+      <fieldset style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
+        <legend class="lbl">勿擾時段</legend>
+        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="quietEnabled">啟用勿擾時段</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div><label for="quietStart">開始</label><input id="quietStart" class="ul" type="time"></div>
+          <div><label for="quietEnd">結束</label><input id="quietEnd" class="ul" type="time"></div>
+        </div>
+        <div><label for="quietTZ">時區</label><input id="quietTZ" class="ul" type="text" placeholder="Asia/Taipei" maxlength="64"></div>
+      </fieldset>
+      <a class="btn t s" href="Profile.dc.html#notifications" style="align-self:flex-start">前往通知偏好設定</a>
       <button class="btn p" type="button" style="align-self:flex-start">{I("save")}儲存</button>
     </aside>
   </main>'''))
@@ -70,7 +121,7 @@ B["Tokens"] = ("後台 · 個人帳號 · API 權杖", CSS, 1440, 1000, admin(""
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start">
     {profile_nav("API 權杖")}
     <section style="display:flex;flex-direction:column;gap:20px;max-width:980px">
-      <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;line-height:1.5">{I("key",18)}<span>權杖用來呼叫 REST API，不用帳密。權限用角色範本限制，到期自動失效。完整 API 文件在 <a href="#">/api/docs</a>（OpenAPI）。</span></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;line-height:1.5">{I("key",18)}<span>個人 API 權杖以 <code>jly_</code> 開頭，以你的身分呼叫 REST API，權限受目前角色限制，到期自動失效。API 文件在 <a href="#">/api/docs</a>（OpenAPI）。AI agent 使用獨立的 <code>jla_</code> 金鑰，由管理員在「<a href="Agents.dc.html">系統 › AI agent</a>」建立與管理。</span></div>
       <table>
         <thead><tr><th>名稱</th><th>權限</th><th>到期</th><th>最後使用</th><th>狀態</th><th></th></tr></thead>
         <tbody>
@@ -128,11 +179,11 @@ B["MediaPolicies"] = ("後台 · 附件 · 儲存策略與分組", CSS, 1440, 10
       </div>
       <div>
         <span class="lbl">上傳處理</span>
-        <div class="srow"><div><label>自動轉 WebP 並保留原檔</label><div class="h">文章裡引用 WebP，原檔留著給下載。</div></div><div class="c"><span class="tg"></span></div></div>
+        <div class="srow"><div><label>WebP 擴充處理器</label><div class="h">轉檔需安裝 media.processor 外掛，內建保留原始格式。</div></div><div class="c"><span class="chip nd">需要外掛</span></div></div>
         <div class="srow"><div><label>縮圖尺寸</label><div class="h">主題可以再要求別的尺寸。</div></div><div class="c"><span class="chip nd">320</span><span class="chip nd">768</span><span class="chip nd">1280</span><span class="chip nd">1920</span><button class="btn x s" type="button">{I("plus",12)}</button></div></div>
         <div class="srow"><div><label>移除照片的位置資訊（EXIF GPS）</label></div><div class="c"><span class="tg"></span></div></div>
-        <div class="srow"><div><label>單檔上限</label></div><div class="c"><div class="seg"><span>10 MB</span><span class="on">50 MB</span><span>200 MB</span><span>不限</span></div></div></div>
-        <div class="srow"><div><label>從網址抓檔</label><div class="h">貼一個或多個網址，背景下載進所選策略。</div></div><div class="c"><button class="btn t s" type="button">{I("download",12)}從網址加入</button></div></div>
+        <div class="srow"><div><label>單檔上限</label></div><div class="c"><div class="seg"><span>10 MB</span><span class="on">20 MB</span><span>64 MB</span></div></div></div>
+        <div class="srow"><div><label>從網址抓檔</label><div class="h">貼一個或多個網址，排入背景下載後顯示各檔工作編號，可到工作列表刷新結果。</div></div><div class="c"><button class="btn t s" type="button">{I("download",12)}從網址加入</button></div></div>
       </div>
     </section>
     <aside class="card" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:14px">
@@ -141,12 +192,15 @@ B["MediaPolicies"] = ("後台 · 附件 · 儲存策略與分組", CSS, 1440, 10
       <div><span class="lbl">類型</span><div class="seg" style="margin-top:6px"><span>本機</span><span class="on">S3 相容</span></div></div>
       <div><span class="lbl">Endpoint</span><input class="ul" type="text" value="https://<account>.r2.cloudflarestorage.com" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">Bucket</span><input class="ul" type="text" value="jelly-media"></div><div><span class="lbl">Region</span><input class="ul" type="text" value="auto"></div></div>
-      <div><span class="lbl">Access key / Secret</span><input class="ul" type="text" value="由環境變數 JELLY_S3_KEY 設定" disabled style="color:#5F6470"></div>
-      <div><span class="lbl">對外網址（CDN）</span><input class="ul" type="text" value="https://img.example.com" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
-      <div><span class="lbl">路徑樣板</span><input class="ul" type="text" value="{{year}}/{{month}}/{{slug}}-{{short}}.{{ext}}" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
+      <div><label for="s3-access">Access key</label><input id="s3-access" class="ul" type="password" autocomplete="new-password" placeholder="已設定，留空保留"></div>
+      <div><label for="s3-secret">Secret key</label><input id="s3-secret" class="ul" type="password" autocomplete="new-password" placeholder="已設定，留空保留"></div>
+      <div><label for="s3-token">Session token（選填）</label><input id="s3-token" class="ul" type="password" autocomplete="new-password" placeholder="留空保留"></div>
+      <label><input type="checkbox">清除全部已儲存的 S3 憑證</label><p style="font-size:12px;color:#5F6470">憑證只顯示遮罩，留空保留；新憑證的 Access key 與 Secret key 必須成對填寫。本機與外掛策略不顯示 S3 設定，既有策略類型固定。</p>
+      <div><span class="lbl">用途（附件 / 備份）</span><input class="ul" type="text" value="media" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
+      <div><span class="lbl">路徑前綴</span><input class="ul" type="text" value="images/" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
       <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">新上傳預設用這個<span class="tg off"></span></label>
       <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("refresh")}測試連線</button><button class="btn x i" type="button" aria-label="刪除" style="margin-left:auto;color:#9C2318">{I("trash")}</button></div>
-      <div style="font-size:12px;color:#5F6470;line-height:1.6">還有檔案的策略不能刪；要先把檔案搬到別的策略（會背景複製並改寫文章裡的網址）。</div>
+      <div style="font-size:12px;color:#5F6470;line-height:1.6">還有檔案的策略不能刪除，先搬到相同用途的其他策略；搬移先排入背景處理並顯示工作編號，可到<a href="Infra.dc.html#sys-jobs">工作列表</a>刷新確認完成後，再重新讀取檔案數。</div>
     </aside>
   </main>'''))
 
@@ -176,7 +230,9 @@ B["AppStore"] = ("後台 · 應用市場", CSS, 1440, 1000, admin("plugins", ["�
       {app("#5F6470","grid","Umami 統計","Jelly 官方 · 分析","在儀表板顯示 Umami 的流量。","v1.1","<button class='btn s' type='button'>"+I("download",12)+"安裝</button>")}
       {app("#E8285B","box","WooCommerce 匯入","Jelly 官方 · 遷移","把商品、訂單、顧客搬過來。","v0.5 預覽","<button class='btn s' type='button'>"+I("download",12)+"安裝</button>")}
     </div>
-    <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#5F6470">{I("shield",14)}<span>官方外掛有簽章；社群外掛安裝前會顯示它要的權限（檔案、網路、資料表）。所有外掛跑在 QuickJS 隔離裡，掛了不影響網站。</span></div>
+    <p style="font-size:13px;color:#5F6470">重新整理目錄會排入背景處理並顯示工作編號，請到<a href="Infra.dc.html#sys-jobs">工作列表</a>刷新確認結果。</p>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px"><b>安裝前確認</b><span class="chip nd">Meilisearch 搜尋 · 1.4</span><span class="mono">net.fetch · content.read</span><label style="font-size:13px"><input type="checkbox"> 我同意授予以上權限</label><div><button class="btn p" type="button">安裝</button><button class="btn t" type="button">取消</button></div></div>
+    <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#5F6470">{I("shield",14)}<span>官方外掛有簽章。市場、網址與 ZIP 安裝都先顯示名稱、版本與權限，勾選同意後才安裝。所有外掛跑在 QuickJS 隔離裡，掛了不影響網站。</span></div>
   </main>'''))
 
 # ---------- 外掛詳情與擴充設定 ----------
@@ -188,7 +244,7 @@ B["PluginDetail"] = ("後台 · 外掛詳情", CSS, 1440, 1000, admin("plugins",
       <div class="tab"><span>詳情</span><span class="on">設定</span><span>擴充設定</span><span>權限</span><span>日誌</span></div>
       <div style="padding-top:8px">
         <div class="srow"><div><label>Meilisearch 網址</label></div><div class="c"><input class="ul" type="text" value="http://search.internal:7700" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></div></div>
-        <div class="srow"><div><label>API 金鑰</label></div><div class="c"><input class="ul" type="text" value="由環境變數 MEILI_KEY 設定" disabled style="color:#5F6470"></div></div>
+        <div class="srow"><div><label>API 金鑰</label></div><div class="c"><input class="ul" type="password" placeholder="••••1234，留空保留"></div></div>
         <div class="srow"><div><label>索引內容</label></div><div class="c"><span class="chip nd">文章</span><span class="chip nd">頁面</span><span class="chip nd">商品</span><span class="chip nd" style="opacity:.5">留言</span></div></div>
         <div class="srow"><div><label>錯字容忍</label><div class="h">「焦塘布丁」也找得到焦糖布丁。</div></div><div class="c"><span class="tg"></span></div></div>
         <div class="srow"><div><label>重建索引</label><div class="h">上次 10/20 03:05 · 1,318 筆 · 12 秒</div></div><div class="c"><button class="btn t s" type="button">{I("refresh",12)}立刻重建</button></div></div>
@@ -196,7 +252,7 @@ B["PluginDetail"] = ("後台 · 外掛詳情", CSS, 1440, 1000, admin("plugins",
       </div>
       <div style="margin-top:28px">
         <div class="tab" style="margin-bottom:8px"><span class="on" style="border-color:#2F6BFF">擴充設定 · 這個功能由誰提供</span></div>
-        <p style="margin:0 0 10px;font-size:12.5px;color:#5F6470">同一個功能可能有好幾個外掛能做。這裡選現在用哪一個，切換不用重啟。</p>
+        <p style="margin:0 0 10px;font-size:12.5px;color:#5F6470">搜尋引擎選一個提供者；附件儲存可多選。尚未接上執行流程的擴充點只顯示宣告。</p>
         <table><thead><tr><th>擴充點</th><th>目前使用</th><th>其他可選</th></tr></thead><tbody>
           <tr><td><b>搜尋引擎</b></td><td><span class="chip info">Meilisearch 搜尋</span></td><td style="color:#5F6470">內建 PostgreSQL 全文搜尋</td></tr>
           <tr><td><b>附件儲存</b></td><td><span class="chip nd">本機</span> <span class="chip nd">S3 相容</span></td><td style="color:#5F6470">（可同時多個，在儲存策略選）</td></tr>
@@ -208,7 +264,7 @@ B["PluginDetail"] = ("後台 · 外掛詳情", CSS, 1440, 1000, admin("plugins",
     </section>
     <aside style="display:flex;flex-direction:column;gap:12px;position:sticky;top:16px">
       <div class="card" style="display:flex;flex-direction:column;gap:8px;font-size:13px">
-        <div class="lbl">這個外掛要的權限</div>
+        <div class="lbl">這個外掛要的權限（已強制 / 僅宣告）</div>
         <div style="display:flex;align-items:center;gap:8px">{I("globe",14)}對外連線：search.internal:7700</div>
         <div style="display:flex;align-items:center;gap:8px">{I("doc",14)}讀：文章、頁面、商品（含草稿）</div>
         <div style="display:flex;align-items:center;gap:8px">{I("db",14)}自己的資料表：1 張（meili_sync）</div>
@@ -239,22 +295,22 @@ B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", 
     <section style="max-width:900px;display:flex;flex-direction:column;gap:28px">
       <div>
         <div class="lbl" style="margin-bottom:4px">網址結構</div>
-        <div class="srow"><div><label>文章網址</label><div class="h">改了會自動幫舊網址建 301 轉址。</div></div><div class="c"><select class="ul"><option>/posts/{{slug}}</option><option>/{{year}}/{{month}}/{{slug}}</option><option>/{{year}}/{{slug}}</option><option>/{{category}}/{{slug}}</option><option>/archives/{{slug}}</option></select></div></div>
+        <div class="srow"><div><label>文章網址</label><div class="h">改了會自動幫舊網址建 301 轉址。</div></div><div class="c"><select class="ul"><option>/post/{{slug}}</option><option>/{{year}}/{{month}}/{{slug}}</option><option>/{{year}}/{{slug}}</option><option>/{{category}}/{{slug}}</option><option>/archives/{{slug}}</option></select></div></div>
         <div class="srow"><div><label>網址別名怎麼產生</label></div><div class="c"><div class="seg"><span class="on">從標題（拼音／英文）</span><span>時間戳</span><span>短亂碼</span></div></div></div>
         <div class="srow"><div><label>分類 / 標籤 / 作者 / 月份 前綴</label></div><div class="c" style="gap:4px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><input class="ul" type="text" value="/c/" style="width:64px"><input class="ul" type="text" value="/t/" style="width:64px"><input class="ul" type="text" value="/author/" style="width:84px"><input class="ul" type="text" value="/archive/" style="width:90px"></div></div>
-        <div class="srow"><div><label>預覽</label></div><div class="c" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#5F6470;justify-content:flex-start;flex-direction:column;align-items:flex-start;gap:2px"><span>example.com/posts/caramel-pudding</span><span>example.com/c/recipes/desserts</span><span>example.com/t/gelatin</span></div></div>
+        <div class="srow"><div><label>預覽</label></div><div class="c" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#5F6470;justify-content:flex-start;flex-direction:column;align-items:flex-start;gap:2px"><span>example.com/post/caramel-pudding</span><span>example.com/c/recipes/desserts</span><span>example.com/t/gelatin</span></div></div>
       </div>
       <div>
         <div class="lbl" style="margin-bottom:4px">列表</div>
         <div class="srow"><div><label>首頁顯示</label></div><div class="c"><div class="seg"><span class="on">最新文章</span><span>指定頁面</span></div></div></div>
-        <div class="srow"><div><label>每頁幾篇（首頁 / 分類標籤 / 作者 / 搜尋）</label></div><div class="c" style="gap:4px"><input class="ul" type="text" value="12" style="width:48px;text-align:center"><input class="ul" type="text" value="12" style="width:48px;text-align:center"><input class="ul" type="text" value="12" style="width:48px;text-align:center"><input class="ul" type="text" value="20" style="width:48px;text-align:center"></div></div>
+        <div class="srow"><div><label>每頁幾篇（首頁 / 分類標籤 / 作者 / 搜尋）</label></div><div class="c" style="gap:4px"><input class="ul" type="text" value="10" style="width:48px;text-align:center"><input class="ul" type="text" value="10" style="width:48px;text-align:center"><input class="ul" type="text" value="10" style="width:48px;text-align:center"><input class="ul" type="text" value="10" style="width:48px;text-align:center"></div></div>
         <div class="srow"><div><label>摘要</label><div class="h">沒手寫摘要時自動取幾個字。</div></div><div class="c"><input class="ul" type="text" value="110" style="width:64px;text-align:center"></div></div>
         <div class="srow"><div><label>RSS / Atom</label><div class="h">/feed.xml、每個分類與作者也有自己的 feed。</div></div><div class="c"><div class="seg"><span class="on">全文</span><span>摘要</span><span>關</span></div></div></div>
         <div class="srow"><div><label>Sitemap 與 robots.txt</label><div class="h">自動產生，變更後 ping 搜尋引擎（IndexNow）。</div></div><div class="c"><span class="tg"></span></div></div>
         <div class="srow"><div><label>讓搜尋引擎索引這個站</label><div class="h">關掉會加 noindex，測試站用。</div></div><div class="c"><span class="tg"></span></div></div>
       </div>
       <div>
-        <div class="lbl" style="margin-bottom:4px">程式碼注入</div>
+        <div class="lbl" style="margin-bottom:4px">程式碼注入</div><div class="srow"><div><label>管理員密碼</label><div class="h">每次儲存都要重新驗證，目前密碼不會保留。</div></div><div class="c"><input class="ul" type="password" autocomplete="current-password"></div></div><div class="srow"><div><label>也套用到結帳與帳號頁面</label></div><div class="c"><span class="tg off"></span></div></div>
         <p style="margin:0 0 8px;font-size:12.5px;color:#5F6470">放統計、字型、驗證標籤。會原樣輸出，只有管理員能改；留言與外掛碰不到這裡。</p>
         <div class="srow" style="grid-template-columns:200px minmax(0,1fr)"><div><label>全站 &lt;head&gt;</label></div><div class="c"><textarea class="ul code" rows="3" style="width:100%;font-size:12px;text-align:left">&lt;script defer src="https://umami.example.com/script.js" data-website-id="…"&gt;&lt;/script&gt;</textarea></div></div>
         <div class="srow" style="grid-template-columns:200px minmax(0,1fr)"><div><label>文章與頁面 &lt;head&gt;</label></div><div class="c"><textarea class="ul code" rows="2" style="width:100%;font-size:12px;text-align:left" placeholder="只在內容頁輸出"></textarea></div></div>
@@ -263,13 +319,13 @@ B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", 
       <div>
         <div class="lbl" style="margin-bottom:4px">維護模式</div>
         <div class="srow"><div><label>開啟維護模式</label><div class="h">前台顯示維護頁（503），登入的管理員照常看得到網站。</div></div><div class="c"><span class="tg off"></span></div></div>
-        <div class="srow"><div><label>維護頁訊息</label></div><div class="c"><input class="ul" type="text" value="我們在升級，大概 10 分鐘。"></div></div>
+        <div class="srow"><div><label>重試秒數</label></div><div class="c"><input class="ul" type="number" min="1" max="86400" value="600"></div></div><div class="srow"><div><label>維護頁訊息</label></div><div class="c"><input class="ul" type="text" value="我們在升級，大概 10 分鐘。"></div></div>
       </div>
     </section>
   </main>'''))
 
 # ---------- 前台 · 維護模式 ----------
-B["Maintenance"] = ("前台 · 維護模式", FRONT_CSS + ".maintenance-art{position:absolute;inset:0;overflow:clip;pointer-events:none}@media(max-width:700px){.maintenance-art>div{left:auto!important;right:0;top:auto!important;bottom:5rem;transform:scale(.36);transform-origin:bottom right;opacity:.22!important}}", 1440, 900, f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#15161A;color:#F2F3F7;position:relative;overflow:hidden">
+B["Maintenance"] = ("前台 · 維護模式", FRONT_CSS + ".maintenance-art+main .btn:not(.t):hover{background:#DD2758!important;color:#fff}.maintenance-art{position:absolute;inset:0;overflow:clip;pointer-events:none}@media(max-width:700px){.maintenance-art>div{left:auto!important;right:0;top:auto!important;bottom:5rem;transform:scale(.36);transform-origin:bottom right;opacity:.22!important}}", 1440, 900, f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#15161A;color:#F2F3F7;position:relative;overflow:hidden">
   <div class="topline"></div>
   <div class="maintenance-art">{cubes(2.6, 900, 160, .95)}</div>
   <main style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 80px;max-width:720px;gap:20px;position:relative">
@@ -282,37 +338,69 @@ B["Maintenance"] = ("前台 · 維護模式", FRONT_CSS + ".maintenance-art{posi
   <footer style="padding:24px 80px;font-size:13px;color:#5F6470;position:relative">搜尋引擎會收到 503 與 Retry-After，不會影響排名 · Powered by Jelly CMS</footer>
 </div>''')
 
-# ---------- 後台 · 折扣碼與行銷 ----------
-B["Coupons"] = ("後台 · 折扣碼", CSS, 1440, 1000, admin("orders", ["商店","折扣碼"],
-  f'<button class="btn p" type="button">{I("plus")}新增折扣碼</button>',
+# ---------- 後台 · 折扣碼 ----------
+def coupon_row(code, label, offer, cond, used, limit, pct, period, dim=False, note=""):
+    bar = f'<div class="bar" style="height:4px;background:#EDEEF1;border-radius:2px;margin-top:4px;width:80px"><span style="display:block;width:{pct}%;height:4px;background:#13C2A3"></span></div>' if limit else ''
+    sub = label + (f' · {note}' if note else '')
+    return (f'<tr{" style=\"opacity:.6\"" if dim else ""}><td><b class="mono" style="font-size:15px">{code}</b><div style="font-size:12px;color:#5F6470">{sub}</div></td>'
+            f'<td>{offer}</td><td style="color:#5F6470">{cond}</td><td><b class="mono">{used}</b> / {limit or "不限"}{bar}</td><td style="color:#5F6470">{period}</td>'
+            f'<td class="act"><button class="btn x s i" type="button" aria-label="編輯 {code}">{I("edit")}</button><button class="btn x s i" type="button" aria-label="複製 {code}">{I("copy")}</button><button class="btn x s i" type="button" aria-label="刪除 {code}">{I("trash")}</button></td></tr>')
+
+B["Coupons"] = ("後台 · 折扣碼", CSS, 1440, 1280, admin("coupons", ["商店","折扣碼"],
+  f'<button class="btn t" type="button">{I("list")}批次產生</button><button class="btn p" type="button">{I("plus")}新增折扣碼</button>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start">
     <section>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">進行中 <b>3</b></span><span>排程 1</span><span>已結束 8</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="找代碼" aria-label="搜尋" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">進行中 <b>4</b></span><span>排程 1</span><span>已結束 8</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="找代碼（跨分段搜尋）" aria-label="找代碼" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label></div>
       <table><thead><tr><th>代碼</th><th>優惠</th><th>條件</th><th>用量</th><th>期間</th><th></th></tr></thead><tbody>
-        <tr><td><b class="mono" style="font-size:15px">MOON15</b><div style="font-size:12px;color:#5F6470">中秋預購</div></td><td>85 折</td><td style="color:#5F6470">禮盒分類 · 滿 1,000</td><td><b class="mono">41</b> / 300<div class="bar" style="height:4px;background:#EDEEF1;border-radius:2px;margin-top:4px;width:80px"><span style="display:block;width:14%;height:4px;background:#13C2A3"></span></div></td><td style="color:#5F6470">9/1 – 9/20</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="複製">{I("copy")}</button><button class="btn x s i" type="button" aria-label="停用">{I("pause")}</button></td></tr>
-        <tr><td><b class="mono" style="font-size:15px">FREESHIP</b><div style="font-size:12px;color:#5F6470">免運</div></td><td>免運費</td><td style="color:#5F6470">滿 800 · 台灣本島</td><td><b class="mono">212</b> / 不限</td><td style="color:#5F6470">長期</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="複製">{I("copy")}</button><button class="btn x s i" type="button" aria-label="停用">{I("pause")}</button></td></tr>
-        <tr><td><b class="mono" style="font-size:15px">HAZEL-xxxx</b><div style="font-size:12px;color:#5F6470">訂閱者專屬 · 一人一碼</div></td><td>NT$ 100</td><td style="color:#5F6470">每人一次 · 滿 500</td><td><b class="mono">38</b> / 120 組</td><td style="color:#5F6470">到 12/31</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="匯出">{I("download")}</button><button class="btn x s i" type="button" aria-label="停用">{I("pause")}</button></td></tr>
-        <tr style="opacity:.6"><td><b class="mono" style="font-size:15px">XMAS</b><div style="font-size:12px;color:#5F6470">排程中</div></td><td>9 折</td><td style="color:#5F6470">全店</td><td class="mono">0</td><td style="color:#5F6470">12/15 起</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button></td></tr>
+        {coupon_row("MOON15","中秋預購","85 折","分類（1 項） · 滿 NT$1,000",41,300,14,"09/01–09/20")}
+        {coupon_row("FREESHIP","免運","免運費","全店 · 滿 NT$800",212,None,0,"長期")}
+        {coupon_row("BUY3GET1","果凍買三送一","買 3 送 1","全店 · 每人 1 次 · 只給會員",9,None,0,"到 10/31")}
+        {coupon_row("VIP7Q2KD9","批次：VIP","9 折","全店 · 限 vip@example.com",0,1,0,"到 12/31")}
+        {coupon_row("SUMMER10","夏季","9 折","全店",128,None,0,"長期",dim=True,note="已停用")}
       </tbody></table>
-      <div style="margin-top:20px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
-        <div class="card" style="display:flex;flex-direction:column;gap:4px"><span class="lbl">本月折扣帶來</span><b class="mono" style="font-size:24px">NT$ 48,200</b><span style="font-size:12px;color:#5F6470">62 筆訂單 · 讓利 NT$ 6,930</span></div>
-        <div class="card" style="display:flex;flex-direction:column;gap:4px"><span class="lbl">數位商品交付</span><b class="mono" style="font-size:24px">17 次</b><span style="font-size:12px;color:#5F6470">付款後寄下載連結，24 小時、3 次有效</span></div>
-        <div class="card" style="display:flex;flex-direction:column;gap:4px"><span class="lbl">訂閱制</span><b style="font-size:14px;color:#5F6470">之後再做</b><span style="font-size:12px;color:#5F6470">每月定期扣款要金流支援定期定額，先列在里程碑 5 後段</span></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:#5F6470">{I("alert",14)}用過的折扣碼不能刪除，按刪除會改問要不要停用；沒用過的才會真的刪掉。</div>
+      <div style="margin-top:20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:start">
+        <div class="card" style="display:flex;flex-direction:column;gap:4px"><span class="lbl">本月折扣帶來</span><b class="mono" style="font-size:24px">NT$48,200</b><span style="font-size:12px;color:#5F6470">62 筆訂單 · 讓利 NT$6,930</span></div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px" role="group" aria-label="批次產生一人一碼">
+          <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:32px"></span><b style="font-size:14px">批次產生一人一碼</b></div>
+          <div style="font-size:12px;color:#5F6470">用右側表單目前的類型、折扣、條件與期間當範本，每個代碼限用一次。</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">前綴</span><input class="ul mono" type="text" value="VIP"></div><div><span class="lbl">數量（1–1000）</span><input class="ul mono" type="text" value="50"></div></div>
+          <div><span class="lbl">只限這個 Email（選填）</span><input class="ul" type="text" placeholder="vip@example.com"></div>
+          <div style="font-size:13px;padding:8px 10px;background:#F3F3F5;border-radius:0 8px 0 8px">已產生 50 個代碼</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn p s" type="button">{I("list",12)}產生</button><button class="btn t s" type="button">{I("download",12)}下載代碼 CSV</button><button class="btn t s" type="button">關閉</button></div>
+          <div style="font-size:12px;color:#5F6470">伺服器有回傳代碼清單時才出現下載鈕。</div>
+        </div>
       </div>
     </section>
     <aside class="card" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:14px">
-      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">新增折扣碼</b></div>
-      <div><span class="lbl">代碼</span><div style="display:flex;gap:8px;align-items:center"><input class="ul" type="text" value="MOON15" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px;letter-spacing:.04em"><button class="btn t s" type="button">{I("refresh",12)}隨機</button></div></div>
+      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">編輯：MOON15</b><span class="chip ok" style="margin-left:auto">進行中</span></div>
+      <div><span class="lbl">代碼</span><div style="display:flex;gap:8px;align-items:center"><input class="ul" type="text" value="MOON15" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px;letter-spacing:.04em"><button class="btn t s" type="button">{I("refresh",12)}隨機</button></div><div style="font-size:12px;color:#5F6470;margin-top:4px">英數字、- 與 _；用過的代碼不能改。</div></div>
+      <div><span class="lbl">名稱（只在後台）</span><input class="ul" type="text" value="中秋預購"></div>
       <div><span class="lbl">類型</span><div class="seg" style="margin-top:6px"><span class="on">百分比</span><span>固定金額</span><span>免運</span><span>買 X 送 Y</span></div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">折扣</span><input class="ul" type="text" value="15 %"></div><div><span class="lbl">最低消費</span><input class="ul" type="text" value="NT$ 1,000"></div></div>
-      <div><span class="lbl">適用</span><div class="seg" style="margin-top:6px"><span>全店</span><span class="on">分類</span><span>指定商品</span></div><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><span class="chip nd">禮盒 ×</span><button class="btn x s" type="button">{I("plus",12)}加分類</button></div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">總次數上限</span><input class="ul" type="text" value="300"></div><div><span class="lbl">每人</span><input class="ul" type="text" value="1 次"></div></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">開始</span><input class="ul" type="text" value="2026-09-01 00:00"></div><div><span class="lbl">結束</span><input class="ul" type="text" value="2026-09-20 23:59"></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">折扣</span><div style="display:flex;align-items:center;gap:6px"><input class="ul mono" type="text" value="15" style="text-align:right"><span style="color:#5F6470">%</span></div></div><div><span class="lbl">最低消費 (NT$)</span><input class="ul mono" type="text" value="1000"></div></div>
+      <div style="border:1.5px dashed #B9BCC6;border-radius:0 12px 0 12px;padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px"><span class="chip info nd">買 X 送 Y</span><span style="font-size:12px;color:#5F6470">類型選「買 X 送 Y」時取代上面的折扣欄</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">買幾件</span><input class="ul mono" type="text" value="3"></div><div><span class="lbl">送幾件</span><input class="ul mono" type="text" value="1"></div></div>
+        <div style="font-size:12px;color:#5F6470">同一適用範圍的商品，每買足件數就送最便宜的件數；贈品不另算運費。</div>
+      </div>
+      <div><span class="lbl">適用</span><div class="seg" style="margin-top:6px"><span>全店</span><span class="on">分類</span><span>指定商品</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:13px;font-weight:600"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" style="accent-color:#E8285B;width:16px;height:16px;margin:0">果凍</label><label style="display:flex;align-items:center;gap:8px;padding-left:20px"><input type="checkbox" style="accent-color:#E8285B;width:16px;height:16px;margin:0">水果</label><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" checked style="accent-color:#E8285B;width:16px;height:16px;margin:0">禮盒</label></div>
+        <div style="font-size:12px;color:#5F6470;margin-top:6px">選「指定商品」時改成搜尋商品並加入。</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">總次數上限</span><input class="ul mono" type="text" value="300"></div><div><span class="lbl">每人次數</span><input class="ul mono" type="text" placeholder="不限"></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">開始</span><input class="ul mono" type="text" value="2026/09/01 00:00"></div><div><span class="lbl">結束</span><input class="ul mono" type="text" value="2026/09/20 23:59"></div></div>
+      <div><span class="lbl">只限這個 Email（選填）</span><input class="ul" type="text" placeholder="name@example.com"></div>
       <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">可與免運碼疊加<span class="tg"></span></label>
-      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">只給登入會員<span class="tg off"></span></label>
-      <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("save")}建立</button><button class="btn t" type="button">{I("eye")}在結帳頁預覽</button></div>
+      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">只給會員<span class="tg off"></span></label>
+      <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:600"><span>啟用<span style="display:block;font-size:12px;font-weight:400;color:#5F6470">停用後顧客無法套用，已用過的紀錄保留。</span></span><span class="tg"></span></label>
+      <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("eye")}在結帳頁預覽</button></div>
+      <div style="border:1.5px dashed #B9BCC6;border-radius:0 12px 0 12px;padding:12px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">試算小計 (NT$)</span><input class="ul mono" type="text" value="1200"></div><div><span class="lbl">件數</span><input class="ul mono" type="text" value="2"></div></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><button class="btn t s" type="button">{I("eye",12)}試算</button><span style="font-size:13px;padding:6px 10px;background:#F3F3F5;border-radius:0 8px 0 8px">折抵 NT$180，結帳金額 NT$1,020</span></div>
+      </div>
     </aside>
   </main>'''))
 
 for name,(title,css,w,h,html) in B.items():
+    if os.environ.get("JELLY_DESIGN_ONLY") and name not in os.environ["JELLY_DESIGN_ONLY"].split(","):
+        continue
     open(os.path.join(OUT, f"{name}.dc.html"),"w",encoding="utf-8").write(doc(title, css, html, w, h)); print("wrote",name)

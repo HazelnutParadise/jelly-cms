@@ -104,14 +104,14 @@ func TestRunRejectsAuthStartup(t *testing.T) {
 
 		err = run(ctx)
 		if err == nil {
-			t.Fatal("run() = nil, want an authentication initialization error")
-		}
-		if !strings.Contains(strings.ToLower(err.Error()), "auth") {
-			t.Fatalf("run() error = %v, want it to identify authentication initialization", err)
+			t.Fatal("run() = nil, want an interrupted backup restore recovery error")
 		}
 		lower := strings.ToLower(err.Error())
+		if !strings.Contains(lower, "recover interrupted backup restore") {
+			t.Fatalf("run() error = %v, want the interrupted backup restore recovery error", err)
+		}
 		if strings.Contains(lower, "listen") || strings.Contains(lower, "bind") {
-			t.Fatalf("run() returned a listener error instead of the auth error: %v", err)
+			t.Fatalf("run() returned a listener error instead of the restore recovery error: %v", err)
 		}
 
 		info, statErr := os.Stat("data")

@@ -426,16 +426,16 @@ func TestAccessPostOwnershipAndProtectedInput(t *testing.T) {
 			}
 		}
 	}
-	mediaType, mediaBody := accessMultipartBody(t, "file", "editor-media.txt", "editor upload")
+	mediaType, mediaBody := accessMultipartBody(t, "file", "editor-media.png", string(acctTinyPNG(t)))
 	mediaUpload := h.requestReader(http.MethodPost, "/api/admin/media", bytes.NewReader(mediaBody), editorToken, echo.MIMEApplicationJSON, mediaType)
 	if mediaUpload.code != http.StatusOK {
 		t.Errorf("editor media upload returned %d body=%q", mediaUpload.code, mediaUpload.body)
 	}
 	mediaList := h.request(http.MethodGet, "/api/admin/media", "", editorToken, echo.MIMEApplicationJSON, "")
-	if mediaList.code != http.StatusOK || !strings.Contains(mediaList.body, "editor-media.txt") {
+	if mediaList.code != http.StatusOK || !strings.Contains(mediaList.body, "editor-media.png") {
 		t.Errorf("editor media list returned %d body=%q", mediaList.code, mediaList.body)
 	}
-	mediaDelete := h.request(http.MethodDelete, "/api/admin/media/editor-media.txt", "", editorToken, echo.MIMEApplicationJSON, "")
+	mediaDelete := h.request(http.MethodDelete, "/api/admin/media/editor-media.png", "", editorToken, echo.MIMEApplicationJSON, "")
 	if mediaDelete.code != http.StatusOK {
 		t.Errorf("editor media delete returned %d body=%q", mediaDelete.code, mediaDelete.body)
 	}

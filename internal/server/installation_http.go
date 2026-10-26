@@ -81,6 +81,16 @@ func installStateMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if isInstallEndpoint(c.Request().URL.Path) {
 			return next(c)
 		}
+		// Liveness probes must answer before installation finishes.
+		if c.Request().URL.Path == "/healthz" {
+			return next(c)
+		}
+		if data.DB == nil && c.Request().Method == http.MethodGet {
+			switch c.Path() {
+			case "/api/public/posts", "/api/public/content/:slug", "/api/public/site":
+				return publicAPIError(c, http.StatusServiceUnavailable, "service_unavailable", "The service is temporarily unavailable.")
+			}
+		}
 
 		if !install.IsInstalled() {
 			return c.Redirect(http.StatusFound, "/install")
@@ -175,6 +185,15 @@ func initializeAfterInstallation(pluginRuntime *plugin.Runtime) {
 		log.Printf("installation completed without a live database handle; skipping service initialization")
 		return
 	}
+	SetSystemDatabase(db)
+	ctx := context.Background()
+	if err := ensureDefaultMediaPolicy(ctx); err != nil {
+		log.Printf("media: ensure default policy after installation: %v", err)
+	} else if n, err := importLegacyUploads(ctx); err != nil {
+		log.Printf("media: import legacy uploads after installation: %v", err)
+	} else if n > 0 {
+		log.Printf("media: imported %d legacy upload(s) after installation", n)
+	}
 
 	InitPaymentService(db)
 	auth.ReloadOAuthProviders()
@@ -186,7 +205,7 @@ func initializeAfterInstallation(pluginRuntime *plugin.Runtime) {
 	if err := os.MkdirAll("data/plugins", 0755); err != nil {
 		log.Printf("plugin directory setup failed after installation: %v", err)
 	}
-	if err := pluginRuntime.LoadAll(context.Background(), "data/plugins"); err != nil {
+	if err := pluginRuntime.LoadWhere(context.Background(), "data/plugins", PluginEnabledFilter()); err != nil {
 		log.Printf("plugin loading failed after installation: %v", err)
 	}
 }
