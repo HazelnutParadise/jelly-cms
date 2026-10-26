@@ -75,8 +75,8 @@ var (
 // that need the database: the default local policy and the legacy import of
 // data/uploads. Tests reach these through RegisterRoutes.
 func registerMediaRoutes(e *echo.Echo) {
-	admin := auth.RequireRole("admin")
-	staff := auth.RequireRole("admin", "editor", "author")
+	admin := auth.RequireRole(adminRoles...)
+	staff := auth.RequireRole(contentRoles...)
 
 	e.GET("/api/admin/media/policies", handleMediaPolicyList, admin)
 	e.POST("/api/admin/media/policies", handleMediaPolicyCreate, admin)

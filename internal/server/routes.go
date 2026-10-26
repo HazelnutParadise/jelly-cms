@@ -42,6 +42,11 @@ func adminFontCacheHeaders(next echo.HandlerFunc) echo.HandlerFunc {
 
 // isUploadRoute reports whether the matched route accepts file uploads.
 func isUploadRoute(c echo.Context) bool {
+	// Agent routes apply their own body cap after authentication and auditing so
+	// oversized but authenticated requests still produce an audit event.
+	if c.Request().URL.Path == "/api/agent/v1" || strings.HasPrefix(c.Request().URL.Path, "/api/agent/v1/") {
+		return true
+	}
 	switch c.Path() {
 	case "/api/admin/media", "/api/admin/media/:filename", "/api/admin/media/files", "/api/admin/media/files/:id/replace", "/api/admin/plugins/upload", "/api/admin/import/wxr":
 		return true

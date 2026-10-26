@@ -83,6 +83,9 @@ func resolvePrincipal(c echo.Context, db *gorm.DB, allowSession bool) (*principa
 			return nil, fmt.Errorf("invalid authorization header")
 		}
 		bearer := token[len("Bearer "):]
+		if strings.HasPrefix(bearer, "jla_") {
+			return nil, fmt.Errorf("agent keys are not user authentication tokens")
+		}
 		if strings.HasPrefix(bearer, "jly_") {
 			return resolveTokenPrincipal(db, bearer, request.RemoteAddr)
 		}

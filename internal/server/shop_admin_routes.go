@@ -123,7 +123,7 @@ type productVariantInput struct {
 
 // registerShopAdminRoutes registers the admin shop APIs and pages.
 func registerShopAdminRoutes(e *echo.Echo, renderAdmin func(c echo.Context, file, active string) error) {
-	api := e.Group("/api/admin", auth.RequireRole("admin"))
+	api := e.Group("/api/admin", auth.RequireRole(adminRoles...))
 
 	api.POST("/products/:id/duplicate", adminProductsDuplicate)
 

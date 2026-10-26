@@ -3,34 +3,34 @@
 Epic：帳號與存取
 User Story：站長在後台建立 AI agent 專用身分，勾選它能做的事，拿到一把只顯示一次的金鑰交給 agent；需要時立即或給一段過渡期輪替金鑰、提前撤銷舊金鑰、停用或刪除 agent。agent 拿著金鑰打 `/api/agent/v1`，不需要人教就能從說明端點與 OpenAPI 找到可以做什麼；寫入時帶上讀到的版本，不會蓋掉別人的修改。站長事後能依 agent 查出它做過的每一件事，包含來源 IP 與所用金鑰，跨越輪替也查得到。
 來源：GitHub issue HazelnutParadise/jelly-cms#6。
-Blocked by：無。本工作單以 main（`3aa5633`）為基底，可單獨合併；和 06、08、09 的重疊見「與 06、08、09 的調和」。
-Status：draft（本工作單只交付契約、設計板、可編譯的骨架與失敗的驗收測試；實作由另一批代理依本文件完成）
+Blocked by：無。PR #31 已整合 main `2e1236b`，帳號、系統、商店、編輯器與 WebMCP 的相依整合見「與既有 main 的調和」。
+Status：已實作並完成本機功能驗收；必要 CI、線上畫布同步及合併清理結果見 STATUS.md 與 PR #31。
 設計稿：`design/project/Agents.dc.html`（清單、建立、金鑰一次性顯示與關閉後的狀態）、`design/project/AgentDetail.dc.html`（詳情、金鑰與過渡倒數、輪替歷史、活動紀錄、輪替對話框的兩種模式、過渡時長錯誤與新金鑰一次性顯示、提前撤銷確認、停用與刪除確認）。兩張板由 `design/gen/gen_agents.py` 產生（`PYTHONDONTWRITEBYTECODE=1 python3 gen_agents.py`，在 `design/gen` 下執行），放在 `canvas.json`「後台 · 帳號與系統」那一排 x = 28880、30400（讓出 06 的 Login2FA、InviteAccept、PasswordReset 位置）。側欄的「AI agent」入口只畫在這兩張板；其他產生板的側欄在下次改 `gen.py` 的 `NAV` 時一起補上。
 
 ## 流程與驗收
 
-- [ ] 管理員在 `/admin/agents` 看到所有 agent：名稱與說明、權限、擁有者、目前生效金鑰的前綴、過渡中的舊金鑰與剩餘時間、最後使用時間、啟用／停用狀態；擁有者角色不足以使用某些權限時標出「有效權限 N/M」。非管理員打開這頁得到 403。
-- [ ] 管理員能建立 agent：名稱（1–80 字）、說明（≤ 500 字）、權限勾選；建立後畫面一次性顯示完整金鑰並提供複製按鈕；關閉後清單與詳情只看得到前綴（`jla_` 加 8 個字元），重新整理、重開詳情、打 API 都拿不到明文，資料庫也查不到明文。
-- [ ] 管理員在 `/admin/agents/:id` 輪替金鑰：選「立即失效」（預設）時舊金鑰下一次請求就 401；選「過渡期」並填 1–1440 分鐘時新舊金鑰都能用，期滿舊金鑰 401；填 0 或超過 1440 被拒，畫面與 API 都說明「過渡期必須是 1 到 1440 分鐘（最長 24 小時）」。新金鑰一次性顯示。輪替後 agent 的 ID、名稱、說明、權限、擁有者、活動紀錄都不變。
-- [ ] 管理員能對過渡中的舊金鑰「提前撤銷」，撤銷後那把金鑰下一次請求 401；詳情頁顯示過渡中舊金鑰的到期倒數。
-- [ ] 管理員能停用、重新啟用、刪除 agent：停用後該 agent 所有金鑰（含過渡中的舊金鑰）下一次請求 401；重新啟用後未撤銷、未過期的金鑰恢復可用；刪除後金鑰全部失效、清單與詳情不再出現，但活動紀錄保留並可依 agent 查詢。
-- [ ] 輪替、撤銷、建立、修改、停用、啟用、刪除都寫進活動紀錄：誰（管理員）、何時、哪個 agent、輪替選了哪種模式與多長過渡期、新舊金鑰前綴。詳情頁有「輪替歷史」。
-- [ ] agent 不帶金鑰 `GET /api/agent/v1` 拿到完整說明：驗證方式、每個權限對應的端點、錯誤格式與錯誤碼、範例；`GET /api/agent/v1/openapi.json` 是 OpenAPI 3.1.0，每個 path 都真的存在，宣告 bearer 驗證。兩者由同一份路由表產生。
-- [ ] agent 帶金鑰 `GET /api/agent/v1/me` 看到自己的 id、名稱、權限、目前有效權限（和擁有者角色交集後）、所用金鑰的前綴與到期時間。
-- [ ] agent 有 `posts.write` 能建立文章；只有 `posts.read` 時建立文章得到 403，錯誤的 `details.missing_permissions` 是 `["posts.write"]`。每個 agent 端點恰好宣告一個所需權限，由 middleware 檢查。
-- [ ] 擁有者被降級後，agent 下一次請求就只能做擁有者新角色也能做的事（其餘 403 `owner_role_insufficient`）；擁有者被刪除後所有金鑰 401 `owner_unavailable`。
-- [ ] agent 更新文章、頁面、商品時必須帶 `base_updated_at`（讀取時拿到的 `updated_at`）；缺少回 400 `version_required`；兩個請求帶同一個舊版本更新同一篇，只有一個成功，另一個 409 `version_conflict`。`/api/admin` 的行為不變。
-- [ ] agent 金鑰打 `/api/admin/*`（含 `/api/admin/agents/*`）一律 401；agent 沒有任何管理 agent 或輪替自己金鑰的端點；人的登入憑證（JWT、cookie）打 `/api/agent/v1` 也是 401。
-- [ ] agent 有 `logs.read` 時能以 `GET /api/agent/v1/logs` 查自己的請求紀錄（cursor 分頁、`total`、依狀態、模組、時間篩選）；管理員在詳情頁與 `GET /api/admin/agents/events` 看全部紀錄，可依 agent 篩選並跨越輪替，看得到遮罩後的來源 IP 與金鑰前綴。紀錄不存完整請求本文與回應內容。
-- [ ] agent API 的所有錯誤都是 `{"code","message","details","correlation_id"}`，回應帶 `X-Request-ID`，與 `correlation_id` 相同。
-- [ ] repo 附 `skills/jelly-cms/SKILL.md`：說明怎麼連線（金鑰放哪）、怎麼探索（`/api/agent/v1`、`openapi.json`、`/me`）、常見操作（讀文章、建立草稿、帶 `base_updated_at` 更新、處理 409、查自己的紀錄）。
-- [ ] 側欄「系統」區有「AI agent」入口（僅 admin），在「使用者」與「設定」之間。
+- [x] 管理員在 `/admin/agents` 看到所有 agent：名稱與說明、權限、擁有者、目前生效金鑰的前綴、過渡中的舊金鑰與剩餘時間、最後使用時間、啟用／停用狀態；擁有者角色不足以使用某些權限時標出「有效權限 N/M」。非管理員打開這頁得到 403。
+- [x] 管理員能建立 agent：名稱（1–80 字）、說明（≤ 500 字）、權限勾選；建立後畫面一次性顯示完整金鑰並提供複製按鈕；關閉後清單與詳情只看得到前綴（`jla_` 加 8 個字元），重新整理、重開詳情、打 API 都拿不到明文，資料庫也查不到明文。
+- [x] 管理員在 `/admin/agents/:id` 輪替金鑰：選「立即失效」（預設）時舊金鑰下一次請求就 401；選「過渡期」並填 1–1440 分鐘時新舊金鑰都能用，期滿舊金鑰 401；填 0 或超過 1440 被拒，畫面與 API 都說明「過渡期必須是 1 到 1440 分鐘（最長 24 小時）」。新金鑰一次性顯示。輪替後 agent 的 ID、名稱、說明、權限、擁有者、活動紀錄都不變。
+- [x] 管理員能對過渡中的舊金鑰「提前撤銷」，撤銷後那把金鑰下一次請求 401；詳情頁顯示過渡中舊金鑰的到期倒數。
+- [x] 管理員能停用、重新啟用、刪除 agent：停用後該 agent 所有金鑰（含過渡中的舊金鑰）下一次請求 401；重新啟用後未撤銷、未過期的金鑰恢復可用；刪除後金鑰全部失效、清單與詳情不再出現，但活動紀錄保留並可依 agent 查詢。
+- [x] 輪替、撤銷、建立、修改、停用、啟用、刪除都寫進活動紀錄：誰（管理員）、何時、哪個 agent、輪替選了哪種模式與多長過渡期、新舊金鑰前綴。詳情頁有「輪替歷史」。
+- [x] agent 不帶金鑰 `GET /api/agent/v1` 拿到完整說明：驗證方式、每個權限對應的端點、錯誤格式與錯誤碼、範例；`GET /api/agent/v1/openapi.json` 是 OpenAPI 3.1.0，每個 path 都真的存在，宣告 bearer 驗證。兩者由同一份路由表產生。
+- [x] agent 帶金鑰 `GET /api/agent/v1/me` 看到自己的 id、名稱、權限、目前有效權限（和擁有者角色交集後）、所用金鑰的前綴與到期時間。
+- [x] agent 有 `posts.write` 能建立文章；只有 `posts.read` 時建立文章得到 403，錯誤的 `details.missing_permissions` 是 `["posts.write"]`。每個 agent 端點恰好宣告一個所需權限，由 middleware 檢查。
+- [x] 擁有者被降級後，agent 下一次請求就只能做擁有者新角色也能做的事（其餘 403 `owner_role_insufficient`）；擁有者被刪除後所有金鑰 401 `owner_unavailable`。
+- [x] agent 更新文章、頁面、商品時必須帶 `base_updated_at`（讀取時拿到的 `updated_at`）；缺少回 400 `version_required`；兩個請求帶同一個舊版本更新同一篇，只有一個成功，另一個 409 `version_conflict`。`/api/admin` 的行為不變。
+- [x] agent 金鑰打 `/api/admin/*`（含 `/api/admin/agents/*`）一律 401；agent 沒有任何管理 agent 或輪替自己金鑰的端點；人的登入憑證（JWT、cookie）打 `/api/agent/v1` 也是 401。
+- [x] agent 有 `logs.read` 時能以 `GET /api/agent/v1/logs` 查自己的請求紀錄（cursor 分頁、`total`、依狀態、模組、時間篩選）；管理員在詳情頁與 `GET /api/admin/agents/events` 看全部紀錄，可依 agent 篩選並跨越輪替，看得到遮罩後的來源 IP 與金鑰前綴。紀錄不存完整請求本文與回應內容。
+- [x] agent API 的所有錯誤都是 `{"code","message","details","correlation_id"}`，回應帶 `X-Request-ID`，與 `correlation_id` 相同。
+- [x] repo 附 `skills/jelly-cms/SKILL.md`：說明怎麼連線（金鑰放哪）、怎麼探索（`/api/agent/v1`、`openapi.json`、`/me`）、常見操作（讀文章、建立草稿、帶 `base_updated_at` 更新、處理 409、查自己的紀錄）。
+- [x] 側欄「系統」區有「AI agent」入口（僅 admin），在「使用者」與「設定」之間。
 
 ## 錯誤與邊界
 
 所有金鑰只存 SHA-256 雜湊與前綴；明文只出現在建立與輪替的那一次回應。IP 一律遮罩後儲存（IPv4 去最後一段、IPv6 保留前 48 位元）。過渡期 1–1440 分鐘；一個 agent 同時最多兩把有效金鑰（生效中 1 把＋過渡中 1 把），再輪替時更早的過渡金鑰立即撤銷。不做排程自動輪替、MCP server、第三方 OAuth 授權流程、agent 呼叫外部 LLM。
 
-## 契約（骨架與測試共同依據）
+## 契約與驗收依據
 
 ### 名詞
 
@@ -39,7 +39,7 @@ Status：draft（本工作單只交付契約、設計板、可編譯的骨架與
 - **金鑰狀態**（計算值）：`revoked`（`revoked_at` 非空）→ `expired`（`expires_at` ≤ 現在）→ `grace`（`expires_at` 非空）→ `active`，依此順序判斷。
 - **有效權限**：agent 持有的權限中，擁有者目前角色出現在該權限 `required_roles` 裡的那些。擁有者不存在時為空。
 
-### 資料表（`internal/data/migrations/0024_agents.sql`，嵌入 SQL，可重跑；由 `MigrateDB` 在 `migrateOAuthIdentities` 之後套用，鎖 `pg_advisory_xact_lock(731984201, 24)`）
+### 資料表（`internal/data/migrations/0025_agents.sql`，嵌入 SQL，可重跑；由 `MigrateDB` 在 `migrateOAuthIdentities` 之後套用，鎖 `pg_advisory_xact_lock(731984201, 25)`）
 
 | 表 | 欄位 | 約束與索引 |
 |---|---|---|
@@ -51,7 +51,7 @@ Status：draft（本工作單只交付契約、設計板、可編譯的骨架與
 - 第一版不清除 `agent_events`；`summary` 序列化後 ≤ 2 KiB。
 - Go 模型放 `internal/core/agent.go`（`Agent`、`AgentKey`、`AgentEvent`），`key_hash` 欄位 `json:"-"`。
 
-### `internal/agent` 套件（純函式，本單已放簽名）
+### `internal/agent` 套件（純函式）
 
 ```go
 const KeyPrefix = "jla_"                    // 金鑰開頭
@@ -109,9 +109,9 @@ func ValidGraceMinutes(n int) bool           // 1 ≤ n ≤ 1440
 | （不需權限，要金鑰） | `GET /me` | 無 | 任何角色 | 擁有者存在且有效即可 |
 | （公開） | `GET /`（即 `/api/agent/v1`）、`GET /openapi.json` | 無 | — | 不需金鑰、不記錄 |
 
-**第一版不開放給 agent 的 `/api/admin` 路由**（理由一律寫進說明端點的 `not_exposed`）：`/comments*`、`/menus*`、分類與標籤的寫入（`POST|PUT|DELETE /categories*`、`POST|PUT|DELETE /tags*`、`POST /categories/reorder`）、`/trash*`、`/posts/:id/revisions*`、`/palette`、`/payment/gateways*` 與 `/oauth/providers*`（含第三方憑證）、`POST /plugins/upload`（等於安裝程式碼，且 main 上有 08 列出的目錄穿越問題）、`/agents*`（agent 不能管理 agent）。這些沒有對應權限，加開需另立工作單。
+**第一版不開放給 agent 的 `/api/admin` 路由**（理由一律寫進說明端點的 `not_exposed`）：`/comments*`、`/menus*`、分類與標籤的寫入（`POST|PUT|DELETE /categories*`、`POST|PUT|DELETE /tags*`、`POST /categories/reorder`）、`/trash*`、`/posts/:id/revisions*`、`/palette`、`/payment/gateways*` 與 `/oauth/providers*`（含第三方憑證）、`POST /plugins/upload`（等於安裝程式碼）、`/agents*`（agent 不能管理 agent）。這些沒有對應權限，加開需另立工作單。
 
-**`settings.read` 遮罩**：main 的 `GET /api/admin/settings` 原樣回傳所有選項，包含 `payment_*_hash_key`、`payment_*_hash_iv`、`oauth_*_client_secret`（08 第一批已列為安全問題）。本單的 agent `GET /settings` 重用同一個 handler，但輸出前套用遮罩函式 `maskOptionValue(key, value string) string`：鍵以 `_secret`、`_key`、`_hash_iv`、`_password`、`_token`、`_enc` 結尾者，值長度 ≥ 8 時回 `****` 加最後 4 個字元，否則回 `****`，空字串維持空字串；其他鍵原樣。admin 的 `GET /api/admin/settings` 本單不改（交給 08，見調和）。
+**`settings.read` 遮罩**：工作單 08 已合入 main，agent 與 admin 共用 `handleSettingsList`，由 `settings.DisplayValue` 依設定登記表與既有密封值規則遮罩，兩邊回傳相同結果。一般秘密值以 rune 計算，空字串維持空字串、至多四字元回 `****`、超過四字元回 `****` 加最後四字元；密封的結構值依共用遮罩器處理。agent 不另建後綴遮罩表，也不變更既有 admin 行為。
 
 ### agent API 的驗證、授權與記錄（`/api/agent/v1` 前綴上依序執行）
 
@@ -119,7 +119,7 @@ func ValidGraceMinutes(n int) bool           // 1 ≤ n ≤ 1440
 2. **金鑰**：只認 `Authorization: Bearer jla_…`。沒有 `Authorization` → 401 `key_missing`；其他格式、JWT、找不到雜湊 → 401 `key_invalid`；cookie 與 session 一律不看。找到金鑰後依序檢查：金鑰 `revoked_at` → 401 `key_revoked`；`expires_at` ≤ 現在 → 401 `key_expired`；agent `deleted_at` 非空 → 401 `key_revoked`；agent `status=disabled` → 401 `agent_disabled`；擁有者不存在 → 401 `owner_unavailable`。每次請求重查，不快取。
 3. **權限**（每條路由一個 `Permission`，由 middleware 檢查，handler 不判斷）：agent 沒有該權限 → 403 `permission_missing`，`details = {"missing_permissions": ["posts.write"], "required_permission": "posts.write"}`；擁有者目前角色不在該權限 `required_roles` → 403 `owner_role_insufficient`，`details = {"permission", "required_roles", "owner_role"}`。通過後 `c.Set("user", 擁有者)`，被重用的 handler 照原邏輯做擁有權判斷（例如作者只能動自己的文章）。
 4. **版本防覆蓋**（`PUT /posts/:id`、`PUT /pages/:id`、`PUT /products/:id`）：本文必須有 `base_updated_at`（RFC3339Nano 字串）。缺少 → 400 `version_required`；無法解析 → 400 `version_invalid`；與資料庫目前 `updated_at` 不符 → 409 `version_conflict`，`details = {"current_updated_at": "..."}`。比對與寫入在同一個條件式 `UPDATE … WHERE id = ? AND updated_at = ?` 完成（以影響列數判斷），不得先讀再寫。`base_updated_at` 本身不寫進資料。回應裡的 `updated_at` 必須是資料庫實際存的值（微秒精度），這樣下一次拿它當 `base_updated_at` 才會相符。`/api/admin` 的同名 handler 沒帶這個值時行為完全不變。
-5. **記錄**：金鑰能對應到 `agent_keys` 列的請求（含被拒的 401／403）都寫一筆 `agent_events`：`actor_type=agent`、`action=request`、`module` = 權限的資源名（`/me` 為 `me`）、`method`、`route` = Echo 路由樣板（例如 `/api/agent/v1/posts/:id`；未匹配路由為空字串）、`status`、`ip_masked = agent.MaskIP(c.RealIP())`、`key_id`、`key_prefix`、`request_id`、`summary = {"params": {路徑參數}, "query_keys": [排序後的查詢鍵名，不含值], "body_bytes": 請求本文位元組數}`。不存請求本文與回應內容。找不到雜湊的請求不記錄。成功的請求同時更新金鑰 `last_used_at` 與 `last_used_ip_masked`（每把每分鐘最多寫一次）。
+5. **記錄**：金鑰能對應到 `agent_keys` 列的請求（含被拒的 401／403）都寫一筆 `agent_events`：`actor_type=agent`、`action=request`、`module` = 權限的資源名（`/me` 為 `me`）、`method`、`route` = Echo 路由樣板（例如 `/api/agent/v1/posts/:id`；未匹配路由為空字串）、`status`、`ip_masked = agent.MaskIP(c.RealIP())`、`key_id`、`key_prefix`、`request_id`、`summary = {"params": {路徑參數}, "query_keys": [排序後的查詢鍵名，不含值], "body_bytes": 請求本文位元組數}`。不存請求本文與回應內容。有 Content-Length 時記宣告長度，chunked 本文記實際讀取量，拒絕前未讀取的串流記 0，不額外排空本文。超過摘要容量時保留可容納的參數與排序後鍵名，附 `truncated:true`、`params_total` 與 `query_keys_total`（原查詢鍵出現次數），序列化後仍小於 2 KiB；未匹配路由的 params 為空。找不到雜湊的請求不記錄。成功的請求同時更新金鑰 `last_used_at` 與 `last_used_ip_masked`（每把每分鐘最多寫一次）。
 6. **維護模式**：`/api/agent/v1` 與其子路徑加入 `maintenanceBypass` 清單，維護中 agent 照常運作（與 `/api/admin` 相同）。
 
 ### 錯誤格式（agent API 全部錯誤；issue #7 WebMCP 共用）
@@ -169,7 +169,9 @@ agent 物件（清單、詳情、建立、修改、停用、啟用回應都是�
 | M6 | `POST /api/admin/agents/:id/keys/:key_id/revoke` | | 200 該金鑰（`{id, prefix, status, …}`）；金鑰不屬於此 agent 404 `key_not_found`；已撤銷的再撤銷回 200 不變；可撤銷生效中的金鑰（之後只能輪替取得新金鑰）；寫 `key.revoke` |
 | M7 | `POST /api/admin/agents/:id/disable`、`/enable` | | agent；停用設 `disabled_at`，所有金鑰下一次請求 401 `agent_disabled`；啟用清掉 `disabled_at`，未撤銷未過期的金鑰恢復；寫 `agent.disable`／`agent.enable` |
 | M8 | `DELETE /api/admin/agents/:id` | | 204；軟刪除、撤銷所有金鑰、寫 `agent.delete`；之後 M3 404、M1 不列，事件保留 |
-| M9 | `GET /api/admin/agents/events` | `agent_id, actor_type, action, module, status, since, until, cursor, limit` | `{items, next_cursor, total}`，全部 agent（含已刪除）的事件，篩選規則同 A4 |
+| M9 | `GET /api/admin/agents/events` | `agent_id, actor_type, action, module, status, key_id, since, until, cursor, limit` | `{items, next_cursor, total}`，全部 agent（含已刪除）的事件，篩選規則同 A4 |
+
+M9 的 `action` 可重複傳入，例如 `action=key.rotate&action=key.revoke`，代表任一指定動作；相同值去重，空值忽略。`key_id` 篩選指定金鑰。這些條件先用於 SQL 計數與分頁，`total` 不受 cursor 影響。請求事件的 `status=0` 表示已保存請求，但最終結果尚未確認，不能視為成功；中斷後仍保留供追查。
 
 管理動作的事件：`actor_type=user`、`actor_user_id` = 操作者、`module=agents`、`method`／`route` = 管理 API 的方法與路由樣板、`status` = 回應狀態、`ip_masked` = 操作者遮罩 IP、`key_id`／`key_prefix` = 受影響的金鑰（建立、輪替為新金鑰，撤銷為被撤銷的金鑰，其他為空）。讀取（M1、M3、M9）不記錄。`action` 只有：`agent.create`、`agent.update`、`agent.disable`、`agent.enable`、`agent.delete`、`key.rotate`、`key.revoke`、`request`。
 
@@ -220,34 +222,16 @@ agent 物件（清單、詳情、建立、修改、停用、啟用回應都是�
 
 `skills/jelly-cms/SKILL.md`：YAML front matter（`name: jelly-cms`、`description`），本文至少涵蓋：金鑰放 `Authorization: Bearer jla_…`；先 `GET /api/agent/v1` 與 `GET /api/agent/v1/openapi.json` 探索、`GET /api/agent/v1/me` 確認有效權限；讀文章、建立草稿、帶 `base_updated_at` 更新並處理 409（重新讀取、合併、再送）；錯誤格式與 `correlation_id`；`logs.read` 查自己的紀錄；不要把金鑰寫進程式碼或日誌。
 
-## 與 06、08、09 的調和
+## 與既有 main 的調和
 
-本單與草稿 PR #24（06 帳號）、#27（08 系統）、#26（09 編輯器）各自以 main 為基底；誰後合併，誰負責下列調和，並在該 PR 說明裡逐條勾選。
-
-**06（`claude/pr-d-accounts`）**
-
-- 06 後合併：`principal.go` 的 `resolvePrincipal` 對 `jla_` 開頭的 Bearer 直接拒絕（不當 JWT、不當 `jly_` 權杖），維持「agent 金鑰打 `/api/admin/*` 一律 401」。
-- 不論誰後合併：agent 驗證加一條——擁有者 `status != active`（停用或邀請中）時一律 401 `owner_unavailable`；`/api/admin/agents/*` 的寫入端點（M2、M4–M8）套 06 的 `RequireInteractive`，個人 API 權杖（`jly_`）不能管理 agent。
-- IP 遮罩只留一個實作：06 的遮罩函式與 `agent.MaskIP` 規則相同（IPv4 去最後一段為 `.0`、IPv6 保留前 48 位元），後合併者改成呼叫同一個。
-- 側欄「系統」順序：`users`（80）、`agents`（85）、`settings`（90）；`TestAdminNavRoleVisibility` 的 admin 期望值合併為 `{"users", "agents", "settings"}`。
-- 遷移：06 加的通用 `runEmbeddedMigrations` 會掃到 `0024_agents.sql`；後合併者移除本單的單檔套用函式，改由通用執行器套用（檔案本身可重跑，不需改）。
-- 06 的 `api_documentation.go`（`/api/docs`）加一行連到 `/api/agent/v1`；`Tokens` 板的說明文字分清「個人 API 權杖」與「AI agent 金鑰」。
-
-**08（`claude/pr-f-system`）**
-
-- 08 後合併：本單的 `req_` 產生器改用 08 的 RequestID 中介層（同樣 `req_` 開頭），`correlation_id` 取同一個值；每筆 `agent_events` 另寫一筆 `system_logs`（`source=audit`、`request_id`、`ip_masked`、`fields = {agent_id, key_prefix, action, module, route, status}`）。
-- `settings.read`：08 讓 `GET /api/admin/settings` 依已登記鍵遮罩後，agent 端改用 `settings.Masked`，刪掉本單的 `maskOptionValue`，兩邊輸出完全相同。08 把設定寫入改成 `PUT` 時，agent 的 `settings.write` 端點同步改成 `PUT /settings`（路由表一處改動，說明與 OpenAPI 跟著變）。
-- 08 的 `IPExtractor` 與 `JELLY_TRUSTED_PROXIES` 上線後，agent 的 `ip_masked` 自動改用可信來源 IP，不需另改。
-- 08 修好外掛上傳的目錄穿越後，`POST /plugins/upload` 是否加進 `plugins.write` 另立工作單決定。
-- 08 新增的 `/media/files*` 端點出現後，`media.*` 的對照表由後合併者補齊。
-
-**09（`claude/pr-g-editor`）**
-
-- 欄位名同為 `base_updated_at`、語意相同；09 讓 `/api/admin` 也接受（選填）時，兩邊共用同一個條件式 UPDATE，agent 端仍是必填並回本單的錯誤格式。09 給 `PUT /api/admin/posts/:id` 加的 `source`、`format` 透過重用 handler 自動對 agent 開放，後合併者更新說明端點的範例。
-
-**07（`claude/pr-e-shop`）**：`products.*`、`orders.read` 指向 07 改寫後的同一組 handler；07 若新增 `GET /orders/:id`，加進 `orders.read`。
-
-**issue #7（WebMCP）**：共用 `writeAPIError` 的錯誤格式與 `req_` Request ID。
+- **06 帳號**：`resolvePrincipal` 直接拒絕 `jla_`，管理寫入使用 `RequireInteractive`，`jly_` 個人 API 權杖不能管理 agent。擁有者的有效狀態與目前角色每次重查。IP 遮罩共用 `agent.MaskIP`，保留帳號端原本的 host／port 解析。
+- **06 導覽與文件**：系統區順序為 users（80）、agents（85）、settings（90）。`/api/docs` 的 OpenAPI 說明連到 agent 探索端點；Tokens 板分清個人權杖與 AI agent 金鑰。
+- **資料遷移**：沿用 `runEmbeddedMigrations` 套用新增的 `0025_agents.sql`，不修改 main 已有的 `0024` 搜尋遷移。
+- **08 系統**：Request ID 沿用現有中介層，每筆 agent event 同交易寫入 `source=audit` 的 system log。設定讀寫使用與 admin 相同的 handler、設定登記表及遮罩。保留 POST 並支援 main 的 PUT 設定寫入。
+- **08 附件**：除舊式 media 路由，也涵蓋 GET／POST `/media/files`、PATCH／DELETE `/media/files/:id`、POST `/media/files/:id/replace`。agent 不開放儲存策略、分組寫入或抓取外部網址。
+- **09 編輯器**：共用文章 handler 與條件式 UPDATE，`source`、`format` 等現有內容欄位沿用原有語意，agent 更新必帶 `base_updated_at`。文章／頁面的類型限制同時套用讀取與最終寫入。
+- **07 商店**：商品、訂單直接使用 main 的型別化 handler，包含 GET `/orders/:id`。商品版本防覆蓋涵蓋整個交易，庫存、規格與分類不能部分成功。
+- **13 WebMCP**：保留現有公開 API 與錯誤格式，agent 的錯誤封裝只作用於新增的 agent 路由。
 
 ## 決策紀錄
 
@@ -256,8 +240,8 @@ agent 物件（清單、詳情、建立、修改、停用、啟用回應都是�
 | 獨立前綴 `/api/agent/v1`，重用 `/api/admin` 的 handler（同一個函式掛兩處）；`/api/admin/*` 不接受 agent 金鑰，一律 401 | `/api/admin/*` 直接接受金鑰：權限邊界與文件不清楚，人與 agent 的請求混在一起難以稽核 |
 | 只有 admin 能建立 agent，擁有者 = 建立者；所有 admin 可管理所有 agent | 任何員工都能建 agent：作者可替自己發高權限金鑰，稽核責任不清 |
 | 權限的 `required_roles` 取群組角色與 handler 內部限制的交集（`pages.write` 為 admin、editor） | 只沿用群組角色：作者擁有者的 `effective_permissions` 會列出 `pages.write`，實際呼叫卻被 handler 403，agent 無法靠 `/me` 判斷自己能做什麼 |
-| `settings.read` 在 agent 端輸出前遮罩秘密；`/api/admin/settings`、OAuth 提供者、金流設定目前回明文的問題由工作單 08 的設定遮罩處理 | 本單一併改 admin 端：超出本 issue 範圍，且會和 08 的設定登記表重疊 |
-| `plugins.write` 只含 reload，不含外掛上傳 | 開放上傳：等於讓 agent 安裝任意程式碼，main 的上傳路徑還有目錄穿越問題（08 修正後另立工作單評估） |
+| `settings.read` 沿用工作單 08 已合入的設定登記表與共用遮罩 handler | agent 另建遮罩表：與 admin 結果不同，且會漏掉已登記的秘密與密封結構值 |
+| `plugins.write` 只含 reload，不含外掛上傳 | 開放上傳等於讓 agent 安裝程式碼，須另立工作單評估 |
 | 金鑰 `jla_` + base64url(32 bytes)，只存 SHA-256 雜湊與前綴，明文只在建立與輪替回應出現一次 | 加密保存＋「顯示金鑰」：資料庫與加密金鑰一起外洩時所有金鑰外洩；也讓「只顯示一次」形同虛設 |
 | agent 與金鑰分表，一個 agent 多把金鑰紀錄，各有 `created_at`、`last_used_at`、`expires_at`、`revoked_at` | 金鑰欄位放在 agent 上：無法同時存在新舊兩把，也留不下輪替歷史 |
 | 輪替預設立即失效，可選 1–1440 分鐘過渡期，可提前撤銷；同時最多兩把有效金鑰 | 不設上限的過渡期：舊金鑰可能長期有效；允許多把過渡金鑰：難以推算哪把還能用 |
@@ -272,7 +256,7 @@ agent 物件（清單、詳情、建立、修改、停用、啟用回應都是�
 | 被拒的 401／403 只要能對應到金鑰也記錄；找不到雜湊的不記錄 | 全部記錄：亂猜金鑰會灌爆日誌；全部不記錄：查不到已撤銷金鑰仍在被使用 |
 | agent 自己的 `/logs` 只看 `actor_type=agent`；管理員看全部 | 讓 agent 看到管理動作：會看到操作者的使用者 ID，沒有必要 |
 | 錯誤格式 `{code, message, details, correlation_id}`，`req_` Request ID 由伺服器產生 | 沿用 `{"error": ...}`：agent 無法依代碼分流；採用請求帶來的 ID：可被偽造混淆紀錄 |
-| 設定讀取對 agent 遮罩秘密；`/api/admin/settings` 本單不改 | 本單順手改 admin：與 08 的設定登記重工並互相衝突 |
+| 設定讀取共用 main 的遮罩結果；`/api/admin/settings` 本單不改 | 改既有 admin 遮罩門檻會超出本單範圍 |
 | 不開放留言、選單、回收桶、版本、金流與 OAuth 設定、外掛上傳 | 全部開放：沒有對應權限、含第三方憑證或等於安裝程式碼 |
 | 維護模式不擋 `/api/agent/v1` | 擋下：維護期間正是常需要 agent 批次處理內容的時候 |
 | 過渡期滿的測試直接改 `agent_keys.expires_at` | 可注入時鐘：要在正式程式留測試掛鉤，增加複雜度 |
@@ -282,7 +266,7 @@ agent 物件（清單、詳情、建立、修改、停用、啟用回應都是�
 每段先由測試代理照本文件建立失敗案例（已隨本工作單交付），實作代理依契約實作，主代理審查後以真實伺服器與 Playwright 驗收。測試名稱清單見下一節的對照表。
 
 1. A0 設計板（已隨本單交付）：`design/gen/gen_agents.py` 產生 `Agents`、`AgentDetail`，`canvas.json` 已加入。
-2. A1 資料與金鑰：`0024_agents.sql` 與套用、`internal/core/agent.go`、`internal/agent` 全部函式。測試：`internal/agent/agent_test.go`、`TestAgentSchemaMigrationIsRepeatable`。
+2. A1 資料與金鑰：`0025_agents.sql` 與套用、`internal/core/agent.go`、`internal/agent` 全部函式。測試：`internal/agent/agent_test.go`、`TestAgentSchemaMigrationIsRepeatable`。
 3. A2 管理 API：M1–M8、管理事件、`api_errors.go`。測試：`agent_keys_integration_test.go` 除 `TestAgentAdminPagesAdminOnly` 與 `TestAgentAdminEventsFollowAgentAcrossRotation` 以外的測試（需要 A3 的 `/me` 才能全綠）。
 4. A3 agent 驗證、路由表與授權：Request ID、金鑰 middleware、權限 middleware、handler 抽成具名函式並掛兩處、`type` 範圍、版本防覆蓋、錯誤改寫、設定遮罩、維護模式放行。測試：`agent_api_integration_test.go` 的 `Me`、`PostsWrite…`、`TypeScoped`、`UpdateRequires…`、`KeyCannotReachAdminAPI`、`ErrorsUseEnvelope…`、`SettingsReadMasksSecrets`、`APIOpenDuringMaintenance`。
 5. A4 自我說明：A1、A2。測試：`TestAgentDiscoveryIndexNeedsNoKey`、`TestAgentOpenAPIDocumentIsValid31AndMatchesRoutes`。

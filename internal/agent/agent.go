@@ -1,10 +1,15 @@
 // Package agent holds the pure parts of the AI agent API (docs/tickets/14-agent-api.md):
 // the permission catalogue, key generation and hashing, IP masking and the
 // rotation grace bounds. It has no database or HTTP dependencies.
-//
-// This file is the ticket 14 skeleton: every function returns its zero value
-// until slot A1 fills it in.
 package agent
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"net"
+)
 
 // KeyPrefix starts every agent key. A key is KeyPrefix followed by the
 // unpadded base64url encoding (RFC 4648 §5) of 32 random bytes, 47 characters
@@ -50,53 +55,87 @@ const (
 // products.read, products.write, orders.read, themes.read, themes.write,
 // plugins.read, plugins.write, settings.read, settings.write, logs.read.
 func AllPermissions() []Permission {
-	// TODO(ticket 14): return the catalogue above.
-	return nil
+	return []Permission{
+		PostsRead,
+		PostsWrite,
+		PagesRead,
+		PagesWrite,
+		MediaRead,
+		MediaWrite,
+		ProductsRead,
+		ProductsWrite,
+		OrdersRead,
+		ThemesRead,
+		ThemesWrite,
+		PluginsRead,
+		PluginsWrite,
+		SettingsRead,
+		SettingsWrite,
+		LogsRead,
+	}
 }
 
 // ValidPermission reports whether name is one of AllPermissions.
 func ValidPermission(name string) bool {
-	// TODO(ticket 14)
+	for _, permission := range AllPermissions() {
+		if name == string(permission) {
+			return true
+		}
+	}
 	return false
 }
 
 // Resource returns the part before the dot: "posts.write" → "posts". It is
 // also the module name written to agent_events.
 func (p Permission) Resource() string {
-	// TODO(ticket 14)
-	return ""
+	for i, char := range p {
+		if char == '.' {
+			return string(p[:i])
+		}
+	}
+	return string(p)
 }
 
 // GenerateKey returns a new plaintext key from crypto/rand.
 func GenerateKey() (string, error) {
-	// TODO(ticket 14)
-	return "", nil
+	var randomBytes [32]byte
+	if _, err := rand.Read(randomBytes[:]); err != nil {
+		return "", err
+	}
+	return KeyPrefix + base64.RawURLEncoding.EncodeToString(randomBytes[:]), nil
 }
 
 // HashKey returns the lowercase hex SHA-256 of the whole plaintext key,
 // including KeyPrefix. Only this hash is stored.
 func HashKey(plaintext string) string {
-	// TODO(ticket 14)
-	return ""
+	sum := sha256.Sum256([]byte(plaintext))
+	return hex.EncodeToString(sum[:])
 }
 
 // PrefixOf returns the first DisplayPrefixLength characters of a key, or ""
 // when the key is shorter.
 func PrefixOf(plaintext string) string {
-	// TODO(ticket 14)
-	return ""
+	if len(plaintext) < DisplayPrefixLength {
+		return ""
+	}
+	return plaintext[:DisplayPrefixLength]
 }
 
 // MaskIP keeps the network part of an address: IPv4 drops the last octet
 // ("198.51.100.77" → "198.51.100.0"), IPv6 keeps the first 48 bits
 // ("2001:db8:abcd:12::5" → "2001:db8:abcd::"). Unparsable input returns "".
 func MaskIP(ip string) string {
-	// TODO(ticket 14)
-	return ""
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return ""
+	}
+	if ipv4 := parsed.To4(); ipv4 != nil {
+		return ipv4.Mask(net.CIDRMask(24, 32)).String()
+	}
+	return parsed.Mask(net.CIDRMask(48, 128)).String()
 }
 
 // ValidGraceMinutes reports whether n is within MinGraceMinutes..MaxGraceMinutes.
 func ValidGraceMinutes(n int) bool {
-	// TODO(ticket 14)
-	return false
+	return n >= MinGraceMinutes && n <= MaxGraceMinutes
 }

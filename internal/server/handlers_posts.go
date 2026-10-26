@@ -20,6 +20,7 @@ import (
 	"github.com/goccy/go-json"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var errPostConflict = errors.New("post changed")
@@ -48,7 +49,7 @@ func requirePostReadPermission(next echo.HandlerFunc) echo.HandlerFunc {
 			for _, scope := range principal.Scopes {
 				switch scope {
 				case "admin", "editor", "author":
-					return auth.RequireRole("admin", "editor", "author")(next)(c)
+					return auth.RequireRole(contentRoles...)(next)(c)
 				}
 			}
 		}
@@ -74,6 +75,9 @@ func listPosts(c echo.Context) error {
 		return err
 	}
 	postType := c.QueryParam("type")
+	if scopedType, ok := c.Get("agent.content_type").(string); ok && scopedType != "" {
+		postType = scopedType
+	}
 	if postType == "" {
 		postType = "post"
 	}
@@ -103,7 +107,7 @@ func createPost(c echo.Context) error {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid content type"})
 		}
 	}
-	if user.Role == "author" && postType != "post" {
+	if postType != "post" && !roleListContains(user.Role, editorRoles) {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
 	}
 	post := core.Post{AuthorID: user.ID, Type: postType, Visibility: "public"}
@@ -182,6 +186,9 @@ func getPost(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
 	}
 	query := data.DB.Where("id = ?", id).Preload("Categories").Preload("Tags")
+	if contentType, ok := c.Get("agent.content_type").(string); ok && contentType != "" {
+		query = query.Where("type = ?", contentType)
+	}
 	if user.Role == "author" {
 		query = query.Where("author_id = ? AND type = ?", user.ID, "post")
 	}
@@ -215,6 +222,9 @@ func updatePost(c echo.Context) error {
 	}
 	var existing core.Post
 	visible := data.DB.Where("id = ?", id)
+	if contentType, ok := c.Get("agent.content_type").(string); ok && contentType != "" {
+		visible = visible.Where("type = ?", contentType)
+	}
 	if user.Role == "author" {
 		visible = visible.Where("author_id = ? AND type = ?", user.ID, "post")
 	}
@@ -244,6 +254,9 @@ func updatePost(c echo.Context) error {
 		}
 		baseUpdatedAt = &base
 		if !base.Equal(existing.UpdatedAt) {
+			if c.Get("agent.identity") != nil {
+				return writeAPIError(c, http.StatusConflict, "version_conflict", "Post changed since it was read", map[string]any{"current_updated_at": existing.UpdatedAt.Format(time.RFC3339Nano)})
+			}
 			return c.JSON(http.StatusConflict, map[string]any{"error": "Post changed", "updated_at": existing.UpdatedAt})
 		}
 	}
@@ -267,7 +280,7 @@ func updatePost(c echo.Context) error {
 	for _, key := range []string{"content", "source", "format", "render_version", "render_trust", "meta"} {
 		updates[key] = fieldValue(nextForRender, key)
 	}
-	if nextType, ok := updates["type"].(string); ok && user.Role == "author" && nextType != "post" {
+	if nextType, ok := updates["type"].(string); ok && nextType != "post" && !roleListContains(user.Role, editorRoles) {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
 	}
 	_, seoInput := input["seo_index"]
@@ -287,6 +300,9 @@ func updatePost(c echo.Context) error {
 	slugRedirectSkipped := ""
 	err = data.DB.Transaction(func(tx *gorm.DB) error {
 		write := tx.Model(&core.Post{}).Where("id = ?", id)
+		if contentType, ok := c.Get("agent.content_type").(string); ok && contentType != "" {
+			write = write.Where("type = ?", contentType)
+		}
 		if user.Role == "author" {
 			write = write.Where("author_id = ? AND type = ?", user.ID, "post")
 		}
@@ -336,6 +352,12 @@ func updatePost(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
 	}
 	if errors.Is(err, errPostConflict) {
+		if c.Get("agent.identity") != nil {
+			var current core.Post
+			if readErr := data.DB.Select("updated_at").First(&current, id).Error; readErr == nil {
+				return writeAPIError(c, http.StatusConflict, "version_conflict", "Post changed since it was read", map[string]any{"current_updated_at": current.UpdatedAt.Format(time.RFC3339Nano)})
+			}
+		}
 		return c.JSON(http.StatusConflict, map[string]string{"error": "Post changed"})
 	}
 	if err != nil {
@@ -497,24 +519,47 @@ func deletePost(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
 	}
-	// Soft delete: the post moves to the recycle bin with its slug suffixed so the slug is free again.
+	// Lock and re-check the type and visibility inside the same transaction as
+	// the soft delete so a concurrent type change cannot trash the wrong item.
 	var post core.Post
-	if err := visiblePostQuery(data.DB, user, id).First(&post).Error; err != nil {
+	err = data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+		query := visiblePostQuery(tx, user, id).Clauses(clause.Locking{Strength: "UPDATE"})
+		contentType, isAgent := c.Get("agent.content_type").(string)
+		if isAgent && contentType != "" {
+			query = query.Where("type = ?", contentType)
+		}
+		if err := query.First(&post).Error; err != nil {
+			return err
+		}
+		write := tx.Model(&core.Post{}).Where("id = ? AND deleted_at IS NULL", post.ID)
+		delete := tx.Where("id = ? AND deleted_at IS NULL", post.ID)
+		if isAgent && contentType != "" {
+			write = write.Where("type = ?", contentType)
+			delete = delete.Where("type = ?", contentType)
+		}
+		result := write.Updates(map[string]any{
+			"slug":          trashedSlug(post.Slug, id),
+			"deleted_by_id": user.ID,
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return gorm.ErrRecordNotFound
+		}
+		result = delete.Delete(&core.Post{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return gorm.ErrRecordNotFound
+		}
+		return nil
+	})
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to delete post"})
-	}
-	err = data.DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&post).Updates(map[string]any{
-			"slug":          trashedSlug(post.Slug, id),
-			"deleted_by_id": user.ID,
-		}).Error; err != nil {
-			return err
-		}
-		return tx.Delete(&post).Error
-	})
-	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to delete post"})
 	}
 	return c.JSON(http.StatusOK, map[string]string{"message": "Deleted"})

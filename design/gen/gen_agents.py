@@ -5,12 +5,23 @@ sys.path.insert(0, os.path.dirname(__file__))
 import gen
 from gen import I, doc, ADMIN_CSS, OUT, admin
 
+# These two boards share the shipped admin fonts; no network fonts in previews.
+gen.FONTS = '<style>@font-face{font-family:"Bricolage Grotesque";src:url("/admin/assets/fonts/bricolage-grotesque.woff2") format("woff2")}@font-face{font-family:"Noto Sans TC";src:url("/admin/assets/fonts/noto-sans-tc.woff2") format("woff2")}</style>'
+
 # 側欄「系統」區加上 AI agent（只影響這支腳本產生的板）。
 for _sec, _items in gen.NAV:
     if _sec == "系統" and not any(k == "agents" for k, *_ in _items):
         _items.insert(1, ("agents", "Agents.dc.html", "AI agent", "key", "new"))
 
 CSS = ADMIN_CSS + '''
+.btn.p{background:#D82050;color:#fff}.btn.danger{background:#CF3025;color:#fff}
+.chip.ok{background:color-mix(in srgb,#15A06A 14%,#fff);color:color-mix(in srgb,#15A06A 70%,#15161A)}
+.chip.warn{background:color-mix(in srgb,#F5B800 22%,#fff);color:color-mix(in srgb,#F5B800 45%,#15161A)}
+fieldset{border:0;padding:0;margin:0;min-inline-size:0}
+td.act{min-width:72px;white-space:nowrap}.chip.nd::before{display:none}
+.key-table-wrap{max-width:100%;overflow:auto}.key-table-wrap code{white-space:nowrap;word-break:normal}
+@media(min-width:601px){.key-table{min-width:864px}.key-table td{white-space:nowrap}}
+@media(max-width:600px){.key-scroll-hint{display:none}.key-table,.key-table tbody,.key-table tr,.key-table td{display:block;width:100%;box-sizing:border-box}.key-table thead{display:none}.key-table td{white-space:normal}}
 .k{font:12.5px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:#15161A;letter-spacing:0}
 .k.m{color:#5F6470}
 .note{display:flex;align-items:flex-start;gap:14px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;line-height:1.6}
@@ -34,8 +45,8 @@ CSS = ADMIN_CSS + '''
 .dlg .ft{padding:12px 18px;border-top:1px solid #EEEFF2;display:flex;gap:8px;align-items:center}
 .st{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.06em;color:#5F6470;text-transform:uppercase}
 .st i{font-style:normal;width:20px;height:20px;display:grid;place-items:center;border-radius:0 7px 0 7px;background:#15161A;color:#fff;font-size:11px;letter-spacing:0}
-.err{font-size:12px;color:#9C2318;display:flex;align-items:center;gap:6px;margin-top:6px}
-.ul.bad{border-bottom-color:#9C2318}
+.err{font-size:12px;color:color-mix(in srgb,#E03B2E 75%,#15161A);display:flex;align-items:center;gap:6px;margin-top:6px}
+.ul.bad{border-bottom-color:color-mix(in srgb,#E03B2E 75%,#15161A)}
 .tl{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:10px 0;border-top:1px solid #EEEFF2;font-size:13px;align-items:baseline}
 .tl .t{color:#5F6470;font-size:12px}
 .lg{display:grid;grid-template-columns:72px 104px minmax(0,1fr) 196px 100px;gap:12px;padding:8px 10px;border-bottom:1px solid #EEEFF2;align-items:baseline;font-size:12.5px}
@@ -45,6 +56,8 @@ CSS = ADMIN_CSS + '''
 .sel{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 10px;background:#F3F3F5;border-radius:0 8px 0 8px;font-size:12px;font-weight:700;color:#15161A}
 .danger-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-top:1px solid #EEEFF2}
 .danger-row .h{font-size:12px;color:#5F6470;line-height:1.55;margin-top:2px}
+@media(max-width:900px){main,main>div[style*="grid-template-columns"],main section>div[style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr)!important}aside{position:static!important}.side{display:none!important}.main{margin-left:0!important}main{padding:16px!important}table{display:block;max-width:100%;overflow:auto}.lg{grid-template-columns:70px minmax(0,1fr)!important}.lg>*{overflow-wrap:anywhere}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 '''
 
 def chips(perms):
@@ -130,6 +143,7 @@ agents_main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template
     <div><span class="lbl">權限</span><div style="margin-top:8px">{perm_grid({"posts.read","posts.write","media.write"})}</div></div>
     <div style="font-size:12px;color:#5F6470;line-height:1.6;display:flex;gap:8px">{I("user",14)}<span>擁有者是你（Hazel · 管理員）。標「需管理員」的權限，擁有者不是管理員時不會生效。</span></div>
     <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("key")}建立並產生金鑰</button><button class="btn t" type="button">{I("x")}取消</button></div>
+    <div class="note">連線中斷時保留名稱、說明與權限，恢復後手動重試，不自動重送建立。確認狀態後再重試，避免重複操作。</div>
   </aside>
 </main>'''
 
@@ -166,7 +180,7 @@ d1 = dlg("1", "輪替金鑰 · 立即失效（預設）", rot_opts("immediate") 
 d2 = dlg("2", "輪替金鑰 · 過渡期", rot_opts("grace") + minutes("30") + f'<div style="font-size:12px;color:#3A3D45;background:#F5F5F7;border-radius:0 10px 0 10px;padding:8px 10px">舊金鑰 <span class="k">jla_Qm3d8sKe…</span> 會在 <b>今天 16:12</b> 失效。</div>',
          f'<button class="btn p" type="button">{I("refresh")}輪替</button><button class="btn t" type="button">取消</button>')
 d3 = dlg("3", "輪替金鑰 · 過渡期超過上限", rot_opts("grace") + minutes("1500", True),
-         f'<button class="btn p" type="button" disabled style="opacity:.45">{I("refresh")}輪替</button><button class="btn t" type="button">取消</button><span style="font-size:12px;color:#9C2318;margin-left:auto">API 也會回 400 grace_out_of_range</span>')
+         f'<button class="btn p" type="button" disabled style="opacity:.45">{I("refresh")}輪替</button><button class="btn t" type="button">取消</button><span style="font-size:12px;color:color-mix(in srgb,#E03B2E 75%,#15161A);margin-left:auto">API 也會回 400 grace_out_of_range</span>')
 d4 = dlg("4", "新金鑰 · 只顯示這一次", f'''<div class="keybox"><span class="lbl">新金鑰</span>
         <div style="display:flex;align-items:flex-start;gap:8px"><code class="k">{NEW_KEY}</code><button class="btn t s i" type="button" aria-label="複製新金鑰">{I("copy",14)}</button></div>
         <div class="h">舊金鑰 <span class="k" style="color:#fff;font-size:12px">jla_Qm3d8sKe…</span> 過渡到 16:12，可在金鑰表提前撤銷。</div></div>''',
@@ -188,18 +202,22 @@ detail_main = f'''<main style="padding:16px 24px 32px;display:flex;flex-directio
 
     <div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="lbl">金鑰</span><span style="font-size:12px;color:#5F6470">同時最多兩把有效：生效中一把、過渡中一把</span></div>
-      <table><thead><tr><th>前綴</th><th>狀態</th><th>建立</th><th>最後使用</th><th>到期</th><th></th></tr></thead><tbody>
+      <p class="key-scroll-hint" style="font-size:12px;color:#5F6470">可左右捲動查看完整金鑰資料與操作。</p>
+      <div class="key-table-wrap" tabindex="0" role="region" aria-label="金鑰"><table class="key-table"><thead><tr><th>前綴</th><th>狀態</th><th>建立</th><th>最後使用</th><th>到期</th><th></th></tr></thead><tbody>
         {krow("jla_Qm3d8sKe…","生效中","ok","10/24 15:42 · Hazel","2 分鐘前 · 1.160.10.0","—","")}
         {krow("jla_7Hq2xP0a…","過渡中 · 剩 23:41","warn","10/02 09:12 · Ting","16 分鐘前 · 1.160.10.0","今天 16:12",f'<button class="btn danger s" type="button">{I("x",12)}提前撤銷</button>')}
         {krow("jla_Lp0Wq8Zd…","已撤銷","","09/14 10:03 · Ting","10/02 09:10","—","")}
         {krow("jla_m2Kc9Bv1…","已過期","","09/01 11:20 · Hazel","09/14 09:58","09/14 10:33","")}
-      </tbody></table>
+      </tbody></table></div>
     </div>
 
     <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start">
       <div class="card" style="display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;align-items:center;gap:8px"><span class="lbl">權限</span><span class="chip ok" style="margin-left:auto">有效 3/3</span><button class="btn x s" type="button">{I("edit",12)}修改</button></div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">{chips(["posts.read","posts.write","media.write"])}</div>
+        <label><span class="lbl">名稱</span><input class="ul" value="內容小幫手" aria-label="名稱"></label>
+        <label><span class="lbl">說明（可選）</span><textarea class="ul" aria-label="說明">寫草稿、補摘要與標籤</textarea></label>
+        {perm_grid({"posts.read","posts.write","media.write"})}
+        <button class="btn p" type="button">{I("save",12)}儲存變更</button>
         <div style="font-size:12px;color:#5F6470;line-height:1.6">有效權限＝勾選的權限 ∩ 擁有者目前角色。擁有者若降為作者，文章與附件仍可用；降為非員工則全部 403。</div>
       </div>
       <div class="card" style="display:flex;flex-direction:column;gap:2px">
@@ -253,11 +271,12 @@ detail_main = f'''<main style="padding:16px 24px 32px;display:flex;flex-directio
 B = {
     "Agents": ("後台 · AI agent", 1440, 1100, admin("agents", ["系統", "AI agent"],
         f'<a class="btn t" href="#">{I("external")}API 說明</a><button class="btn p" type="button">{I("plus")}建立 agent</button>', agents_main)),
-    "AgentDetail": ("後台 · AI agent 詳情與輪替", 1440, 2040, admin("agents", ["系統", "AI agent", "內容小幫手"],
+    "AgentDetail": ("後台 · AI agent 詳情與輪替", 1440, 2500, admin("agents", ["系統", "AI agent", "內容小幫手"],
         f'<button class="btn t" type="button">{I("pause")}停用</button><button class="btn p" type="button">{I("refresh")}輪替金鑰</button>', detail_main)),
 }
 
 for name, (title, w, h, html) in B.items():
     with open(os.path.join(OUT, f"{name}.dc.html"), "w", encoding="utf-8") as f:
-        f.write(doc(title, CSS, html, w, h))
+        rendered = doc(title, CSS, html, w, h)
+        f.write("\n".join(line.rstrip() for line in rendered.splitlines()) + "\n")
     print("wrote", name)

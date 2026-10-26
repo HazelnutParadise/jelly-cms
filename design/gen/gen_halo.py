@@ -121,7 +121,7 @@ B["Tokens"] = ("後台 · 個人帳號 · API 權杖", CSS, 1440, 1000, admin(""
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start">
     {profile_nav("API 權杖")}
     <section style="display:flex;flex-direction:column;gap:20px;max-width:980px">
-      <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;line-height:1.5">{I("key",18)}<span>權杖用來呼叫 REST API，不用帳密。權限用角色範本限制，到期自動失效。完整 API 文件在 <a href="#">/api/docs</a>（OpenAPI）。</span></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;line-height:1.5">{I("key",18)}<span>個人 API 權杖以 <code>jly_</code> 開頭，以你的身分呼叫 REST API，權限受目前角色限制，到期自動失效。API 文件在 <a href="#">/api/docs</a>（OpenAPI）。AI agent 使用獨立的 <code>jla_</code> 金鑰，由管理員在「<a href="Agents.dc.html">系統 › AI agent</a>」建立與管理。</span></div>
       <table>
         <thead><tr><th>名稱</th><th>權限</th><th>到期</th><th>最後使用</th><th>狀態</th><th></th></tr></thead>
         <tbody>

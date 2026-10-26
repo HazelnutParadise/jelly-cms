@@ -8,9 +8,7 @@
 <body>
 <x-dc>
 <helmet>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>@font-face{font-family:"Bricolage Grotesque";src:url("/admin/assets/fonts/bricolage-grotesque.woff2") format("woff2")}@font-face{font-family:"Noto Sans TC";src:url("/admin/assets/fonts/noto-sans-tc.woff2") format("woff2")}</style>
 <style>
 body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
 a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
@@ -78,6 +76,14 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
 .step.on i{background:#15161A;color:#fff}.step.done i{background:#13C2A3;color:#fff}
 .av{width:28px;height:28px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;border-radius:0 9px 0 9px;flex:0 0 auto}
 
+.btn.p{background:#D82050;color:#fff}.btn.danger{background:#CF3025;color:#fff}
+.chip.ok{background:color-mix(in srgb,#15A06A 14%,#fff);color:color-mix(in srgb,#15A06A 70%,#15161A)}
+.chip.warn{background:color-mix(in srgb,#F5B800 22%,#fff);color:color-mix(in srgb,#F5B800 45%,#15161A)}
+fieldset{border:0;padding:0;margin:0;min-inline-size:0}
+td.act{min-width:72px;white-space:nowrap}.chip.nd::before{display:none}
+.key-table-wrap{max-width:100%;overflow:auto}.key-table-wrap code{white-space:nowrap;word-break:normal}
+@media(min-width:601px){.key-table{min-width:864px}.key-table td{white-space:nowrap}}
+@media(max-width:600px){.key-scroll-hint{display:none}.key-table,.key-table tbody,.key-table tr,.key-table td{display:block;width:100%;box-sizing:border-box}.key-table thead{display:none}.key-table td{white-space:normal}}
 .k{font:12.5px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:#15161A;letter-spacing:0}
 .k.m{color:#5F6470}
 .note{display:flex;align-items:flex-start;gap:14px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;line-height:1.6}
@@ -101,8 +107,8 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
 .dlg .ft{padding:12px 18px;border-top:1px solid #EEEFF2;display:flex;gap:8px;align-items:center}
 .st{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.06em;color:#5F6470;text-transform:uppercase}
 .st i{font-style:normal;width:20px;height:20px;display:grid;place-items:center;border-radius:0 7px 0 7px;background:#15161A;color:#fff;font-size:11px;letter-spacing:0}
-.err{font-size:12px;color:#9C2318;display:flex;align-items:center;gap:6px;margin-top:6px}
-.ul.bad{border-bottom-color:#9C2318}
+.err{font-size:12px;color:color-mix(in srgb,#E03B2E 75%,#15161A);display:flex;align-items:center;gap:6px;margin-top:6px}
+.ul.bad{border-bottom-color:color-mix(in srgb,#E03B2E 75%,#15161A)}
 .tl{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:10px 0;border-top:1px solid #EEEFF2;font-size:13px;align-items:baseline}
 .tl .t{color:#5F6470;font-size:12px}
 .lg{display:grid;grid-template-columns:72px 104px minmax(0,1fr) 196px 100px;gap:12px;padding:8px 10px;border-bottom:1px solid #EEEFF2;align-items:baseline;font-size:12.5px}
@@ -112,6 +118,8 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
 .sel{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 10px;background:#F3F3F5;border-radius:0 8px 0 8px;font-size:12px;font-weight:700;color:#15161A}
 .danger-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-top:1px solid #EEEFF2}
 .danger-row .h{font-size:12px;color:#5F6470;line-height:1.55;margin-top:2px}
+@media(max-width:900px){main,main>div[style*="grid-template-columns"],main section>div[style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr)!important}aside{position:static!important}.side{display:none!important}.main{margin-left:0!important}main{padding:16px!important}table{display:block;max-width:100%;overflow:auto}.lg{grid-template-columns:70px minmax(0,1fr)!important}.lg>*{overflow-wrap:anywhere}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </helmet>
 <div style="width: 100%; min-height: 100vh; display: flex; flex-wrap: wrap; background: #fff; position: relative">
@@ -128,6 +136,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
     <div class="ns">商店</div>
     <a class="nl" href="Products.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>商品</a>
     <a class="nl" href="Orders.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>訂單<span class="n">3</span></a>
+    <a class="nl" href="Coupons.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4zM14 6v2M14 11v2M14 16v2"/></svg>折扣碼</a>
     <div class="ns">外觀</div>
     <a class="nl" href="Themes.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>主題</a>
     <a class="nl new" href="Menus.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>導覽選單</a>
@@ -206,10 +215,11 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
     <div><span class="lbl">權限</span><div style="margin-top:8px"><div class="pg" style="border-top:0;padding-top:0"><span class="lbl">資源</span><span class="lbl" style="text-align:center">讀取</span><span class="lbl" style="text-align:center">寫入</span></div><div class="pg"><div><b>文章</b><div class="h k m" style="font-size:11px">posts.*</div><div class="h">含分類與標籤的讀取</div></div><span class="c"><span class="cb on" role="checkbox" aria-label="posts.read"></span></span><span class="c"><span class="cb on" role="checkbox" aria-label="posts.write"></span></span></div><div class="pg"><div><b>頁面</b><div class="h k m" style="font-size:11px">pages.*</div></div><span class="c"><span class="cb" role="checkbox" aria-label="pages.read"></span></span><span class="c"><span class="cb" role="checkbox" aria-label="pages.write"></span></span></div><div class="pg"><div><b>附件</b><div class="h k m" style="font-size:11px">media.*</div><div class="h">上傳、取代、改名、刪除</div></div><span class="c"><span class="cb" role="checkbox" aria-label="media.read"></span></span><span class="c"><span class="cb on" role="checkbox" aria-label="media.write"></span></span></div><div class="pg"><div><b>商品</b> <span class="chip nd" style="font-size:10px;min-height:18px;margin-left:4px">需管理員</span><div class="h k m" style="font-size:11px">products.*</div></div><span class="c"><span class="cb" role="checkbox" aria-label="products.read"></span></span><span class="c"><span class="cb" role="checkbox" aria-label="products.write"></span></span></div><div class="pg"><div><b>訂單</b> <span class="chip nd" style="font-size:10px;min-height:18px;margin-left:4px">需管理員</span><div class="h k m" style="font-size:11px">orders.*</div><div class="h">只能讀</div></div><span class="c"><span class="cb" role="checkbox" aria-label="orders.read"></span></span><span class="na">—</span></div><div class="pg"><div><b>主題</b> <span class="chip nd" style="font-size:10px;min-height:18px;margin-left:4px">需管理員</span><div class="h k m" style="font-size:11px">themes.*</div><div class="h">啟用、改主題設定</div></div><span class="c"><span class="cb" role="checkbox" aria-label="themes.read"></span></span><span class="c"><span class="cb" role="checkbox" aria-label="themes.write"></span></span></div><div class="pg"><div><b>外掛</b> <span class="chip nd" style="font-size:10px;min-height:18px;margin-left:4px">需管理員</span><div class="h k m" style="font-size:11px">plugins.*</div><div class="h">寫入只有重新載入</div></div><span class="c"><span class="cb" role="checkbox" aria-label="plugins.read"></span></span><span class="c"><span class="cb" role="checkbox" aria-label="plugins.write"></span></span></div><div class="pg"><div><b>設定</b> <span class="chip nd" style="font-size:10px;min-height:18px;margin-left:4px">需管理員</span><div class="h k m" style="font-size:11px">settings.*</div><div class="h">讀取時秘密一律遮罩</div></div><span class="c"><span class="cb" role="checkbox" aria-label="settings.read"></span></span><span class="c"><span class="cb" role="checkbox" aria-label="settings.write"></span></span></div><div class="pg"><div><b>紀錄</b> <span class="chip nd" style="font-size:10px;min-height:18px;margin-left:4px">需管理員</span><div class="h k m" style="font-size:11px">logs.*</div><div class="h">只看自己的請求</div></div><span class="c"><span class="cb" role="checkbox" aria-label="logs.read"></span></span><span class="na">—</span></div></div></div>
     <div style="font-size:12px;color:#5F6470;line-height:1.6;display:flex;gap:8px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>擁有者是你（Hazel · 管理員）。標「需管理員」的權限，擁有者不是管理員時不會生效。</span></div>
     <div style="display:flex;gap:8px"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3M14 8l2 2"/></svg>建立並產生金鑰</button><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>取消</button></div>
+    <div class="note">連線中斷時保留名稱、說明與權限，恢復後手動重試，不自動重送建立。確認狀態後再重試，避免重複操作。</div>
   </aside>
 </main>
   </div>
-  
+
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>

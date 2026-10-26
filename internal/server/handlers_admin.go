@@ -1,13 +1,11 @@
 package server
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
@@ -32,10 +30,10 @@ func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runtime) {
 	// Content and media are available to known content roles. All other admin
 	// endpoints are registered on the admin-only group below.
-	content := e.Group("/api/admin", auth.RequireRole("admin", "editor", "author"))
+	content := e.Group("/api/admin", auth.RequireRole(contentRoles...))
 	postReads := e.Group("/api/admin")
 	registerPostRoutes(content, postReads)
-	api := e.Group("/api/admin", auth.RequireRole("admin"))
+	api := e.Group("/api/admin", auth.RequireRole(adminRoles...))
 	registerEditorRoutes(e, content, api)
 
 	// Media
@@ -43,189 +41,25 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 	content.DELETE("/media/:filename", handleLegacyMediaDelete)
 	content.PUT("/media/:filename", handleLegacyMediaReplace, middleware.BodyLimit(uploadBodyLimit))
 
-	content.POST("/media/rename", func(c echo.Context) error {
-		var req struct {
-			OldName string `json:"old_name"`
-			NewName string `json:"new_name"`
-		}
-		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
-		}
-
-		// Validation
-		if filepath.Base(req.OldName) != req.OldName || filepath.Base(req.NewName) != req.NewName {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
-		}
-
-		return moveLegacyMedia(c, req.OldName, req.NewName)
-	})
-
-	content.GET("/media", func(c echo.Context) error {
-		files, err := os.ReadDir("data/uploads")
-		if err != nil {
-			return c.JSON(http.StatusOK, []string{})
-		}
-		var fileList []string
-		for _, f := range files {
-			if !f.IsDir() {
-				fileList = append(fileList, "/uploads/"+f.Name())
-			}
-		}
-		return c.JSON(http.StatusOK, fileList)
-	})
+	content.POST("/media/rename", renameLegacyMedia)
+	content.GET("/media", listLegacyMedia)
 
 	// Themes
-	api.GET("/themes", func(c echo.Context) error {
-		entries, err := os.ReadDir("web/themes")
-		if err != nil {
-			return err
-		}
-		var themes []string
-		for _, e := range entries {
-			if e.IsDir() {
-				themes = append(themes, e.Name())
-			}
-		}
-		return c.JSON(http.StatusOK, themes)
-	})
+	api.GET("/themes", func(c echo.Context) error { return listThemes(c, tm) })
 
-	api.POST("/themes/activate", func(c echo.Context) error {
-		var req struct {
-			Name string `json:"name"`
-		}
-		if err := c.Bind(&req); err != nil {
-			return err
-		}
-		if err := tm.Activate(req.Name); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-
-		// Save active theme to database
-		var opt core.Option
-		result := data.DB.Where("key = ?", "active_theme").First(&opt)
-		if result.Error != nil {
-			opt = core.Option{Key: "active_theme", Value: req.Name}
-		} else {
-			opt.Value = req.Name
-		}
-		data.DB.Save(&opt)
-
-		return c.JSON(http.StatusOK, map[string]string{"message": "Theme activated"})
-	})
+	api.POST("/themes/activate", func(c echo.Context) error { return activateTheme(c, tm) })
 
 	// Get theme config
-	api.GET("/themes/:name/config", func(c echo.Context) error {
-		themeName := c.Param("name")
-		config, err := tm.Load(themeName)
-		if err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Theme not found"})
-		}
-		return c.JSON(http.StatusOK, config)
-	})
+	api.GET("/themes/:name/config", func(c echo.Context) error { return getThemeConfig(c, tm) })
 
 	// Get theme settings
-	api.GET("/themes/:name/settings", func(c echo.Context) error {
-		themeName := c.Param("name")
-		settings, err := tm.GetSettings(themeName, data.DB)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, settings)
-	})
+	api.GET("/themes/:name/settings", func(c echo.Context) error { return getThemeSettings(c, tm) })
 
 	// Save theme settings
-	api.POST("/themes/:name/settings", func(c echo.Context) error {
-		themeName := c.Param("name")
-		var req struct {
-			Colors interface{} `json:"colors"`
-			Layout interface{} `json:"layout"`
-			Custom interface{} `json:"custom"`
-		}
-		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
-		}
-
-		// Convert to json.RawMessage
-		var colorsJSON, layoutJSON, customJSON json.RawMessage
-		var err error
-
-		if req.Colors != nil {
-			if str, ok := req.Colors.(string); ok {
-				colorsJSON = json.RawMessage(str)
-			} else {
-				colorsJSON, err = json.Marshal(req.Colors)
-				if err != nil {
-					return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid colors format"})
-				}
-			}
-		}
-
-		if req.Layout != nil {
-			if str, ok := req.Layout.(string); ok {
-				layoutJSON = json.RawMessage(str)
-			} else {
-				layoutJSON, err = json.Marshal(req.Layout)
-				if err != nil {
-					return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid layout format"})
-				}
-			}
-		}
-
-		if req.Custom != nil {
-			if str, ok := req.Custom.(string); ok {
-				customJSON = json.RawMessage(str)
-			} else {
-				customJSON, err = json.Marshal(req.Custom)
-				if err != nil {
-					return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid custom format"})
-				}
-			}
-		}
-
-		settings := &core.ThemeSettings{
-			ThemeName: themeName,
-			Colors:    colorsJSON,
-			Layout:    layoutJSON,
-			Custom:    customJSON,
-		}
-
-		if err := tm.SaveSettings(settings, data.DB); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-
-		// Clear theme cache to apply new settings
-		tm.Activate(tm.GetActive())
-
-		return c.JSON(http.StatusOK, map[string]string{"message": "Settings saved"})
-	})
+	api.POST("/themes/:name/settings", func(c echo.Context) error { return saveThemeSettings(c, tm) })
 
 	// Plugins
-	api.GET("/plugins", func(c echo.Context) error {
-		entries, err := os.ReadDir("data/plugins")
-		if err != nil {
-			return c.JSON(http.StatusOK, []interface{}{})
-		}
-		var plugins []map[string]interface{}
-		for _, e := range entries {
-			if e.IsDir() {
-				pluginDir := filepath.Join("data/plugins", e.Name())
-				configPath := filepath.Join(pluginDir, "plugin.json")
-				if data, err := os.ReadFile(configPath); err == nil {
-					var meta plugin.PluginMetadata
-					if json.Unmarshal(data, &meta) == nil {
-						plugins = append(plugins, map[string]interface{}{
-							"id":          meta.ID,
-							"name":        meta.Name,
-							"version":     meta.Version,
-							"description": meta.Description,
-							"author":      meta.Author,
-						})
-					}
-				}
-			}
-		}
-		return c.JSON(http.StatusOK, plugins)
-	})
+	api.GET("/plugins", listPlugins)
 
 	// Upload plugin. The archive is validated and extracted by installPluginFile,
 	// which also records the plugins row (disabled until an admin enables it).
@@ -301,23 +135,7 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 	}, middleware.BodyLimit(uploadBodyLimit))
 
 	// Reload plugin
-	api.POST("/plugins/:id/reload", func(c echo.Context) error {
-		if pluginRuntime == nil {
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Plugin runtime is unavailable"})
-		}
-
-		meta, err := pluginRuntime.GetPlugin(c.Param("id"))
-		if err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Plugin not found"})
-		}
-
-		dir := filepath.Join("data", "plugins", meta.ID)
-		if err := pluginRuntime.ReloadForID(c.Request().Context(), meta.ID, dir); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Plugin reload failed"})
-		}
-
-		return c.JSON(http.StatusOK, map[string]string{"message": "Plugin reloaded"})
-	})
+	api.POST("/plugins/:id/reload", func(c echo.Context) error { return reloadPlugin(c, pluginRuntime) })
 
 	// Settings: GET masks, PUT and POST are the same audited, registry-checked write.
 	api.GET("/settings", handleSettingsList)
