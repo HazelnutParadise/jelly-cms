@@ -228,6 +228,10 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	registerShopRoutes(e, tm)
 	registerShopAdminRoutes(e, renderAdmin)
 
+	// WebMCP script, tool list and the public JSON API behind the tools (ticket 13).
+	registerWebMCPRoutes(e, tm, pluginRuntime)
+	registerPublicAPIRoutes(e)
+
 	// Public Routes (Catch-all should be last)
 	registerAccountPages(e)
 	RegisterPublicRoutes(e, tm)

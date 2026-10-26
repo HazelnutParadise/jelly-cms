@@ -387,6 +387,26 @@ func (m *Runtime) Invoke(ctx context.Context, pluginID string, hook Hook, data m
 	return state.call(ctx, hook, payload)
 }
 
+// LoadedPlugins returns a copy of the metadata of every loaded plugin in load
+// order. The WebMCP tool list (ticket 13) reads the webmcp_tools declarations
+// from it, so only loaded (enabled) plugins contribute tools. A nil runtime
+// has no plugins.
+func (m *Runtime) LoadedPlugins() []PluginMetadata {
+	if m == nil {
+		return []PluginMetadata{}
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	loaded := make([]PluginMetadata, 0, len(m.order))
+	for _, id := range m.order {
+		if state := m.plugins[id]; state != nil {
+			loaded = append(loaded, clonePluginMetadata(state.meta))
+		}
+	}
+	return loaded
+}
+
 // CallHook hands the payload to every callback registered for the hook. A
 // failing plugin is reported and never stops the other plugins.
 func (m *Runtime) CallHook(hook Hook, data map[string]interface{}) {

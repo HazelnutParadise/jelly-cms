@@ -85,6 +85,12 @@ func installStateMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if c.Request().URL.Path == "/healthz" {
 			return next(c)
 		}
+		if data.DB == nil && c.Request().Method == http.MethodGet {
+			switch c.Path() {
+			case "/api/public/posts", "/api/public/content/:slug", "/api/public/site":
+				return publicAPIError(c, http.StatusServiceUnavailable, "service_unavailable", "The service is temporarily unavailable.")
+			}
+		}
 
 		if !install.IsInstalled() {
 			return c.Redirect(http.StatusFound, "/install")

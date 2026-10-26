@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 )
 
 // PluginMetadata defines the structure of a plugin.json file. The manifest v2
@@ -17,6 +18,11 @@ type PluginMetadata struct {
 	Permissions []PermissionSpec `json:"permissions,omitempty"`
 	Actions     []ActionSpec     `json:"actions,omitempty"`
 	Extensions  []ExtensionSpec  `json:"extensions,omitempty"`
+	// WebMCPTools holds the raw webmcp_tools list: extra read-only WebMCP tools
+	// this plugin offers while it is loaded (ticket 13). It stays raw so a
+	// malformed entry skips that tool instead of failing the plugin load; each
+	// entry decodes into core.WebMCPToolDecl.
+	WebMCPTools json.RawMessage `json:"webmcp_tools,omitempty"`
 }
 
 // Manager handles the lifecycle of plugins.

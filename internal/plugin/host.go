@@ -49,13 +49,44 @@ func (m *Runtime) SetHostHandler(handler HostHandler) {
 
 func clonePluginMetadata(meta PluginMetadata) PluginMetadata {
 	meta.Settings = append([]SettingSpec(nil), meta.Settings...)
+	for i := range meta.Settings {
+		if meta.Settings[i].Min != nil {
+			value := *meta.Settings[i].Min
+			meta.Settings[i].Min = &value
+		}
+		if meta.Settings[i].Max != nil {
+			value := *meta.Settings[i].Max
+			meta.Settings[i].Max = &value
+		}
+		meta.Settings[i].Default = cloneSettingValue(meta.Settings[i].Default)
+	}
 	meta.Permissions = append([]PermissionSpec(nil), meta.Permissions...)
 	for i := range meta.Permissions {
 		meta.Permissions[i].Hosts = append([]string(nil), meta.Permissions[i].Hosts...)
 	}
 	meta.Actions = append([]ActionSpec(nil), meta.Actions...)
 	meta.Extensions = append([]ExtensionSpec(nil), meta.Extensions...)
+	meta.WebMCPTools = append(json.RawMessage(nil), meta.WebMCPTools...)
 	return meta
+}
+
+func cloneSettingValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		cloned := make(map[string]any, len(typed))
+		for key, nested := range typed {
+			cloned[key] = cloneSettingValue(nested)
+		}
+		return cloned
+	case []any:
+		cloned := make([]any, len(typed))
+		for i, nested := range typed {
+			cloned[i] = cloneSettingValue(nested)
+		}
+		return cloned
+	default:
+		return value
+	}
 }
 
 func (m *Runtime) requestWorker(ctx context.Context, worker *workerProcess, meta PluginMetadata, request workerRequest, timeout time.Duration) (workerFrame, error) {

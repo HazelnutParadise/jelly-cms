@@ -143,7 +143,7 @@ func archiveRender(c echo.Context, tm *theme.Manager, tpl, title string, data ma
 	if err != nil {
 		return err
 	}
-	return c.HTMLBlob(http.StatusOK, html)
+	return renderedPublicHTML(c, http.StatusOK, html)
 }
 
 func archiveAllCategories() ([]core.Category, error) {

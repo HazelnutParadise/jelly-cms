@@ -164,6 +164,10 @@ func validateRegisteredSetting(kind, value string) error {
 // routes before any settings in the request are written.
 func validateSettingValue(key, value string) error {
 	switch key {
+	case "webmcp_enabled":
+		if value != "true" && value != "false" {
+			return errors.New("invalid boolean")
+		}
 	case "site_timezone":
 		_, err := time.LoadLocation(value)
 		return err

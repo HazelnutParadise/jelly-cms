@@ -1,0 +1,146 @@
+{
+  "id": "webmcp-fixture",
+  "name": "WebMCP Fixture",
+  "version": "1.0.0",
+  "description": "Declares WebMCP tools for ticket 13 tests.",
+  "author": "Jelly Team",
+  "entrypoint": "index.js",
+  "webmcp_tools": [
+    {
+      "name": "fixture_events",
+      "title": "Fixture events",
+      "description": "List fixture events.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "endpoint": "/api/public/posts",
+      "annotations": {
+        "readOnlyHint": false,
+        "consequentialHint": true,
+        "untrustedContentHint": true
+      }
+    },
+    {
+      "name": "fixture_item",
+      "title": "Fixture item",
+      "description": "Read one fixture item.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug"
+        ]
+      },
+      "endpoint": "/api/public/content/{slug}"
+    },
+    {
+      "name": "fixture_ping",
+      "description": "Ping the fixture without input.",
+      "endpoint": "/api/public/site"
+    },
+    {
+      "name": "abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "description": "A valid 64-character tool name.",
+      "endpoint": "/api/public/site"
+    },
+    {
+      "name": "external_https",
+      "description": "Absolute URL to another origin.",
+      "endpoint": "https://evil.example/api"
+    },
+    {
+      "name": "protocol_relative",
+      "description": "Protocol-relative URL.",
+      "endpoint": "//evil.example/api"
+    },
+    {
+      "name": "backslash_host",
+      "description": "Backslash authority.",
+      "endpoint": "/\\evil.example/api"
+    },
+    {
+      "name": "relative_path",
+      "description": "Path without a leading slash.",
+      "endpoint": "api/public/site"
+    },
+    {
+      "name": "javascript_scheme",
+      "description": "Script URL.",
+      "endpoint": "javascript:alert(1)"
+    },
+    {
+      "name": "query_in_endpoint",
+      "description": "Endpoint with a fixed query.",
+      "endpoint": "/api/public/site?x=1"
+    },
+    {
+      "name": "admin_endpoint",
+      "description": "Admin API.",
+      "endpoint": "/api/admin/settings"
+    },
+    {
+      "name": "auth_endpoint",
+      "description": "Auth API.",
+      "endpoint": "/api/auth/me"
+    },
+    {
+      "name": "jelly_endpoint",
+      "description": "Internal WebMCP path.",
+      "endpoint": "/_jelly/webmcp-tools.json"
+    },
+    {
+      "name": "Bad-Name",
+      "description": "Upper case and a hyphen.",
+      "endpoint": "/api/public/site"
+    },
+    {
+      "name": "9starts_with_digit",
+      "description": "Starts with a digit.",
+      "endpoint": "/api/public/site"
+    },
+    {
+      "name": "abbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "description": "A 65-character tool name.",
+      "endpoint": "/api/public/site"
+    },
+    {
+      "name": "search_content",
+      "description": "Duplicates a core tool.",
+      "endpoint": "/api/public/site"
+    },
+    {
+      "name": "missing_description",
+      "description": "",
+      "endpoint": "/api/public/site"
+    },
+    {
+      "name": "bad_schema",
+      "description": "Input schema is not an object.",
+      "input_schema": "not an object",
+      "endpoint": "/api/public/site"
+    },
+    {
+      "name": 42,
+      "description": "Name is not a string.",
+      "endpoint": "/api/public/site"
+    },
+    {
+      "name": "bad_annotations",
+      "description": "Annotation has the wrong type.",
+      "endpoint": "/api/public/site",
+      "annotations": {
+        "readOnlyHint": "yes"
+      }
+    }
+  ]
+}

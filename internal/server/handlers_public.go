@@ -104,7 +104,7 @@ func publicRenderStatus(c echo.Context, tm *theme.Manager, db *gorm.DB, file, ti
 	if err != nil {
 		return err
 	}
-	return c.HTMLBlob(status, body)
+	return renderedPublicHTML(c, status, body)
 }
 
 func publicPostPreloads(db *gorm.DB) *gorm.DB {
@@ -388,7 +388,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		slug := c.Param("slug")
 		switch slug {
 		case "posts", "search", "post", "c", "t", "author", "archive", "api", "admin", "auth", "login", "install", "uploads", "themes",
-			"robots.txt", "sitemap.xml", "llms.txt", "feed.xml", "healthz":
+			"robots.txt", "sitemap.xml", "llms.txt", "feed.xml", "healthz", "_jelly":
 			return echo.ErrNotFound
 		}
 		db := datapkg.DB
