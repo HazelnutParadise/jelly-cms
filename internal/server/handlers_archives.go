@@ -35,11 +35,11 @@ import (
 // (RegisterRoutes already calls registerContentRoutes ahead of RegisterPublicRoutes).
 
 func registerArchiveRoutes(e *echo.Echo, tm *theme.Manager) {
-	e.GET("/c/:slug", archiveCategory(tm))
-	e.GET("/t/:slug", archiveTag(tm))
-	e.GET("/author/:username", archiveAuthor(tm))
-	e.GET("/archive", archiveIndex(tm))
-	e.GET("/archive/:year/:month", archiveMonthHandler(tm))
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/c/:slug", archiveCategory(tm))
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/t/:slug", archiveTag(tm))
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/author/:username", archiveAuthor(tm))
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/archive", archiveIndex(tm))
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/archive/:year/:month", archiveMonthHandler(tm))
 }
 
 const (

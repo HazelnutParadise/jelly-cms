@@ -65,6 +65,10 @@ func Open(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		closeDB(sqlDB)
 		return nil, fmt.Errorf("failed to connect to database: %w", redactSecrets(err, dsn, cfg.Password, quoteDSN(cfg.Password)))
 	}
+	if err := registerSearchIndexCallbacks(db); err != nil {
+		closeDB(sqlDB)
+		return nil, fmt.Errorf("register post search index callbacks: %w", err)
+	}
 
 	return db, nil
 }
@@ -269,6 +273,11 @@ func runEmbeddedMigrations(db *gorm.DB) error {
 			for _, name := range groups[number] {
 				if err := tx.Exec(string(migrations[name])).Error; err != nil {
 					return fmt.Errorf("apply migration %s: %w", name, err)
+				}
+			}
+			if number == 24 {
+				if err := backfillPostSearchIndex(tx); err != nil {
+					return fmt.Errorf("backfill migration group 24 search text: %w", err)
 				}
 			}
 			return recordMigrationGroup(tx, number, groups[number])

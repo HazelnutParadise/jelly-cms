@@ -325,7 +325,7 @@ B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", 
   </main>'''))
 
 # ---------- 前台 · 維護模式 ----------
-B["Maintenance"] = ("前台 · 維護模式", FRONT_CSS + ".maintenance-art{position:absolute;inset:0;overflow:clip;pointer-events:none}@media(max-width:700px){.maintenance-art>div{left:auto!important;right:0;top:auto!important;bottom:5rem;transform:scale(.36);transform-origin:bottom right;opacity:.22!important}}", 1440, 900, f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#15161A;color:#F2F3F7;position:relative;overflow:hidden">
+B["Maintenance"] = ("前台 · 維護模式", FRONT_CSS + ".maintenance-art+main .btn:not(.t):hover{background:#DD2758!important;color:#fff}.maintenance-art{position:absolute;inset:0;overflow:clip;pointer-events:none}@media(max-width:700px){.maintenance-art>div{left:auto!important;right:0;top:auto!important;bottom:5rem;transform:scale(.36);transform-origin:bottom right;opacity:.22!important}}", 1440, 900, f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#15161A;color:#F2F3F7;position:relative;overflow:hidden">
   <div class="topline"></div>
   <div class="maintenance-art">{cubes(2.6, 900, 160, .95)}</div>
   <main style="flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 80px;max-width:720px;gap:20px;position:relative">

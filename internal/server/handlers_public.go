@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
@@ -86,6 +87,10 @@ func publicOption(db *gorm.DB, key string) (string, error) {
 }
 
 func publicRender(c echo.Context, tm *theme.Manager, db *gorm.DB, file, title string, values map[string]interface{}) error {
+	return publicRenderStatus(c, tm, db, file, title, values, http.StatusOK)
+}
+
+func publicRenderStatus(c echo.Context, tm *theme.Manager, db *gorm.DB, file, title string, values map[string]interface{}, status int) error {
 	siteTitle, err := publicSiteTitle(db)
 	if err != nil {
 		return err
@@ -99,7 +104,7 @@ func publicRender(c echo.Context, tm *theme.Manager, db *gorm.DB, file, title st
 	if err != nil {
 		return err
 	}
-	return c.HTMLBlob(http.StatusOK, body)
+	return c.HTMLBlob(status, body)
 }
 
 func publicPostPreloads(db *gorm.DB) *gorm.DB {
@@ -113,7 +118,7 @@ func publicPostPreloads(db *gorm.DB) *gorm.DB {
 }
 
 func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
-	e.GET("/", func(c echo.Context) error {
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/", func(c echo.Context) error {
 		db := datapkg.DB
 		if db == nil {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
@@ -173,7 +178,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		})
 	})
 
-	e.GET("/posts", func(c echo.Context) error {
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/posts", func(c echo.Context) error {
 		db := datapkg.DB
 		if db == nil {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
@@ -234,7 +239,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		})
 	})
 
-	e.GET("/post/:slug", func(c echo.Context) error {
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/post/:slug", func(c echo.Context) error {
 		// Only a URL that matched the current permalink pattern reaches this
 		// route as a post; a bare /post/ URL is not served once the pattern changed.
 		if canonical, _ := c.Get(permalinkCanonicalKey).(bool); !canonical {
@@ -282,13 +287,29 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		})
 	})
 
-	e.GET("/search", func(c echo.Context) error {
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/search", func(c echo.Context) error {
 		db := datapkg.DB
 		if db == nil {
 			return echo.NewHTTPError(http.StatusServiceUnavailable, "Service unavailable")
 		}
 		db = db.WithContext(c.Request().Context())
-		query := c.QueryParam("q")
+		query := strings.TrimSpace(c.QueryParam("q"))
+		if utf8.RuneCountInString(query) > 100 {
+			lang, _ := c.Get("lang").(string)
+			if !supportedLanguage(lang) {
+				lang = "zh-TW"
+			}
+			return publicRenderStatus(c, tm, db, "search.html", "搜尋結果", map[string]interface{}{
+				"IsSearch":           true,
+				"SearchQueryTooLong": true,
+				"T":                  loadTranslations(lang),
+				"Query":              "",
+				"Results":            []searchResult{},
+				"Total":              int64(0),
+				"Page":               1,
+				"TotalPages":         0,
+			}, http.StatusBadRequest)
+		}
 		page := publicPageParam(c)
 		size := perPage(c.Request().Context(), keyPerPageSearch)
 		results := []searchResult{}
@@ -315,9 +336,15 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 	})
 
 	e.GET("/api/search", func(c echo.Context) error {
-		query := c.QueryParam("q")
+		query := strings.TrimSpace(c.QueryParam("q"))
 		if query == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Query parameter 'q' is required"})
+		}
+		if utf8.RuneCountInString(query) > 100 {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"code":  "query_too_long",
+				"error": "Search terms must be 100 characters or fewer.",
+			})
 		}
 		if datapkg.DB == nil {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
@@ -357,7 +384,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 	})
 
 	// Generic page route must remain last so specific public routes take precedence.
-	e.GET("/:slug", func(c echo.Context) error {
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/:slug", func(c echo.Context) error {
 		slug := c.Param("slug")
 		switch slug {
 		case "posts", "search", "post", "c", "t", "author", "archive", "api", "admin", "auth", "login", "install", "uploads", "themes",

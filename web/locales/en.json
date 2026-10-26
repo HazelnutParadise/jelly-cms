@@ -1036,5 +1036,7 @@
     "sys_s3SessionToken": "Session token (optional)",
     "sys_clearS3Credentials": "Clear all saved S3 credentials",
     "sys_s3CredentialsHint": "S3 fields appear only for S3 storage. Saved credentials are masked; leave them blank to keep them. Clear removes all saved credentials.",
-    "sys_s3CredentialsPair": "Enter both an access key and a secret key for new S3 credentials."
+    "sys_s3CredentialsPair": "Enter both an access key and a secret key for new S3 credentials.",
+    "errorNotFoundBody": "This piece of jelly rolled under the table. The address may be mistyped, or the post has been moved.",
+    "searchQueryTooLong": "Search terms must be 100 characters or fewer."
 }

@@ -79,6 +79,9 @@ func newHTTPErrorHandler(tm *theme.Manager) echo.HTTPErrorHandler {
 			if key, ok := errorTitles[code]; ok {
 				page.Title = translate(t, key)
 			}
+			if code == http.StatusNotFound {
+				page.Message = translate(t, "errorNotFoundBody")
+			}
 			values := map[string]interface{}{
 				"SiteTitle":   siteTitleOrDefault(),
 				"Title":       page.Title,
