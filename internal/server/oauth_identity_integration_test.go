@@ -116,8 +116,21 @@ func TestOAuthIdentitySameProviderSubjectKeepsOriginalUserAcrossProfileChanges(t
 					t.Errorf("same-subject token /api/auth/me returned status=%d id=%d, want original id=%d", me.code, authenticated.ID, original.ID)
 				}
 			}
-			if got := accessUsers(t, h.db); !reflect.DeepEqual(initialUsers, got) {
-				t.Errorf("same-subject login changed users; original id=%d", original.ID)
+			got := accessUsers(t, h.db)
+			unchangedExceptLoginTimes := len(initialUsers) == len(got)
+			if unchangedExceptLoginTimes {
+				for i := range initialUsers {
+					before, after := initialUsers[i], got[i]
+					before.LastLoginAt, after.LastLoginAt = nil, nil
+					before.UpdatedAt, after.UpdatedAt = time.Time{}, time.Time{}
+					if !reflect.DeepEqual(before, after) {
+						unchangedExceptLoginTimes = false
+						break
+					}
+				}
+			}
+			if !unchangedExceptLoginTimes {
+				t.Errorf("same-subject login changed user fields beyond login timestamps; original=%+v current=%+v", original, got)
 			}
 		})
 	}

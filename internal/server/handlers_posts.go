@@ -1,27 +1,71 @@
 package server
 
 import (
+	"bytes"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/markup"
+	"github.com/HazelnutParadise/jelly-cms/internal/redirects"
+	"github.com/HazelnutParadise/jelly-cms/internal/syslog"
 	"github.com/goccy/go-json"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
 
-func registerPostRoutes(api *echo.Group) {
-	api.GET("/posts", listPosts)
+var errPostConflict = errors.New("post changed")
+var errReservedSlug = errors.New("slug is reserved")
+var errRenderDiagnostics = errors.New("render diagnostics")
+
+// Ticket 09 G0 (docs/tickets/09-editor.md): source writes are rendered and
+// sanitized on the server, while legacy content-only writes keep the HTML path
+// and are sanitized under the caller's trust policy. Both paths return render
+// diagnostics, and content-only writes clear stale source state.
+func registerPostRoutes(api, reads *echo.Group) {
+	reads.GET("/posts", listPosts, requirePostReadPermission)
 	api.POST("/posts", createPost)
-	api.GET("/posts/:id", getPost)
+	reads.GET("/posts/:id", getPost, requirePostReadPermission)
 	api.PUT("/posts/:id", updatePost)
 	api.DELETE("/posts/:id", deletePost)
+}
+
+func requirePostReadPermission(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		principal, err := auth.GetCurrentPrincipal(c)
+		if err != nil || principal == nil || principal.User == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+		}
+		if principal.Source == "api_token" {
+			for _, scope := range principal.Scopes {
+				switch scope {
+				case "admin", "editor", "author":
+					return auth.RequireRole("admin", "editor", "author")(next)(c)
+				}
+			}
+		}
+		return auth.RequirePermission("content_read")(func(c echo.Context) error {
+			if principal.Source == "api_token" {
+				user := *principal.User
+				var owner core.User
+				if err := data.DB.WithContext(c.Request().Context()).Select("id", "role").First(&owner, user.ID).Error; err != nil {
+					log.Printf("load owner role for content-read token user %d: %v", user.ID, err)
+					return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to authorize post read"})
+				}
+				user.Role = owner.Role
+				c.Set("user", &user)
+			}
+			return next(c)
+		})(c)
+	}
 }
 
 func listPosts(c echo.Context) error {
@@ -67,15 +111,38 @@ func createPost(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
+	cfg := loadPermalinkConfig(c.Request().Context())
+	diagnostics, err := preparePostContent(c, &post, input, user)
+	if err != nil {
+		if errors.Is(err, errRenderDiagnostics) {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error(), "diagnostics": diagnostics})
+		}
+		return renderInputError(c, err)
+	}
 	if _, explicit := input["published_at"]; !explicit && post.Status == "published" && post.PublishedAt == nil {
 		now := time.Now()
 		post.PublishedAt = &now
 	}
 	err = data.DB.Transaction(func(tx *gorm.DB) error {
+		if post.Slug == "" {
+			slug, err := newContentSlug(tx, cfg, post)
+			if err != nil {
+				return err
+			}
+			post.Slug = slug
+		}
+		if core.IsReservedSlug(post.Slug, cfg.currentPrefixNames()...) {
+			return errReservedSlug
+		}
 		if err := core.NewPostService(tx).Create(&post); err != nil {
 			return err
 		}
 		if err := applyPostTerms(tx, &post, input); err != nil {
+			return err
+		}
+		// A new post must be reachable at its own URL, so drop any automatic
+		// redirect that still sends that path elsewhere after a slug change.
+		if err := redirects.ReleaseAutoPath(tx, permalinkPathFor(tx, cfg, post)); err != nil {
 			return err
 		}
 		kind := "manual"
@@ -83,8 +150,14 @@ func createPost(c echo.Context) error {
 			kind = "publish"
 		}
 		_, err := RecordRevision(tx, post, user.ID, kind)
-		return err
+		if err != nil {
+			return err
+		}
+		return recordIndexNowIntent(c.Request().Context(), tx, indexNowItem{Kind: post.Type, ID: post.ID, Slug: post.Slug}, accountBaseURL(c))
 	})
+	if errors.Is(err, errReservedSlug) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Slug is reserved"})
+	}
 	if err != nil {
 		return termWriteError(c, err, "Unable to create post")
 	}
@@ -92,7 +165,11 @@ func createPost(c echo.Context) error {
 	if err := data.DB.Preload("Categories").Preload("Tags").First(&created, post.ID).Error; err != nil {
 		return postQueryError(c, err)
 	}
-	return c.JSON(http.StatusOK, created)
+	item := indexNowItem{Kind: created.Type, ID: created.ID, Slug: created.Slug}
+	if err := dispatchIndexNowPending(c.Request().Context(), data.DB, 1); err != nil {
+		reportIndexNowEnqueueFailure(c, item, err)
+	}
+	return postResponse(c, created, diagnostics)
 }
 
 func getPost(c echo.Context) error {
@@ -111,6 +188,14 @@ func getPost(c echo.Context) error {
 	var post core.Post
 	if err := query.First(&post).Error; err != nil {
 		return postQueryError(c, err)
+	}
+	var latest core.Revision
+	if err := data.DB.Where("post_id = ? AND kind = ?", post.ID, "autosave").Order("id DESC").First(&latest).Error; err == nil && latest.CreatedAt.After(post.UpdatedAt) {
+		b, _ := json.Marshal(post)
+		var body map[string]any
+		_ = json.Unmarshal(b, &body)
+		body["autosave"] = map[string]any{"id": latest.ID, "title": latest.Title, "source": latest.Source, "excerpt": latest.Excerpt, "created_at": latest.CreatedAt}
+		return c.JSON(http.StatusOK, body)
 	}
 	return c.JSON(http.StatusOK, post)
 }
@@ -140,7 +225,54 @@ func updatePost(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
+	if raw, hasFormat := input["format"]; hasFormat {
+		_, hasSource := input["source"]
+		_, hasContent := input["content"]
+		var requested string
+		if json.Unmarshal(raw, &requested) != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid format"})
+		}
+		if !hasSource && !hasContent && requested != existing.Format {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Format changes require source or content"})
+		}
+	}
+	var baseUpdatedAt *time.Time
+	if raw, ok := input["base_updated_at"]; ok {
+		var base time.Time
+		if json.Unmarshal(raw, &base) != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid base_updated_at"})
+		}
+		baseUpdatedAt = &base
+		if !base.Equal(existing.UpdatedAt) {
+			return c.JSON(http.StatusConflict, map[string]any{"error": "Post changed", "updated_at": existing.UpdatedAt})
+		}
+	}
+	nextForRender := existing
+	if _, err := applyPostInput(&nextForRender, input); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
+	}
+	cfg := loadPermalinkConfig(c.Request().Context())
+	_, slugInput := input["slug"]
+	_, typeInput := input["type"]
+	if (slugInput || typeInput) && core.IsReservedSlug(nextForRender.Slug, cfg.currentPrefixNames()...) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Slug is reserved"})
+	}
+	diagnostics, err := preparePostContent(c, &nextForRender, input, user)
+	if err != nil {
+		if errors.Is(err, errRenderDiagnostics) {
+			return c.JSON(http.StatusBadRequest, map[string]any{"error": err.Error(), "diagnostics": diagnostics})
+		}
+		return renderInputError(c, err)
+	}
+	for _, key := range []string{"content", "source", "format", "render_version", "render_trust", "meta"} {
+		updates[key] = fieldValue(nextForRender, key)
+	}
 	if nextType, ok := updates["type"].(string); ok && user.Role == "author" && nextType != "post" {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
+	}
+	_, seoInput := input["seo_index"]
+	_, seoAIInput := input["seo_ai"]
+	if (seoInput || seoAIInput) && user.Role == "author" {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
 	}
 	updates["updated_at"] = time.Now()
@@ -149,25 +281,38 @@ func updatePost(c echo.Context) error {
 			updates["published_at"] = updates["updated_at"]
 		}
 	}
+	// The old URL is built before the write; the new one after the categories
+	// are saved, because a {category} pattern depends on them.
+	oldPath := permalinkPathFor(data.DB, cfg, existing)
+	slugRedirectSkipped := ""
 	err = data.DB.Transaction(func(tx *gorm.DB) error {
 		write := tx.Model(&core.Post{}).Where("id = ?", id)
 		if user.Role == "author" {
 			write = write.Where("author_id = ? AND type = ?", user.ID, "post")
+		}
+		if baseUpdatedAt != nil {
+			write = write.Where("updated_at = ?", *baseUpdatedAt)
 		}
 		result := write.Updates(updates)
 		if result.Error != nil {
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
+			if baseUpdatedAt != nil {
+				return errPostConflict
+			}
 			return gorm.ErrRecordNotFound
 		}
 		if err := applyPostTerms(tx, &existing, input); err != nil {
 			return err
 		}
-		next := existing
-		if _, err := applyPostInput(&next, input); err != nil {
+		var saved core.Post
+		if err := tx.Select("id", "type", "slug", "published_at", "created_at").First(&saved, id).Error; err != nil {
 			return err
 		}
+		newPath := permalinkPathFor(tx, cfg, saved)
+		next := existing
+		next = nextForRender
 		if stamped, ok := updates["published_at"].(time.Time); ok && next.PublishedAt == nil {
 			next.PublishedAt = &stamped
 		}
@@ -176,13 +321,33 @@ func updatePost(c echo.Context) error {
 				return err
 			}
 		}
-		return nil
+		// Changing the slug or type moves the public URL. The old URL gets an
+		// automatic 301 (ticket 08b).
+		if oldPath != newPath && existing.Slug != "" {
+			skipped, err := redirects.SlugChangeRedirect(tx, oldPath, newPath, user.ID)
+			if err != nil {
+				return err
+			}
+			slugRedirectSkipped = skipped
+		}
+		return recordIndexNowIntent(c.Request().Context(), tx, indexNowItem{Kind: saved.Type, ID: saved.ID, Slug: saved.Slug}, accountBaseURL(c))
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
 	}
+	if errors.Is(err, errPostConflict) {
+		return c.JSON(http.StatusConflict, map[string]string{"error": "Post changed"})
+	}
 	if err != nil {
 		return termWriteError(c, err, "Unable to update post")
+	}
+	if slugRedirectSkipped != "" {
+		syslog.Emit(c.Request().Context(), syslog.Entry{
+			Level:   syslog.LevelWarn,
+			Source:  syslog.SourceApp,
+			Message: "slug redirect not created",
+			Fields:  map[string]any{"reason": slugRedirectSkipped, "post_id": id},
+		})
 	}
 	var updated core.Post
 	read := data.DB.Where("id = ?", id).Preload("Categories").Preload("Tags")
@@ -192,7 +357,135 @@ func updatePost(c echo.Context) error {
 	if err := read.First(&updated).Error; err != nil {
 		return postQueryError(c, err)
 	}
-	return c.JSON(http.StatusOK, updated)
+	item := indexNowItem{Kind: updated.Type, ID: updated.ID, Slug: updated.Slug}
+	if err := dispatchIndexNowPending(c.Request().Context(), data.DB, 1); err != nil {
+		reportIndexNowEnqueueFailure(c, item, err)
+	}
+	return postResponse(c, updated, diagnostics)
+}
+
+func postResponse(c echo.Context, post core.Post, diagnostics []markup.Diagnostic) error {
+	b, _ := json.Marshal(post)
+	var result map[string]any
+	_ = json.Unmarshal(b, &result)
+	result["diagnostics"] = diagnostics
+	return c.JSON(http.StatusOK, result)
+}
+
+func fieldValue(p core.Post, key string) any {
+	switch key {
+	case "content":
+		return p.Content
+	case "source":
+		return p.Source
+	case "format":
+		return p.Format
+	case "render_version":
+		return p.RenderVersion
+	case "render_trust":
+		return p.RenderTrust
+	case "meta":
+		return p.Meta
+	}
+	return nil
+}
+
+func preparePostContent(c echo.Context, post *core.Post, input map[string]json.RawMessage, user *core.User) ([]markup.Diagnostic, error) {
+	if raw, supplied := input["format"]; supplied {
+		var format string
+		if err := json.Unmarshal(raw, &format); err != nil || (format != "jmd" && format != "md" && format != "html") {
+			return nil, errors.New("invalid format")
+		}
+	}
+	if raw, supplied := input["source"]; supplied {
+		if err := json.Unmarshal(raw, &post.Source); err != nil {
+			return nil, err
+		}
+		format := "jmd"
+		if v, ok := input["format"]; ok && json.Unmarshal(v, &format) != nil {
+			return nil, errors.New("invalid format")
+		}
+		if format != "jmd" && format != "md" {
+			return nil, errors.New("invalid format")
+		}
+		post.Format = format
+		trust := renderTrustFor(user)
+		widgets, err := publishedWidgetSpecs(data.DB.WithContext(c.Request().Context()))
+		if err != nil {
+			return nil, err
+		}
+		result, err := markup.Render(c.Request().Context(), post.Source, markup.Options{Trust: trust, Format: format, Widgets: widgets})
+		if err != nil {
+			return nil, err
+		}
+		for _, diagnostic := range result.Diagnostics {
+			if diagnostic.Severity == "error" {
+				return result.Diagnostics, errRenderDiagnostics
+			}
+		}
+		post.Content, post.RenderTrust, post.RenderVersion = result.HTML, trust, 1
+		post.Meta = writeLegacyMarkdown(post.Meta, post.Source)
+		return result.Diagnostics, nil
+	}
+	if raw, exists := input["content"]; exists {
+		var content string
+		if err := json.Unmarshal(raw, &content); err != nil {
+			return nil, err
+		}
+		post.Content = markup.Policy(renderTrustFor(user)).Sanitize(content)
+		post.Source = ""
+		post.Format = "html"
+		post.RenderTrust = renderTrustFor(user)
+		post.RenderVersion = 1
+		var suppliedMarkdown bool
+		if metaRaw, ok := input["meta"]; ok {
+			var metaFields map[string]json.RawMessage
+			if json.Unmarshal(metaRaw, &metaFields) == nil {
+				_, suppliedMarkdown = metaFields["markdown"]
+			}
+		}
+		if !suppliedMarkdown {
+			post.Meta = clearLegacyMarkdown(post.Meta)
+		}
+	}
+	return []markup.Diagnostic{}, nil
+}
+
+func writeLegacyMarkdown(meta json.RawMessage, source string) json.RawMessage {
+	// Only object metadata mirrors the source; other valid JSON, including null, stays untouched.
+	if len(bytes.TrimSpace(meta)) > 0 && json.Valid(meta) && bytes.TrimSpace(meta)[0] != '{' {
+		return meta
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(meta, &fields) != nil || fields == nil {
+		fields = make(map[string]json.RawMessage)
+	}
+	raw, _ := json.Marshal(source)
+	fields["markdown"] = raw
+	out, _ := json.Marshal(fields)
+	return out
+}
+
+func clearLegacyMarkdown(meta json.RawMessage) json.RawMessage {
+	// Only object metadata can carry the legacy markdown key; other valid JSON stays untouched.
+	if len(bytes.TrimSpace(meta)) > 0 && json.Valid(meta) && bytes.TrimSpace(meta)[0] != '{' {
+		return meta
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(meta, &fields) != nil || fields == nil {
+		fields = make(map[string]json.RawMessage)
+	}
+	delete(fields, "markdown")
+	out, _ := json.Marshal(fields)
+	return out
+}
+
+func renderInputError(c echo.Context, err error) error {
+	status := http.StatusBadRequest
+	if errors.Is(err, markup.ErrSourceTooLarge) {
+		status = http.StatusRequestEntityTooLarge
+	}
+	return c.JSON(status, map[string]any{"error": err.Error(), "diagnostics": []markup.Diagnostic{}})
 }
 
 func deletePost(c echo.Context) error {
@@ -248,18 +541,26 @@ func postUpdates(input map[string]json.RawMessage) (map[string]interface{}, erro
 	updates := make(map[string]interface{})
 	for key := range map[string]struct{}{
 		"title": {}, "slug": {}, "content": {}, "type": {}, "status": {},
+		"source": {}, "format": {},
 		"template": {}, "meta": {}, "published_at": {},
 		"excerpt": {}, "cover": {}, "visibility": {}, "allow_comments": {}, "pinned": {},
+		"seo_index": {}, "seo_ai": {},
 	} {
 		raw, ok := input[key]
 		if !ok {
 			continue
 		}
 		switch key {
-		case "title", "slug", "content", "type", "status", "template", "excerpt", "cover", "visibility":
+		case "title", "slug", "content", "source", "format", "type", "status", "template", "excerpt", "cover", "visibility", "seo_index", "seo_ai":
 			var value string
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
+			}
+			if key == "seo_index" && value != "inherit" && value != "index" && value != "noindex" {
+				return nil, errors.New("invalid seo_index")
+			}
+			if key == "seo_ai" && value != "inherit" && value != "allow" && value != "noai" {
+				return nil, errors.New("invalid seo_ai")
 			}
 			if key == "type" && value != "post" && value != "page" {
 				return nil, errors.New("invalid content type")
@@ -308,6 +609,10 @@ func applyPostInput(post *core.Post, input map[string]json.RawMessage) (map[stri
 			post.Slug = value.(string)
 		case "content":
 			post.Content = value.(string)
+		case "source":
+			post.Source = value.(string)
+		case "format":
+			post.Format = value.(string)
 		case "type":
 			post.Type = value.(string)
 		case "status":
@@ -320,6 +625,10 @@ func applyPostInput(post *core.Post, input map[string]json.RawMessage) (map[stri
 			post.Cover = value.(string)
 		case "visibility":
 			post.Visibility = value.(string)
+		case "seo_index":
+			post.SEOIndex = value.(string)
+		case "seo_ai":
+			post.SEOAI = value.(string)
 		case "pinned":
 			post.Pinned = value.(bool)
 		case "allow_comments":

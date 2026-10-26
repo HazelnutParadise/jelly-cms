@@ -120,7 +120,11 @@ Jelly CMS 使用 JavaScript（QuickJS）作為外掛運行時，讓開發者可�
 
 每個外掛以獨立子程序執行。入口、事件及結束回呼各有 1 秒執行上限，啟動子程序的上限為 5 秒；逾時會終止該外掛程序。熱重載只有在新版本完成載入與啟動後才替換舊版本，失敗時保留舊版本。
 
-外掛只能存取隔離的暫存目錄，不能直接讀寫網站檔案。入口上限為 1 MiB，事件資料須可轉換為 JSON 且不超過 1 MiB。日誌有大小與佇列限制，輸出受阻時可能捨棄日誌。`JellyCMS.config` 目前只保存該程序內的設定，重新載入後不保留；網站事件與後台管理整合的驗收狀態請參閱 [STATUS.md](STATUS.md)。
+外掛只能存取隔離的暫存目錄，不能直接讀寫網站檔案。入口上限為 1 MiB，事件資料須可轉換為 JSON 且不超過 1 MiB。日誌有大小與佇列限制，輸出受阻時可能捨棄日誌。
+
+宣告並獲准 `settings` 權限的外掛，可用 `JellyCMS.config` 或 `JellyCMS.settings` 讀寫 manifest 宣告的設定，值保存在資料庫，秘密欄位另行加密。沒有這項權限的舊外掛，其 `config` 保持程序內暫存行為。`JellyCMS.store` 需獲准 `store` 權限，資料按外掛 ID 隔離；`JellyCMS.http.fetch` 需獲准 `http.fetch`，只能連線到 manifest 的允許主機，並封鎖私有網路位址。
+
+後台系統工具、備份與換版的操作限制見[系統維運](docs/system-operations.md)，搜尋與儲存回呼契約見 [JavaScript 擴充點](docs/plugin-extensions.md)。目前驗收狀態見 [STATUS.md](STATUS.md)。
 
 若將 runtime 嵌入其他 Go 執行檔，必須在 `main` 最前面呼叫 `plugin.RunWorkerIfRequested()`，並在結束前呼叫 `Runtime.Close()`。一般伺服器入口已完成這項接線。
 

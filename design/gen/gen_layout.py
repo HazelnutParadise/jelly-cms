@@ -55,7 +55,7 @@ layout = f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction
       <aside style="border-right:1px solid #E6E7EB;padding:14px 12px;display:flex;flex-direction:column;gap:16px;background:#FAFAFB;overflow:auto">
         <label style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #E6E7EB;border-radius:4px;padding:0 8px;min-height:30px;color:#5F6470;font-size:12.5px">{I("search",13)}<input type="text" placeholder="找區塊" aria-label="找區塊" style="border:0;font:inherit;flex:1;min-width:0;outline:0"></label>
         <div><div class="lbl" style="margin-bottom:8px">版面</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">{pal("page","區段")}{pal("grid","兩欄")}{pal("list","三欄")}{pal("menu","側欄 + 內容")}</div></div>
-        <div><div class="lbl" style="margin-bottom:8px">元件</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">{pal("star","英雄區")}{pal("image","圖庫")}{pal("box","商品格")}{pal("doc","文章列表")}{pal("arrow-r","行動呼籲")}{pal("comment","FAQ 摺疊")}{pal("external","嵌入")}{pal("globe","地圖")}</div></div>
+        <div><div class="lbl" style="margin-bottom:8px">元件</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">{pal("star","英雄區")}{pal("image","圖庫")}{pal("box","商品格")}{pal("doc","文章列表")}{pal("arrow-r","行動呼籲")}{pal("comment","FAQ 摺疊")}{pal("external","嵌入")}</div></div>
         <div><div class="lbl" style="margin-bottom:8px">文字</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">{pal("doc","Markdown 段落")}{pal("terminal","HTML 區塊")}</div></div>
         <div style="margin-top:auto;font-size:11.5px;color:#9A9FAB;line-height:1.6">拖進來的每個區塊都是一段文字（<span class="mono2">:::</span> 區塊），切回「文字」隨時能手改。</div>
       </aside>
@@ -134,12 +134,11 @@ export = f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction
         <div class="lbl" style="margin-bottom:2px">格式</div>
         <label class="ex on"><span class="cb on" style="margin-top:3px"></span>{I("doc")}<span><b>Jelly Markdown（.md）</b><p>原稿原樣：一般 Markdown 加上 <span class="kbd">:::</span> 版面區塊、<span class="kbd">```table</span>、數學、LaTeX 與 HTML 區塊。任何 Markdown 編輯器都打得開，版面區塊會顯示成文字。要搬回 Jelly 或進版本控制就選這個。</p></span></label>
         <label class="ex"><span class="cb" style="margin-top:3px"></span>{I("page")}<span><b>純 Markdown（.md）</b><p>把 Jelly 專用的東西攤平：欄變成連續段落、商品格變成連結清單、YAML 表格轉成管線表格、提示框變成引言。數學保留 <span class="kbd">$…$</span>。要貼到 GitHub、Notion、別家 CMS 選這個。</p></span></label>
-        <label class="ex"><span class="cb" style="margin-top:3px"></span>{I("globe")}<span><b>HTML（.html）</b><p>和前台看到的一樣：版面、數學、LaTeX 都已經算好，附上需要的 CSS，不依賴 Jelly 也能顯示。可勾選把圖片一起打包成 .zip。</p></span></label>
-        <label class="ex"><span class="cb" style="margin-top:3px"></span>{I("download")}<span><b>PDF</b><p>A4 排版版，用前台樣式。給要印出來或寄給人看的。</p></span></label>
+        <label class="ex"><span class="cb" style="margin-top:3px"></span>{I("globe")}<span><b>HTML（.html）</b><p>獨立文件附上內容樣式；數學與 LaTeX 原稿在沒有排版引擎時保留為原始碼。可勾選把圖片一起打包成 .zip。</p></span></label>
+        <label class="ex"><span class="cb" style="margin-top:3px"></span>{I("download")}<span><b>PDF</b><p>以瀏覽器列印前台樣式，再選「另存為 PDF」。伺服器沒有 PDF 引擎時會提示改用列印。</p></span></label>
         <div style="display:flex;flex-direction:column;gap:8px;padding:12px 14px;background:#F5F5F7;border-radius:0 10px 0 10px;font-size:13px;margin-top:4px">
           <label style="display:flex;align-items:center;gap:8px"><span class="cb on"></span>包含圖片（複製到同一個資料夾，連結改成相對路徑）</label>
           <label style="display:flex;align-items:center;gap:8px"><span class="cb on"></span>開頭附上標題、網址、日期、標籤的 YAML 標頭</label>
-          <label style="display:flex;align-items:center;gap:8px"><span class="cb"></span>連同歷史版本一起（.zip）</label>
         </div>
         <div style="font-size:12.5px;color:#5F6470;line-height:1.6;margin-top:4px;display:flex;gap:8px">{I("alert",15)}<span>整個網站要匯出，去「備份與匯出」：Markdown 資料夾、WXR（給 WordPress，會用「純 Markdown」的攤平規則轉成 HTML）或 JSON。</span></div>
       </div>

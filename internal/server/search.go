@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"html/template"
 	"strings"
 	"time"
@@ -28,6 +29,13 @@ func searchPublicPosts(db *gorm.DB, query string, page, size int) ([]searchResul
 	}
 	if query == "" {
 		return []searchResult{}, 0, nil
+	}
+	ctx := context.Background()
+	if db.Statement != nil && db.Statement.Context != nil {
+		ctx = db.Statement.Context
+	}
+	if results, total, used := extensionSearchPosts(ctx, db, query, page, size); used {
+		return results, total, nil
 	}
 	if page < 1 {
 		page = 1
