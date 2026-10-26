@@ -3,8 +3,10 @@
 <style>
     .gateway-card { transition: opacity .12s ease; }
     .gateway-card.disabled .setting-row:not(.toggle-row) { opacity: .45; }
+    .tabs > a.tab { text-decoration: none; }
 </style>
 <link rel="stylesheet" href="/admin/assets/shop-admin.css">
+<link rel="stylesheet" href="/admin/assets/system-admin.css">
 {{end}}
 {{define "content"}}
 <div class="page-header">
@@ -13,55 +15,18 @@
     </div>
 </div>
 
-<div class="tabs" role="tablist">
-    <button class="tab active" onclick="switchTab('general')">General</button>
-    <button class="tab" onclick="switchTab('oauth')">OAuth</button>
-    <button class="tab" onclick="switchTab('shop')">{{if eq .Lang "en"}}Shop{{else}}商店{{end}}</button>
-    <button class="tab" onclick="switchTab('shipping')">{{if eq .Lang "en"}}Shipping{{else}}運送{{end}}</button>
-    <button class="tab" onclick="switchTab('payment')">{{if eq .Lang "en"}}Payments{{else}}金流{{end}}</button>
-</div>
+<nav class="tabs" role="tablist" aria-label="{{.T.settings}}">
+    {{range .Tabs}}<a class="tab{{if .Active}} active{{end}}" role="tab" aria-selected="{{if .Active}}true{{else}}false{{end}}" href="{{.Href}}">{{with index $.T .Label}}{{.}}{{else}}{{.Label}}{{end}}</a>{{end}}
+    <a class="tab" href="/admin/tools/backup">{{.T.tools}}</a>
+    <a class="tab" href="/admin/logs">{{.T.logs}}</a>
+</nav>
 
-<!-- General Settings -->
-<div id="generalTab" class="tab-content active">
-    <form id="settingsForm" class="settings-group">
-        <div class="settings-group-head">
-            <div>
-                <h2>Site</h2>
-                <p>Name, description and admin language.</p>
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm" id="generalSaveBtn" disabled><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save Settings</button>
-        </div>
-        <div class="setting-row">
-            <div>
-                <label for="siteTitle">Site Title</label>
-                <small class="hint">Shown in the browser tab and the theme header.</small>
-            </div>
-            <div class="control"><input type="text" id="siteTitle" name="site_title"></div>
-        </div>
-        <div class="setting-row">
-            <div>
-                <label for="siteDescription">Site Description</label>
-                <small class="hint">A short line for search engines and the footer.</small>
-            </div>
-            <div class="control"><input type="text" id="siteDescription" name="site_description"></div>
-        </div>
-        <div class="setting-row">
-            <div>
-                <label for="siteLanguage">Language</label>
-                <small class="hint">Admin interface language.</small>
-            </div>
-            <div class="control">
-                <select id="siteLanguage" name="site_language">
-                    <option value="en">English</option>
-                    <option value="zh-TW">Traditional Chinese (繁體中文)</option>
-                </select>
-            </div>
-        </div>
-    </form>
-</div>
-
+{{if not (or (eq .ActiveTab "auth") (eq .ActiveTab "shop") (eq .ActiveTab "shipping") (eq .ActiveTab "payment"))}}
+<div class="sys-root" id="systemRoot" data-page="settings-{{.ActiveTab}}" aria-busy="true"><div class="sys-loading" role="status">{{.T.sys_loading}}<span></span><span></span><span></span></div></div>
+<noscript><p>{{.T.sys_javascriptRequired}}</p></noscript>
+{{end}}
 <!-- OAuth Settings -->
-<div id="oauthTab" class="tab-content">
+<div id="oauthTab" class="tab-content{{if and .ActiveTab (eq .ActiveTab "auth")}} active{{end}}">
     <form id="googleForm" class="settings-group gateway-card" data-gateway="google">
         <div class="settings-group-head">
             <div>
@@ -125,7 +90,7 @@
     <div id="shopLoad" aria-live="polite"></div>
 </div>
 
-<div id="shopTab" class="tab-content">
+<div id="shopTab" class="tab-content{{if eq .ActiveTab "shop"}} active{{end}}">
     <form class="settings-group" id="shopForm" novalidate data-shop-form>
         <div class="settings-group-head"><div><h2 data-t="gShop"></h2><p data-t="gShopHint"></p></div></div>
         <div class="setting-row">
@@ -181,7 +146,7 @@
     </form>
 </div>
 
-<div id="shippingTab" class="tab-content">
+<div id="shippingTab" class="tab-content{{if eq .ActiveTab "shipping"}} active{{end}}">
     <form class="settings-group" novalidate data-shop-form>
         <div class="settings-group-head">
             <div><h2 data-t="gShipping"></h2><p data-t="gShippingHint"></p></div>
@@ -199,7 +164,7 @@
     </form>
 </div>
 
-<div id="paymentTab" class="tab-content">
+<div id="paymentTab" class="tab-content{{if eq .ActiveTab "payment"}} active{{end}}">
     <form class="settings-group gateway-card" novalidate data-shop-form data-gw="ecpay">
         <div class="settings-group-head">
             <div><h2 data-t="ecpayTitle"></h2><p data-t="ecpayHint"></p></div>
@@ -250,42 +215,10 @@
 </div>
 {{end}}
 {{define "scripts"}}
+<script type="application/json" id="systemI18n">{{json .T}}</script>
+<script src="/admin/assets/system-admin.js" defer></script>
+{{if eq .ActiveTab "auth"}}
 <script>
-    function switchTab(tabName) {
-        // Hide all tabs
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-
-        // Show selected tab
-        document.getElementById(tabName + 'Tab').classList.add('active');
-        event.target.classList.add('active');
-    }
-
-    async function loadSettings() {
-        try {
-            const res = await fetch('/api/admin/settings');
-            const options = await res.json();
-            const form = document.getElementById('settingsForm');
-
-            options.forEach(opt => {
-                const input = form.elements[opt.key];
-                if (input) {
-                    input.value = opt.value;
-                    originalGeneralSettings[opt.key] = opt.value;
-                }
-            });
-            
-            // Initialize the save button state
-            checkGeneralForm();
-        } catch (err) {
-            console.error('Failed to load settings:', err);
-        }
-    }
-
     async function loadOAuthSettings() {
         const res = await fetch('/api/admin/oauth/providers');
         const configs = await res.json();
@@ -328,8 +261,6 @@
         github: { enabled: false, clientID: '', clientSecret: '' }
     };
     
-    // Track original general settings
-    let originalGeneralSettings = {};
 
     function toggleGoogle() {
         const enabled = document.getElementById('googleEnabled').checked;
@@ -361,25 +292,6 @@
         checkGitHubForm();
     }
 
-    function checkGeneralForm() {
-        const form = document.getElementById('settingsForm');
-        const btn = document.getElementById('generalSaveBtn');
-        
-        if (!form || !btn) return;
-        
-        let hasChanges = false;
-        const formData = new FormData(form);
-        
-        for (const [key, value] of formData.entries()) {
-            if (originalGeneralSettings[key] !== value) {
-                hasChanges = true;
-                break;
-            }
-        }
-        
-        btn.disabled = !hasChanges;
-    }
-
     function checkGoogleForm() {
         const clientID = document.getElementById('googleClientID').value.trim();
         const clientSecret = document.getElementById('googleClientSecret').value.trim();
@@ -408,54 +320,6 @@
         btn.disabled = !hasChanges || (enabled && !hasValues);
     }
 
-
-    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const data = Object.fromEntries(formData.entries());
-
-        try {
-            const res = await fetch('/api/admin/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-
-            if (res.ok) {
-                // Update original values
-                for (const key in data) {
-                    originalGeneralSettings[key] = data[key];
-                }
-                alert('Settings saved!');
-                checkGeneralForm();
-                
-                // Reload page if language changed
-                if (data.site_language) {
-                    setTimeout(() => window.location.reload(), 500);
-                }
-            } else {
-                const error = await res.json();
-                alert('Failed to save settings: ' + (error.error || 'Unknown error'));
-            }
-        } catch (err) {
-            console.error('Failed to save settings:', err);
-            alert('Failed to save settings: ' + err.message);
-        }
-    });
-
-    // Add input listeners for general settings
-    function setupGeneralFormListeners() {
-        const form = document.getElementById('settingsForm');
-        if (form) {
-            ['site_title', 'site_description', 'site_language'].forEach(name => {
-                const input = form[name];
-                if (input) {
-                    input.addEventListener('input', checkGeneralForm);
-                    input.addEventListener('change', checkGeneralForm);
-                }
-            });
-        }
-    }
 
     document.getElementById('googleForm').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -531,12 +395,9 @@
         document.getElementById(id).addEventListener('input', checkGitHubForm);
     });
 
-    // Setup listeners after forms are loaded
-    loadSettings().then(() => {
-        setupGeneralFormListeners();
-    });
     loadOAuthSettings();
 </script>
+{{end}}
 <script src="/admin/assets/shop-admin.js"></script>
 <script>
 // 商店、運送、金流分頁：GET 只讀不寫，儲存時只送有變更的鍵；金鑰只顯示遮罩值。

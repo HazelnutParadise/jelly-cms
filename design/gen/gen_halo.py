@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from gen import I, doc, ADMIN_CSS, FRONT_CSS, OUT, admin, front, cubes, SUB_CSS, profile_nav, pages
+from gen import I, doc, ADMIN_CSS, FRONT_CSS, OUT, admin, front, cubes, SUB_CSS, profile_nav, settings_nav, pages
 
 CSS = ADMIN_CSS + SUB_CSS + '''
 .nrow{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;padding:12px 10px;border-top:1px solid #EEEFF2;align-items:flex-start}
@@ -16,9 +16,6 @@ CSS = ADMIN_CSS + SUB_CSS + '''
 .pol .ico{width:36px;height:36px;border-radius:0 10px 0 10px;display:grid;place-items:center;color:#fff;flex:0 0 auto}
 '''
 
-def settings_nav(on):
-    items=[("globe","網站","Settings.dc.html"),("list","閱讀與網址","SettingsRoutes.dc.html"),("key","登入與註冊","Settings.dc.html"),("comment","留言","Settings.dc.html"),("card","金流","Settings.dc.html"),("truck","運送","Settings.dc.html"),("mail","郵件與通知","Settings.dc.html"),("db","快取與佇列","Infra.dc.html"),("terminal","程式碼注入","SettingsRoutes.dc.html"),("download","更新","Update.dc.html")]
-    return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px" aria-label="設定分類">'+"".join(f'<a href="{h}"{" class=\"on\"" if l==on else ""}>{I(ic,14)}{l}</a>' for ic,l,h in items)+'</nav>'
 
 B = {}
 
@@ -182,11 +179,11 @@ B["MediaPolicies"] = ("後台 · 附件 · 儲存策略與分組", CSS, 1440, 10
       </div>
       <div>
         <span class="lbl">上傳處理</span>
-        <div class="srow"><div><label>自動轉 WebP 並保留原檔</label><div class="h">文章裡引用 WebP，原檔留著給下載。</div></div><div class="c"><span class="tg"></span></div></div>
+        <div class="srow"><div><label>WebP 擴充處理器</label><div class="h">轉檔需安裝 media.processor 外掛，內建保留原始格式。</div></div><div class="c"><span class="chip nd">需要外掛</span></div></div>
         <div class="srow"><div><label>縮圖尺寸</label><div class="h">主題可以再要求別的尺寸。</div></div><div class="c"><span class="chip nd">320</span><span class="chip nd">768</span><span class="chip nd">1280</span><span class="chip nd">1920</span><button class="btn x s" type="button">{I("plus",12)}</button></div></div>
         <div class="srow"><div><label>移除照片的位置資訊（EXIF GPS）</label></div><div class="c"><span class="tg"></span></div></div>
-        <div class="srow"><div><label>單檔上限</label></div><div class="c"><div class="seg"><span>10 MB</span><span class="on">50 MB</span><span>200 MB</span><span>不限</span></div></div></div>
-        <div class="srow"><div><label>從網址抓檔</label><div class="h">貼一個或多個網址，背景下載進所選策略。</div></div><div class="c"><button class="btn t s" type="button">{I("download",12)}從網址加入</button></div></div>
+        <div class="srow"><div><label>單檔上限</label></div><div class="c"><div class="seg"><span>10 MB</span><span class="on">20 MB</span><span>64 MB</span></div></div></div>
+        <div class="srow"><div><label>從網址抓檔</label><div class="h">貼一個或多個網址，排入背景下載後顯示各檔工作編號，可到工作列表刷新結果。</div></div><div class="c"><button class="btn t s" type="button">{I("download",12)}從網址加入</button></div></div>
       </div>
     </section>
     <aside class="card" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:14px">
@@ -195,12 +192,15 @@ B["MediaPolicies"] = ("後台 · 附件 · 儲存策略與分組", CSS, 1440, 10
       <div><span class="lbl">類型</span><div class="seg" style="margin-top:6px"><span>本機</span><span class="on">S3 相容</span></div></div>
       <div><span class="lbl">Endpoint</span><input class="ul" type="text" value="https://<account>.r2.cloudflarestorage.com" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">Bucket</span><input class="ul" type="text" value="jelly-media"></div><div><span class="lbl">Region</span><input class="ul" type="text" value="auto"></div></div>
-      <div><span class="lbl">Access key / Secret</span><input class="ul" type="text" value="由環境變數 JELLY_S3_KEY 設定" disabled style="color:#5F6470"></div>
-      <div><span class="lbl">對外網址（CDN）</span><input class="ul" type="text" value="https://img.example.com" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
-      <div><span class="lbl">路徑樣板</span><input class="ul" type="text" value="{{year}}/{{month}}/{{slug}}-{{short}}.{{ext}}" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
+      <div><label for="s3-access">Access key</label><input id="s3-access" class="ul" type="password" autocomplete="new-password" placeholder="已設定，留空保留"></div>
+      <div><label for="s3-secret">Secret key</label><input id="s3-secret" class="ul" type="password" autocomplete="new-password" placeholder="已設定，留空保留"></div>
+      <div><label for="s3-token">Session token（選填）</label><input id="s3-token" class="ul" type="password" autocomplete="new-password" placeholder="留空保留"></div>
+      <label><input type="checkbox">清除全部已儲存的 S3 憑證</label><p style="font-size:12px;color:#5F6470">憑證只顯示遮罩，留空保留；新憑證的 Access key 與 Secret key 必須成對填寫。本機與外掛策略不顯示 S3 設定，既有策略類型固定。</p>
+      <div><span class="lbl">用途（附件 / 備份）</span><input class="ul" type="text" value="media" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
+      <div><span class="lbl">路徑前綴</span><input class="ul" type="text" value="images/" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
       <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">新上傳預設用這個<span class="tg off"></span></label>
       <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("refresh")}測試連線</button><button class="btn x i" type="button" aria-label="刪除" style="margin-left:auto;color:#9C2318">{I("trash")}</button></div>
-      <div style="font-size:12px;color:#5F6470;line-height:1.6">還有檔案的策略不能刪；要先把檔案搬到別的策略（會背景複製並改寫文章裡的網址）。</div>
+      <div style="font-size:12px;color:#5F6470;line-height:1.6">還有檔案的策略不能刪除，先搬到相同用途的其他策略；搬移先排入背景處理並顯示工作編號，可到<a href="Infra.dc.html#sys-jobs">工作列表</a>刷新確認完成後，再重新讀取檔案數。</div>
     </aside>
   </main>'''))
 
@@ -230,7 +230,9 @@ B["AppStore"] = ("後台 · 應用市場", CSS, 1440, 1000, admin("plugins", ["�
       {app("#5F6470","grid","Umami 統計","Jelly 官方 · 分析","在儀表板顯示 Umami 的流量。","v1.1","<button class='btn s' type='button'>"+I("download",12)+"安裝</button>")}
       {app("#E8285B","box","WooCommerce 匯入","Jelly 官方 · 遷移","把商品、訂單、顧客搬過來。","v0.5 預覽","<button class='btn s' type='button'>"+I("download",12)+"安裝</button>")}
     </div>
-    <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#5F6470">{I("shield",14)}<span>官方外掛有簽章；社群外掛安裝前會顯示它要的權限（檔案、網路、資料表）。所有外掛跑在 QuickJS 隔離裡，掛了不影響網站。</span></div>
+    <p style="font-size:13px;color:#5F6470">重新整理目錄會排入背景處理並顯示工作編號，請到<a href="Infra.dc.html#sys-jobs">工作列表</a>刷新確認結果。</p>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px"><b>安裝前確認</b><span class="chip nd">Meilisearch 搜尋 · 1.4</span><span class="mono">net.fetch · content.read</span><label style="font-size:13px"><input type="checkbox"> 我同意授予以上權限</label><div><button class="btn p" type="button">安裝</button><button class="btn t" type="button">取消</button></div></div>
+    <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#5F6470">{I("shield",14)}<span>官方外掛有簽章。市場、網址與 ZIP 安裝都先顯示名稱、版本與權限，勾選同意後才安裝。所有外掛跑在 QuickJS 隔離裡，掛了不影響網站。</span></div>
   </main>'''))
 
 # ---------- 外掛詳情與擴充設定 ----------
@@ -242,7 +244,7 @@ B["PluginDetail"] = ("後台 · 外掛詳情", CSS, 1440, 1000, admin("plugins",
       <div class="tab"><span>詳情</span><span class="on">設定</span><span>擴充設定</span><span>權限</span><span>日誌</span></div>
       <div style="padding-top:8px">
         <div class="srow"><div><label>Meilisearch 網址</label></div><div class="c"><input class="ul" type="text" value="http://search.internal:7700" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></div></div>
-        <div class="srow"><div><label>API 金鑰</label></div><div class="c"><input class="ul" type="text" value="由環境變數 MEILI_KEY 設定" disabled style="color:#5F6470"></div></div>
+        <div class="srow"><div><label>API 金鑰</label></div><div class="c"><input class="ul" type="password" placeholder="••••1234，留空保留"></div></div>
         <div class="srow"><div><label>索引內容</label></div><div class="c"><span class="chip nd">文章</span><span class="chip nd">頁面</span><span class="chip nd">商品</span><span class="chip nd" style="opacity:.5">留言</span></div></div>
         <div class="srow"><div><label>錯字容忍</label><div class="h">「焦塘布丁」也找得到焦糖布丁。</div></div><div class="c"><span class="tg"></span></div></div>
         <div class="srow"><div><label>重建索引</label><div class="h">上次 10/20 03:05 · 1,318 筆 · 12 秒</div></div><div class="c"><button class="btn t s" type="button">{I("refresh",12)}立刻重建</button></div></div>
@@ -250,7 +252,7 @@ B["PluginDetail"] = ("後台 · 外掛詳情", CSS, 1440, 1000, admin("plugins",
       </div>
       <div style="margin-top:28px">
         <div class="tab" style="margin-bottom:8px"><span class="on" style="border-color:#2F6BFF">擴充設定 · 這個功能由誰提供</span></div>
-        <p style="margin:0 0 10px;font-size:12.5px;color:#5F6470">同一個功能可能有好幾個外掛能做。這裡選現在用哪一個，切換不用重啟。</p>
+        <p style="margin:0 0 10px;font-size:12.5px;color:#5F6470">搜尋引擎選一個提供者；附件儲存可多選。尚未接上執行流程的擴充點只顯示宣告。</p>
         <table><thead><tr><th>擴充點</th><th>目前使用</th><th>其他可選</th></tr></thead><tbody>
           <tr><td><b>搜尋引擎</b></td><td><span class="chip info">Meilisearch 搜尋</span></td><td style="color:#5F6470">內建 PostgreSQL 全文搜尋</td></tr>
           <tr><td><b>附件儲存</b></td><td><span class="chip nd">本機</span> <span class="chip nd">S3 相容</span></td><td style="color:#5F6470">（可同時多個，在儲存策略選）</td></tr>
@@ -262,7 +264,7 @@ B["PluginDetail"] = ("後台 · 外掛詳情", CSS, 1440, 1000, admin("plugins",
     </section>
     <aside style="display:flex;flex-direction:column;gap:12px;position:sticky;top:16px">
       <div class="card" style="display:flex;flex-direction:column;gap:8px;font-size:13px">
-        <div class="lbl">這個外掛要的權限</div>
+        <div class="lbl">這個外掛要的權限（已強制 / 僅宣告）</div>
         <div style="display:flex;align-items:center;gap:8px">{I("globe",14)}對外連線：search.internal:7700</div>
         <div style="display:flex;align-items:center;gap:8px">{I("doc",14)}讀：文章、頁面、商品（含草稿）</div>
         <div style="display:flex;align-items:center;gap:8px">{I("db",14)}自己的資料表：1 張（meili_sync）</div>
@@ -293,22 +295,22 @@ B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", 
     <section style="max-width:900px;display:flex;flex-direction:column;gap:28px">
       <div>
         <div class="lbl" style="margin-bottom:4px">網址結構</div>
-        <div class="srow"><div><label>文章網址</label><div class="h">改了會自動幫舊網址建 301 轉址。</div></div><div class="c"><select class="ul"><option>/posts/{{slug}}</option><option>/{{year}}/{{month}}/{{slug}}</option><option>/{{year}}/{{slug}}</option><option>/{{category}}/{{slug}}</option><option>/archives/{{slug}}</option></select></div></div>
+        <div class="srow"><div><label>文章網址</label><div class="h">改了會自動幫舊網址建 301 轉址。</div></div><div class="c"><select class="ul"><option>/post/{{slug}}</option><option>/{{year}}/{{month}}/{{slug}}</option><option>/{{year}}/{{slug}}</option><option>/{{category}}/{{slug}}</option><option>/archives/{{slug}}</option></select></div></div>
         <div class="srow"><div><label>網址別名怎麼產生</label></div><div class="c"><div class="seg"><span class="on">從標題（拼音／英文）</span><span>時間戳</span><span>短亂碼</span></div></div></div>
         <div class="srow"><div><label>分類 / 標籤 / 作者 / 月份 前綴</label></div><div class="c" style="gap:4px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><input class="ul" type="text" value="/c/" style="width:64px"><input class="ul" type="text" value="/t/" style="width:64px"><input class="ul" type="text" value="/author/" style="width:84px"><input class="ul" type="text" value="/archive/" style="width:90px"></div></div>
-        <div class="srow"><div><label>預覽</label></div><div class="c" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#5F6470;justify-content:flex-start;flex-direction:column;align-items:flex-start;gap:2px"><span>example.com/posts/caramel-pudding</span><span>example.com/c/recipes/desserts</span><span>example.com/t/gelatin</span></div></div>
+        <div class="srow"><div><label>預覽</label></div><div class="c" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#5F6470;justify-content:flex-start;flex-direction:column;align-items:flex-start;gap:2px"><span>example.com/post/caramel-pudding</span><span>example.com/c/recipes/desserts</span><span>example.com/t/gelatin</span></div></div>
       </div>
       <div>
         <div class="lbl" style="margin-bottom:4px">列表</div>
         <div class="srow"><div><label>首頁顯示</label></div><div class="c"><div class="seg"><span class="on">最新文章</span><span>指定頁面</span></div></div></div>
-        <div class="srow"><div><label>每頁幾篇（首頁 / 分類標籤 / 作者 / 搜尋）</label></div><div class="c" style="gap:4px"><input class="ul" type="text" value="12" style="width:48px;text-align:center"><input class="ul" type="text" value="12" style="width:48px;text-align:center"><input class="ul" type="text" value="12" style="width:48px;text-align:center"><input class="ul" type="text" value="20" style="width:48px;text-align:center"></div></div>
+        <div class="srow"><div><label>每頁幾篇（首頁 / 分類標籤 / 作者 / 搜尋）</label></div><div class="c" style="gap:4px"><input class="ul" type="text" value="10" style="width:48px;text-align:center"><input class="ul" type="text" value="10" style="width:48px;text-align:center"><input class="ul" type="text" value="10" style="width:48px;text-align:center"><input class="ul" type="text" value="10" style="width:48px;text-align:center"></div></div>
         <div class="srow"><div><label>摘要</label><div class="h">沒手寫摘要時自動取幾個字。</div></div><div class="c"><input class="ul" type="text" value="110" style="width:64px;text-align:center"></div></div>
         <div class="srow"><div><label>RSS / Atom</label><div class="h">/feed.xml、每個分類與作者也有自己的 feed。</div></div><div class="c"><div class="seg"><span class="on">全文</span><span>摘要</span><span>關</span></div></div></div>
         <div class="srow"><div><label>Sitemap 與 robots.txt</label><div class="h">自動產生，變更後 ping 搜尋引擎（IndexNow）。</div></div><div class="c"><span class="tg"></span></div></div>
         <div class="srow"><div><label>讓搜尋引擎索引這個站</label><div class="h">關掉會加 noindex，測試站用。</div></div><div class="c"><span class="tg"></span></div></div>
       </div>
       <div>
-        <div class="lbl" style="margin-bottom:4px">程式碼注入</div>
+        <div class="lbl" style="margin-bottom:4px">程式碼注入</div><div class="srow"><div><label>管理員密碼</label><div class="h">每次儲存都要重新驗證，目前密碼不會保留。</div></div><div class="c"><input class="ul" type="password" autocomplete="current-password"></div></div><div class="srow"><div><label>也套用到結帳與帳號頁面</label></div><div class="c"><span class="tg off"></span></div></div>
         <p style="margin:0 0 8px;font-size:12.5px;color:#5F6470">放統計、字型、驗證標籤。會原樣輸出，只有管理員能改；留言與外掛碰不到這裡。</p>
         <div class="srow" style="grid-template-columns:200px minmax(0,1fr)"><div><label>全站 &lt;head&gt;</label></div><div class="c"><textarea class="ul code" rows="3" style="width:100%;font-size:12px;text-align:left">&lt;script defer src="https://umami.example.com/script.js" data-website-id="…"&gt;&lt;/script&gt;</textarea></div></div>
         <div class="srow" style="grid-template-columns:200px minmax(0,1fr)"><div><label>文章與頁面 &lt;head&gt;</label></div><div class="c"><textarea class="ul code" rows="2" style="width:100%;font-size:12px;text-align:left" placeholder="只在內容頁輸出"></textarea></div></div>
@@ -317,7 +319,7 @@ B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", 
       <div>
         <div class="lbl" style="margin-bottom:4px">維護模式</div>
         <div class="srow"><div><label>開啟維護模式</label><div class="h">前台顯示維護頁（503），登入的管理員照常看得到網站。</div></div><div class="c"><span class="tg off"></span></div></div>
-        <div class="srow"><div><label>維護頁訊息</label></div><div class="c"><input class="ul" type="text" value="我們在升級，大概 10 分鐘。"></div></div>
+        <div class="srow"><div><label>重試秒數</label></div><div class="c"><input class="ul" type="number" min="1" max="86400" value="600"></div></div><div class="srow"><div><label>維護頁訊息</label></div><div class="c"><input class="ul" type="text" value="我們在升級，大概 10 分鐘。"></div></div>
       </div>
     </section>
   </main>'''))
@@ -399,4 +401,6 @@ B["Coupons"] = ("後台 · 折扣碼", CSS, 1440, 1280, admin("coupons", ["商�
   </main>'''))
 
 for name,(title,css,w,h,html) in B.items():
+    if os.environ.get("JELLY_DESIGN_ONLY") and name not in os.environ["JELLY_DESIGN_ONLY"].split(","):
+        continue
     open(os.path.join(OUT, f"{name}.dc.html"),"w",encoding="utf-8").write(doc(title, css, html, w, h)); print("wrote",name)

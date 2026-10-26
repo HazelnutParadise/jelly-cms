@@ -15,12 +15,15 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/markup"
+	"github.com/HazelnutParadise/jelly-cms/internal/redirects"
+	"github.com/HazelnutParadise/jelly-cms/internal/syslog"
 	"github.com/goccy/go-json"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
 
 var errPostConflict = errors.New("post changed")
+var errReservedSlug = errors.New("slug is reserved")
 var errRenderDiagnostics = errors.New("render diagnostics")
 
 // Ticket 09 G0 (docs/tickets/09-editor.md): source writes are rendered and
@@ -108,6 +111,7 @@ func createPost(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
+	cfg := loadPermalinkConfig(c.Request().Context())
 	diagnostics, err := preparePostContent(c, &post, input, user)
 	if err != nil {
 		if errors.Is(err, errRenderDiagnostics) {
@@ -120,10 +124,25 @@ func createPost(c echo.Context) error {
 		post.PublishedAt = &now
 	}
 	err = data.DB.Transaction(func(tx *gorm.DB) error {
+		if post.Slug == "" {
+			slug, err := newContentSlug(tx, cfg, post)
+			if err != nil {
+				return err
+			}
+			post.Slug = slug
+		}
+		if core.IsReservedSlug(post.Slug, cfg.currentPrefixNames()...) {
+			return errReservedSlug
+		}
 		if err := core.NewPostService(tx).Create(&post); err != nil {
 			return err
 		}
 		if err := applyPostTerms(tx, &post, input); err != nil {
+			return err
+		}
+		// A new post must be reachable at its own URL, so drop any automatic
+		// redirect that still sends that path elsewhere after a slug change.
+		if err := redirects.ReleaseAutoPath(tx, permalinkPathFor(tx, cfg, post)); err != nil {
 			return err
 		}
 		kind := "manual"
@@ -131,14 +150,24 @@ func createPost(c echo.Context) error {
 			kind = "publish"
 		}
 		_, err := RecordRevision(tx, post, user.ID, kind)
-		return err
+		if err != nil {
+			return err
+		}
+		return recordIndexNowIntent(c.Request().Context(), tx, indexNowItem{Kind: post.Type, ID: post.ID, Slug: post.Slug}, accountBaseURL(c))
 	})
+	if errors.Is(err, errReservedSlug) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Slug is reserved"})
+	}
 	if err != nil {
 		return termWriteError(c, err, "Unable to create post")
 	}
 	var created core.Post
 	if err := data.DB.Preload("Categories").Preload("Tags").First(&created, post.ID).Error; err != nil {
 		return postQueryError(c, err)
+	}
+	item := indexNowItem{Kind: created.Type, ID: created.ID, Slug: created.Slug}
+	if err := dispatchIndexNowPending(c.Request().Context(), data.DB, 1); err != nil {
+		reportIndexNowEnqueueFailure(c, item, err)
 	}
 	return postResponse(c, created, diagnostics)
 }
@@ -222,6 +251,12 @@ func updatePost(c echo.Context) error {
 	if _, err := applyPostInput(&nextForRender, input); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
 	}
+	cfg := loadPermalinkConfig(c.Request().Context())
+	_, slugInput := input["slug"]
+	_, typeInput := input["type"]
+	if (slugInput || typeInput) && core.IsReservedSlug(nextForRender.Slug, cfg.currentPrefixNames()...) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Slug is reserved"})
+	}
 	diagnostics, err := preparePostContent(c, &nextForRender, input, user)
 	if err != nil {
 		if errors.Is(err, errRenderDiagnostics) {
@@ -235,12 +270,21 @@ func updatePost(c echo.Context) error {
 	if nextType, ok := updates["type"].(string); ok && user.Role == "author" && nextType != "post" {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
 	}
+	_, seoInput := input["seo_index"]
+	_, seoAIInput := input["seo_ai"]
+	if (seoInput || seoAIInput) && user.Role == "author" {
+		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
+	}
 	updates["updated_at"] = time.Now()
 	if _, explicit := input["published_at"]; !explicit && existing.PublishedAt == nil {
 		if status, ok := updates["status"].(string); ok && status == "published" {
 			updates["published_at"] = updates["updated_at"]
 		}
 	}
+	// The old URL is built before the write; the new one after the categories
+	// are saved, because a {category} pattern depends on them.
+	oldPath := permalinkPathFor(data.DB, cfg, existing)
+	slugRedirectSkipped := ""
 	err = data.DB.Transaction(func(tx *gorm.DB) error {
 		write := tx.Model(&core.Post{}).Where("id = ?", id)
 		if user.Role == "author" {
@@ -262,6 +306,11 @@ func updatePost(c echo.Context) error {
 		if err := applyPostTerms(tx, &existing, input); err != nil {
 			return err
 		}
+		var saved core.Post
+		if err := tx.Select("id", "type", "slug", "published_at", "created_at").First(&saved, id).Error; err != nil {
+			return err
+		}
+		newPath := permalinkPathFor(tx, cfg, saved)
 		next := existing
 		next = nextForRender
 		if stamped, ok := updates["published_at"].(time.Time); ok && next.PublishedAt == nil {
@@ -272,7 +321,16 @@ func updatePost(c echo.Context) error {
 				return err
 			}
 		}
-		return nil
+		// Changing the slug or type moves the public URL. The old URL gets an
+		// automatic 301 (ticket 08b).
+		if oldPath != newPath && existing.Slug != "" {
+			skipped, err := redirects.SlugChangeRedirect(tx, oldPath, newPath, user.ID)
+			if err != nil {
+				return err
+			}
+			slugRedirectSkipped = skipped
+		}
+		return recordIndexNowIntent(c.Request().Context(), tx, indexNowItem{Kind: saved.Type, ID: saved.ID, Slug: saved.Slug}, accountBaseURL(c))
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
@@ -283,6 +341,14 @@ func updatePost(c echo.Context) error {
 	if err != nil {
 		return termWriteError(c, err, "Unable to update post")
 	}
+	if slugRedirectSkipped != "" {
+		syslog.Emit(c.Request().Context(), syslog.Entry{
+			Level:   syslog.LevelWarn,
+			Source:  syslog.SourceApp,
+			Message: "slug redirect not created",
+			Fields:  map[string]any{"reason": slugRedirectSkipped, "post_id": id},
+		})
+	}
 	var updated core.Post
 	read := data.DB.Where("id = ?", id).Preload("Categories").Preload("Tags")
 	if user.Role == "author" {
@@ -290,6 +356,10 @@ func updatePost(c echo.Context) error {
 	}
 	if err := read.First(&updated).Error; err != nil {
 		return postQueryError(c, err)
+	}
+	item := indexNowItem{Kind: updated.Type, ID: updated.ID, Slug: updated.Slug}
+	if err := dispatchIndexNowPending(c.Request().Context(), data.DB, 1); err != nil {
+		reportIndexNowEnqueueFailure(c, item, err)
 	}
 	return postResponse(c, updated, diagnostics)
 }
@@ -474,16 +544,23 @@ func postUpdates(input map[string]json.RawMessage) (map[string]interface{}, erro
 		"source": {}, "format": {},
 		"template": {}, "meta": {}, "published_at": {},
 		"excerpt": {}, "cover": {}, "visibility": {}, "allow_comments": {}, "pinned": {},
+		"seo_index": {}, "seo_ai": {},
 	} {
 		raw, ok := input[key]
 		if !ok {
 			continue
 		}
 		switch key {
-		case "title", "slug", "content", "source", "format", "type", "status", "template", "excerpt", "cover", "visibility":
+		case "title", "slug", "content", "source", "format", "type", "status", "template", "excerpt", "cover", "visibility", "seo_index", "seo_ai":
 			var value string
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
+			}
+			if key == "seo_index" && value != "inherit" && value != "index" && value != "noindex" {
+				return nil, errors.New("invalid seo_index")
+			}
+			if key == "seo_ai" && value != "inherit" && value != "allow" && value != "noai" {
+				return nil, errors.New("invalid seo_ai")
 			}
 			if key == "type" && value != "post" && value != "page" {
 				return nil, errors.New("invalid content type")
@@ -548,6 +625,10 @@ func applyPostInput(post *core.Post, input map[string]json.RawMessage) (map[stri
 			post.Cover = value.(string)
 		case "visibility":
 			post.Visibility = value.(string)
+		case "seo_index":
+			post.SEOIndex = value.(string)
+		case "seo_ai":
+			post.SEOAI = value.(string)
 		case "pinned":
 			post.Pinned = value.(bool)
 		case "allow_comments":

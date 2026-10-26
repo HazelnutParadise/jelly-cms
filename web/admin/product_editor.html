@@ -52,6 +52,18 @@
                 <div class="sa-grid two" style="grid-template-columns:minmax(0,1fr)">
                     <div class="sa-field"><label for="fSeoTitle" id="lSeoTitle"></label><input type="text" id="fSeoTitle" maxlength="255"><small class="hint" id="seoTitleCount"></small></div>
                     <div class="sa-field"><label for="fSeoDesc" id="lSeoDesc"></label><textarea id="fSeoDesc" rows="3"></textarea><small class="hint" id="seoDescCount"></small></div>
+                    <div class="sa-field">
+                        <label for="fSeoIndex">{{.T.ed2SeoIndexLabel}}</label>
+                        <select id="fSeoIndex" name="seo_index" aria-describedby="seoIndexHint">
+                            <option value="inherit">{{.T.ed2SeoInherit}}</option><option value="index">{{.T.ed2SeoIndex}}</option><option value="noindex">{{.T.ed2SeoNoIndex}}</option>
+                        </select>
+                        <small class="hint" id="seoIndexHint">{{.T.ed2SeoIndexHint}}</small>
+                        <label for="fSeoAI">{{.T.ed2SeoAiLabel}}</label>
+                        <select id="fSeoAI" name="seo_ai" aria-describedby="seoAIHint">
+                            <option value="inherit">{{.T.ed2SeoInherit}}</option><option value="allow">{{.T.ed2SeoAllowAI}}</option><option value="noai">{{.T.ed2SeoNoAI}}</option>
+                        </select>
+                        <small class="hint" id="seoAIHint">{{.T.ed2SeoAiHint}}</small>
+                    </div>
                 </div>
                 <div class="sa-seo-preview" aria-live="off"><span class="label" id="seoPreviewLabel"></span><span class="t" id="seoT"></span><span class="u" id="seoU"></span><span class="d" id="seoD"></span></div>
             </div>
@@ -125,6 +137,21 @@
     let catTree = [];
     let selectedCats = new Set();
     let dirty = false;
+    const seoChoices = { seo_index: ['inherit', 'index', 'noindex'], seo_ai: ['inherit', 'allow', 'noai'] };
+    const seoUnknownLabel = {{json .T.ed2SeoUnknown}};
+    function fillSEO(data) {
+        for (const [key, id] of [['seo_index', 'fSeoIndex'], ['seo_ai', 'fSeoAI']]) {
+            const input = $(id);
+            const value = data[key] == null || data[key] === '' ? 'inherit' : String(data[key]);
+            input.querySelectorAll('[data-unknown]').forEach(option => option.remove());
+            if (!seoChoices[key].includes(value)) {
+                const option = document.createElement('option');
+                option.value = value; option.textContent = seoUnknownLabel.replace('%s', value); option.dataset.unknown = 'true';
+                input.append(option);
+            }
+            input.value = value;
+        }
+    }
 
     /* ---------- static text ---------- */
     const text = (el, k) => { if ($(el)) $(el).textContent = t(k); };
@@ -295,6 +322,7 @@
         $('fCold').checked = !!p.cold_chain;
         $('fSeoTitle').value = p.seo_title || '';
         $('fSeoDesc').value = p.seo_description || '';
+        fillSEO(p);
         const status = ['draft', 'active', 'archived'].includes(p.status) ? p.status : 'draft';
         form.querySelector('input[name="status"][value="' + status + '"]').checked = true;
         let imgs = p.images;
@@ -365,6 +393,10 @@
             images: images.slice(), categories: [...selectedCats], variants: vs,
             seo_title: $('fSeoTitle').value.trim(), seo_description: $('fSeoDesc').value.trim()
         };
+        for (const [key, id] of [['seo_index', 'fSeoIndex'], ['seo_ai', 'fSeoAI']]) {
+            const value = $(id).value;
+            if (seoChoices[key].includes(value)) body[key] = value;
+        }
         // Keep fields this page does not edit.
         if (product) {
             if (product.kind) body.kind = product.kind;
@@ -387,7 +419,7 @@
                 SA.toast(creating ? t('created') : t('saved'));
             } catch (err) {
                 const fields = SA.fieldErrors(err);
-                const map = { title: 'fTitle', slug: 'fSlug', price: 'fPrice', compare_at_price: 'fCompare', low_stock_threshold: 'fThreshold', seo_title: 'fSeoTitle', seo_description: 'fSeoDesc' };
+                const map = { title: 'fTitle', slug: 'fSlug', price: 'fPrice', compare_at_price: 'fCompare', low_stock_threshold: 'fThreshold', seo_title: 'fSeoTitle', seo_description: 'fSeoDesc', seo_index: 'fSeoIndex', seo_ai: 'fSeoAI' };
                 Object.keys(fields).forEach(k => { if (map[k]) SA.fieldError($(map[k]), String(fields[k])); });
                 SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) });
             }

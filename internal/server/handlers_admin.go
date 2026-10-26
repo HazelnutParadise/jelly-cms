@@ -1,7 +1,6 @@
 package server
 
 import (
-	"archive/zip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,8 +17,13 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"gorm.io/gorm"
 )
+
+// uploadBodyLimit is the request size cap for routes that accept files. Every
+// other route is limited to the global 2 MiB in RegisterRoutes.
+const uploadBodyLimit = "64M"
 
 func RegisterAdminRoutes(e *echo.Echo, tm *theme.Manager) {
 	registerAdminRoutes(e, tm, nil)
@@ -35,77 +39,9 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 	registerEditorRoutes(e, content, api)
 
 	// Media
-	content.POST("/media", func(c echo.Context) error {
-		file, err := c.FormFile("file")
-		if err != nil {
-			return err
-		}
-		src, err := file.Open()
-		if err != nil {
-			return err
-		}
-		defer src.Close()
-
-		// Ensure uploads directory exists
-		os.MkdirAll("data/uploads", 0755)
-		dstPath := filepath.Join("data/uploads", file.Filename)
-		dst, err := os.Create(dstPath)
-		if err != nil {
-			return err
-		}
-		defer dst.Close()
-
-		if _, err = io.Copy(dst, src); err != nil {
-			return err
-		}
-
-		return c.JSON(http.StatusOK, map[string]string{"url": "/uploads/" + file.Filename})
-	})
-
-	content.DELETE("/media/:filename", func(c echo.Context) error {
-		filename := c.Param("filename")
-		// Prevent directory traversal
-		if filepath.Base(filename) != filename {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
-		}
-
-		path := filepath.Join("data/uploads", filename)
-		if err := os.Remove(path); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		return c.JSON(http.StatusOK, map[string]string{"message": "Deleted"})
-	})
-
-	content.PUT("/media/:filename", func(c echo.Context) error {
-		filename := c.Param("filename")
-		// Prevent directory traversal
-		if filepath.Base(filename) != filename {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
-		}
-
-		file, err := c.FormFile("file")
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "No file uploaded"})
-		}
-		src, err := file.Open()
-		if err != nil {
-			return err
-		}
-		defer src.Close()
-
-		dstPath := filepath.Join("data/uploads", filename)
-		dst, err := os.Create(dstPath)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-		defer dst.Close()
-
-		if _, err = io.Copy(dst, src); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-
-		return c.JSON(http.StatusOK, map[string]string{"message": "Replaced"})
-	})
+	content.POST("/media", handleLegacyMediaUpload, middleware.BodyLimit(uploadBodyLimit))
+	content.DELETE("/media/:filename", handleLegacyMediaDelete)
+	content.PUT("/media/:filename", handleLegacyMediaReplace, middleware.BodyLimit(uploadBodyLimit))
 
 	content.POST("/media/rename", func(c echo.Context) error {
 		var req struct {
@@ -121,14 +57,7 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
 		}
 
-		oldPath := filepath.Join("data/uploads", req.OldName)
-		newPath := filepath.Join("data/uploads", req.NewName)
-
-		if err := os.Rename(oldPath, newPath); err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		}
-
-		return c.JSON(http.StatusOK, map[string]string{"message": "Renamed"})
+		return moveLegacyMedia(c, req.OldName, req.NewName)
 	})
 
 	content.GET("/media", func(c echo.Context) error {
@@ -298,9 +227,14 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		return c.JSON(http.StatusOK, plugins)
 	})
 
-	// Upload plugin
+	// Upload plugin. The archive is validated and extracted by installPluginFile,
+	// which also records the plugins row (disabled until an admin enables it).
+	// The field is "file"; "plugin" is still read for the existing admin screen.
 	api.POST("/plugins/upload", func(c echo.Context) error {
-		file, err := c.FormFile("plugin")
+		file, err := c.FormFile("file")
+		if err != nil {
+			file, err = c.FormFile("plugin")
+		}
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "No file uploaded"})
 		}
@@ -317,100 +251,54 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		}
 		defer src.Close()
 
-		// Create temporary file
-		tmpPath := filepath.Join(os.TempDir(), file.Filename)
-		dst, err := os.Create(tmpPath)
+		// Copy the upload to a temporary file with a generated name.
+		tmp, err := os.CreateTemp("", "jelly-plugin-*.zip")
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create temporary file"})
 		}
-		defer dst.Close()
-		defer os.Remove(tmpPath) // Clean up temp file
-
-		// Copy uploaded file to temp
-		if _, err = io.Copy(dst, src); err != nil {
+		tmpPath := tmp.Name()
+		defer os.Remove(tmpPath)
+		if _, err = io.Copy(tmp, src); err != nil {
+			tmp.Close()
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save uploaded file"})
 		}
-		dst.Close()
-
-		// Extract ZIP file
-		pluginsDir := "data/plugins"
-		os.MkdirAll(pluginsDir, 0755)
-
-		// Use archive/zip to extract
-		r, err := zip.OpenReader(tmpPath)
+		if err := tmp.Close(); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to save uploaded file"})
+		}
+		digest, err := hashPluginArchive(tmpPath)
 		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ZIP file: " + err.Error()})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to inspect uploaded file"})
 		}
-		defer r.Close()
-
-		// Find plugin.json to determine plugin directory name
-		var pluginID string
-		var pluginJSONFound bool
-		for _, f := range r.File {
-			if f.Name == "plugin.json" || strings.HasSuffix(f.Name, "/plugin.json") {
-				// Read plugin.json to get plugin ID
-				rc, err := f.Open()
-				if err != nil {
-					continue
-				}
-				var meta plugin.PluginMetadata
-				if json.NewDecoder(rc).Decode(&meta) == nil {
-					pluginID = meta.ID
-					pluginJSONFound = true
-				}
-				rc.Close()
-				break
+		meta, err := plugin.ValidateArchive(tmpPath)
+		if err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+		}
+		permissions := plugin.ManifestPermissionNames(meta)
+		permissionsHash := plugin.PermissionNamesHash(permissions)
+		if c.QueryParam("dry") == "1" {
+			return c.JSON(http.StatusOK, map[string]any{"id": meta.ID, "version": meta.Version, "permissions": permissions, "permissions_hash": permissionsHash, "sha256": digest})
+		}
+		if len(permissions) > 0 {
+			if c.FormValue("accept_permissions") != permissionsHash || c.FormValue("sha256") != digest {
+				return c.JSON(http.StatusConflict, map[string]string{"error": "Preview this exact archive and accept its permissions before installing"})
 			}
 		}
 
-		if !pluginJSONFound {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "plugin.json not found in ZIP file"})
+		res, err := installPluginFile(c.Request().Context(), pluginRuntime, tmpPath, pluginFileInstall{Source: storeSourceUpload, Signature: storeSignatureNone, Want: plugin.ArchiveExpectation{ID: meta.ID, Version: meta.Version, PermissionsHash: permissionsHash}})
+		if err != nil {
+			switch {
+			case errors.Is(err, errPluginRunning):
+				return c.JSON(http.StatusConflict, map[string]string{"error": "Plugin is running; disable it before uploading a new version"})
+			case errors.Is(err, errPluginRecoveryPending):
+				return c.JSON(http.StatusConflict, map[string]string{"error": "Plugin recovery is pending"})
+			case plugin.IsArchiveError(err):
+				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Plugin installation failed"})
 		}
 
-		if pluginID == "" {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid plugin.json: ID field is required"})
-		}
-
-		// Extract to plugin directory
-		pluginDir := filepath.Join(pluginsDir, pluginID)
-		os.MkdirAll(pluginDir, 0755)
-
-		for _, f := range r.File {
-			// Skip directories and hidden files
-			if f.FileInfo().IsDir() || strings.HasPrefix(f.Name, ".") || strings.Contains(f.Name, "..") {
-				continue
-			}
-
-			// Get relative path from ZIP root
-			relPath := f.Name
-			if idx := strings.Index(relPath, "/"); idx >= 0 {
-				relPath = relPath[idx+1:]
-			}
-			if relPath == "" {
-				continue
-			}
-
-			destPath := filepath.Join(pluginDir, relPath)
-			os.MkdirAll(filepath.Dir(destPath), 0755)
-
-			rc, err := f.Open()
-			if err != nil {
-				continue
-			}
-
-			dstFile, err := os.Create(destPath)
-			if err != nil {
-				rc.Close()
-				continue
-			}
-
-			io.Copy(dstFile, rc)
-			rc.Close()
-			dstFile.Close()
-		}
-
-		return c.JSON(http.StatusOK, map[string]string{"message": "Plugin uploaded and extracted successfully", "plugin_id": pluginID})
-	})
+		return c.JSON(http.StatusOK, map[string]string{"message": "Plugin uploaded and extracted successfully", "plugin_id": res.ID})
+	}, middleware.BodyLimit(uploadBodyLimit))
 
 	// Reload plugin
 	api.POST("/plugins/:id/reload", func(c echo.Context) error {
@@ -431,50 +319,10 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		return c.JSON(http.StatusOK, map[string]string{"message": "Plugin reloaded"})
 	})
 
-	// Settings
-	api.GET("/settings", func(c echo.Context) error {
-		var options []core.Option
-		data.DB.Find(&options)
-		return c.JSON(http.StatusOK, options)
-	})
-
-	api.POST("/settings", func(c echo.Context) error {
-		var req map[string]string
-		if err := c.Bind(&req); err != nil {
-			return err
-		}
-		if data.DB == nil {
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
-		}
-		db := data.DB.WithContext(c.Request().Context())
-		maintenance := make(map[string]string, 3)
-		for _, key := range []string{maintenanceEnabledKey, maintenanceMessageKey, maintenanceStartedKey} {
-			if value, ok := req[key]; ok {
-				maintenance[key] = value
-				delete(req, key)
-			}
-		}
-		if len(maintenance) > 0 {
-			if err := saveMaintenanceOptions(db, maintenance); err != nil {
-				status := http.StatusServiceUnavailable
-				if errors.Is(err, errInvalidMaintenanceSetting) {
-					status = http.StatusBadRequest
-				}
-				return c.JSON(status, map[string]string{"error": "Unable to save settings"})
-			}
-		}
-		for k, v := range req {
-			var opt core.Option
-			if err := db.FirstOrCreate(&opt, core.Option{Key: k}).Error; err != nil {
-				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Unable to save settings"})
-			}
-			opt.Value = v
-			if err := db.Save(&opt).Error; err != nil {
-				return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Unable to save settings"})
-			}
-		}
-		return c.JSON(http.StatusOK, map[string]string{"message": "Settings saved"})
-	})
+	// Settings: GET masks, PUT and POST are the same audited, registry-checked write.
+	api.GET("/settings", handleSettingsList)
+	api.POST("/settings", handleSettingsWrite)
+	api.PUT("/settings", handleSettingsWrite)
 
 	// Payment Gateway Settings
 	api.GET("/payment/gateways", func(c echo.Context) error {

@@ -70,6 +70,8 @@ type productInput struct {
 	RelatedIDs        []uint                `json:"related_ids"`
 	SEOTitle          string                `json:"seo_title"`
 	SEODescription    string                `json:"seo_description"`
+	SEOIndex          *string               `json:"seo_index"`
+	SEOAI             *string               `json:"seo_ai"`
 }
 
 // UnmarshalJSON accepts legacy top-level integer prices as minor units while

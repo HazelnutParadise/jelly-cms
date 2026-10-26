@@ -20,6 +20,7 @@ const (
 	maxManifestBytes  = 64 << 10
 	maxEntryBytes     = 1 << 20
 	maxPayloadBytes   = 1 << 20
+	maxExtensionBytes = 1 << 20
 	maxFrameBytes     = 2 << 20
 	maxLogEntryBytes  = 16 << 10
 	maxRequestLogSize = 1 << 20
@@ -29,38 +30,50 @@ const (
 )
 
 const (
-	frameTypeReady    = "ready"
-	frameTypeLog      = "log"
-	frameTypeResponse = "response"
+	frameTypeReady     = "ready"
+	frameTypeLog       = "log"
+	frameTypeResponse  = "response"
+	frameTypeHostCall  = "hostcall"
+	frameTypeHostReply = "hostreply"
 )
 
 const (
-	opLoad     = "load"
-	opBoot     = "boot"
-	opHook     = "hook"
-	opShutdown = "shutdown"
+	opLoad      = "load"
+	opBoot      = "boot"
+	opHook      = "hook"
+	opExtension = "extension"
+	opShutdown  = "shutdown"
 )
 
 // workerFrame is one length-prefixed JSON message read from a worker. Log
 // frames may arrive between a request and its response, so logs are never
 // buffered until the request finishes.
 type workerFrame struct {
-	Type    string `json:"type"`
-	ID      uint64 `json:"id,omitempty"`
-	OK      bool   `json:"ok,omitempty"`
-	Error   string `json:"error,omitempty"`
-	Level   string `json:"level,omitempty"`
-	Message string `json:"message,omitempty"`
+	Type       string          `json:"type"`
+	ID         uint64          `json:"id,omitempty"`
+	RequestID  uint64          `json:"request_id,omitempty"`
+	CallID     uint64          `json:"call_id,omitempty"`
+	OK         bool            `json:"ok,omitempty"`
+	Error      string          `json:"error,omitempty"`
+	Method     string          `json:"method,omitempty"`
+	Args       json.RawMessage `json:"args,omitempty"`
+	Result     json.RawMessage `json:"result,omitempty"`
+	Undefined  bool            `json:"undefined,omitempty"`
+	Extensions []string        `json:"extensions,omitempty"`
+	Level      string          `json:"level,omitempty"`
+	Message    string          `json:"message,omitempty"`
 }
 
 // workerRequest is one length-prefixed JSON message sent to a worker.
 type workerRequest struct {
-	ID      uint64          `json:"id,omitempty"`
-	Op      string          `json:"op"`
-	Entry   string          `json:"entry,omitempty"`
-	Code    string          `json:"code,omitempty"`
-	Hook    string          `json:"hook,omitempty"`
-	Payload json.RawMessage `json:"payload,omitempty"`
+	ID        uint64          `json:"id,omitempty"`
+	Op        string          `json:"op"`
+	Metadata  *PluginMetadata `json:"metadata,omitempty"`
+	Entry     string          `json:"entry,omitempty"`
+	Code      string          `json:"code,omitempty"`
+	Hook      string          `json:"hook,omitempty"`
+	Extension string          `json:"extension,omitempty"`
+	Payload   json.RawMessage `json:"payload,omitempty"`
 }
 
 // writeFrame writes a frame with a four byte big-endian length prefix.

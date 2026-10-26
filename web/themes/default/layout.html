@@ -15,8 +15,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
-    <title>{{if .Title}}{{.Title}} · {{end}}{{.SiteTitle}}</title>
+    <title>{{if .SEOPageTitle}}{{.SEOPageTitle}}{{else}}{{if .Title}}{{.Title}} · {{end}}{{.SiteTitle}}{{end}}</title>
     <meta name="description" content="{{$tagline}}">
+    {{- with .SEOImage}}
+    <meta property="og:image" content="{{.}}">
+    {{- end}}
     <style>
         @font-face {
             font-family: "Noto Sans TC";
@@ -495,6 +498,13 @@
         }
     </style>
     <link rel="stylesheet" href="/theme/assets/content.css">
+    {{- with .RobotsMeta}}
+    <meta name="robots" content="{{.}}">
+    {{- end}}
+    {{- with .RobotsExtraMeta}}
+    <meta name="robots" content="{{.}}">
+    {{- end}}
+    {{- with .Inject}}{{.Head}}{{.ContentHead}}{{end}}
 </head>
 
 <body>
@@ -665,6 +675,7 @@
     if (document.querySelector('[data-reveal], [data-hover], [data-scroll], [data-delay], [data-dur], [data-stagger], [data-once]')) script('/theme/assets/jelly-motion.js');
 })();
 </script>
+{{- with .Inject}}{{.Footer}}{{end}}
 </body>
 
 </html>

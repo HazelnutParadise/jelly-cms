@@ -135,8 +135,11 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
           </tbody>
         </table>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px"><svg class="ic" style="width:18px;height:18px" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>執行前會先<b>試跑</b>，列出會衝突的網址和找不到的附件，你確認後才真的寫入。</span><label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:600">完成後寄 Email<span class="tg"></span></label></div>
-      <div style="display:flex;gap:8px"><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>上一步</button><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M7 4l12 8-12 8z"/></svg>試跑，然後匯入</button></div>
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px"><svg class="ic" style="width:18px;height:18px" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>執行前會先<b>試跑</b>，列出會衝突的網址和找不到的附件，確認試跑報告後，再按「執行匯入」才會寫入。</span><label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:600">試跑完成<span class="chip ok">可以匯入</span></label></div>
+      <div style="display:flex;gap:8px"><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>上一步</button><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>試跑</button><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M7 4l12 8-12 8z"/></svg>執行匯入</button></div>
+      <p style="font-size:13px;color:#5F6470">匯入已排程或執行中時會自動刷新，兩分鐘後可手動重新整理。<a href="Infra.dc.html#sys-jobs">查看工作與編號</a></p>
+      <div class="card"><h3>完成後的匯入報告</h3><table><thead><tr><th>類型</th><th>已建立</th></tr></thead><tbody><tr><td>文章</td><td>1</td></tr><tr><td>頁面</td><td>0</td></tr><tr><td>附件</td><td>0</td></tr><tr><td>留言</td><td>0</td></tr><tr><td>作者</td><td>1</td></tr></tbody></table></div>
+      <div class="card"><h3>已略過</h3><p>依實際原因列出筆數：已匯入過、未選擇的類型、附件未啟用抓取等；沒有略過時顯示空狀態。</p></div>
     </section>
   </main>
   </div>
