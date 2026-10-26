@@ -11,6 +11,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -19,6 +20,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/labstack/echo/v4"
+	xhtml "golang.org/x/net/html"
 )
 
 // edtPostRow is the stored state of one post that the G0 contract cares about.
@@ -109,6 +111,78 @@ func edtPublicProse(body string) string {
 		end = len(body) - start
 	}
 	return body[start : start+end]
+}
+
+type edtScriptSignature struct {
+	Location   string
+	Attributes string
+	Text       string
+}
+
+func edtScriptSignatures(t *testing.T, body string) []edtScriptSignature {
+	t.Helper()
+	doc, err := xhtml.Parse(strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("parse rendered page: %v", err)
+	}
+	var got []edtScriptSignature
+	var walk func(*xhtml.Node, string)
+	walk = func(n *xhtml.Node, location string) {
+		if n.Type == xhtml.ElementNode && (n.Data == "head" || n.Data == "body") {
+			location = n.Data
+		}
+		if n.Type == xhtml.ElementNode && n.Data == "script" {
+			attrs := make([]string, 0, len(n.Attr))
+			for _, attr := range n.Attr {
+				attrs = append(attrs, attr.Key+"="+attr.Val)
+			}
+			sort.Strings(attrs)
+			var text strings.Builder
+			var scriptText func(*xhtml.Node)
+			scriptText = func(child *xhtml.Node) {
+				if child.Type == xhtml.TextNode {
+					text.WriteString(child.Data)
+				}
+				for c := child.FirstChild; c != nil; c = c.NextSibling {
+					scriptText(c)
+				}
+			}
+			scriptText(n)
+			got = append(got, edtScriptSignature{Location: location, Attributes: strings.Join(attrs, "\x00"), Text: text.String()})
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c, location)
+		}
+	}
+	walk(doc, "outside")
+	return got
+}
+
+// edtScriptsMatchBaseline permits only the two scripts required for rendered math, once each in head.
+func edtScriptsMatchBaseline(t *testing.T, page, baseline string) bool {
+	t.Helper()
+	counts := make(map[edtScriptSignature]int)
+	for _, signature := range edtScriptSignatures(t, baseline) {
+		counts[signature]--
+	}
+	for _, signature := range edtScriptSignatures(t, page) {
+		counts[signature]++
+	}
+	allowed := map[edtScriptSignature]bool{
+		{Location: "head", Attributes: "defer=\x00src=/vendor/katex/katex.min.js"}:        true,
+		{Location: "head", Attributes: "defer=\x00src=/theme/assets/jelly-components.js"}: true,
+	}
+	for signature, count := range counts {
+		if count < 0 || (count != 0 && (!allowed[signature] || count != 1)) {
+			return false
+		}
+	}
+	for signature := range allowed {
+		if counts[signature] != 1 {
+			return false
+		}
+	}
+	return true
 }
 
 func TestPostSaveRendersSourceAndIgnoresClientContent(t *testing.T) {
@@ -283,9 +357,13 @@ func TestPublicPostPageRendersJellyBlocks(t *testing.T) {
 	// The payload stays inside the source; the page must not gain any script from it.
 	jellySource := ":::columns\n::: col\n左欄內容\n:::\n::: col\n右欄內容\n:::\n:::\n\n" +
 		"<script>alertX()</script>\n\n$$x^2$$\n"
-	_, _ = edtCreate(t, h, token, map[string]any{
+	id, _ := edtCreate(t, h, token, map[string]any{
 		"title": "Jelly 區塊", "slug": "edt-jelly-blocks", "status": "published", "source": jellySource,
 	})
+	stored := edtLoadRow(t, h, id)
+	if strings.Contains(strings.ToLower(stored.Content), "<script") {
+		t.Errorf("stored post content must not contain any script: %q", stored.Content)
+	}
 	_, _ = edtCreate(t, h, token, map[string]any{
 		"title": "純文字", "slug": "edt-plain-block", "status": "published", "source": "plain",
 	})
@@ -300,10 +378,22 @@ func TestPublicPostPageRendersJellyBlocks(t *testing.T) {
 	if !strings.Contains(prose, "jc-math") {
 		t.Errorf("public post must render $$…$$ as jc-math: %q", prose)
 	}
-	if got, want := strings.Count(page, "<script"), strings.Count(baseline, "<script"); got != want {
-		t.Errorf("public post has %d <script> tags, the theme baseline has %d: content injected a script", got, want)
+	if !edtScriptsMatchBaseline(t, page, baseline) {
+		t.Errorf("public post scripts differ from the baseline beyond the two permitted math scripts\npage: %q\nbaseline: %q", edtScriptSignatures(t, page), edtScriptSignatures(t, baseline))
 	}
 	archivesWantAbsent(t, "/post/edt-jelly-blocks", page, "alertX()")
+}
+
+func TestPublicPostScriptOracleRejectsInjectedScript(t *testing.T) {
+	baseline := `<html><head><script src="/base.js"></script></head><body><main>plain</main></body></html>`
+	page := `<html><head><script src="/base.js"></script><script src="/vendor/katex/katex.min.js" defer></script><script src="/theme/assets/jelly-components.js" defer></script></head><body><main>math</main></body></html>`
+	if !edtScriptsMatchBaseline(t, page, baseline) {
+		t.Fatal("oracle rejected the exact permitted math scripts")
+	}
+	injected := strings.Replace(page, "</main>", "<script>alertX()</script></main>", 1)
+	if edtScriptsMatchBaseline(t, injected, baseline) {
+		t.Fatal("oracle accepted a content-injected script")
+	}
 }
 
 func TestRevisionsDiffUsesSourceWhenPresent(t *testing.T) {
