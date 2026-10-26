@@ -16,7 +16,7 @@ func I18nMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		lang := ""
 		path := c.Path()
 		usesLanguagePreference := isLanguagePreferencePath(path)
-		accountLanguagePage := path == "/account" || path == "/account/recover"
+		writesLanguageCookie := c.Request().Method == http.MethodGet && isLanguageCookieWritePage(path)
 
 		// Read the shared preference only on pages that expose or use it.
 		if usesLanguagePreference {
@@ -35,12 +35,12 @@ func I18nMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		// On preference-aware pages, only an unambiguous supported language may
-		// override the cookie. Explicit choices on the account pages are saved.
+		// override the cookie. Explicit choices on GET storefront/member pages persist.
 		if usesLanguagePreference {
 			queryLanguages := c.QueryParams()["lang"]
 			if len(queryLanguages) == 1 && supportedLanguage(queryLanguages[0]) {
 				lang = queryLanguages[0]
-				if accountLanguagePage && c.Request().Method == http.MethodGet {
+				if writesLanguageCookie {
 					c.SetCookie(&http.Cookie{
 						Name:     "lang",
 						Value:    lang,
@@ -78,8 +78,22 @@ func I18nMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 }
 
 func isLanguagePreferencePath(path string) bool {
-	return path == "/account" || path == "/account/recover" || path == "/login" ||
-		path == "/admin" || strings.HasPrefix(path, "/admin/")
+	return languagePathOrSubpath(path, "/account") || path == "/account/recover" || path == "/login" ||
+		languagePathOrSubpath(path, "/admin") ||
+		languagePathOrSubpath(path, "/shop") || languagePathOrSubpath(path, "/cart") ||
+		languagePathOrSubpath(path, "/checkout") || languagePathOrSubpath(path, "/orders") ||
+		languagePathOrSubpath(path, "/api/cart") || languagePathOrSubpath(path, "/api/shop") ||
+		languagePathOrSubpath(path, "/api/checkout")
+}
+
+func isLanguageCookieWritePage(path string) bool {
+	return languagePathOrSubpath(path, "/account") || languagePathOrSubpath(path, "/shop") ||
+		languagePathOrSubpath(path, "/cart") || languagePathOrSubpath(path, "/checkout") ||
+		languagePathOrSubpath(path, "/orders")
+}
+
+func languagePathOrSubpath(path, root string) bool {
+	return path == root || strings.HasPrefix(path, root+"/")
 }
 
 func supportedLanguage(lang string) bool {

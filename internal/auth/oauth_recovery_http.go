@@ -306,7 +306,7 @@ func checkOAuthRecoveryEligibilityDB(db *gorm.DB, grant oauthRecoveryGrant) erro
 	if err != nil {
 		return errOAuthRecoveryUnavailable
 	}
-	if account.Provider != grant.Provider || (account.Provider == "local" && account.Password != "") {
+	if account.Provider != grant.Provider || account.Password != "" {
 		return errOAuthRecoveryConflict
 	}
 	var identities int64
@@ -340,7 +340,7 @@ func completeOAuthRecovery(ctx context.Context, grant oauthRecoveryGrant, profil
 		if !oauthRecoveryGrantUnexpired(grant) {
 			return errExpiredOAuthRecoveryGrant
 		}
-		if target.Provider != grant.Provider || (target.Provider == "local" && target.Password != "") {
+		if target.Provider != grant.Provider || target.Password != "" {
 			return errOAuthRecoveryConflict
 		}
 		if err := tx.Exec("SELECT set_config('jelly.actor_id', '', true)").Error; err != nil {

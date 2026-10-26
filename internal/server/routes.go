@@ -10,19 +10,75 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	appI18n "github.com/HazelnutParadise/jelly-cms/internal/i18n"
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
+	"github.com/HazelnutParadise/jelly-cms/internal/syslog"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 )
 
+// globalBodyLimit caps every request body. Routes that accept files raise the
+// limit themselves (see uploadBodyLimit in handlers_admin.go) and are skipped here.
+const globalBodyLimit = "2M"
+
+func adminFontCacheHeaders(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if !strings.HasPrefix(c.Request().URL.EscapedPath(), "/admin/assets/fonts/") {
+			return next(c)
+		}
+		c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=2592000")
+		c.Response().Before(func() {
+			if c.Response().Status >= http.StatusBadRequest {
+				c.Response().Header().Del(echo.HeaderCacheControl)
+			}
+		})
+		err := next(c)
+		if err != nil {
+			c.Response().Header().Del(echo.HeaderCacheControl)
+		}
+		return err
+	}
+}
+
+// isUploadRoute reports whether the matched route accepts file uploads.
+func isUploadRoute(c echo.Context) bool {
+	switch c.Path() {
+	case "/api/admin/media", "/api/admin/media/:filename", "/api/admin/media/files", "/api/admin/media/files/:id/replace", "/api/admin/plugins/upload", "/api/admin/import/wxr":
+		return true
+	}
+	return false
+}
+
 // RegisterRoutes sets up the server routes.
 func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runtime) {
+	ConfigurePluginHost(pluginRuntime)
+	// Client IPs come from the socket unless JELLY_TRUSTED_PROXIES names the
+	// proxies whose X-Forwarded-For header may be believed.
+	if e.IPExtractor == nil {
+		e.IPExtractor = trustedProxyExtractorFromEnv()
+	}
+	// Permalinks rewrite the path before routing (permalink.go, ticket 08b).
+	e.Pre(permalinkRouting)
+	e.Pre(indexNowKeyRouting)
+	wireLogSinks()
+	e.Use(adminFontCacheHeaders)
+	e.Use(syslog.RequestID())
+	e.Use(syslog.AccessLog())
+	e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
+		Limit:   globalBodyLimit,
+		Skipper: isUploadRoute,
+	}))
 	gate := newInstallGate()
 	e.Use(gate.middleware)
 	e.Use(installStateMiddleware)
 	e.Use(I18nMiddleware)
 	e.Use(maintenanceMiddleware(tm))
-	e.Static("/uploads", "data/uploads")
+	e.Use(crawlerGuard)
+	e.Use(redirectMiddleware)
+	e.Use(enforceStaffAdminAPIs)
+	e.Use(enforceStaffAdminPages)
+	e.Use(settingsURLGuard)
+	registerUploadRoutes(e)
 	e.Static("/admin/assets", "web/admin/assets")
 
 	// Install Routes
@@ -44,13 +100,13 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	}
 
 	// Error pages (JSON for APIs, admin screen under /admin, theme elsewhere).
-	e.HTTPErrorHandler = newHTTPErrorHandler(tm)
+	e.HTTPErrorHandler = withRequestIDInErrorBody(newHTTPErrorHandler(tm))
 
 	// ⌘K palette
 	registerPaletteRoutes(e)
 
 	// Admin page routes with authentication
-	adminPages := e.Group("/admin", auth.RequireAuth)
+	adminPages := e.Group("/admin", auth.RequireAuth, staffPageGate)
 	adminPages.GET("", func(c echo.Context) error {
 		return renderAdmin(c, "index.html", "dashboard")
 	})
@@ -107,8 +163,10 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 		return renderAdmin(c, "plugins.html", "plugins")
 	})
 
-	adminPages.GET("/settings", func(c echo.Context) error {
-		return renderAdmin(c, "settings.html", "settings")
+	// Settings tabs (/admin/settings and /admin/settings/:tab).
+	registerSettingsRoutes(e)
+	adminPages.GET("/widgets", func(c echo.Context) error {
+		return renderAdmin(c, "widgets.html", "widgets")
 	})
 
 	e.GET("/login", func(c echo.Context) error {
@@ -158,6 +216,17 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 
 	// Content organisation: taxonomy, menus, comments, trash, revisions, archives
 	registerContentRoutes(e, tm, renderAdmin)
+
+	// System endpoints and public feeds. They must precede the /:slug catch-all.
+	registerSystemRoutes(e, pluginRuntime)
+	// Accounts: self-service, user administration, notifications (ticket 06).
+	registerAccountRoutes(e, renderAdmin)
+	registerUserRoutes(e, renderAdmin)
+	wireNotifications()
+
+	// Shop: storefront, cart and checkout (public), admin orders, coupons and settings
+	registerShopRoutes(e, tm)
+	registerShopAdminRoutes(e, renderAdmin)
 
 	// WebMCP script, tool list and the public JSON API behind the tools (ticket 13).
 	registerWebMCPRoutes(e, tm, pluginRuntime)

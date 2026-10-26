@@ -2,7 +2,6 @@ package theme
 
 import (
 	"bytes"
-	"html"
 	"html/template"
 	"sort"
 	"strconv"
@@ -10,6 +9,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/searchtext"
 	xhtml "golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 	"golang.org/x/text/cases"
@@ -54,57 +54,11 @@ func ReadingTime(source string) int {
 }
 
 func Highlight(text, query string) template.HTML {
-	text = strings.ToValidUTF8(text, "\uFFFD")
-	query = strings.ToValidUTF8(query, "\uFFFD")
-	start, end, ok := foldMatch(text, query)
-	escaped := html.EscapeString(text)
-	if !ok {
-		return template.HTML(escaped)
-	}
-	return template.HTML(
-		html.EscapeString(text[:start]) +
-			"<mark>" + html.EscapeString(text[start:end]) + "</mark>" +
-			html.EscapeString(text[end:]),
-	)
+	return PrepareSearchQuery(strings.ToValidUTF8(query, "\uFFFD")).Highlight(text)
 }
 
 func Snippet(source, query string, n int) template.HTML {
-	text := strings.ToValidUTF8(PlainText(source), "\uFFFD")
-	runes := []rune(text)
-	if n < 0 {
-		n = 0
-	}
-	start, end, matched := foldMatch(text, query)
-	if matched {
-		startRune := utf8.RuneCountInString(text[:start])
-		endRune := utf8.RuneCountInString(text[:end])
-		windowStart := startRune - n
-		if windowStart < 0 {
-			windowStart = 0
-		}
-		windowEnd := endRune + n
-		if windowEnd > len(runes) {
-			windowEnd = len(runes)
-		}
-		prefix, suffix := "", ""
-		if windowStart > 0 {
-			prefix = "……"
-		}
-		if windowEnd < len(runes) {
-			suffix = "……"
-		}
-		return template.HTML(prefix + string(Highlight(string(runes[windowStart:windowEnd]), query)) + suffix)
-	}
-
-	windowEnd := len(runes)
-	if n <= len(runes)/2 {
-		windowEnd = n * 2
-	}
-	suffix := ""
-	if windowEnd < len(runes) {
-		suffix = "……"
-	}
-	return template.HTML(html.EscapeString(string(runes[:windowEnd])) + suffix)
+	return PrepareSearchQuery(strings.ToValidUTF8(query, "\uFFFD")).Snippet(source, n)
 }
 
 func HeadingIDs(source string) (string, []TOCEntry) {
@@ -196,46 +150,7 @@ func parseHTMLFragment(source string) ([]*xhtml.Node, error) {
 // PlainText returns visible text with whitespace between block elements and none added between inline
 // elements. Script and style contents are omitted.
 func PlainText(source string) string {
-	nodes, err := parseHTMLFragment(source)
-	if err != nil {
-		return ""
-	}
-	var text strings.Builder
-	var walk func(*xhtml.Node)
-	walk = func(node *xhtml.Node) {
-		if node.Type == xhtml.ElementNode &&
-			(strings.EqualFold(node.Data, "script") || strings.EqualFold(node.Data, "style")) {
-			return
-		}
-		block := node.Type == xhtml.ElementNode && isBlockElement(node.Data)
-		if block {
-			text.WriteByte(' ')
-		}
-		if node.Type == xhtml.TextNode {
-			text.WriteString(node.Data)
-		}
-		for child := node.FirstChild; child != nil; child = child.NextSibling {
-			walk(child)
-		}
-		if block {
-			text.WriteByte(' ')
-		}
-	}
-	for _, node := range nodes {
-		walk(node)
-	}
-	return strings.Join(strings.Fields(text.String()), " ")
-}
-
-func isBlockElement(name string) bool {
-	switch strings.ToLower(name) {
-	case "address", "article", "aside", "blockquote", "br", "dd", "div", "dl", "dt", "fieldset",
-		"figcaption", "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header",
-		"hr", "li", "main", "nav", "ol", "p", "pre", "section", "table", "td", "th", "tr", "ul":
-		return true
-	default:
-		return false
-	}
+	return searchtext.PlainText(source)
 }
 
 func nodeText(node *xhtml.Node) string {
@@ -311,8 +226,11 @@ func foldMatch(text, query string) (start, end int, ok bool) {
 	if query == "" || text == "" {
 		return 0, 0, false
 	}
-	query = cases.Fold().String(query)
-	if query == "" {
+	return foldMatchPrepared(text, cases.Fold().String(query))
+}
+
+func foldMatchPrepared(text, foldedQuery string) (start, end int, ok bool) {
+	if foldedQuery == "" || text == "" {
 		return 0, 0, false
 	}
 	var folded strings.Builder
@@ -329,11 +247,11 @@ func foldMatch(text, query string) (start, end int, ok bool) {
 		}
 	}
 	foldedText := folded.String()
-	matchStart := strings.Index(foldedText, query)
+	matchStart := strings.Index(foldedText, foldedQuery)
 	if matchStart < 0 {
 		return 0, 0, false
 	}
-	matchEnd := matchStart + len(query)
+	matchEnd := matchStart + len(foldedQuery)
 	startIndex := sort.Search(len(foldedStarts), func(i int) bool { return foldedStarts[i] >= matchStart })
 	endIndex := sort.Search(len(foldedEnds), func(i int) bool { return foldedEnds[i] >= matchEnd })
 	if startIndex >= len(sourceStarts) || endIndex >= len(sourceEnds) {

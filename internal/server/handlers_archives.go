@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"regexp"
 	"sort"
@@ -34,15 +35,14 @@ import (
 // (RegisterRoutes already calls registerContentRoutes ahead of RegisterPublicRoutes).
 
 func registerArchiveRoutes(e *echo.Echo, tm *theme.Manager) {
-	e.GET("/c/:slug", archiveCategory(tm))
-	e.GET("/t/:slug", archiveTag(tm))
-	e.GET("/author/:username", archiveAuthor(tm))
-	e.GET("/archive", archiveIndex(tm))
-	e.GET("/archive/:year/:month", archiveMonthHandler(tm))
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/c/:slug", archiveCategory(tm))
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/t/:slug", archiveTag(tm))
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/author/:username", archiveAuthor(tm))
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/archive", archiveIndex(tm))
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/archive/:year/:month", archiveMonthHandler(tm))
 }
 
 const (
-	archivePageSize   = 12
 	archiveRelatedMax = 8
 	archiveTopCatsMax = 8
 	archiveSideMax    = 10
@@ -112,8 +112,9 @@ func archivePageParam(c echo.Context) int {
 
 // archiveList loads one page of public posts matched by scope, pinned first then newest. Pages beyond the
 // end answer 404 except page 1, which is always valid.
-func archiveList(scope func(*gorm.DB) *gorm.DB, page int) (posts []core.Post, total int64, totalPages int, err error) {
+func archiveList(scope func(*gorm.DB) *gorm.DB, page int, pageSizeKey string) (posts []core.Post, total int64, totalPages int, err error) {
 	db := datapkg.DB
+	archivePageSize := int64(perPage(context.Background(), pageSizeKey))
 	if err = scope(archivePublicPosts(db)).Count(&total).Error; err != nil {
 		return nil, 0, 0, err
 	}
@@ -128,7 +129,7 @@ func archiveList(scope func(*gorm.DB) *gorm.DB, page int) (posts []core.Post, to
 		}).
 		Preload("Tags", func(tx *gorm.DB) *gorm.DB { return tx.Order("tags.name ASC") }).
 		Order("posts.pinned DESC, " + archivePostDate + " DESC, posts.id DESC").
-		Limit(archivePageSize).Offset((page - 1) * archivePageSize).
+		Limit(int(archivePageSize)).Offset((page - 1) * int(archivePageSize)).
 		Find(&posts).Error
 	return posts, total, totalPages, err
 }
@@ -137,6 +138,7 @@ func archiveRender(c echo.Context, tm *theme.Manager, tpl, title string, data ma
 	data["SiteTitle"] = getSiteTitle()
 	data["Title"] = title
 	data["CurrentPath"] = c.Request().URL.Path
+	applyPublicSEO(c, datapkg.DB, tpl, data)
 	html, err := tm.RenderWithDB(tpl, data, datapkg.DB)
 	if err != nil {
 		return err
@@ -389,7 +391,7 @@ func archiveCategory(tm *theme.Manager) echo.HandlerFunc {
 		ids := archiveCascadeIDs(all, term.ID)
 		posts, total, totalPages, err := archiveList(func(tx *gorm.DB) *gorm.DB {
 			return tx.Where("posts.id IN (?)", datapkg.DB.Table("post_categories").Select("post_id").Where("category_id IN ?", ids))
-		}, archivePageParam(c))
+		}, archivePageParam(c), keyPerPageTaxonomy)
 		if err != nil {
 			return err
 		}
@@ -431,7 +433,7 @@ func archiveTag(tm *theme.Manager) echo.HandlerFunc {
 		withTag := func(tx *gorm.DB) *gorm.DB {
 			return tx.Where("posts.id IN (?)", datapkg.DB.Table("post_tags").Select("post_id").Where("tag_id = ?", term.ID))
 		}
-		posts, total, totalPages, err := archiveList(withTag, archivePageParam(c))
+		posts, total, totalPages, err := archiveList(withTag, archivePageParam(c), keyPerPageTaxonomy)
 		if err != nil {
 			return err
 		}
@@ -458,7 +460,7 @@ func archiveAuthor(tm *theme.Manager) echo.HandlerFunc {
 			return echo.ErrNotFound
 		}
 		byAuthor := func(tx *gorm.DB) *gorm.DB { return tx.Where("posts.author_id = ?", user.ID) }
-		posts, total, totalPages, err := archiveList(byAuthor, archivePageParam(c))
+		posts, total, totalPages, err := archiveList(byAuthor, archivePageParam(c), keyPerPageAuthor)
 		if err != nil {
 			return err
 		}
@@ -576,7 +578,7 @@ func archiveMonthHandler(tm *theme.Manager) echo.HandlerFunc {
 		end := start.AddDate(0, 1, 0)
 		posts, total, totalPages, err := archiveList(func(tx *gorm.DB) *gorm.DB {
 			return tx.Where(archivePostDate+" >= ? AND "+archivePostDate+" < ?", start, end)
-		}, archivePageParam(c))
+		}, archivePageParam(c), keyPerPageTaxonomy)
 		if err != nil {
 			return err
 		}

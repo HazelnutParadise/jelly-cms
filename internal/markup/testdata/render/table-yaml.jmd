@@ -1,0 +1,9 @@
+```table
+caption: 價目表
+align: [null, right]
+columns: [品項, 價格]
+rows:
+  - [咖啡, "120"]
+  - [茶, "60"]
+header_col: false
+```

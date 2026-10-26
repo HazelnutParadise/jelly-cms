@@ -1,15 +1,29 @@
 {{define "content"}}
 <style>
+    .posts-head { grid-template-columns: minmax(0, 1fr) 22.5rem; column-gap: 2rem; align-items: end; }
+    .posts-head > .stripes, .posts-head > .label { grid-column: 1; }
+    .posts-head h1 { grid-column: 1; }
+    .posts-head .category-chips { grid-column: 2; grid-row: 1 / span 3; align-self: end; }
+    .category-chips .chip[aria-current="page"] { background: var(--ink); color: var(--surface); }
+    .entries.layout-list .entry { grid-template-columns: 6rem minmax(0, 1fr) 11.25rem; }
     .category-chips { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .4rem; }
     .category-chips .chip { gap: .45rem; }
     .category-chips i { width: .625rem; height: .625rem; border-radius: 0 .25rem 0 .25rem; background: var(--category-color, var(--primary)); }
-    .entries.layout-list .entry-cover { grid-column: 3; grid-row: 1 / span 5; width: 100%; aspect-ratio: 4 / 3; margin: 0; border-radius: var(--r-md); object-fit: cover; background: var(--surface-low); }
+    .entries.layout-list .entry-cover, .entries.layout-list .entry-cover-placeholder { grid-column: 3; grid-row: 1 / span 5; width: 100%; aspect-ratio: 4 / 3; margin: 0; border-radius: var(--r-md); object-fit: cover; background: var(--surface-low); }
     .entries.layout-list .entry-readtime { color: var(--muted); font-size: .875rem; }
-    .entries.layout-list .entry-cats { display: flex; flex-wrap: wrap; gap: .35rem; }
-    .entries.layout-list .entry-cats .chip { min-height: 1.5rem; font-size: .75rem; }
+    .entries.layout-list .entry-cats { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+    .entries.layout-list .entry-cats .chip { gap: .35rem; min-height: 1.5rem; font-size: .75rem; }
     @media (max-width: 720px) {
+        .posts-head { grid-template-columns: minmax(0, 1fr); }
+        .posts-head .category-chips { grid-column: 1; grid-row: auto; }
         .category-chips { justify-content: flex-start; }
-        .entries.layout-list .entry-cover { grid-column: 1; grid-row: auto; max-width: 16rem; }
+        .entries.layout-list .entry { grid-template-columns: minmax(0, 1fr); }
+        .entries.layout-list .entry-head { grid-row: 1; }
+        .entries.layout-list .entry-cats { grid-row: 2; }
+        .entries.layout-list .entry-title { grid-row: 3; }
+        .entries.layout-list .entry-excerpt { grid-row: 4; }
+        .entries.layout-list .entry-meta { grid-row: 5; }
+        .entries.layout-list .entry-cover, .entries.layout-list .entry-cover-placeholder { grid-column: 1; grid-row: 6; max-width: 16rem; }
     }
 </style>
 <header class="page-head posts-head">
@@ -17,7 +31,7 @@
     <p class="label">文章 · 第 {{.Page}} 頁，共 {{.TotalPages}} 頁</p>
     <h1>文章總覽</h1>
     <nav class="category-chips" aria-label="分類篩選">
-        <a class="chip" href="/posts">全部 {{.Total}}</a>
+        <a class="chip" href="/posts" aria-current="page">全部 {{.Total}}</a>
         {{range .Categories}}
         {{if not .HideFromList}}
         <a class="chip" href="/c/{{.Slug}}">{{with flavor .Color}}<i style="background:var({{.}})" aria-hidden="true"></i>{{else}}<i aria-hidden="true"></i>{{end}}{{.Name}} {{.PostCount}}</a>
@@ -33,12 +47,11 @@
         <div class="entry-date" aria-hidden="true">
             {{if $post.PublishedAt}}<b>{{$post.PublishedAt.Format "02"}}</b><span>{{$post.PublishedAt.Format "2006.01"}}</span>{{else}}<b>{{$post.CreatedAt.Format "02"}}</b><span>{{$post.CreatedAt.Format "2006.01"}}</span>{{end}}
         </div>
-        {{if $post.Cover}}<img class="entry-cover" src="{{$post.Cover}}" alt="" loading="lazy">{{else}}{{with firstImage $post.Content}}<img class="entry-cover" src="{{.}}" alt="" loading="lazy">{{end}}{{end}}
+        {{if $post.Cover}}<img class="entry-cover" src="{{$post.Cover}}" alt="" loading="lazy">{{else}}{{with firstImage $post.Content}}<img class="entry-cover" src="{{.}}" alt="" loading="lazy">{{else}}<div class="entry-cover-placeholder" aria-hidden="true"></div>{{end}}{{end}}
         <div class="entry-head">
             {{if $post.PublishedAt}}<time class="chip" datetime="{{$post.PublishedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.PublishedAt.Format "2006.01.02"}}</time>{{else}}<time class="chip" datetime="{{$post.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{$post.CreatedAt.Format "2006.01.02"}}</time>{{end}}
-            <span class="entry-flavor" aria-hidden="true"></span>
         </div>
-        {{with $post.Categories}}<div class="entry-cats">{{range .}}{{if not .HideFromList}}<a class="chip" href="/c/{{.Slug}}">{{.Name}}</a>{{end}}{{end}}</div>{{end}}
+        {{with $post.Categories}}<div class="entry-cats">{{range .}}{{if not .HideFromList}}<a class="chip" href="/c/{{.Slug}}"><span class="entry-flavor"{{with flavor .Color}} style="background:var({{.}})"{{end}} aria-hidden="true"></span>{{.Name}}</a>{{end}}{{end}}</div>{{end}}
         <h2 class="entry-title"><a href="/post/{{$post.Slug}}">{{$post.Title}}</a></h2>
         <p class="entry-excerpt">{{if $post.Excerpt}}{{excerpt $post.Excerpt 160}}{{else}}{{excerpt $post.Content 160}}{{end}}</p>
         <div class="entry-meta">

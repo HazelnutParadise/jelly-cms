@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 
 	"github.com/fastschema/qjs"
@@ -76,22 +77,51 @@ func isWorkerInvocation(args []string, marker string) bool {
 // runWorkerProcess serves plugin requests until stdin closes or a shutdown
 // request arrives. Stdout carries protocol frames only.
 func runWorkerProcess() int {
+	var outputMu sync.Mutex
+	writeOutput := func(value any) error {
+		outputMu.Lock()
+		defer outputMu.Unlock()
+		return writeFrame(os.Stdout, value, maxFrameBytes)
+	}
 	sendLog := func(level, message string) {
 		frame := workerFrame{Type: frameTypeLog, Level: level, Message: message}
 		// A failed log frame means the parent is gone or the protocol broke.
 		// The response write below reports the failure; logs never block the
 		// worker beyond the bounded frame itself.
-		_ = writeFrame(os.Stdout, frame, maxFrameBytes)
+		_ = writeOutput(frame)
 	}
 
-	state, err := newWorkerJS(sendLog)
+	hostReplies := make(chan workerFrame, 1)
+	stateDone := make(chan struct{})
+	sendHostCall := func(requestID, callID uint64, method string, args json.RawMessage) (json.RawMessage, bool, error) {
+		if err := writeOutput(workerFrame{Type: frameTypeHostCall, RequestID: requestID, CallID: callID, Method: method, Args: args}); err != nil {
+			return nil, false, err
+		}
+		select {
+		case reply := <-hostReplies:
+			if reply.RequestID != requestID || reply.CallID != callID || reply.Type != frameTypeHostReply {
+				return nil, false, errors.New("host reply does not match the pending call")
+			}
+			if !reply.OK {
+				message := reply.Error
+				if message == "" {
+					message = "host operation failed"
+				}
+				return nil, false, errors.New(truncateUTF8(message, 1024))
+			}
+			return reply.Result, reply.Undefined, nil
+		case <-stateDone:
+			return nil, false, errors.New("worker stopped")
+		}
+	}
+	state, err := newWorkerJS(sendLog, sendHostCall)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "plugin worker initialisation failed: %v\n", err)
 
 		return 2
 	}
 
-	if err := writeFrame(os.Stdout, workerFrame{Type: frameTypeReady, OK: true}, maxFrameBytes); err != nil {
+	if err := writeOutput(workerFrame{Type: frameTypeReady, OK: true}); err != nil {
 		state.release()
 
 		return 3
@@ -111,9 +141,30 @@ func runWorkerProcess() int {
 				fmt.Fprintf(os.Stderr, "plugin worker read failed: %v\n", readErr)
 				os.Exit(4)
 			}
-			var request workerRequest
-			if err := json.Unmarshal(payload, &request); err != nil {
+			var incoming struct {
+				Type string `json:"type"`
+			}
+			if err := json.Unmarshal(payload, &incoming); err != nil {
 				fmt.Fprintf(os.Stderr, "plugin worker received an invalid request: %v\n", err)
+				os.Exit(4)
+			}
+			if incoming.Type == frameTypeHostReply {
+				var frame workerFrame
+				if err := json.Unmarshal(payload, &frame); err != nil {
+					fmt.Fprintf(os.Stderr, "plugin worker received an invalid host reply: %v\n", err)
+					os.Exit(4)
+				}
+				select {
+				case hostReplies <- frame:
+				default:
+					fmt.Fprintln(os.Stderr, "plugin worker received an unexpected host reply")
+					os.Exit(4)
+				}
+				continue
+			}
+			var request workerRequest
+			if err := json.Unmarshal(payload, &request); err != nil || request.Op == "" {
+				fmt.Fprintf(os.Stderr, "plugin worker received an invalid request\n")
 				os.Exit(4)
 			}
 			requests <- request
@@ -122,7 +173,10 @@ func runWorkerProcess() int {
 
 	for {
 		request := <-requests
-
+		state.beginRequest(request.ID)
+		if request.Metadata != nil {
+			state.metadata = clonePluginMetadata(*request.Metadata)
+		}
 		state.logBudget = maxRequestLogSize
 
 		response := workerFrame{Type: frameTypeResponse, ID: request.ID}
@@ -141,6 +195,13 @@ func runWorkerProcess() int {
 			if err := state.invokeHookJSON(Hook(request.Hook), request.Payload); err != nil {
 				response.Error = err.Error()
 			}
+		case opExtension:
+			result, err := state.invokeExtensionJSON(request.Extension, request.Payload)
+			if err != nil {
+				response.Error = err.Error()
+			} else {
+				response.Result = result
+			}
 		case opShutdown:
 			shutdown = true
 			if err := state.invokeHookJSON(HookOnShutdown, request.Payload); err != nil {
@@ -151,14 +212,16 @@ func runWorkerProcess() int {
 		}
 
 		response.OK = response.Error == ""
+		response.Extensions = state.registeredExtensions()
 
-		if err := writeFrame(os.Stdout, response, maxFrameBytes); err != nil {
+		if err := writeOutput(response); err != nil {
 			state.release()
 
 			return 3
 		}
 
 		if shutdown {
+			close(stateDone)
 			state.release()
 
 			return 0

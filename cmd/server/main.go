@@ -4,18 +4,23 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
+	"github.com/HazelnutParadise/jelly-cms/internal/backup"
 	"github.com/HazelnutParadise/jelly-cms/internal/config"
+	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/i18n"
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
+	"github.com/HazelnutParadise/jelly-cms/internal/redirects"
 	"github.com/HazelnutParadise/jelly-cms/internal/server"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
+	"github.com/HazelnutParadise/jelly-cms/internal/update"
 	"github.com/goccy/go-json"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -24,17 +29,64 @@ import (
 func main() {
 	plugin.RunWorkerIfRequested()
 
+	// The updater runs "jelly-cms healthcheck" on a freshly installed binary
+	// before it trusts it. The check touches nothing else and exits at once.
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		if err := update.WriteHealthcheck(os.Stdout); err != nil {
+			os.Exit(1)
+		}
+		return
+	}
+
+	// A binary that two starts in a row failed to confirm is replaced by the
+	// previous one before anything else runs (ticket 08c).
+	relaunch, err := update.GuardStartup()
+	if err != nil {
+		log.Printf("update: startup guard: %v", err)
+	}
+	if relaunch {
+		if err := update.Relaunch(); err != nil {
+			log.Printf("update: relaunch restored executable: %v", err)
+		} else {
+			return
+		}
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	// Let run's deferred cleanup finish before deciding the process exit code.
-	if err := run(ctx); err != nil {
-		log.Printf("HTTP server stopped: %v", err)
+	runErr := run(ctx)
+	if runErr != nil {
+		log.Printf("HTTP server stopped: %v", runErr)
+	}
+	// An apply or rollback asked for a restart. The new process starts after the
+	// old server has stopped, so it can bind the same address. This happens even
+	// when the shutdown reported an error.
+	if update.RestartPending() {
+		if err := update.Relaunch(); err != nil {
+			log.Printf("update: relaunch after restart request: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if runErr != nil {
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context) error {
+func run(parent context.Context) error {
+	// An update restart request stops the server the same way a signal does.
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+	go func() {
+		select {
+		case <-update.RestartRequested():
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
 	// Initialize Echo
 	e := echo.New()
 	e.JSONSerializer = &JSONSerializer{} // Use goccy/go-json
@@ -45,8 +97,15 @@ func run(ctx context.Context) error {
 	// Recover any interrupted installation, then load the site configuration
 	// and connect to its database. The site stays closed to installation when
 	// this fails; the HTTP layer answers 503 while data.DB is nil.
-	if err := initializeSite(); err != nil {
-		log.Printf("Site initialization failed: %v", err)
+	if err := backup.RecoverInterruptedRestore(); err != nil {
+		// Do not initialize authentication while a secrets swap is ambiguous.
+		// Keep the durable journal and fail startup closed for operator recovery.
+		return fmt.Errorf("recover interrupted backup restore: %w", err)
+	}
+	initErr := initializeSite()
+	server.SetSystemDatabase(data.DB)
+	if initErr != nil {
+		log.Printf("Site initialization failed: %v", initErr)
 	}
 
 	// Theme Manager
@@ -73,12 +132,13 @@ func run(ctx context.Context) error {
 	if err != nil {
 		log.Printf("Failed to initialize plugin runtime: %v", err)
 	} else {
+		server.ConfigurePluginHost(pluginRuntime)
 		defer pluginRuntime.Close()
 
 		// Load all plugins if database is connected
 		if config.GlobalConfig != nil && data.DB != nil {
 			os.MkdirAll("data/plugins", 0755)
-			if err := pluginRuntime.LoadAll(context.Background(), "data/plugins"); err != nil {
+			if err := pluginRuntime.LoadWhere(context.Background(), "data/plugins", server.PluginEnabledFilter()); err != nil {
 				log.Printf("Failed to load plugins: %v", err)
 			}
 		}
@@ -87,9 +147,75 @@ func run(ctx context.Context) error {
 	// Routes
 	server.RegisterRoutes(e, tm, pluginRuntime)
 
-	go runTrashPurge(ctx)
-
+	// Bind before confirming an applied update. A process that cannot claim its
+	// real service address must remain eligible for startup rollback.
+	listener, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		return err
+	}
+	e.Listener = listener
+	stopSystemRuntime := startSystemRuntime(ctx)
+	defer stopSystemRuntime()
+	if initErr == nil && config.GlobalConfig != nil && data.DB != nil {
+		if err := update.ConfirmStarted(); err != nil {
+			log.Printf("update: confirm start: %v", err)
+		}
+	}
 	return runHTTPServer(ctx, e, ":8080")
+}
+
+// runBackupSchedule checks every 30 seconds whether the daily scheduled backup
+// is due. Two checks fall in every minute, so the due minute is never missed,
+// and backup.RunScheduledIfDue starts at most one backup per day.
+func runBackupSchedule(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C:
+			if data.DB == nil {
+				continue
+			}
+			if err := backup.RunScheduledIfDue(ctx, now); err != nil && ctx.Err() == nil {
+				log.Printf("Scheduled backup: %v", err)
+			}
+		}
+	}
+}
+
+// runOrderExpiry releases stock and coupon holds for orders whose payment
+// window elapsed. Each sweep is bounded by the process context and timeout.
+func runOrderExpiry(ctx context.Context) {
+	sweep := func() {
+		if data.DB == nil {
+			return
+		}
+		sweepCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		count, err := core.ExpireUnpaidOrders(data.DB.WithContext(sweepCtx), time.Now().UTC())
+		if err != nil {
+			if ctx.Err() == nil {
+				log.Printf("Order expiry sweep failed: %v", err)
+			}
+			return
+		}
+		if count > 0 {
+			log.Printf("Order expiry sweep: expired %d pending orders", count)
+		}
+	}
+	sweep()
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			sweep()
+		}
+	}
 }
 
 // runTrashPurge removes expired recycle-bin rows at start and then every 24 hours
@@ -116,6 +242,55 @@ func runTrashPurge(ctx context.Context) {
 			return
 		case <-ticker.C:
 			purge()
+		}
+	}
+}
+
+// runLogsPrune removes system log rows past their retention window at start
+// and then every 24 hours until ctx is done. It does nothing while the site is
+// not installed (data.DB nil).
+func runLogsPrune(ctx context.Context) {
+	prune := func() {
+		if data.DB == nil {
+			return
+		}
+		removed, err := server.PruneSystemLogs(ctx, data.DB, time.Now().UTC())
+		if err != nil && ctx.Err() == nil {
+			log.Printf("Log prune: %v", err)
+		}
+		if removed > 0 {
+			log.Printf("Log prune: removed %d expired rows", removed)
+		}
+	}
+	prune()
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			prune()
+		}
+	}
+}
+
+// runRedirectHits writes redirect hit counts to the database every 30 seconds
+// until ctx is done. Counts not yet written when the process exits are lost.
+func runRedirectHits(ctx context.Context) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if data.DB == nil {
+				continue
+			}
+			if err := redirects.FlushHits(); err != nil {
+				log.Printf("Redirect hit flush: %v", err)
+			}
 		}
 	}
 }

@@ -1,0 +1,138 @@
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+<div class="shop" data-page="checkout" data-lang="{{if $en}}en{{else}}zh-TW{{end}}" data-currency="{{.Currency}}"{{if .Customer}} data-member="1"{{end}}>
+    <div class="shop-head">
+        <div><span class="shop-stripe"></span><h1 class="page-title">{{if $en}}Checkout{{else}}結帳{{end}}</h1></div>
+        <ol class="steps" aria-label="{{if $en}}Checkout steps{{else}}結帳步驟{{end}}">
+            <li class="step done"><i>✓</i><span>{{if $en}}Cart{{else}}購物車{{end}}</span></li>
+            <li class="step" aria-current="step"><i>2</i><span>{{if $en}}Checkout{{else}}結帳{{end}}</span></li>
+            <li class="step"><i>3</i><span>{{if $en}}Payment{{else}}付款{{end}}</span></li>
+            <li class="step"><i>4</i><span>{{if $en}}Done{{else}}完成{{end}}</span></li>
+        </ol>
+    </div>
+
+    {{if .Sandbox}}<div class="notice warn">{{if $en}}Test mode: payments use the sandbox gateway and nothing is charged.{{else}}測試模式：付款走沙盒金流，不會實際扣款。{{end}}</div>{{end}}
+    <div data-co-status hidden class="form-error" tabindex="-1"></div>
+    <div class="loading" data-co-loading aria-label="{{if $en}}Loading{{else}}載入中{{end}}"><span class="sk"></span><span class="sk tall"></span><span class="sk tall"></span></div>
+
+    <form class="two-col" data-checkout-form novalidate hidden>
+        <div class="co-form">
+            <section aria-labelledby="co-contact">
+                <h2 id="co-contact"><span class="chip">1</span>{{if $en}}Contact{{else}}聯絡方式{{end}}</h2>
+                <div class="grid2">
+                    <div>
+                        <label class="flbl" for="co-email">Email</label>
+                        <input class="field" id="co-email" name="email" type="email" autocomplete="email" required data-field="email" aria-describedby="co-email-hint err-email" value="{{with .Customer}}{{.Email}}{{end}}">
+                        <div class="hint" id="co-email-hint">{{if $en}}Order updates and receipts are sent here.{{else}}訂單通知與收據會寄到這裡。{{end}}</div>
+                        <div class="ferr" id="err-email" data-err="email" hidden></div>
+                    </div>
+                    <div>
+                        <label class="flbl" for="co-phone">{{if $en}}Mobile{{else}}手機{{end}}</label>
+                        <input class="field" id="co-phone" name="phone" type="tel" autocomplete="tel" required data-field="phone" aria-describedby="err-phone" placeholder="09xx xxx xxx" value="{{with .Customer}}{{.Phone}}{{end}}">
+                        <div class="ferr" id="err-phone" data-err="phone" hidden></div>
+                    </div>
+                </div>
+                {{if not .Customer}}
+                <label class="check"><input type="checkbox" name="create_account" value="1">{{if $en}}Create an account so I don't have to type this next time (optional){{else}}建立帳號，下次免填（可選）{{end}}</label>
+                <p class="small muted">{{if $en}}Already have an account? <a href="/login?redirect=/checkout">Sign in</a>.{{else}}已經有帳號？<a href="/login?redirect=/checkout">登入</a>。{{end}}</p>
+                {{end}}
+            </section>
+
+            <section aria-labelledby="co-ship">
+                <h2 id="co-ship"><span class="chip">2</span>{{if $en}}Delivery{{else}}配送{{end}}</h2>
+                <fieldset>
+                    <legend class="visually-hidden">{{if $en}}Shipping method{{else}}運送方式{{end}}</legend>
+                    <div class="grid3" data-ship-options></div>
+                    <div class="ferr" data-err="method" hidden></div>
+                </fieldset>
+                <div class="grid2">
+                    <div>
+                        <label class="flbl" for="co-name">{{if $en}}Recipient{{else}}收件人{{end}}</label>
+                        <input class="field" id="co-name" name="name" type="text" autocomplete="name" required data-field="name" aria-describedby="err-name" value="{{with .Customer}}{{.Name}}{{end}}">
+                        <div class="ferr" id="err-name" data-err="name" hidden></div>
+                    </div>
+                </div>
+                <div class="grid2" data-address>
+                    <div>
+                        <label class="flbl" for="co-postcode">{{if $en}}Postcode{{else}}郵遞區號{{end}}</label>
+                        <input class="field" id="co-postcode" name="postcode" type="text" inputmode="numeric" autocomplete="postal-code" data-required data-field="postcode" aria-describedby="err-postcode">
+                        <div class="ferr" id="err-postcode" data-err="postcode" hidden></div>
+                    </div>
+                    <div>
+                        <label class="flbl" for="co-city">{{if $en}}City / county{{else}}縣市{{end}}</label>
+                        <input class="field" id="co-city" name="city" type="text" autocomplete="address-level1" data-required data-field="city" aria-describedby="err-city">
+                        <div class="ferr" id="err-city" data-err="city" hidden></div>
+                    </div>
+                    <div class="span2">
+                        <label class="flbl" for="co-address">{{if $en}}Address{{else}}地址{{end}}</label>
+                        <input class="field" id="co-address" name="address" type="text" autocomplete="street-address" data-required data-field="address" aria-describedby="err-address">
+                        <div class="ferr" id="err-address" data-err="address" hidden></div>
+                    </div>
+                </div>
+            </section>
+
+            <section aria-labelledby="co-pay">
+                <h2 id="co-pay"><span class="chip">3</span>{{if $en}}Payment and invoice{{else}}付款與發票{{end}}</h2>
+                <fieldset>
+                    <legend class="visually-hidden">{{if $en}}Payment method{{else}}付款方式{{end}}</legend>
+                    <div class="grid2" data-pay-options></div>
+                    <div class="ferr" data-err="payment" hidden></div>
+                </fieldset>
+                <div class="grid2">
+                    <div>
+                        <label class="flbl" for="co-inv">{{if $en}}Invoice{{else}}發票{{end}}</label>
+                        <select class="field" id="co-inv" name="invoice_kind" data-field="invoice_kind">
+                            <option value="none">{{if $en}}Personal (email receipt){{else}}個人（Email 收據）{{end}}</option>
+                            <option value="personal_carrier">{{if $en}}Mobile barcode carrier{{else}}手機條碼載具{{end}}</option>
+                            <option value="tax_id">{{if $en}}Company tax ID{{else}}公司統編{{end}}</option>
+                            <option value="donation">{{if $en}}Donate the invoice{{else}}捐贈發票{{end}}</option>
+                        </select>
+                        <div class="ferr" data-err="invoice_kind" hidden></div>
+                    </div>
+                    <div data-inv="personal_carrier" hidden>
+                        <label class="flbl" for="co-carrier">{{if $en}}Mobile barcode{{else}}手機條碼{{end}}</label>
+                        <input class="field" id="co-carrier" name="carrier_code" type="text" autocapitalize="characters" placeholder="/ABC1234" maxlength="8" data-field="carrier_code" aria-describedby="err-carrier_code">
+                        <div class="ferr" id="err-carrier_code" data-err="carrier_code" hidden></div>
+                    </div>
+                    <div data-inv="donation" hidden>
+                        <label class="flbl" for="co-donation">{{if $en}}Donation code{{else}}捐贈碼{{end}}</label>
+                        <input class="field" id="co-donation" name="donation_code" type="text" inputmode="numeric" maxlength="7" data-field="donation_code" aria-describedby="err-donation_code">
+                        <div class="ferr" id="err-donation_code" data-err="donation_code" hidden></div>
+                    </div>
+                </div>
+                <div class="grid2" data-inv="tax_id" hidden>
+                    <div>
+                        <label class="flbl" for="co-taxid">{{if $en}}Tax ID{{else}}統一編號{{end}}</label>
+                        <input class="field" id="co-taxid" name="tax_id" type="text" inputmode="numeric" maxlength="8" data-field="tax_id" aria-describedby="err-tax_id">
+                        <div class="ferr" id="err-tax_id" data-err="tax_id" hidden></div>
+                    </div>
+                    <div>
+                        <label class="flbl" for="co-company">{{if $en}}Company name{{else}}公司抬頭{{end}}</label>
+                        <input class="field" id="co-company" name="company_name" type="text" autocomplete="organization" data-field="company_name" aria-describedby="err-company_name">
+                        <div class="ferr" id="err-company_name" data-err="company_name" hidden></div>
+                    </div>
+                </div>
+            </section>
+            <div class="honeypot" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+        </div>
+
+        <aside class="summary dark" aria-label="{{if $en}}Your order{{else}}你的訂單{{end}}">
+            <div class="shop-lbl">{{if $en}}Your order{{else}}你的訂單{{end}}</div>
+            <div class="sum-items" data-sum-items></div>
+            <div class="sumgrid top" data-sum-grid></div>
+            <div class="total"><span>{{if $en}}Total{{else}}總計{{end}}</span><span class="d" data-total></span></div>
+            <p class="small muted">{{if $en}}The final amount is calculated by the store when the order is placed.{{else}}實際金額以送出時系統重新計算為準。{{end}}</p>
+            <div>
+                <label class="check"><input type="checkbox" name="accept_terms" value="1" data-field="accept_terms" aria-describedby="err-accept_terms">
+                    <span>{{if $en}}I have read and accept the {{if .TermsURL}}<a href="{{.TermsURL}}" target="_blank" rel="noopener">terms and return policy</a>{{else}}terms and return policy{{end}}.{{else}}我已閱讀並同意{{if .TermsURL}}<a href="{{.TermsURL}}" target="_blank" rel="noopener">購物須知與退換貨政策</a>{{else}}購物須知與退換貨政策{{end}}{{end}}</span></label>
+                <div class="ferr" id="err-accept_terms" data-err="accept_terms" hidden></div>
+            </div>
+            <button class="btn p lg" type="submit" data-submit>{{if $en}}Continue to payment{{else}}前往付款{{end}}</button>
+            <p class="small muted">{{if $en}}Card, ATM and store-code payments continue on the payment page. Bank transfers show instructions after you place the order.{{else}}信用卡、ATM 與超商代碼會前往付款頁；銀行轉帳送出後會顯示匯款說明。{{end}}</p>
+            <a href="/cart" class="small">← {{if $en}}Back to cart{{else}}回購物車修改{{end}}</a>
+        </aside>
+    </form>
+</div>
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}

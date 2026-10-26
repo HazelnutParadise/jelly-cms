@@ -5,14 +5,19 @@ import (
 	"encoding/json"
 )
 
-// PluginMetadata defines the structure of a plugin.json file.
+// PluginMetadata defines the structure of a plugin.json file. The manifest v2
+// fields are optional; a v1 manifest leaves them empty. See manifest.go.
 type PluginMetadata struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Version     string `json:"version"`
-	Description string `json:"description"`
-	Author      string `json:"author"`
-	Entrypoint  string `json:"entrypoint"` // e.g., "index.js"
+	ID          string           `json:"id"`
+	Name        string           `json:"name"`
+	Version     string           `json:"version"`
+	Description string           `json:"description"`
+	Author      string           `json:"author"`
+	Entrypoint  string           `json:"entrypoint"` // e.g., "index.js"
+	Settings    []SettingSpec    `json:"settings,omitempty"`
+	Permissions []PermissionSpec `json:"permissions,omitempty"`
+	Actions     []ActionSpec     `json:"actions,omitempty"`
+	Extensions  []ExtensionSpec  `json:"extensions,omitempty"`
 	// WebMCPTools holds the raw webmcp_tools list: extra read-only WebMCP tools
 	// this plugin offers while it is loaded (ticket 13). It stays raw so a
 	// malformed entry skips that tool instead of failing the plugin load; each

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -168,18 +169,34 @@ func initialOf(s string) string {
 // receives: Active, Lang, T (full locale map), Nav (sections for this role),
 // Viewer, Crumbs, Title, SiteTitle, plus every key of p.Data.
 func renderAdminPage(c echo.Context, p AdminPage) error {
+	user, viewer := viewerFor(c)
 	lang, _ := c.Get("lang").(string)
 	if lang == "" {
 		lang = "zh-TW"
 	}
-	t := loadTranslations(lang)
-	user, viewer := viewerFor(c)
+	if c.QueryParam("lang") == "" {
+		cookie, err := c.Cookie("lang")
+		if err != nil || !supportedLanguage(cookie.Value) {
+			if user != nil && supportedLanguage(user.Locale) {
+				lang = user.Locale
+			}
+		}
+	}
 
-	tmpl, err := template.New("base").Funcs(adminFuncs()).ParseFiles(
-		filepath.Join(adminDir, "components.html"),
-		filepath.Join(adminDir, "layout.html"),
-		filepath.Join(adminDir, p.File),
-	)
+	t := loadTranslations(lang)
+	theme := "system"
+	if user != nil && (user.UITheme == "light" || user.UITheme == "dark") {
+		theme = user.UITheme
+	}
+
+	files := []string{filepath.Join(adminDir, "components.html"), filepath.Join(adminDir, "layout.html"), filepath.Join(adminDir, p.File)}
+	if p.File == "post_editor.html" || p.File == "page_editor.html" {
+		editor := filepath.Join(adminDir, "editor.html")
+		if _, statErr := os.Stat(editor); statErr == nil {
+			files = append(files, editor)
+		}
+	}
+	tmpl, err := template.New("base").Funcs(adminFuncs()).ParseFiles(files...)
 	if err != nil {
 		return fmt.Errorf("parse admin template %s: %w", p.File, err)
 	}
@@ -187,6 +204,7 @@ func renderAdminPage(c echo.Context, p AdminPage) error {
 	data := map[string]interface{}{
 		"Active":    p.Active,
 		"Lang":      lang,
+		"UITheme":   theme,
 		"T":         t,
 		"Nav":       navFor(c, user, p.Active, t),
 		"Viewer":    viewer,
@@ -198,6 +216,33 @@ func renderAdminPage(c echo.Context, p AdminPage) error {
 		data[k] = v
 	}
 	return tmpl.ExecuteTemplate(c.Response().Writer, "base", data)
+}
+
+func enforceStaffAdminAPIs(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		path := c.Request().URL.Path
+		if path != "/api/admin" && !strings.HasPrefix(path, "/api/admin/") {
+			return next(c)
+		}
+		principal, err := auth.GetCurrentPrincipal(c)
+		if err != nil || principal == nil || principal.User == nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
+		}
+		if principal.Source == "api_token" {
+			for _, scope := range principal.Scopes {
+				switch scope {
+				case "admin", "editor", "author", "content_read", "orders_read":
+					return next(c)
+				}
+			}
+		}
+		switch principal.User.Role {
+		case "admin", "editor", "author":
+			return next(c)
+		default:
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})
+		}
+	}
 }
 
 // siteTitleOrDefault tolerates a missing database so the layout can render on

@@ -31,6 +31,12 @@ label{display:block;font-size:12px;font-weight:600;color:#5F6470;margin-bottom:2
 .seg span{min-height:28px;padding:0 10px;display:inline-flex;align-items:center;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px}
 .seg span.on{background:#15161A;color:#fff}
 .mark{display:inline-block;width:22px;height:26px}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+.warn{background:#FCF0C8;color:#7A5200}
+table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.04em;color:#5F6470;padding:6px 10px 6px 0;border-bottom:1px solid #E2E3E8;white-space:nowrap}td{padding:6px 10px 6px 0;border-bottom:1px solid #EEEFF2;vertical-align:middle}td.a,th.a{text-align:right}
+.tree{display:flex;flex-direction:column;gap:2px;font-size:13px;font-weight:600;color:#15161A}
+.tree label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#15161A;margin:0;min-height:30px}
+.tree input{accent-color:#E8285B;width:16px;height:16px;margin:0}.tree .n{margin-left:auto;font-size:12px;color:#9A9FAB;font-weight:700}
 .src{width:100%;min-height:180px;box-sizing:border-box;padding:16px;border:0;background:#F5F5F7;border-radius:0 12px 0 12px;font:inherit;font-size:14px;line-height:1.7;color:#15161A;resize:vertical}
 </style>
 </helmet>
@@ -42,7 +48,7 @@ label{display:block;font-size:12px;font-weight:600;color:#5F6470;margin-bottom:2
     <span class="chip ok">上架中</span>
     <span style="color: #5F6470; font-size: 12px">上次儲存 10/21 14:02</span>
     <div style="margin-left: auto; display: flex; align-items: center; gap: 6px">
-      <a class="btn t" href="Main.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M19 14v6H4V5h6"/></svg>查看商品頁</a>
+      <a class="btn t" href="Product.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M19 14v6H4V5h6"/></svg>查看商品頁</a>
       <button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM5 15H4V4h11v1"/></svg>複製一份</button>
       <button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h8V4M8 20v-6h8v6"/></svg>儲存<span class="kbd" style="background: #C91F4E; color: #fff">⌘S</span></button>
     </div>
@@ -55,13 +61,13 @@ label{display:block;font-size:12px;font-weight:600;color:#5F6470;margin-bottom:2
 
       <div class="sec">
         <h2>圖片</h2>
-        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; grid-template-rows: repeat(2, 110px); gap: 8px">
-          <div style="grid-row: span 2; background: #E8285B; border-radius: 0 12px 0 12px; position: relative; display: grid; place-items: center; color: #fff; font-weight: 700">主圖<span class="chip" style="position: absolute; left: 10px; top: 10px; background: #15161A; color: #fff">主圖</span></div>
-          <div style="background: #F5F5F7; border-radius: 0 10px 0 10px; display: grid; place-items: center; color: #9A9FAB; font-size: 12px; font-weight: 700">2</div>
-          <div style="background: #F5F5F7; border-radius: 0 10px 0 10px; display: grid; place-items: center; color: #9A9FAB; font-size: 12px; font-weight: 700">3</div>
-          <div style="background: #F5F5F7; border-radius: 0 10px 0 10px; display: grid; place-items: center; color: #9A9FAB; font-size: 12px; font-weight: 700">4</div>
-          <button type="button" style="grid-column: span 3; border: 1.5px dashed #D9DBE0; background: transparent; border-radius: 0 10px 0 10px; color: #5F6470; font: inherit; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>拖曳或從附件庫加入圖片</button>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px">
+          <div style="aspect-ratio: 1; background: #E8285B; border-radius: 0 10px 0 10px; position: relative"><span class="chip" style="position: absolute; left: 8px; top: 8px; background: #15161A; color: #fff">主圖</span><span style="position: absolute; right: 6px; bottom: 6px"><button class="btn t s i" type="button" aria-label="移除圖片" style="background: #fff"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span></div>
+          <div style="aspect-ratio: 1; background: #F5B800; border-radius: 0 10px 0 10px; position: relative"><span style="position: absolute; right: 6px; bottom: 6px; display: flex; gap: 4px"><button class="btn t s i" type="button" aria-label="設為主圖" style="background: #fff"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></button><button class="btn t s i" type="button" aria-label="移除圖片" style="background: #fff"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span></div>
+          <div style="aspect-ratio: 1; background: #13C2A3; border-radius: 0 10px 0 10px; position: relative"><span style="position: absolute; right: 6px; bottom: 6px; display: flex; gap: 4px"><button class="btn t s i" type="button" aria-label="設為主圖" style="background: #fff"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></button><button class="btn t s i" type="button" aria-label="移除圖片" style="background: #fff"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></span></div>
         </div>
+        <div style="display: flex; gap: 8px; align-items: end"><label for="img" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">圖片網址</label><input id="img" class="ul" type="text" placeholder="/uploads/product.jpg" style="flex: 1"><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>加入圖片</button></div>
+        <div style="font-size: 12px; color: #5F6470">輸入附件庫的網址（/uploads/…）或 https 圖片網址；第一張是主圖。</div>
       </div>
 
       <div class="sec">
@@ -70,7 +76,6 @@ label{display:block;font-size:12px;font-weight:600;color:#5F6470;margin-bottom:2
           <button class="btn x s i" type="button" aria-label="粗體"><svg class="ic" viewBox="0 0 24 24"><path d="M7 4h7a3.5 3.5 0 0 1 0 7H7zM7 11h8a3.5 3.5 0 0 1 0 7H7z"/></svg></button>
           <button class="btn x s i" type="button" aria-label="清單"><svg class="ic" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h1M4 12h1M4 18h1"/></svg></button>
           <button class="btn x s i" type="button" aria-label="連結"><svg class="ic" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 6 0l3-3a4 4 0 0 0-6-6l-1 1M14 10a4 4 0 0 0-6 0l-3 3a4 4 0 0 0 6 6l1-1"/></svg></button>
-          <button class="btn x s i" type="button" aria-label="預覽"><svg class="ic" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
         </div>
         <label for="desc" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">描述</label>
         <textarea id="desc" class="src">台灣榛果慢火焙炒，配比利時可可。**不加棕櫚油**，開罐先攪一攪。
@@ -80,35 +85,66 @@ label{display:block;font-size:12px;font-weight:600;color:#5F6470;margin-bottom:2
       </div>
 
       <div class="sec">
-        <h2>價格與庫存</h2>
-        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 20px">
-          <div><label for="pr">售價 (NT$)</label><input id="pr" class="ul" type="text" value="320"></div>
-          <div><label for="cp">原價 (NT$)</label><input id="cp" class="ul" type="text" placeholder="劃線價，可留空"></div>
-          <div><label for="sk">SKU</label><input id="sk" class="ul" type="text" value="HZ-200" style="font-family: ui-monospace, Menlo, monospace"></div>
-          <div><label for="st">庫存</label><div style="display: flex; align-items: center; gap: 6px"><button class="btn t s i" type="button" aria-label="減一"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><input id="st" class="ul" type="text" value="12" style="text-align: center"><button class="btn t s i" type="button" aria-label="加一"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div></div>
+        <h2>價格</h2>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 20px">
+          <div><label for="pr">售價 (NT$)</label><input id="pr" class="ul mono" type="text" value="320"></div>
+          <div><label for="cp">原價 (NT$)</label><input id="cp" class="ul mono" type="text" placeholder="劃線價，可留空"></div>
+          <div><label for="lt">低庫存門檻</label><div style="display: flex; align-items: center; gap: 6px"><input id="lt" class="ul mono" type="text" value="5" style="text-align: right"><span style="color: #5F6470; font-size: 13px; white-space: nowrap">件以下</span></div></div>
         </div>
-        <div style="font-size: 12px; color: #5F6470">價格以元輸入，系統以分儲存。庫存低於 <b>5</b> 時在列表標黃。</div>
+        <div style="font-size: 12px; color: #5F6470">價格以元輸入，系統以分儲存。新增規格時預設帶入這裡的售價與原價；任一規格庫存不高於門檻，列表就標黃。</div>
       </div>
 
       <div class="sec">
-        <h2>規格（選填）</h2>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap"><span class="chip">200g</span><span class="chip">400g</span><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新增規格</button></div>
+        <h2>規格</h2>
+        <div style="overflow-x: auto"><table>
+          <thead><tr><th>名稱</th><th>SKU</th><th class="a">售價 (NT$)</th><th class="a">原價 (NT$)</th><th>庫存</th><th></th></tr></thead>
+          <tbody>
+            <tr><td><input class="ul" type="text" value="200g" aria-label="規格名稱"></td><td><input class="ul mono" type="text" value="HZ-200" aria-label="SKU"></td><td><input class="ul mono" type="text" value="320" aria-label="售價" style="text-align:right"></td><td><input class="ul mono" type="text" value="380" placeholder="—" aria-label="原價" style="text-align:right"></td><td style="white-space:nowrap"><div style="display:flex;align-items:center"><input class="ul mono" type="text" value="12" aria-label="庫存" style="text-align:center"></div></td><td class="a"><button class="btn x s i" type="button" aria-label="刪除規格"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button></td></tr>
+            <tr style="background:#FFF8E1"><td><input class="ul" type="text" value="400g" aria-label="規格名稱"></td><td><input class="ul mono" type="text" value="HZ-400" aria-label="SKU"></td><td><input class="ul mono" type="text" value="560" aria-label="售價" style="text-align:right"></td><td><input class="ul mono" type="text" value="" placeholder="—" aria-label="原價" style="text-align:right"></td><td style="white-space:nowrap"><div style="display:flex;align-items:center"><input class="ul mono" type="text" value="4" aria-label="庫存" style="text-align:center;color:#7A5200;font-weight:700"><span class="chip warn" style="margin-left:6px">低庫存</span></div></td><td class="a"><button class="btn x s i" type="button" aria-label="刪除規格"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button></td></tr>
+          </tbody>
+        </table></div>
+        <div style="display: flex; align-items: center; gap: 10px"><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新增規格</button><span style="font-size: 12px; color: #5F6470">只有一種規格時，名稱留空就好；顧客不會看到選擇器。</span></div>
+      </div>
+
+      <div class="sec" style="border-bottom: 1px solid #EEEFF2">
+        <h2>搜尋引擎 (SEO)</h2>
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 24px; align-items: start">
+          <div style="display: flex; flex-direction: column; gap: 12px">
+            <div><label for="st">標題</label><input id="st" class="ul" type="text" value="榛果可可醬 200g · 榛果繽紛樂"><div style="font-size: 12px; color: #5F6470; margin-top: 2px">17 / 60 字，空白會用商品名稱。</div></div>
+            <div><label for="sd">描述</label><textarea id="sd" class="ul" rows="3" style="line-height: 1.6; resize: vertical">台灣榛果慢火焙炒，配比利時可可，不加棕櫚油。200g 玻璃罐，保存期限 12 個月。</textarea><div style="font-size: 12px; color: #5F6470; margin-top: 2px">38 / 160 字，空白會取長描述前段。</div></div>
+            <div><label for="product-seo-index">搜尋索引</label><select id="product-seo-index" class="ul" aria-describedby="product-seo-index-hint"><option value="inherit" selected>沿用全站設定</option><option value="index">允許索引</option><option value="noindex">不要索引</option></select><small id="product-seo-index-hint" style="display:block;font-size:12px;color:#5F6470;line-height:1.6">指定這篇內容的索引偏好，私密或未發布內容仍不公開。</small></div><div><label for="product-seo-ai">AI 使用偏好</label><select id="product-seo-ai" class="ul" aria-describedby="product-seo-ai-hint"><option value="inherit" selected>沿用全站設定</option><option value="allow">允許 AI 使用</option><option value="noai">要求不要供 AI 使用</option></select><small id="product-seo-ai-hint" style="display:block;font-size:12px;color:#5F6470;line-height:1.6">輸出 AI 使用偏好供爬蟲參考，無法保證所有爬蟲遵守。</small></div>
+          </div>
+          <div style="background: #F5F5F7; border-radius: 0 12px 0 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+            <span class="lbl">預覽</span>
+            <b style="color: #1C47B8; font-size: 16px; font-weight: 600; line-height: 1.4">榛果可可醬 200g · 榛果繽紛樂</b>
+            <span style="color: #0F6A45; font-size: 12px">example.com › shop › p › hazelnut-cocoa-200</span>
+            <span style="font-size: 13px; color: #3C3F48; line-height: 1.6">台灣榛果慢火焙炒，配比利時可可，不加棕櫚油。200g 玻璃罐，保存期限 12 個月。</span>
+          </div>
+        </div>
       </div>
     </section>
 
     <aside style="position: sticky; top: 64px; display: flex; flex-direction: column">
       <div class="lbl" style="padding-bottom: 8px">屬性</div>
-      <div class="sec" style="padding-top: 12px"><label>狀態</label><div class="seg"><span>草稿</span><span class="on">上架</span><span>封存</span></div></div>
-      <div class="sec"><label for="slug">網址</label><div style="display: flex; align-items: center; gap: 4px; color: #5F6470; font-size: 13px">/shop/<input id="slug" class="ul" type="text" value="hazelnut-cocoa-200" style="flex: 1"></div></div>
-      <div class="sec"><label>分類</label><div style="display: flex; gap: 6px; flex-wrap: wrap"><span class="chip">抹醬</span><span class="chip">禮品</span><button class="btn x s i" type="button" aria-label="加入分類"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div></div>
-      <div class="sec"><label>運送</label><div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px"><label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #15161A; font-weight: 600"><input type="checkbox" checked style="accent-color: #E8285B; width: 16px; height: 16px; margin: 0">需要運送</label><label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #15161A; font-weight: 600"><input type="checkbox" style="accent-color: #E8285B; width: 16px; height: 16px; margin: 0">冷藏</label></div></div>
-      <div class="sec" style="border-bottom: 1px solid #EEEFF2"><label>SEO 預覽</label><div style="font-size: 12px; color: #5F6470; display: flex; flex-direction: column; gap: 2px"><b style="color: #1C47B8; font-size: 14px; font-weight: 600">榛果可可醬 200g · 榛果繽紛樂</b><span>example.com/shop/hazelnut-cocoa-200</span></div></div>
+      <div class="sec" style="padding-top: 12px"><label>狀態</label><div class="seg"><span>草稿</span><span class="on">上架</span><span>下架</span></div></div>
+      <div class="sec"><label for="slug">網址</label><div style="display: flex; align-items: center; gap: 4px; color: #5F6470; font-size: 13px">/shop/p/<input id="slug" class="ul" type="text" value="hazelnut-cocoa-200" style="flex: 1"></div></div>
+      <div class="sec"><label>商品分類</label>
+        <div class="tree" role="group" aria-label="商品分類">
+          <label><input type="checkbox">果凍<span class="n">18</span></label>
+          <label style="padding-left: 24px"><input type="checkbox">水果<span class="n">8</span></label>
+          <label style="padding-left: 24px"><input type="checkbox">茶與咖啡<span class="n">5</span></label>
+          <label><input type="checkbox" checked>禮盒<span class="n">6</span></label>
+          <label><input type="checkbox">器具<span class="n">4</span></label>
+        </div>
+        <a href="Taxonomy.dc.html" style="font-size: 12px; display: inline-flex; align-items: center; gap: 4px"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M3 5h7l2 2h9v12H3z"/></svg>管理商品分類</a>
+      </div>
+      <div class="sec" style="border-bottom: 1px solid #EEEFF2"><label>運送</label><div style="display: flex; flex-direction: column; gap: 6px; font-size: 13px"><label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #15161A; font-weight: 600"><input type="checkbox" checked style="accent-color: #E8285B; width: 16px; height: 16px; margin: 0">需要運送</label><label style="display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #15161A; font-weight: 600"><input type="checkbox" style="accent-color: #E8285B; width: 16px; height: 16px; margin: 0">冷藏</label></div></div>
       <button class="btn x" type="button" style="justify-content: flex-start; color: #9C2318; margin-top: 8px"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>刪除商品</button>
     </aside>
   </main>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1440}}'>
 class Component extends DCLogic {
   renderVals() { return {}; }
 }

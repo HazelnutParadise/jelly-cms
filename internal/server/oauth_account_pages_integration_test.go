@@ -32,17 +32,29 @@ func TestOAuthAccountPagePublicGETForEveryAuthenticatedRole(t *testing.T) {
 			}
 			loginToken := h.token(user)
 			for _, language := range []struct{ query, lang, heading string }{
-				{query: "zh-TW", lang: "zh-TW", heading: "登入方式"},
-				{query: "en", lang: "en", heading: "Login methods"},
+				{query: "zh-TW", lang: "zh-TW", heading: "第三方帳號"},
+				{query: "en", lang: "en", heading: "Connected accounts"},
 			} {
 				t.Run(language.lang, func(t *testing.T) {
 					target := "/account?lang=" + url.QueryEscape(language.query)
 					rec := oauthAccountPageGET(h, target, loginToken)
-					if rec.Code != http.StatusOK {
-						t.Fatalf("GET %s returned %d, want 200 HTML: %s", target, rec.Code, rec.Body.String())
+					if rec.Code != http.StatusFound {
+						t.Fatalf("GET %s returned %d, want 302 to the account page: %s", target, rec.Code, rec.Body.String())
 					}
 					oauthAccountPageAssertNoStore(t, rec)
-					doc := oauthAccountPageParseHTML(t, rec)
+					location, err := url.Parse(rec.Header().Get(echo.HeaderLocation))
+					if err != nil {
+						t.Fatalf("parse account redirect: %v", err)
+					}
+					if location.Path != "/admin/account" || location.Query().Get("tab") != "identities" || location.Query().Get("lang") != language.query {
+						t.Fatalf("GET %s redirected to %q, want /admin/account?tab=identities with language preserved", target, location.String())
+					}
+					page := oauthAccountPageGET(h, location.RequestURI(), loginToken)
+					if page.Code != http.StatusOK {
+						t.Fatalf("following account redirect %q returned %d: %s", location.String(), page.Code, page.Body.String())
+					}
+					oauthAccountPageAssertNoStore(t, page)
+					doc := oauthAccountPageParseHTML(t, page)
 					title, mainText := oauthAccountPageTitleAndMain(doc)
 					if title == "" || strings.EqualFold(title, "title") {
 						t.Errorf("account page title is empty or an untranslated key: %q", title)
@@ -53,10 +65,13 @@ func TestOAuthAccountPagePublicGETForEveryAuthenticatedRole(t *testing.T) {
 					if got := oauthAccountPageHTMLLang(doc); got != language.lang {
 						t.Errorf("account page html lang=%q, want %q", got, language.lang)
 					}
-					if strings.TrimSpace(rec.Body.String()) == "" {
+					if strings.TrimSpace(page.Body.String()) == "" {
 						t.Fatal("account page returned blank HTML")
 					}
-					oauthAccountPageAssertNoCredentialLeak(t, rec.Body.String(), []string{
+					if !oauthAccountPageHasHref(map[string]*nethtml.Node{"/account": doc}, "/admin/account?tab=identities") {
+						t.Error("account page has no discoverable identities tab href")
+					}
+					oauthAccountPageAssertNoCredentialLeak(t, page.Body.String(), []string{
 						stored.Password, subjectSentinel, loginToken,
 						oauthTxnSessionSecret, oauthTxnJWTSecret, "page-test-local-password",
 					})
@@ -181,8 +196,23 @@ func TestOAuthAccountPageEntryLinksAreDiscoverableByHref(t *testing.T) {
 		}
 		pages[target] = oauthAccountPageParseHTML(t, rec)
 	}
-	if !oauthAccountPageHasHref(pages, "/account") {
-		t.Error("login or authenticated backend HTML has no anchor href to /account")
+	redirect := oauthAccountPageGET(h, "/account", token)
+	if redirect.Code != http.StatusFound {
+		t.Fatalf("GET /account returned %d, want 302: %s", redirect.Code, redirect.Body.String())
+	}
+	location, err := url.Parse(redirect.Header().Get(echo.HeaderLocation))
+	if err != nil || location.Path != "/admin/account" {
+		t.Fatalf("GET /account redirect=%q err=%v, want /admin/account", redirect.Header().Get(echo.HeaderLocation), err)
+	}
+	account := oauthAccountPageGET(h, location.RequestURI(), token)
+	if account.Code != http.StatusOK {
+		t.Fatalf("following account redirect returned %d: %s", account.Code, account.Body.String())
+	}
+	oauthAccountPageAssertNoStore(t, redirect)
+	oauthAccountPageAssertNoStore(t, account)
+	pages["/admin/account"] = oauthAccountPageParseHTML(t, account)
+	if !oauthAccountPageHasHref(pages, "/admin/account?tab=identities") {
+		t.Error("login or authenticated backend HTML has no anchor href to the connected accounts tab")
 	}
 	if !oauthAccountPageHasHref(pages, "/account/recover") {
 		t.Error("login or authenticated backend HTML has no anchor href to /account/recover")
@@ -198,50 +228,37 @@ func TestOAuthAccountPageLanguageLinksPreserveSelectedLanguage(t *testing.T) {
 	token := h.token(user)
 
 	for _, language := range []struct{ lang, heading string }{
-		{lang: "en", heading: "Recover OAuth account"},
-		{lang: "zh-TW", heading: "復原第三方帳號"},
+		{lang: "en", heading: "Connected accounts"},
+		{lang: "zh-TW", heading: "第三方帳號"},
 	} {
 		t.Run(language.lang, func(t *testing.T) {
 			account := oauthAccountPageGET(h, "/account?lang="+url.QueryEscape(language.lang), token)
-			if account.Code != http.StatusOK {
+			if account.Code != http.StatusFound {
 				t.Errorf("GET /account for %s returned %d: %s", language.lang, account.Code, account.Body.String())
 				return
 			}
-			accountDoc := oauthAccountPageParseHTML(t, account)
-			recoverURL, ok := oauthAccountPageHref(accountDoc, "/account/recover")
-			if !ok {
-				t.Errorf("%s account page has no same-site /account/recover link", language.lang)
+			location, err := url.Parse(account.Header().Get(echo.HeaderLocation))
+			if err != nil || location.Path != "/admin/account" || location.Query().Get("lang") != language.lang {
+				t.Errorf("GET /account for %s redirect=%q err=%v, want language-preserving /admin/account", language.lang, account.Header().Get(echo.HeaderLocation), err)
 				return
 			}
-
-			// Follow the actual href without carrying a language cookie so this checks the link itself.
-			recovery := oauthAccountPageGET(h, recoverURL.RequestURI(), "")
-			if recovery.Code != http.StatusOK {
-				t.Errorf("following account recovery href %q returned %d: %s", recoverURL.String(), recovery.Code, recovery.Body.String())
+			oauthAccountPageAssertNoStore(t, account)
+			accountPage := oauthAccountPageGET(h, location.RequestURI(), token)
+			if accountPage.Code != http.StatusOK {
+				t.Errorf("following account redirect %q returned %d: %s", location.String(), accountPage.Code, accountPage.Body.String())
 				return
 			}
-			recoveryDoc := oauthAccountPageParseHTML(t, recovery)
-			if got := oauthAccountPageHTMLLang(recoveryDoc); got != language.lang {
-				t.Errorf("following %q rendered lang=%q, want %q", recoverURL.String(), got, language.lang)
+			oauthAccountPageAssertNoStore(t, accountPage)
+			accountDoc := oauthAccountPageParseHTML(t, accountPage)
+			_, main := oauthAccountPageTitleAndMain(accountDoc)
+			if !strings.Contains(main, language.heading) {
+				t.Errorf("following %q rendered main content %q, want connected-accounts heading %q", location.String(), main, language.heading)
 			}
-			_, recoveryMain := oauthAccountPageTitleAndMain(recoveryDoc)
-			if !strings.Contains(recoveryMain, language.heading) {
-				t.Errorf("following %q rendered recovery content %q, want %q", recoverURL.String(), recoveryMain, language.heading)
+			if got := oauthAccountPageHTMLLang(accountDoc); got != language.lang {
+				t.Errorf("following %q rendered lang=%q, want %q", location.String(), got, language.lang)
 			}
-
-			loginURL, ok := oauthAccountPageHref(recoveryDoc, "/login")
-			if !ok {
-				t.Errorf("%s recovery page has no same-site /login link", language.lang)
-				return
-			}
-			login := oauthAccountPageGET(h, loginURL.RequestURI(), "")
-			if login.Code != http.StatusOK {
-				t.Errorf("following recovery login href %q returned %d: %s", loginURL.String(), login.Code, login.Body.String())
-				return
-			}
-			loginDoc := oauthAccountPageParseHTML(t, login)
-			if !oauthAccountPageHasLinkText(loginDoc, "/account/recover", language.heading) {
-				t.Errorf("following %q did not render the %q recovery label", loginURL.String(), language.heading)
+			if _, ok := oauthAccountPageHref(accountDoc, "/admin/account"); !ok {
+				t.Errorf("%s account page has no discoverable link to its connected accounts tab", language.lang)
 			}
 		})
 	}
@@ -267,19 +284,31 @@ func TestOAuthAccountPageLanguageCookiePersistsAndQueryOverrides(t *testing.T) {
 			for _, source := range []struct {
 				path, follow string
 			}{
-				{path: "/account", follow: "/account"},
+				{path: "/account", follow: "/admin/account?tab=identities"},
 				{path: "/account/recover", follow: "/login"},
 			} {
 				t.Run(source.path, func(t *testing.T) {
 					request := source.path + "?lang=" + url.QueryEscape(language.lang)
 					initial := oauthAccountPageGETWithCookies(h, request, token, &http.Cookie{Name: "lang", Value: oldLang, Path: "/"})
-					if initial.Code != http.StatusOK {
-						t.Errorf("GET %s returned %d: %s", request, initial.Code, initial.Body.String())
-						return
-					}
-					initialDoc := oauthAccountPageParseHTML(t, initial)
-					if got := oauthAccountPageHTMLLang(initialDoc); got != language.lang {
-						t.Errorf("GET %s with old lang cookie %q rendered lang=%q, want query language %q", request, oldLang, got, language.lang)
+					if source.path == "/account" {
+						if initial.Code != http.StatusFound {
+							t.Errorf("GET %s returned %d, want redirect: %s", request, initial.Code, initial.Body.String())
+							return
+						}
+						location, err := url.Parse(initial.Header().Get(echo.HeaderLocation))
+						if err != nil || location.Path != "/admin/account" || location.Query().Get("tab") != "identities" || location.Query().Get("lang") != language.lang {
+							t.Errorf("GET %s redirect=%q err=%v, want language-preserving identities tab", request, initial.Header().Get(echo.HeaderLocation), err)
+							return
+						}
+					} else {
+						if initial.Code != http.StatusOK {
+							t.Errorf("GET %s returned %d: %s", request, initial.Code, initial.Body.String())
+							return
+						}
+						initialDoc := oauthAccountPageParseHTML(t, initial)
+						if got := oauthAccountPageHTMLLang(initialDoc); got != language.lang {
+							t.Errorf("GET %s with old lang cookie %q rendered lang=%q, want query language %q", request, oldLang, got, language.lang)
+						}
 					}
 
 					var langCookie *http.Cookie
@@ -301,10 +330,14 @@ func TestOAuthAccountPageLanguageCookiePersistsAndQueryOverrides(t *testing.T) {
 					}
 
 					followToken := ""
-					if source.follow == "/account" {
+					if strings.HasPrefix(source.follow, "/admin/account") {
 						followToken = token
 					}
-					followed := oauthAccountPageGETWithCookies(h, source.follow, followToken, langCookie)
+					followURL := source.follow
+					if followURL == "/admin/account?tab=identities" {
+						followURL += "&lang=" + url.QueryEscape(language.lang)
+					}
+					followed := oauthAccountPageGETWithCookies(h, followURL, followToken, langCookie)
 					if followed.Code != http.StatusOK {
 						t.Errorf("GET %s with response lang cookie returned %d: %s", source.follow, followed.Code, followed.Body.String())
 						return
@@ -315,7 +348,7 @@ func TestOAuthAccountPageLanguageCookiePersistsAndQueryOverrides(t *testing.T) {
 							t.Errorf("GET %s with response lang cookie did not render recovery label %q", source.follow, language.recoverLabel)
 						}
 					} else if got := oauthAccountPageHTMLLang(followedDoc); got != language.lang {
-						t.Errorf("GET %s with response lang cookie rendered lang=%q, want %q", source.follow, got, language.lang)
+						t.Errorf("GET %s with response lang cookie rendered lang=%q, want %q", followURL, got, language.lang)
 					}
 				})
 			}

@@ -3,7 +3,10 @@
 <style>
     .gateway-card { transition: opacity .12s ease; }
     .gateway-card.disabled .setting-row:not(.toggle-row) { opacity: .45; }
+    .tabs > a.tab { text-decoration: none; }
 </style>
+<link rel="stylesheet" href="/admin/assets/shop-admin.css">
+<link rel="stylesheet" href="/admin/assets/system-admin.css">
 {{end}}
 {{define "content"}}
 <div class="page-header">
@@ -12,53 +15,18 @@
     </div>
 </div>
 
-<div class="tabs" role="tablist">
-    <button class="tab active" onclick="switchTab('general')">General</button>
-    <button class="tab" onclick="switchTab('oauth')">OAuth</button>
-    <button class="tab" onclick="switchTab('payment')">Payment Gateways</button>
-</div>
+<nav class="tabs" role="tablist" aria-label="{{.T.settings}}">
+    {{range .Tabs}}<a class="tab{{if .Active}} active{{end}}" role="tab" aria-selected="{{if .Active}}true{{else}}false{{end}}" href="{{.Href}}">{{with index $.T .Label}}{{.}}{{else}}{{.Label}}{{end}}</a>{{end}}
+    <a class="tab" href="/admin/tools/backup">{{.T.tools}}</a>
+    <a class="tab" href="/admin/logs">{{.T.logs}}</a>
+</nav>
 
-<!-- General Settings -->
-<div id="generalTab" class="tab-content active">
-    <form id="settingsForm" class="settings-group">
-        <div class="settings-group-head">
-            <div>
-                <h2>Site</h2>
-                <p>Name, description and admin language.</p>
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm" id="generalSaveBtn" disabled><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save Settings</button>
-        </div>
-        <div class="setting-row">
-            <div>
-                <label for="siteTitle">Site Title</label>
-                <small class="hint">Shown in the browser tab and the theme header.</small>
-            </div>
-            <div class="control"><input type="text" id="siteTitle" name="site_title"></div>
-        </div>
-        <div class="setting-row">
-            <div>
-                <label for="siteDescription">Site Description</label>
-                <small class="hint">A short line for search engines and the footer.</small>
-            </div>
-            <div class="control"><input type="text" id="siteDescription" name="site_description"></div>
-        </div>
-        <div class="setting-row">
-            <div>
-                <label for="siteLanguage">Language</label>
-                <small class="hint">Admin interface language.</small>
-            </div>
-            <div class="control">
-                <select id="siteLanguage" name="site_language">
-                    <option value="en">English</option>
-                    <option value="zh-TW">Traditional Chinese (繁體中文)</option>
-                </select>
-            </div>
-        </div>
-    </form>
-</div>
-
+{{if not (or (eq .ActiveTab "auth") (eq .ActiveTab "shop") (eq .ActiveTab "shipping") (eq .ActiveTab "payment"))}}
+<div class="sys-root" id="systemRoot" data-page="settings-{{.ActiveTab}}" aria-busy="true"><div class="sys-loading" role="status">{{.T.sys_loading}}<span></span><span></span><span></span></div></div>
+<noscript><p>{{.T.sys_javascriptRequired}}</p></noscript>
+{{end}}
 <!-- OAuth Settings -->
-<div id="oauthTab" class="tab-content">
+<div id="oauthTab" class="tab-content{{if and .ActiveTab (eq .ActiveTab "auth")}} active{{end}}">
     <form id="googleForm" class="settings-group gateway-card" data-gateway="google">
         <div class="settings-group-head">
             <div>
@@ -112,120 +80,145 @@
     </form>
 </div>
 
-<!-- Payment Gateway Settings -->
-<div id="paymentTab" class="tab-content">
-    <form id="ecpayForm" class="settings-group gateway-card" data-gateway="ecpay">
-        <div class="settings-group-head">
-            <div>
-                <h2>綠界 ECPay</h2>
-                <p>Credit card and ATM payments for Taiwan.</p>
-            </div>
-            <label class="toggle-switch">
-                <input type="checkbox" id="ecpayEnabled" onchange="toggleECPay()">
-                <span class="slider"></span>
-            </label>
+<!-- Shop, shipping and payment settings (GET/PUT /api/admin/shop/settings; GET never writes) -->
+<div id="shopSettings" data-lang="{{.Lang}}">
+    <div class="sa-savebar" id="shopSaveBar" hidden>
+        <span class="badge badge-warning" id="shopDirty" hidden></span>
+        <button type="button" class="btn btn-secondary btn-sm" id="shopRevert" disabled><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span data-t="revert"></span></button>
+        <button type="button" class="btn btn-primary btn-sm" id="shopSave" disabled><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg><span data-t="saveAll"></span></button>
+    </div>
+    <div id="shopLoad" aria-live="polite"></div>
+</div>
+
+<div id="shopTab" class="tab-content{{if eq .ActiveTab "shop"}} active{{end}}">
+    <form class="settings-group" id="shopForm" novalidate data-shop-form>
+        <div class="settings-group-head"><div><h2 data-t="gShop"></h2><p data-t="gShopHint"></p></div></div>
+        <div class="setting-row">
+            <div><label for="sCurrency" data-t="currency"></label><small class="hint" data-t="currencyHint"></small></div>
+            <div class="control"><select id="sCurrency" data-key="shop_currency"><option value="TWD">TWD（NT$）</option></select></div>
         </div>
-        <div id="ecpayCard">
-            <div class="setting-row">
-                <div><label for="ecpayMerchantID">商店代號 (Merchant ID)</label></div>
-                <div class="control"><input type="text" id="ecpayMerchantID" required></div>
+        <div class="setting-row">
+            <div><span class="label" id="lTaxMode" data-t="tax"></span><small class="hint" data-t="taxHint"></small></div>
+            <div class="control" style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+                <span class="badge badge-info" data-t="taxIncluded"></span>
+                <span class="sa-suffix" data-field><input type="text" id="sTaxRate" data-key="shop_tax_rate" inputmode="decimal" style="width:4.5rem" aria-labelledby="lTaxMode"><span>%</span></span>
             </div>
-            <div class="setting-row">
-                <div><label for="ecpayHashKey">Hash Key</label></div>
-                <div class="control"><input type="text" id="ecpayHashKey" required></div>
-            </div>
-            <div class="setting-row">
-                <div><label for="ecpayHashIV">Hash IV</label></div>
-                <div class="control"><input type="text" id="ecpayHashIV" required></div>
-            </div>
-            <div class="setting-row">
-                <div>
-                    <label for="ecpayTestMode">測試模式 (Test Mode)</label>
-                    <small class="hint">Use the sandbox endpoint; no real charges.</small>
-                </div>
-                <div class="control"><input type="checkbox" id="ecpayTestMode"></div>
-            </div>
-            <div class="setting-row actions">
-                <button type="submit" class="btn btn-primary btn-sm" id="ecpaySaveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save ECPay Settings</button>
-            </div>
+        </div>
+        <div class="setting-row">
+            <div><label for="sContact" data-t="contact"></label><small class="hint" data-t="contactHint"></small></div>
+            <div class="control" data-field><input type="email" id="sContact" data-key="shop_contact_email" maxlength="255"></div>
+        </div>
+        <div class="setting-row">
+            <div><label for="sSeller" data-t="seller"></label><small class="hint" data-t="sellerHint"></small></div>
+            <div class="control wide"><textarea id="sSeller" data-key="shop_invoice_seller" rows="3"></textarea></div>
+        </div>
+        <div class="setting-row">
+            <div><label for="sTerms" data-t="terms"></label><small class="hint" data-t="termsHint"></small></div>
+            <div class="control"><select id="sTerms" data-key="shop_terms_page_id"><option value="" data-t="none"></option></select></div>
+        </div>
+        <div class="setting-row">
+            <div><label for="sPrefix" data-t="prefix"></label><small class="hint" data-t="prefixHint"></small></div>
+            <div class="control" data-field><input type="text" id="sPrefix" data-key="shop_order_prefix" maxlength="8" style="text-transform:uppercase"></div>
+        </div>
+        <div class="setting-row">
+            <div><label for="sLowStock" data-t="lowStock"></label><small class="hint" data-t="lowStockHint"></small></div>
+            <div class="control" data-field><input type="text" id="sLowStock" data-key="shop_low_stock_default" inputmode="numeric" data-int></div>
+        </div>
+        <div class="setting-row">
+            <div><label for="sRefundDays" data-t="refundDays"></label><small class="hint" data-t="refundDaysHint"></small></div>
+            <div class="control" data-field><input type="text" id="sRefundDays" data-key="shop_refund_window_days" inputmode="numeric" data-int></div>
         </div>
     </form>
-
-    <form id="newebpayForm" class="settings-group gateway-card" data-gateway="newebpay">
-        <div class="settings-group-head">
-            <div>
-                <h2>藍新 NewebPay</h2>
-                <p>Credit card, ATM and convenience-store payments.</p>
-            </div>
-            <label class="toggle-switch">
-                <input type="checkbox" id="newebpayEnabled" onchange="toggleNewebPay()">
-                <span class="slider"></span>
-            </label>
+    <form class="settings-group" novalidate data-shop-form>
+        <div class="settings-group-head"><div><h2 data-t="gHold"></h2><p data-t="gHoldHint"></p></div></div>
+        <div class="setting-row">
+            <div><label for="sHoldCard" data-t="holdCard"></label></div>
+            <div class="control sa-suffix" data-field><input type="text" id="sHoldCard" data-key="shop_stock_hold_minutes_card" inputmode="numeric" data-int><span data-t="minutes"></span></div>
         </div>
-        <div id="newebpayCard">
-            <div class="setting-row">
-                <div><label for="newebpayMerchantID">商店代號 (Merchant ID)</label></div>
-                <div class="control"><input type="text" id="newebpayMerchantID" required></div>
-            </div>
-            <div class="setting-row">
-                <div><label for="newebpayHashKey">Hash Key</label></div>
-                <div class="control"><input type="text" id="newebpayHashKey" required></div>
-            </div>
-            <div class="setting-row">
-                <div><label for="newebpayHashIV">Hash IV</label></div>
-                <div class="control"><input type="text" id="newebpayHashIV" required></div>
-            </div>
-            <div class="setting-row">
-                <div>
-                    <label for="newebpayTestMode">測試模式 (Test Mode)</label>
-                    <small class="hint">Use the sandbox endpoint; no real charges.</small>
-                </div>
-                <div class="control"><input type="checkbox" id="newebpayTestMode"></div>
-            </div>
-            <div class="setting-row actions">
-                <button type="submit" class="btn btn-primary btn-sm" id="newebpaySaveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save NewebPay Settings</button>
-            </div>
+        <div class="setting-row">
+            <div><label for="sHoldOffline" data-t="holdOffline"></label></div>
+            <div class="control sa-suffix" data-field><input type="text" id="sHoldOffline" data-key="shop_stock_hold_hours_offline" inputmode="numeric" data-int><span data-t="hours"></span></div>
+        </div>
+        <div class="setting-row">
+            <div><label for="sHoldFailed" data-t="holdFailed"></label></div>
+            <div class="control sa-suffix" data-field><input type="text" id="sHoldFailed" data-key="shop_failed_order_hold_hours" inputmode="numeric" data-int><span data-t="hours"></span></div>
         </div>
     </form>
 </div>
+
+<div id="shippingTab" class="tab-content{{if eq .ActiveTab "shipping"}} active{{end}}">
+    <form class="settings-group" novalidate data-shop-form>
+        <div class="settings-group-head">
+            <div><h2 data-t="gShipping"></h2><p data-t="gShippingHint"></p></div>
+            <button type="button" class="btn btn-secondary btn-sm" id="addShip"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span data-t="addMethod"></span></button>
+        </div>
+        <div class="table-wrapper"><table class="sa-ship"><thead><tr><th data-t="shMethod"></th><th data-t="shFee"></th><th data-t="shEta"></th><th data-t="shAddress"></th><th data-t="shEnabled"></th><th class="actions"></th></tr></thead><tbody id="shipRows"></tbody></table></div>
+        <div class="setting-row">
+            <div><label for="sFreeOver" data-t="freeOver"></label><small class="hint" data-t="freeOverHint"></small></div>
+            <div class="control" data-field><input type="text" id="sFreeOver" data-key="shop_free_shipping_over" data-money inputmode="decimal"></div>
+        </div>
+        <div class="setting-row">
+            <div><label for="sPickup" data-t="pickupNote"></label><small class="hint" data-t="pickupNoteHint"></small></div>
+            <div class="control wide"><textarea id="sPickup" data-key="shop_pickup_note" rows="3"></textarea></div>
+        </div>
+    </form>
+</div>
+
+<div id="paymentTab" class="tab-content{{if eq .ActiveTab "payment"}} active{{end}}">
+    <form class="settings-group gateway-card" novalidate data-shop-form data-gw="ecpay">
+        <div class="settings-group-head">
+            <div><h2 data-t="ecpayTitle"></h2><p data-t="ecpayHint"></p></div>
+            <label class="toggle-switch"><input type="checkbox" data-key="payment_ecpay_enabled" data-bool id="ecpayOn"><span class="slider"></span></label>
+        </div>
+        <div class="setting-row"><div><label for="ecpayMid" data-t="merchantId"></label></div><div class="control" data-field><input type="text" id="ecpayMid" data-key="payment_ecpay_merchant_id" maxlength="20" spellcheck="false"></div></div>
+        <div class="setting-row"><div><label for="ecpayKey">Hash Key</label><small class="hint" data-t="secretHint"></small></div><div class="control" data-field data-secret="payment_ecpay_hash_key" data-for="ecpayKey"></div></div>
+        <div class="setting-row"><div><label for="ecpayIv">Hash IV</label></div><div class="control" data-field data-secret="payment_ecpay_hash_iv" data-for="ecpayIv"></div></div>
+        <div class="setting-row"><div><span class="label" id="lEcpayEnv" data-t="env"></span><small class="hint" data-t="envHint"></small></div>
+            <div class="control"><span class="segmented" role="radiogroup" aria-labelledby="lEcpayEnv"><label><input type="radio" name="payment_ecpay_test_mode" value="true" data-key="payment_ecpay_test_mode"><span data-t="envTest"></span></label><label><input type="radio" name="payment_ecpay_test_mode" value="false" data-key="payment_ecpay_test_mode"><span data-t="envLive"></span></label></span></div></div>
+        <div class="setting-row"><div><span class="label" data-t="notifyUrl"></span><small class="hint" data-t="notifyHintEcpay"></small></div><div class="control sa-codebox"><code data-notify="ecpay"></code><button type="button" class="btn btn-secondary btn-sm" data-copy-notify="ecpay"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span data-t="copy"></span></button></div></div>
+        <div class="setting-row"><div><span class="label" data-t="testConn"></span><small class="sa-test-result" data-test-result="ecpay" role="status" aria-live="polite"></small></div><div class="control sa-codebox"><span data-test-badge="ecpay"></span><button type="button" class="btn btn-secondary btn-sm" data-test="ecpay"><svg class="icon" aria-hidden="true"><use href="#i-plug"/></svg><span data-t="testConn"></span></button></div></div>
+    </form>
+    <form class="settings-group gateway-card" novalidate data-shop-form data-gw="newebpay">
+        <div class="settings-group-head">
+            <div><h2 data-t="newebpayTitle"></h2><p data-t="newebpayHint"></p></div>
+            <label class="toggle-switch"><input type="checkbox" data-key="payment_newebpay_enabled" data-bool id="newebpayOn"><span class="slider"></span></label>
+        </div>
+        <div class="setting-row"><div><label for="newebpayMid" data-t="merchantId"></label></div><div class="control" data-field><input type="text" id="newebpayMid" data-key="payment_newebpay_merchant_id" maxlength="20" spellcheck="false"></div></div>
+        <div class="setting-row"><div><label for="newebpayKey">Hash Key</label><small class="hint" data-t="secretHint"></small></div><div class="control" data-field data-secret="payment_newebpay_hash_key" data-for="newebpayKey"></div></div>
+        <div class="setting-row"><div><label for="newebpayIv">Hash IV</label></div><div class="control" data-field data-secret="payment_newebpay_hash_iv" data-for="newebpayIv"></div></div>
+        <div class="setting-row"><div><span class="label" id="lNewebEnv" data-t="env"></span></div>
+            <div class="control"><span class="segmented" role="radiogroup" aria-labelledby="lNewebEnv"><label><input type="radio" name="payment_newebpay_test_mode" value="true" data-key="payment_newebpay_test_mode"><span data-t="envTest"></span></label><label><input type="radio" name="payment_newebpay_test_mode" value="false" data-key="payment_newebpay_test_mode"><span data-t="envLive"></span></label></span></div></div>
+        <div class="setting-row"><div><span class="label" data-t="notifyUrl"></span></div><div class="control sa-codebox"><code data-notify="newebpay"></code><button type="button" class="btn btn-secondary btn-sm" data-copy-notify="newebpay"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span data-t="copy"></span></button></div></div>
+        <div class="setting-row"><div><span class="label" data-t="testConn"></span><small class="sa-test-result" data-test-result="newebpay" role="status" aria-live="polite"></small></div><div class="control sa-codebox"><span data-test-badge="newebpay"></span><button type="button" class="btn btn-secondary btn-sm" data-test="newebpay"><svg class="icon" aria-hidden="true"><use href="#i-plug"/></svg><span data-t="testConn"></span></button></div></div>
+    </form>
+    <form class="settings-group" novalidate data-shop-form>
+        <div class="settings-group-head">
+            <div><h2 data-t="transferTitle"></h2><p data-t="transferHint"></p></div>
+            <label class="toggle-switch"><input type="checkbox" id="transferOn"><span class="slider"></span></label>
+        </div>
+        <div class="setting-row"><div><label for="sTransferNote" data-t="transferNote"></label><small class="hint" data-t="transferNoteHint"></small></div><div class="control wide"><textarea id="sTransferNote" data-key="shop_manual_transfer_note" rows="4"></textarea></div></div>
+        <div class="setting-row"><div><span class="label" data-t="holdTime"></span><small class="hint" data-t="holdTimeHint"></small></div><div class="control"><span class="badge" id="transferHold"></span></div></div>
+    </form>
+    <form class="settings-group" novalidate data-shop-form>
+        <div class="settings-group-head">
+            <div><h2 data-t="methodsTitle"></h2><p data-t="methodsHint"></p></div>
+        </div>
+        <div id="methodRows"></div>
+    </form>
+    <form class="settings-group" novalidate data-shop-form>
+        <div class="settings-group-head">
+            <div><h2 data-t="sandboxTitle"></h2><p data-t="sandboxHint"></p></div>
+            <label class="toggle-switch"><input type="checkbox" data-key="payment_sandbox_enabled" data-bool id="sandboxOn"><span class="slider"></span></label>
+        </div>
+    </form>
+    <p class="sa-note"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg><span data-t="secretNote"></span></p>
+</div>
 {{end}}
 {{define "scripts"}}
+<script type="application/json" id="systemI18n">{{json .T}}</script>
+<script src="/admin/assets/system-admin.js" defer></script>
+{{if eq .ActiveTab "auth"}}
 <script>
-    function switchTab(tabName) {
-        // Hide all tabs
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-
-        // Show selected tab
-        document.getElementById(tabName + 'Tab').classList.add('active');
-        event.target.classList.add('active');
-    }
-
-    async function loadSettings() {
-        try {
-            const res = await fetch('/api/admin/settings');
-            const options = await res.json();
-            const form = document.getElementById('settingsForm');
-
-            options.forEach(opt => {
-                const input = form.elements[opt.key];
-                if (input) {
-                    input.value = opt.value;
-                    originalGeneralSettings[opt.key] = opt.value;
-                }
-            });
-            
-            // Initialize the save button state
-            checkGeneralForm();
-        } catch (err) {
-            console.error('Failed to load settings:', err);
-        }
-    }
-
     async function loadOAuthSettings() {
         const res = await fetch('/api/admin/oauth/providers');
         const configs = await res.json();
@@ -261,90 +254,13 @@
         }
     }
 
-    async function loadPaymentSettings() {
-        const res = await fetch('/api/admin/payment/gateways');
-        const configs = await res.json();
-
-        // ECPay
-        if (configs.ecpay) {
-            const merchantID = configs.ecpay.config?.payment_ecpay_merchant_id || '';
-            const hashKey = configs.ecpay.config?.payment_ecpay_hash_key || '';
-            const hashIV = configs.ecpay.config?.payment_ecpay_hash_iv || '';
-            const testMode = configs.ecpay.config?.payment_ecpay_test_mode === 'true';
-            const enabled = configs.ecpay.enabled;
-            
-            originalValues.ecpay = { merchantID, hashKey, hashIV, testMode };
-            document.getElementById('ecpayMerchantID').value = merchantID;
-            document.getElementById('ecpayHashKey').value = hashKey;
-            document.getElementById('ecpayHashIV').value = hashIV;
-            document.getElementById('ecpayTestMode').checked = testMode;
-            
-            // Auto-disable if enabled but missing required fields
-            if (enabled && (!merchantID || !hashKey || !hashIV)) {
-                document.getElementById('ecpayEnabled').checked = false;
-                // Save the disabled state
-                await saveECPay(false, merchantID, hashKey, hashIV, testMode);
-            } else {
-                document.getElementById('ecpayEnabled').checked = enabled;
-            }
-            toggleECPay();
-            checkECPayForm();
-        }
-
-        // NewebPay
-        if (configs.newebpay) {
-            const merchantID = configs.newebpay.config?.payment_newebpay_merchant_id || '';
-            const hashKey = configs.newebpay.config?.payment_newebpay_hash_key || '';
-            const hashIV = configs.newebpay.config?.payment_newebpay_hash_iv || '';
-            const testMode = configs.newebpay.config?.payment_newebpay_test_mode === 'true';
-            const enabled = configs.newebpay.enabled;
-            
-            originalValues.newebpay = { merchantID, hashKey, hashIV, testMode };
-            document.getElementById('newebpayMerchantID').value = merchantID;
-            document.getElementById('newebpayHashKey').value = hashKey;
-            document.getElementById('newebpayHashIV').value = hashIV;
-            document.getElementById('newebpayTestMode').checked = testMode;
-            
-            // Auto-disable if enabled but missing required fields
-            if (enabled && (!merchantID || !hashKey || !hashIV)) {
-                document.getElementById('newebpayEnabled').checked = false;
-                // Save the disabled state
-                await saveNewebPay(false, merchantID, hashKey, hashIV, testMode);
-            } else {
-                document.getElementById('newebpayEnabled').checked = enabled;
-            }
-            toggleNewebPay();
-            checkNewebPayForm();
-        }
-    }
-
-    function toggleECPay() {
-        const enabled = document.getElementById('ecpayEnabled').checked;
-        const form = document.getElementById('ecpayForm');
-        form.querySelectorAll('input[type="text"]').forEach(input => {
-            input.disabled = !enabled;
-        });
-    }
-
-    function toggleNewebPay() {
-        const enabled = document.getElementById('newebpayEnabled').checked;
-        const form = document.getElementById('newebpayForm');
-        form.querySelectorAll('input[type="text"]').forEach(input => {
-            input.disabled = !enabled;
-        });
-    }
-
     // Store original values for comparison
     // Track original values for each form
     let originalValues = {
         google: { enabled: false, clientID: '', clientSecret: '' },
-        github: { enabled: false, clientID: '', clientSecret: '' },
-        ecpay: { merchantID: '', hashKey: '', hashIV: '', testMode: false },
-        newebpay: { merchantID: '', hashKey: '', hashIV: '', testMode: false }
+        github: { enabled: false, clientID: '', clientSecret: '' }
     };
     
-    // Track original general settings
-    let originalGeneralSettings = {};
 
     function toggleGoogle() {
         const enabled = document.getElementById('googleEnabled').checked;
@@ -376,55 +292,6 @@
         checkGitHubForm();
     }
 
-    function toggleECPay() {
-        const enabled = document.getElementById('ecpayEnabled').checked;
-        const form = document.getElementById('ecpayForm');
-        const card = document.getElementById('ecpayCard');
-        form.querySelectorAll('input[type="text"]').forEach(input => {
-            input.disabled = !enabled;
-        });
-        if (!enabled) {
-            card.classList.add('disabled');
-        } else {
-            card.classList.remove('disabled');
-        }
-        checkECPayForm();
-    }
-
-    function toggleNewebPay() {
-        const enabled = document.getElementById('newebpayEnabled').checked;
-        const form = document.getElementById('newebpayForm');
-        const card = document.getElementById('newebpayCard');
-        form.querySelectorAll('input[type="text"]').forEach(input => {
-            input.disabled = !enabled;
-        });
-        if (!enabled) {
-            card.classList.add('disabled');
-        } else {
-            card.classList.remove('disabled');
-        }
-        checkNewebPayForm();
-    }
-
-    function checkGeneralForm() {
-        const form = document.getElementById('settingsForm');
-        const btn = document.getElementById('generalSaveBtn');
-        
-        if (!form || !btn) return;
-        
-        let hasChanges = false;
-        const formData = new FormData(form);
-        
-        for (const [key, value] of formData.entries()) {
-            if (originalGeneralSettings[key] !== value) {
-                hasChanges = true;
-                break;
-            }
-        }
-        
-        btn.disabled = !hasChanges;
-    }
-
     function checkGoogleForm() {
         const clientID = document.getElementById('googleClientID').value.trim();
         const clientSecret = document.getElementById('googleClientSecret').value.trim();
@@ -453,168 +320,6 @@
         btn.disabled = !hasChanges || (enabled && !hasValues);
     }
 
-    function checkECPayForm() {
-        const merchantID = document.getElementById('ecpayMerchantID').value.trim();
-        const hashKey = document.getElementById('ecpayHashKey').value.trim();
-        const hashIV = document.getElementById('ecpayHashIV').value.trim();
-        const testMode = document.getElementById('ecpayTestMode').checked;
-        const btn = document.getElementById('ecpaySaveBtn');
-        const enabled = document.getElementById('ecpayEnabled').checked;
-        
-        const hasChanges = merchantID !== originalValues.ecpay.merchantID || 
-                          hashKey !== originalValues.ecpay.hashKey || 
-                          hashIV !== originalValues.ecpay.hashIV ||
-                          testMode !== originalValues.ecpay.testMode;
-        const hasValues = merchantID && hashKey && hashIV;
-        
-        btn.disabled = !hasValues || !hasChanges || !enabled;
-    }
-
-    function checkNewebPayForm() {
-        const merchantID = document.getElementById('newebpayMerchantID').value.trim();
-        const hashKey = document.getElementById('newebpayHashKey').value.trim();
-        const hashIV = document.getElementById('newebpayHashIV').value.trim();
-        const testMode = document.getElementById('newebpayTestMode').checked;
-        const btn = document.getElementById('newebpaySaveBtn');
-        const enabled = document.getElementById('newebpayEnabled').checked;
-        
-        const hasChanges = merchantID !== originalValues.newebpay.merchantID || 
-                          hashKey !== originalValues.newebpay.hashKey || 
-                          hashIV !== originalValues.newebpay.hashIV ||
-                          testMode !== originalValues.newebpay.testMode;
-        const hasValues = merchantID && hashKey && hashIV;
-        
-        btn.disabled = !hasValues || !hasChanges || !enabled;
-    }
-
-
-    async function saveECPay(enabled, merchantID, hashKey, hashIV, testMode) {
-        const data = { enabled, merchant_id: merchantID, hash_key: hashKey, hash_iv: hashIV, test_mode: testMode };
-        await fetch('/api/admin/payment/gateways/ecpay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-    }
-
-    async function saveNewebPay(enabled, merchantID, hashKey, hashIV, testMode) {
-        const data = { enabled, merchant_id: merchantID, hash_key: hashKey, hash_iv: hashIV, test_mode: testMode };
-        await fetch('/api/admin/payment/gateways/newebpay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-    }
-
-    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const data = Object.fromEntries(formData.entries());
-
-        try {
-            const res = await fetch('/api/admin/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-
-            if (res.ok) {
-                // Update original values
-                for (const key in data) {
-                    originalGeneralSettings[key] = data[key];
-                }
-                alert('Settings saved!');
-                checkGeneralForm();
-                
-                // Reload page if language changed
-                if (data.site_language) {
-                    setTimeout(() => window.location.reload(), 500);
-                }
-            } else {
-                const error = await res.json();
-                alert('Failed to save settings: ' + (error.error || 'Unknown error'));
-            }
-        } catch (err) {
-            console.error('Failed to save settings:', err);
-            alert('Failed to save settings: ' + err.message);
-        }
-    });
-
-    // Add input listeners for general settings
-    function setupGeneralFormListeners() {
-        const form = document.getElementById('settingsForm');
-        if (form) {
-            ['site_title', 'site_description', 'site_language'].forEach(name => {
-                const input = form[name];
-                if (input) {
-                    input.addEventListener('input', checkGeneralForm);
-                    input.addEventListener('change', checkGeneralForm);
-                }
-            });
-        }
-    }
-
-    document.getElementById('ecpayForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const data = {
-            enabled: document.getElementById('ecpayEnabled').checked,
-            merchant_id: document.getElementById('ecpayMerchantID').value.trim(),
-            hash_key: document.getElementById('ecpayHashKey').value.trim(),
-            hash_iv: document.getElementById('ecpayHashIV').value.trim(),
-            test_mode: document.getElementById('ecpayTestMode').checked
-        };
-
-        const res = await fetch('/api/admin/payment/gateways/ecpay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-
-        if (res.ok) {
-            originalValues.ecpay = {
-                merchantID: data.merchant_id,
-                hashKey: data.hash_key,
-                hashIV: data.hash_iv,
-                testMode: data.test_mode
-            };
-            alert('ECPay settings saved!');
-            checkECPayForm();
-        } else {
-            const err = await res.json();
-            alert('Failed to save: ' + (err.error || 'Unknown error'));
-        }
-    });
-
-    document.getElementById('newebpayForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const data = {
-            enabled: document.getElementById('newebpayEnabled').checked,
-            merchant_id: document.getElementById('newebpayMerchantID').value.trim(),
-            hash_key: document.getElementById('newebpayHashKey').value.trim(),
-            hash_iv: document.getElementById('newebpayHashIV').value.trim(),
-            test_mode: document.getElementById('newebpayTestMode').checked
-        };
-
-        const res = await fetch('/api/admin/payment/gateways/newebpay', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-
-        if (res.ok) {
-            originalValues.newebpay = {
-                merchantID: data.merchant_id,
-                hashKey: data.hash_key,
-                hashIV: data.hash_iv,
-                testMode: data.test_mode
-            };
-            alert('NewebPay settings saved!');
-            checkNewebPayForm();
-        } else {
-            const err = await res.json();
-            alert('Failed to save: ' + (err.error || 'Unknown error'));
-        }
-    });
 
     document.getElementById('googleForm').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -689,20 +394,432 @@
     ['githubClientID', 'githubClientSecret'].forEach(id => {
         document.getElementById(id).addEventListener('input', checkGitHubForm);
     });
-    ['ecpayMerchantID', 'ecpayHashKey', 'ecpayHashIV'].forEach(id => {
-        document.getElementById(id).addEventListener('input', checkECPayForm);
-    });
-    document.getElementById('ecpayTestMode').addEventListener('change', checkECPayForm);
-    ['newebpayMerchantID', 'newebpayHashKey', 'newebpayHashIV'].forEach(id => {
-        document.getElementById(id).addEventListener('input', checkNewebPayForm);
-    });
-    document.getElementById('newebpayTestMode').addEventListener('change', checkNewebPayForm);
 
-    // Setup listeners after forms are loaded
-    loadSettings().then(() => {
-        setupGeneralFormListeners();
-    });
     loadOAuthSettings();
-    loadPaymentSettings();
+</script>
+{{end}}
+<script src="/admin/assets/shop-admin.js"></script>
+<script>
+// 商店、運送、金流分頁：GET 只讀不寫，儲存時只送有變更的鍵；金鑰只顯示遮罩值。
+(function () {
+    'use strict';
+    const SA = window.ShopAdmin;
+    SA.extend({
+        zh: {
+            revert: '還原', saveAll: '儲存全部', unsavedN: '%s 項未儲存', savedAll: '已儲存商店設定', partialSaved: '設定已儲存，但無法重新載入，請重試讀取。', loadFailed: '商店設定載入失敗',
+            gShop: '商店', gShopHint: '幣別、稅、聯絡方式與收據資料。', currency: '幣別', currencyHint: '目前只支援新台幣。', tax: '稅', taxHint: '含稅價：商品售價就是顧客付的錢，收據另列稅額。', taxIncluded: '含稅價',
+            contact: '客服信箱', contactHint: '顯示在確認信與訂單頁。', seller: '收據賣方資料', sellerHint: '公司名稱、統一編號與地址，列印收據時使用。', terms: '購物條款頁', termsHint: '結帳頁「同意條款」連到這一頁。', none: '不指定',
+            prefix: '訂單編號前綴', prefixHint: '例如 JL → JL-2026-0001。', lowStock: '預設低庫存門檻', lowStockHint: '新商品的低庫存門檻。', refundDays: '鑑賞期（天）', refundDaysHint: '商品頁與確認信顯示的鑑賞天數。',
+            gHold: '庫存保留', gHoldHint: '下單時保留庫存；逾期未付自動釋放庫存與折扣碼次數。', holdCard: '信用卡', holdOffline: 'ATM、超商代碼與轉帳', holdFailed: '付款失敗後保留', minutes: '分鐘', hours: '小時',
+            gShipping: '運送方式', gShippingHint: '結帳頁只列啟用的方式，順序照這裡。', addMethod: '新增方式', shMethod: '方式', shFee: '運費 (NT$)', shEta: '預計天數', shAddress: '需填地址', shEnabled: '啟用', comingSoon: '稍後開放', removeMethod: '刪除 %s', methodName: '方式名稱', newMethod: '新的運送方式',
+            freeOver: '免運門檻 (NT$)', freeOverHint: '小計達門檻，宅配運費變 0。留空或 0 代表不設免運。', pickupNote: '自取說明', pickupNoteHint: '顯示在結帳頁、確認信與訂單頁。',
+            ecpayTitle: '綠界 ECPay', ecpayHint: '信用卡、ATM、超商代碼。', newebpayTitle: '藍新 NewebPay', newebpayHint: '轉接器保留，目前不開放結帳。', merchantId: '商店代號 (Merchant ID)',
+            secretHint: '只顯示最後四碼，按鉛筆輸入新值即覆蓋。', env: '環境', envHint: '測試環境不會真的收款。', envTest: '測試', envLive: '正式', notifyUrl: '通知網址 (Notify URL)', notifyHintEcpay: '貼到綠界後台的「付款結果通知網址」。',
+            testConn: '連線測試', testOk: '憑證有效', testFail: '檢查失敗', testConfigOnly: '設定齊全', testConfigHint: '伺服器只確認設定已填齊，尚未實際連線到金流。', testAt: '上次：%s', testSaveFirst: '請先儲存金流設定再測試。', testing: '測試中…',
+            replaceSecret: '更換 %s', clearSecret: '清空 %s', undoSecret: '取消更換', newSecretPh: '輸入新的值', clearPending: '儲存後清空', notSet: '未設定',
+            transferTitle: '銀行轉帳（人工確認）', transferHint: '不經金流。顧客匯款後，你在訂單頁按「人工確認收款」。', transferNote: '轉帳說明', transferNoteHint: '下單完成頁與確認信都會顯示這段文字。', holdTime: '保留時間', holdTimeHint: '逾期未確認會釋放庫存與折扣碼次數。',
+            methodsTitle: '付款方式對應', methodsHint: '每種付款方式交給哪個金流；選「不提供」就不在結帳頁出現。', notOffered: '不提供',
+            sandboxTitle: '沙盒（測試用，正式環境不顯示）', sandboxHint: '結帳頁多一個「測試付款」，可按成功、失敗或 ATM 待繳。只在非正式環境出現。',
+            secretNote: '金鑰只存在伺服器端資料庫，後台只回傳遮罩值（****1234）。改動會寫進系統日誌。', enable: '啟用 %s',
+            needKeys: '啟用 %s 前要填齊商店代號、Hash Key 與 Hash IV。', badRate: '請輸入 0 到 100 的稅率', badEmail: 'Email 格式不正確', labelRequired: '請輸入名稱', fixErrors: '有欄位需要修正'
+        },
+        en: {
+            revert: 'Revert', saveAll: 'Save all', unsavedN: '%s unsaved', savedAll: 'Shop settings saved', partialSaved: 'Settings were saved, but could not be reloaded. Please try loading again.', loadFailed: 'Could not load shop settings',
+            gShop: 'Shop', gShopHint: 'Currency, tax, contact and receipt details.', currency: 'Currency', currencyHint: 'Only New Taiwan dollars for now.', tax: 'Tax', taxHint: 'Tax-inclusive: the price is what customers pay; receipts list the tax.', taxIncluded: 'Tax included',
+            contact: 'Support email', contactHint: 'Shown in confirmation emails and order pages.', seller: 'Seller details for receipts', sellerHint: 'Company name, tax ID and address, printed on receipts.', terms: 'Terms page', termsHint: 'The checkout “accept terms” link opens this page.', none: 'None',
+            prefix: 'Order number prefix', prefixHint: 'For example JL → JL-2026-0001.', lowStock: 'Default low-stock threshold', lowStockHint: 'Used for new products.', refundDays: 'Return window (days)', refundDaysHint: 'Shown on product pages and confirmation emails.',
+            gHold: 'Stock holds', gHoldHint: 'Stock is held when an order is placed and released when it is not paid in time, together with coupon uses.', holdCard: 'Card', holdOffline: 'ATM, store code and transfer', holdFailed: 'After a failed payment', minutes: 'minutes', hours: 'hours',
+            gShipping: 'Shipping methods', gShippingHint: 'Checkout lists enabled methods in this order.', addMethod: 'Add method', shMethod: 'Method', shFee: 'Fee (NT$)', shEta: 'Days', shAddress: 'Needs address', shEnabled: 'Enabled', comingSoon: 'Coming later', removeMethod: 'Remove %s', methodName: 'Method name', newMethod: 'New shipping method',
+            freeOver: 'Free shipping over (NT$)', freeOverHint: 'Orders at or above this subtotal ship free. Empty or 0 means never.', pickupNote: 'Pickup notes', pickupNoteHint: 'Shown at checkout, in confirmation emails and on order pages.',
+            ecpayTitle: 'ECPay', ecpayHint: 'Card, ATM and convenience-store code.', newebpayTitle: 'NewebPay', newebpayHint: 'Adapter kept; checkout does not offer it yet.', merchantId: 'Merchant ID',
+            secretHint: 'Only the last four characters are shown. Use the pencil to enter a new value.', env: 'Environment', envHint: 'The test environment never charges.', envTest: 'Test', envLive: 'Live', notifyUrl: 'Notify URL', notifyHintEcpay: 'Paste this into the ECPay payment notification setting.',
+            testConn: 'Test connection', testOk: 'Credentials valid', testFail: 'Check failed', testConfigOnly: 'Settings complete', testConfigHint: 'The server only confirmed the settings are filled in; it did not contact the gateway.', testAt: 'Last: %s', testSaveFirst: 'Save the payment settings before testing.', testing: 'Testing…',
+            replaceSecret: 'Replace %s', clearSecret: 'Clear %s', undoSecret: 'Keep current value', newSecretPh: 'Enter a new value', clearPending: 'Cleared when saved', notSet: 'Not set',
+            transferTitle: 'Bank transfer (manual)', transferHint: 'No gateway. After the customer pays, press “Confirm transfer received” on the order.', transferNote: 'Transfer instructions', transferNoteHint: 'Shown on the order-complete page and in the confirmation email.', holdTime: 'Hold time', holdTimeHint: 'Unconfirmed orders release stock and coupon uses afterwards.',
+            methodsTitle: 'Payment method routing', methodsHint: 'Choose the gateway for each method. “Not offered” hides it at checkout.', notOffered: 'Not offered',
+            sandboxTitle: 'Sandbox (testing only, hidden in production)', sandboxHint: 'Adds “Test payment” at checkout with success, failure and ATM pending. Only outside production.',
+            secretNote: 'Keys stay in the server database; the admin only receives masked values (****1234). Changes are logged.', enable: 'Enable %s',
+            needKeys: 'Fill in the merchant ID, Hash Key and Hash IV before enabling %s.', badRate: 'Enter a rate from 0 to 100', badEmail: 'Enter a valid email', labelRequired: 'Enter a name', fixErrors: 'Some fields need attention'
+        }
+    });
+    const t = SA.t, esc = SA.esc;
+    const $ = (id) => document.getElementById(id);
+    const TABS = ['shop', 'shipping', 'payment'];
+    const SECRETS = ['payment_ecpay_hash_key', 'payment_ecpay_hash_iv', 'payment_newebpay_hash_key', 'payment_newebpay_hash_iv'];
+    const METHODS = ['credit_card', 'atm', 'cvs'];
+    const PROVIDERS = ['ecpay', 'newebpay', 'sandbox'];
+    const DEFAULT_SHIP = [
+        { id: 'home', label: '宅配', fee: 8000, free_over: 0, eta_days: 3, requires_address: true, enabled: true },
+        { id: 'pickup', label: '自取', fee: 0, free_over: 0, eta_days: 1, requires_address: false, enabled: true },
+        { id: 'cvs', label: '超商取貨', fee: 6000, free_over: 0, eta_days: 3, requires_address: false, enabled: false }
+    ];
+    const forms = () => document.querySelectorAll('[data-shop-form]');
+    let shopOperationPending = false;
+    let shopInertBeforeOperation = null;
+    let orig = null;          // server values as strings
+    let base = {};            // collect() right after filling: the "no change" state
+    let secrets = {};         // key -> {mode: keep|replace|clear, masked}
+    let ship = [];
+    let pm = {};
+    let tests = {};
+
+    document.querySelectorAll('#shopSettings [data-t], #shopTab [data-t], #shippingTab [data-t], #paymentTab [data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
+    document.querySelectorAll('[data-notify]').forEach(el => { el.textContent = location.origin + '/api/payment/' + el.dataset.notify + '/notify'; });
+    document.querySelectorAll('[data-copy-notify]').forEach(b => b.addEventListener('click', () => SA.copy(location.origin + '/api/payment/' + b.dataset.copyNotify + '/notify')));
+    document.querySelectorAll('#paymentTab .settings-group-head .toggle-switch input').forEach(i => {
+        const h = i.closest('.settings-group-head').querySelector('h2');
+        i.setAttribute('aria-label', t('enable', h ? h.textContent : ''));
+    });
+
+    /* ---------- tabs ---------- */
+    const shopTabActive = () => TABS.some(n => $(n + 'Tab').classList.contains('active'));
+    function syncBar() { $('shopSettings').hidden = !shopTabActive(); $('shopSaveBar').hidden = !orig; }
+    function beginShopOperation(kind) {
+        if (shopOperationPending) return false;
+        shopOperationPending = true;
+        shopInertBeforeOperation = Array.from(forms(), f => [f, f.inert]);
+        shopInertBeforeOperation.push([$('shopSaveBar'), $('shopSaveBar').inert]);
+        shopInertBeforeOperation.forEach(([el]) => { el.inert = true; });
+        $('shopSettings').setAttribute('aria-busy', 'true');
+        SA.state($('shopLoad'), 'loading', { title: t(kind === 'save' ? 'saving' : 'loading') });
+        syncDirty();
+        return true;
+    }
+    function endShopOperation(preserveStatus) {
+        (shopInertBeforeOperation || []).forEach(([el, inert]) => { el.inert = inert; });
+        shopInertBeforeOperation = null;
+        shopOperationPending = false;
+        $('shopSettings').removeAttribute('aria-busy');
+        if (!preserveStatus) { $('shopLoad').innerHTML = ''; $('shopLoad').setAttribute('aria-busy', 'false'); }
+        syncDirty();
+    }
+    function activate(name) {
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.tabs .tab').forEach(b => b.classList.toggle('active', (b.getAttribute('onclick') || '').indexOf("'" + name + "'") >= 0));
+        const tab = $(name + 'Tab');
+        if (tab) tab.classList.add('active');
+        syncBar();
+    }
+    document.querySelectorAll('.tabs .tab').forEach(b => b.addEventListener('click', () => setTimeout(syncBar)));
+    const hashTab = location.hash.replace('#', '');
+    if (TABS.includes(hashTab)) activate(hashTab);
+    syncBar();
+
+    /* ---------- read / write simple keys ---------- */
+    function readKey(el) {
+        if (el.type === 'checkbox') return el.checked ? 'true' : 'false';
+        if (el.type === 'radio') { const c = document.querySelector('input[name="' + el.name + '"]:checked'); return c ? c.value : ''; }
+        if (el.hasAttribute('data-money')) { const a = SA.parseAmount(el.value); return a.ok ? String(a.minor) : el.value; }
+        return el.tagName === 'TEXTAREA' ? el.value : el.value.trim();
+    }
+    function writeKey(el, v) {
+        if (el.type === 'checkbox') el.checked = v === 'true';
+        else if (el.type === 'radio') el.checked = el.value === v;
+        else if (el.hasAttribute('data-money')) el.value = v && v !== '0' ? SA.toInput(+v) : '';
+        else el.value = v;
+    }
+    function collect() {
+        const out = {};
+        document.querySelectorAll('[data-key]').forEach(el => { out[el.dataset.key] = readKey(el); });
+        out.shop_shipping_methods = JSON.stringify(ship.map(r => ({ id: r.id, label: r.label, fee: r.fee, free_over: r.free_over || 0, eta_days: r.eta_days, requires_address: !!r.requires_address, enabled: !!r.enabled })));
+        const map = {};
+        METHODS.forEach(m => { if (pm[m]) map[m] = pm[m]; });
+        if ($('transferOn').checked) map.bank_transfer = 'manual_transfer';
+        out.payment_methods = JSON.stringify(map);
+        return out;
+    }
+    function changes() {
+        const now = collect(), diff = {};
+        Object.keys(now).forEach(k => { if (now[k] !== base[k]) diff[k] = now[k]; });
+        SECRETS.forEach(k => {
+            const s = secrets[k];
+            if (!s) return;
+            const input = $(document.querySelector('[data-secret="' + k + '"]').dataset.for);
+            if (s.mode === 'clear') diff[k] = '';
+            else if (s.mode === 'replace' && input && input.value.trim()) diff[k] = input.value.trim();
+        });
+        return diff;
+    }
+    function syncDirty() {
+        const n = Object.keys(changes()).length;
+        $('shopDirty').hidden = !n;
+        $('shopDirty').textContent = t('unsavedN', n);
+        $('shopSave').disabled = shopOperationPending || $('shopSave').dataset.busy === '1' || !n;
+        $('shopRevert').disabled = shopOperationPending || !n;
+        document.querySelectorAll('[data-gw]').forEach(f => { const on = f.querySelector('[data-bool]'); f.classList.toggle('disabled', !on.checked); });
+        const h = $('sHoldOffline').value.trim();
+        $('transferHold').textContent = (h || '72') + ' ' + t('hours');
+    }
+
+    /* ---------- secrets ---------- */
+    function renderSecret(key) {
+        const box = document.querySelector('[data-secret="' + key + '"]');
+        const id = box.dataset.for;
+        const name = box.closest('.setting-row').querySelector('label').textContent;
+        const s = secrets[key];
+        const has = !!s.masked;
+        let html = '<div class="sa-secret">';
+        if (s.mode === 'keep' && has) {
+            html += '<input type="text" id="' + id + '" value="' + esc(s.masked) + '" readonly aria-readonly="true">' +
+                '<button type="button" class="btn btn-secondary btn-sm btn-icon" data-act="replace" aria-label="' + esc(t('replaceSecret', name)) + '" title="' + esc(t('replaceSecret', name)) + '">' + SA.svg('i-pencil') + '</button>' +
+                '<button type="button" class="btn btn-text btn-sm btn-icon" data-act="clear" aria-label="' + esc(t('clearSecret', name)) + '" title="' + esc(t('clearSecret', name)) + '">' + SA.svg('i-trash') + '</button>';
+        } else if (s.mode === 'clear') {
+            html += '<input type="text" id="' + id + '" value="" placeholder="' + esc(t('clearPending')) + '" readonly aria-readonly="true">' +
+                '<button type="button" class="btn btn-secondary btn-sm btn-icon" data-act="undo" aria-label="' + esc(t('undoSecret')) + '" title="' + esc(t('undoSecret')) + '">' + SA.svg('i-undo') + '</button>';
+        } else {
+            html += '<input type="password" id="' + id + '" value="" placeholder="' + esc(has ? t('newSecretPh') : t('notSet')) + '" autocomplete="new-password" spellcheck="false">' +
+                (has ? '<button type="button" class="btn btn-secondary btn-sm btn-icon" data-act="undo" aria-label="' + esc(t('undoSecret')) + '" title="' + esc(t('undoSecret')) + '">' + SA.svg('i-undo') + '</button>' : '');
+        }
+        box.innerHTML = html + '</div>';
+        box.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+            s.mode = b.dataset.act === 'undo' ? 'keep' : b.dataset.act;
+            renderSecret(key);
+            const input = $(id);
+            if (s.mode === 'replace') input.focus(); else { const nb = box.querySelector('button'); if (nb) nb.focus(); }
+            syncDirty();
+        }));
+        const input = $(id);
+        if (!input.readOnly) input.addEventListener('input', () => { s.mode = 'replace'; SA.fieldError(input, ''); syncDirty(); });
+    }
+    function secretPresent(key) {
+        const s = secrets[key];
+        if (!s) return false;
+        if (s.mode === 'clear') return false;
+        if (s.mode === 'replace') { const input = $(document.querySelector('[data-secret="' + key + '"]').dataset.for); return !!(input && input.value.trim()) || !!s.masked; }
+        return !!s.masked;
+    }
+
+    /* ---------- shipping rows ---------- */
+    function renderShip() {
+        $('shipRows').innerHTML = ship.map((r, i) => {
+            const soon = r.id === 'cvs';
+            const builtIn = ['home', 'pickup', 'cvs'].includes(r.id);
+            const dis = soon ? ' disabled' : '';
+            return '<tr data-i="' + i + '"' + (soon || !r.enabled ? ' class="off"' : '') + '>' +
+                '<td data-l="' + esc(t('shMethod')) + '" data-field><input type="text" id="shipLabel' + i + '" data-k="label" value="' + esc(r.label) + '" maxlength="40" aria-label="' + esc(t('methodName')) + '"' + dis + '>' + (soon ? ' <span class="badge">' + esc(t('comingSoon')) + '</span>' : '') + '</td>' +
+                '<td data-l="' + esc(t('shFee')) + '" data-field><input type="text" id="shipFee' + i + '" data-k="fee" value="' + esc(SA.toInput(r.fee)) + '" inputmode="decimal" class="sa-num" aria-label="' + esc(t('shFee') + ' ' + r.label) + '"' + dis + '></td>' +
+                '<td data-l="' + esc(t('shEta')) + '" data-field><input type="text" id="shipEta' + i + '" data-k="eta_days" value="' + esc(String(r.eta_days == null ? '' : r.eta_days)) + '" inputmode="numeric" class="sa-num" style="width:4rem" aria-label="' + esc(t('shEta') + ' ' + r.label) + '"' + dis + '></td>' +
+                '<td data-l="' + esc(t('shAddress')) + '"><input type="checkbox" data-k="requires_address"' + (r.requires_address ? ' checked' : '') + ' aria-label="' + esc(t('shAddress') + ' ' + r.label) + '"' + dis + '></td>' +
+                '<td data-l="' + esc(t('shEnabled')) + '"><label class="toggle-switch"><input type="checkbox" data-k="enabled"' + (r.enabled && !soon ? ' checked' : '') + ' aria-label="' + esc(t('enable', r.label)) + '"' + dis + '><span class="slider"></span></label></td>' +
+                '<td class="actions">' + (builtIn ? '' : '<button type="button" class="btn btn-text btn-sm btn-icon" data-rm="' + i + '" aria-label="' + esc(t('removeMethod', r.label)) + '" title="' + esc(t('removeMethod', r.label)) + '">' + SA.svg('i-trash') + '</button>') + '</td></tr>';
+        }).join('');
+    }
+    $('shipRows').addEventListener('input', (e) => {
+        const tr = e.target.closest('tr[data-i]'), k = e.target.dataset.k;
+        if (!tr || !k) return;
+        const r = ship[+tr.dataset.i];
+        if (k === 'label') r.label = e.target.value.trim();
+        else if (k === 'fee') { const a = SA.parseAmount(e.target.value); r.fee = a.ok ? a.minor : NaN; }
+        else if (k === 'eta_days') { const n = SA.parseInt(e.target.value); r.eta_days = n.ok ? n.value : NaN; }
+        else r[k] = e.target.checked;
+        SA.fieldError(e.target, '');
+        if (k === 'enabled') tr.classList.toggle('off', !e.target.checked);
+        syncDirty();
+    });
+    $('shipRows').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-rm]');
+        if (!b) return;
+        ship.splice(+b.dataset.rm, 1);
+        renderShip(); syncDirty(); $('addShip').focus();
+    });
+    $('addShip').addEventListener('click', () => {
+        let n = 1;
+        while (ship.some(r => r.id === 'custom' + n)) n++;
+        ship.push({ id: 'custom' + n, label: t('newMethod'), fee: 0, free_over: 0, eta_days: 3, requires_address: true, enabled: false });
+        renderShip(); syncDirty();
+        const el = $('shipLabel' + (ship.length - 1));
+        el.focus(); el.select();
+    });
+
+    /* ---------- payment method routing ---------- */
+    function renderMethods() {
+        $('methodRows').innerHTML = METHODS.map(m => '<div class="setting-row"><div><label for="pm_' + m + '">' + esc(SA.methodLabel(m)) + '</label></div><div class="control"><select id="pm_' + m + '" data-m="' + m + '"><option value="">' + esc(t('notOffered')) + '</option>' +
+            PROVIDERS.map(p => '<option value="' + p + '"' + (pm[m] === p ? ' selected' : '') + '>' + esc(SA.providerLabel(p)) + '</option>').join('') + '</select></div></div>').join('');
+        $('methodRows').querySelectorAll('select').forEach(s => s.addEventListener('change', () => { pm[s.dataset.m] = s.value; syncDirty(); }));
+    }
+
+    /* ---------- connection tests ---------- */
+    function renderTest(gw) {
+        const r = tests[gw];
+        const badge = document.querySelector('[data-test-badge="' + gw + '"]');
+        const out = document.querySelector('[data-test-result="' + gw + '"]');
+        if (!r) { badge.innerHTML = ''; out.textContent = ''; return; }
+        badge.innerHTML = r.ok === true ? '<span class="badge badge-success">' + esc(t('testOk')) + '</span>' : r.ok === 'config' ? '<span class="badge badge-info">' + esc(t('testConfigOnly')) + '</span>' : '<span class="badge badge-danger">' + esc(t('testFail')) + '</span>';
+        out.textContent = [r.checked_at ? t('testAt', SA.date(r.checked_at)) : '', r.message || ''].filter(Boolean).join(' · ');
+    }
+    document.querySelectorAll('[data-test]').forEach(b => b.addEventListener('click', () => SA.busy(b, async () => {
+        const gw = b.dataset.test;
+        const pending = Object.keys(changes()).some(k => k.indexOf('payment_' + gw + '_') === 0);
+        if (pending) { SA.toast(t('testSaveFirst'), 'warning'); return; }
+        const out = document.querySelector('[data-test-result="' + gw + '"]');
+        out.textContent = t('testing');
+        try {
+            const r = await SA.api('POST', '/api/admin/shop/payment/' + gw + '/test', {}, { timeout: 30000 });
+            // 只有伺服器明確回 ok:true 才算連線成功；只回 status:"ok" 代表僅檢查到設定齊全
+            const state = r && r.ok === true ? true : (r && r.ok === undefined && r.status === 'ok' ? 'config' : false);
+            tests[gw] = { ok: state, message: r && (r.message || r.error) || (state === 'config' ? t('testConfigHint') : ''), checked_at: (r && r.checked_at) || new Date().toISOString() };
+        } catch (err) {
+            tests[gw] = { ok: false, message: SA.errText(err), checked_at: new Date().toISOString() };
+        }
+        renderTest(gw);
+    })));
+
+    /* ---------- fill ---------- */
+    function parseJSON(s, fallback) { try { const v = JSON.parse(s); return v == null ? fallback : v; } catch (e) { return fallback; } }
+    function fill(values) {
+        orig = {};
+        Object.keys(values || {}).forEach(k => { const v = values[k]; orig[k] = v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v)); });
+        const def = { shop_currency: 'TWD', shop_tax_rate: '5', shop_order_prefix: 'JL', shop_low_stock_default: '5', shop_refund_window_days: '7', shop_stock_hold_minutes_card: '30', shop_stock_hold_hours_offline: '72', shop_failed_order_hold_hours: '24', payment_ecpay_test_mode: 'true', payment_newebpay_test_mode: 'true' };
+        document.querySelectorAll('[data-key]').forEach(el => {
+            const k = el.dataset.key;
+            const v = orig[k] != null && orig[k] !== '' ? orig[k] : (def[k] || '');
+            if (el.tagName === 'SELECT' && v && !Array.from(el.options).some(o => o.value === v)) el.add(new Option(k === 'shop_terms_page_id' ? '#' + v : v, v));
+            writeKey(el, v);
+        });
+        SECRETS.forEach(k => { secrets[k] = { mode: 'keep', masked: orig[k] || '' }; renderSecret(k); });
+        const sm = parseJSON(orig.shop_shipping_methods, null);
+        ship = (Array.isArray(sm) && sm.length ? sm : DEFAULT_SHIP).map(r => Object.assign({}, r));
+        const map = parseJSON(orig.payment_methods, {});
+        pm = {};
+        METHODS.forEach(m => { pm[m] = map && PROVIDERS.includes(map[m]) ? map[m] : ''; });
+        $('transferOn').checked = !!(map && map.bank_transfer === 'manual_transfer');
+        renderShip(); renderMethods();
+        base = collect();
+        syncDirty();
+    }
+
+    function validate() {
+        document.querySelectorAll('#shopTab [aria-invalid="true"], #shippingTab [aria-invalid="true"], #paymentTab [aria-invalid="true"]').forEach(el => SA.fieldError(el, ''));
+        const bad = [];
+        const fail = (el, msg) => { SA.fieldError(el, msg); bad.push(el); };
+        const rate = $('sTaxRate').value.trim();
+        if (rate && !(/^\d+(\.\d+)?$/.test(rate) && +rate <= 100)) fail($('sTaxRate'), t('badRate'));
+        if ($('sContact').value.trim() && !$('sContact').checkValidity()) fail($('sContact'), t('badEmail'));
+        document.querySelectorAll('[data-int]').forEach(el => { if (!SA.parseInt(el.value).ok) fail(el, t('invalidInt')); });
+        if (!SA.parseAmount($('sFreeOver').value).ok) fail($('sFreeOver'), t('invalidAmount'));
+        ship.forEach((r, i) => {
+            if (r.id === 'cvs') return;
+            if (!r.label) fail($('shipLabel' + i), t('labelRequired'));
+            if (!Number.isFinite(r.fee)) fail($('shipFee' + i), t('invalidAmount'));
+            if (!Number.isFinite(r.eta_days)) fail($('shipEta' + i), t('invalidInt'));
+        });
+        ['ecpay', 'newebpay'].forEach(gw => {
+            if (!$(gw + 'On').checked) return;
+            const mid = $(gw + 'Mid');
+            const keyOk = secretPresent('payment_' + gw + '_hash_key'), ivOk = secretPresent('payment_' + gw + '_hash_iv');
+            if (!mid.value.trim() || !keyOk || !ivOk) {
+                const msg = t('needKeys', t(gw + 'Title'));
+                if (!mid.value.trim()) fail(mid, msg);
+                if (!keyOk) fail($(gw + 'Key'), msg);
+                if (!ivOk) fail($(gw + 'Iv'), msg);
+            }
+        });
+        if (bad.length) {
+            const tab = bad[0].closest('.tab-content');
+            if (tab) activate(tab.id.replace('Tab', ''));
+            bad[0].focus();
+            SA.toast(t('fixErrors'), 'error');
+            return false;
+        }
+        return true;
+    }
+
+    async function save() {
+        if (!beginShopOperation('save')) return;
+        let preserveStatus = false;
+        try {
+            await SA.busy($('shopSave'), async () => {
+                if (!validate()) return;
+                const diff = changes();
+                if (!Object.keys(diff).length) return;
+                let r;
+                try {
+                    r = await SA.api('PUT', '/api/admin/shop/settings', diff);
+                } catch (err) {
+                    const fields = SA.fieldErrors(err);
+                    Object.keys(fields).forEach(k => {
+                        const el = document.querySelector('[data-key="' + k + '"]') || (document.querySelector('[data-secret="' + k + '"]') && $(document.querySelector('[data-secret="' + k + '"]').dataset.for));
+                        if (el) SA.fieldError(el, String(fields[k]));
+                    });
+                    SA.toast(t('saveFailed'), 'error', { detail: SA.errText(err) });
+                    return;
+                }
+                const values = r && (r.settings || r.options);
+                if (values && typeof values === 'object' && !Array.isArray(values)) {
+                    fill(values);
+                    readTests(r);
+                    SA.toast(t('savedAll'));
+                    return;
+                }
+                if (await loadSettings(true)) SA.toast(t('savedAll'));
+                else { preserveStatus = true; SA.toast(t('partialSaved'), 'warning'); }
+            });
+        } finally {
+            endShopOperation(preserveStatus);
+        }
+    }
+
+    function readTests(data) {
+        const tr = data && (data.tests || data.payment_tests);
+        if (tr && typeof tr === 'object') ['ecpay', 'newebpay'].forEach(gw => { if (tr[gw]) tests[gw] = tr[gw]; });
+        ['ecpay', 'newebpay'].forEach(renderTest);
+    }
+
+    async function loadPages() {
+        try {
+            const pages = await SA.api('GET', '/api/admin/posts?type=page');
+            const list = Array.isArray(pages) ? pages : (pages && pages.items) || [];
+            const sel = $('sTerms'), cur = sel.value;
+            list.forEach(p => { if (!Array.from(sel.options).some(o => o.value === String(p.id))) sel.add(new Option(p.title || ('#' + p.id), String(p.id))); else Array.from(sel.options).find(o => o.value === String(p.id)).text = p.title || ('#' + p.id); });
+            sel.value = cur;
+        } catch (e) { /* the select keeps the stored id */ }
+    }
+
+    async function loadSettings(quiet) {
+        if (!quiet) {
+            SA.state($('shopLoad'), 'loading');
+            if (!orig) forms().forEach(f => { f.hidden = true; });
+        }
+        try {
+            const data = await SA.api('GET', '/api/admin/shop/settings');
+            const values = data && (data.settings || data.options || data);
+            if (!values || typeof values !== 'object' || Array.isArray(values)) throw new Error('Invalid shop settings response');
+            fill(values);
+            readTests(data);
+            $('shopLoad').innerHTML = '';
+            forms().forEach(f => { f.hidden = false; });
+            await loadPages();
+            syncDirty();
+            syncBar();
+            return true;
+        } catch (err) {
+            SA.state($('shopLoad'), 'error', { title: t('loadFailed'), text: SA.errText(err), retry: () => loadShopSettings(!!quiet) });
+            syncBar();
+            return false;
+        }
+    }
+    async function loadShopSettings(quiet) {
+        if (!beginShopOperation('load')) return false;
+        let preserveStatus = false;
+        try {
+            const loaded = await loadSettings(quiet);
+            preserveStatus = !loaded;
+            return loaded;
+        } finally {
+            endShopOperation(preserveStatus);
+        }
+    }
+
+    ['shopTab', 'shippingTab', 'paymentTab'].forEach(id => {
+        $(id).addEventListener('input', (e) => { if (e.target.closest('[data-shop-form]')) { if (e.target.getAttribute('aria-invalid')) SA.fieldError(e.target, ''); syncDirty(); } });
+        $(id).addEventListener('change', () => syncDirty());
+        $(id).addEventListener('submit', (e) => { e.preventDefault(); save(); });
+    });
+    $('transferOn').setAttribute('aria-label', t('enable', t('transferTitle')));
+    $('shopSave').addEventListener('click', save);
+    $('shopRevert').addEventListener('click', () => { if (orig && !shopOperationPending) { fill(orig); readTests(null); } });
+    window.addEventListener('beforeunload', (e) => { if (orig && Object.keys(changes()).length) { e.preventDefault(); e.returnValue = ''; } });
+    loadShopSettings();
+})();
 </script>
 {{end}}
