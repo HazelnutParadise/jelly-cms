@@ -59,8 +59,7 @@
     <div class="doc">
         <label for="postTitle" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Title</label>
         <input type="text" id="postTitle" name="title" class="doc-title" placeholder="標題" required autocomplete="off">
-        {{template "md-editor" dict "id" "postContent" "name" "content" "placeholder" "用 Markdown 開始寫。# 標題、**粗體**、- 清單……儲存時會轉成 HTML。"}}
-        <p class="doc-hint">Markdown（儲存時轉成 HTML；原稿保留在 meta.markdown）</p>
+        {{template "editor" .}}
     </div>
     <aside class="props" aria-label="{{.T.edProperties}}">
         <div class="label">{{.T.edProperties}}</div>
@@ -110,6 +109,20 @@
             <label for="postExcerpt">{{.T.edExcerpt}}</label>
             <textarea id="postExcerpt" name="excerpt" rows="3" placeholder="{{.T.edExcerptPlaceholder}}"></textarea>
         </div>
+        <div class="prop"><label for="publishAt">{{.T.ed2PublishAt}}</label><input id="publishAt" type="datetime-local"><small>{{.T.ed2PublishAtHint}}</small></div>
+        <div class="prop"><label for="seoTitle">{{.T.ed2SeoTitle}}</label><input id="seoTitle" name="seo_title"><label for="seoDescription">{{.T.ed2SeoDescription}}</label><textarea id="seoDescription" name="seo_description"></textarea></div>
+        <div class="prop">
+            <label for="seoIndex">{{.T.ed2SeoIndexLabel}}</label>
+            <select id="seoIndex" name="seo_index" aria-describedby="seoIndexHint">
+                <option value="inherit">{{.T.ed2SeoInherit}}</option><option value="index">{{.T.ed2SeoIndex}}</option><option value="noindex">{{.T.ed2SeoNoIndex}}</option>
+            </select>
+            <small class="hint" id="seoIndexHint">{{.T.ed2SeoIndexHint}}</small>
+            <label for="seoAI">{{.T.ed2SeoAiLabel}}</label>
+            <select id="seoAI" name="seo_ai" aria-describedby="seoAIHint">
+                <option value="inherit">{{.T.ed2SeoInherit}}</option><option value="allow">{{.T.ed2SeoAllowAI}}</option><option value="noai">{{.T.ed2SeoNoAI}}</option>
+            </select>
+            <small class="hint" id="seoAIHint">{{.T.ed2SeoAiHint}}</small>
+        </div>
         <div class="prop" id="revBox" hidden>
             <label>{{.T.edRevisions}}</label>
             <a class="rev-link" id="revLink" href="#"><svg class="icon" aria-hidden="true"><use href="#i-history"/></svg>{{.T.edAllRevisions}}</a>
@@ -120,12 +133,13 @@
 </form>
 {{end}}
 {{define "scripts"}}
+{{template "editor-scripts" .}}
 <script>
 (function () {
     'use strict';
     const T = {{json (dict
         "on" .T.edOn "off" .T.edOff "public" .T.edPublic "private" .T.edPrivate
-        "requestFailed" .T.requestFailed "saved" .T.saved "saveFailed" .T.saveFailed
+        "requestFailed" .T.requestFailed "saved" .T.saved "saveFailed" .T.saveFailed "seoUnknown" .T.ed2SeoUnknown
         "categoriesFailed" .T.edCategoriesFailed "categoriesEmpty" .T.edCategoriesEmpty "categoriesManage" .T.edCategoriesManage "retry" .T.retry
         "tagsCreate" .T.edTagsCreate "tagsRemove" .T.edTagsRemove
     )}};
@@ -133,10 +147,26 @@
     function fmt(s, ...a) { let i = 0; return String(s).replace(/%[sd]/g, () => a[i++]); }
 
     const form = document.getElementById('postForm');
-    const id = window.location.pathname.split('/').pop();
-    const isNew = id === 'new';
-    const editor = window.JellyMD['postContent'];
+    let id = window.location.pathname.split('/').pop();
+    let isNew = id === 'new';
+    const editor = window.JellyEditor;
     let existingMeta = {};
+
+    const seoChoices = { seo_index: ['inherit', 'index', 'noindex'], seo_ai: ['inherit', 'allow', 'noai'] };
+    function fillSEO(data, partial = false) {
+        for (const key of Object.keys(seoChoices)) {
+            if (partial && !Object.prototype.hasOwnProperty.call(data, key)) continue;
+            const input = form.elements[key];
+            const value = data[key] == null || data[key] === '' ? 'inherit' : String(data[key]);
+            input.querySelectorAll('[data-unknown]').forEach(option => option.remove());
+            if (!seoChoices[key].includes(value)) {
+                const option = document.createElement('option');
+                option.value = value; option.textContent = T.seoUnknown.replace('%s', value); option.dataset.unknown = 'true';
+                input.append(option);
+            }
+            input.value = value;
+        }
+    }
 
     /* ---------- 選項晶片：允許留言、置頂、可見性 ---------- */
     const state = { allow_comments: true, pinned: false, visibility: 'public' };
@@ -279,9 +309,9 @@
         form.title.value = post.title;
         form.slug.value = post.slug;
         form.status.value = post.status;
-        existingMeta = (post.meta && typeof post.meta === 'object' && !Array.isArray(post.meta)) ? post.meta : {};
+        existingMeta = Object.prototype.hasOwnProperty.call(post, 'meta') ? post.meta : {};
         // 有 Markdown 原稿就用原稿，舊的 HTML 內容直接當 Markdown 編輯（Markdown 允許 HTML）
-        editor.setValue(typeof existingMeta.markdown === 'string' ? existingMeta.markdown : post.content);
+        editor.setValue(post.format === 'html' ? post.content : post.source ?? (typeof existingMeta?.markdown === 'string' ? existingMeta.markdown : post.content));
         form.excerpt.value = post.excerpt || '';
         coverInput.value = post.cover || ''; paintCover();
         state.allow_comments = post.allow_comments !== false;
@@ -290,25 +320,62 @@
             picked.length = 0; (post.tags || []).forEach(t => picked.push(t.name)); paintPills();
             state.pinned = !!post.pinned;
         paintOptions();
+        fillSEO(post);
+        editor.loaded(post);
     }
 
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
+    function articleData() {
         const data = {
             title: form.title.value,
             slug: form.slug.value,
             status: form.status.value || 'draft',
-            content: editor.toHTML(),
-            meta: { ...existingMeta, markdown: editor.getValue() },
+            source: editor.getValue(),
+            format: editor.format,
+            published_at: document.getElementById('publishAt').value ? new Date(document.getElementById('publishAt').value).toISOString() : null,
+            meta: existingMeta && typeof existingMeta === 'object' && !Array.isArray(existingMeta) ? { ...existingMeta, seo_title: form.seo_title.value, seo_description: form.seo_description.value } : existingMeta,
             excerpt: form.excerpt.value.trim(),
             cover: coverInput.value.trim(),
             visibility: state.visibility,
-            allow_comments: state.allow_comments
+            allow_comments: state.allow_comments,
+            seo_index: form.seo_index.value,
+            seo_ai: form.seo_ai.value
         };
         data.category_ids = Array.from(pickedCats);
-        if (tagInput.value.trim()) addTag(tagInput.value);
         data.tags = picked.slice();
         data.pinned = state.pinned;
+
+        return data;
+    }
+    editor.capture = () => ({ data: articleData(), pendingTag: tagInput.value });
+    editor.restoreDraft = draft => {
+        if (!draft?.data) return;
+        const data = draft.data;
+        form.slug.value = data.slug ?? '';
+        form.status.value = data.status || 'draft';
+        coverInput.value = data.cover || ''; paintCover();
+        state.visibility = data.visibility === 'private' ? 'private' : 'public';
+        state.allow_comments = data.allow_comments !== false;
+        form.seo_title.value = data.meta?.seo_title || '';
+        form.seo_description.value = data.meta?.seo_description || '';
+        fillSEO(data, true);
+        if (data.published_at) { const d = new Date(data.published_at); document.getElementById('publishAt').value = new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
+        else document.getElementById('publishAt').value = '';
+        state.pinned = !!data.pinned;
+        pickedCats.clear(); (data.category_ids || []).forEach(id => pickedCats.add(id)); paintCats();
+        picked.length = 0; (data.tags || []).forEach(name => picked.push(name)); paintPills();
+        tagInput.value = draft.pendingTag || '';
+        paintOptions();
+    };
+    editor.track();
+
+    form.addEventListener('submit', (e) => { e.preventDefault(); editor.save(); });
+    editor.save = async () => {
+        if (!editor.ready || !form.reportValidity() || document.getElementById('saveBtn').disabled) return false;
+        if (tagInput.value.trim()) addTag(tagInput.value);
+        const submitted = editor.capture();
+        const data = { ...submitted.data, base_updated_at: editor.baseUpdatedAt };
+        // Omit an unrecognized stored mode unless the author chooses a supported value.
+        for (const key of Object.keys(seoChoices)) if (!seoChoices[key].includes(data[key])) delete data[key];
 
         const btn = document.getElementById('saveBtn');
         btn.disabled = true;
@@ -318,15 +385,21 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            if (!res.ok) { toast(T.saveFailed, 'error', await errorText(res)); return; }
+            if (!res.ok) { editor.failed(res.status); toast(T.saveFailed, 'error', res.status === 409 ? window.JellyEditorTranslations.ed2Conflict : T.saveFailed); return false; }
+            const savedPost = await res.json();
+            id = savedPost.id; isNew = false;
+            history.replaceState(null, '', '/admin/posts/' + id + location.search);
+            const unchanged = editor.saved(savedPost, submitted);
             toast(T.saved);
-            if (isNew) setTimeout(() => { window.location.href = '/admin/posts'; }, 700);
+            return unchanged;
         } catch (err) {
+            editor.failed(0);
             toast(T.saveFailed, 'error', T.requestFailed);
+            return false;
         } finally {
             btn.disabled = false;
         }
-    });
+    };
 })();
 </script>
 {{end}}

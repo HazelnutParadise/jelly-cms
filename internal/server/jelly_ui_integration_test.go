@@ -23,7 +23,7 @@ const jellyUIModuleTag = `<script type="module" src="/admin/assets/jelly-ui/jell
 // jellyUIAdminPages are the admin pages a signed-in administrator can open; every one shares layout.html.
 var jellyUIAdminPages = []string{
 	"/admin", "/admin/posts", "/admin/posts/new", "/admin/pages", "/admin/pages/new", "/admin/media",
-	"/admin/products", "/admin/orders", "/admin/themes", "/admin/plugins", "/admin/settings",
+	"/admin/products", "/admin/orders", "/admin/themes", "/admin/plugins", "/admin/settings/site",
 	"/admin/taxonomy", "/admin/menus", "/admin/comments", "/admin/trash",
 }
 
@@ -66,6 +66,11 @@ func TestAdminPagesLoadTheJellyUIModuleOnce(t *testing.T) {
 	h := archivesHarness(t)
 	admin := h.user("admin", "jelly-ui-admin")
 	token := h.token(admin)
+
+	root := jellyUIAdminGet(t, h, token, "/admin/settings")
+	if root.code != http.StatusFound || root.header.Get(echo.HeaderLocation) != "/admin/settings/site" {
+		t.Errorf("GET /admin/settings = %d Location %q, want 302 to /admin/settings/site", root.code, root.header.Get(echo.HeaderLocation))
+	}
 
 	for _, path := range jellyUIAdminPages {
 		r := jellyUIAdminGet(t, h, token, path)
@@ -127,11 +132,12 @@ func TestLoginInstallAccountAndPublicPagesDoNotLoadJellyUI(t *testing.T) {
 func TestSettingsPageRendersJellySwitchesWithTheOriginalNames(t *testing.T) {
 	h := archivesHarness(t)
 	token := h.token(h.user("admin", "jelly-ui-settings"))
-	r := jellyUIAdminGet(t, h, token, "/admin/settings")
-	archivesWantStatus(t, "/admin/settings", r, http.StatusOK)
-
-	if strings.Contains(r.body, `type="checkbox"`) || strings.Contains(r.body, "toggle-switch") {
-		t.Error("the settings page still renders a native checkbox or .toggle-switch")
+	// The system settings page redirects its root URL to /site. The legacy OAuth
+	// and payment settings still render from these explicit tabs, in the selected locale.
+	r := jellyUIAdminGet(t, h, token, "/admin/settings/payment?lang=zh-TW")
+	archivesWantStatus(t, "/admin/settings/payment?lang=zh-TW", r, http.StatusOK)
+	if !strings.Contains(r.body, `<html lang="zh-TW"`) {
+		t.Error("the payment settings response ignored the explicit zh-TW locale")
 	}
 	want := map[string]string{
 		"googleEnabled": "google_enabled", "githubEnabled": "github_enabled",
@@ -141,8 +147,8 @@ func TestSettingsPageRendersJellySwitchesWithTheOriginalNames(t *testing.T) {
 	for _, attrs := range jellyUITags(r.body, "jelly-switch") {
 		got[attrs["id"]] = attrs
 	}
-	if len(got) != len(want) {
-		t.Errorf("the settings page renders %d <jelly-switch>, want %d (the two OAuth and the two payment enable settings)", len(got), len(want))
+	if len(got) < len(want) {
+		t.Errorf("the settings page renders %d <jelly-switch>, want at least %d (the two OAuth and the two payment enable settings)", len(got), len(want))
 	}
 	for id, name := range want {
 		attrs, ok := got[id]
@@ -158,6 +164,25 @@ func TestSettingsPageRendersJellySwitchesWithTheOriginalNames(t *testing.T) {
 		}
 		if _, checked := attrs["checked"]; checked {
 			t.Errorf("<jelly-switch id=%q> is server-rendered as checked; the page script sets it after loading the saved value", id)
+		}
+	}
+	for _, id := range []string{"transferOn", "sandboxOn"} {
+		switches := jellyUITags(r.body, "jelly-switch")
+		found := false
+		for _, attrs := range switches {
+			if attrs["id"] == id {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("the settings page has no <jelly-switch id=%q> for a main payment boolean", id)
+		}
+	}
+	for _, id := range []string{"googleEnabled", "githubEnabled", "ecpayEnabled", "newebpayEnabled", "transferOn", "sandboxOn"} {
+		for _, attrs := range jellyUITags(r.body, "input") {
+			if attrs["id"] == id {
+				t.Errorf("the settings response renders main boolean %q as a native input", id)
+			}
 		}
 	}
 

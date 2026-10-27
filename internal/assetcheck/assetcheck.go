@@ -40,6 +40,7 @@ func ScanHTML(src string) []Finding {
 	z := html.NewTokenizer(strings.NewReader(src))
 	line := 1
 	inStyle := false
+	inScript := false
 	for {
 		tt := z.Next()
 		raw := z.Raw()
@@ -62,14 +63,25 @@ func ScanHTML(src string) []Finding {
 			if tag == "style" && tt == html.StartTagToken {
 				inStyle = true
 			}
+			if tag == "script" && tt == html.StartTagToken {
+				inScript = true
+			}
 			out = append(out, scanTag(tag, attrs, startLine)...)
 		case html.EndTagToken:
 			if name, _ := z.TagName(); string(name) == "style" {
 				inStyle = false
+			} else if string(name) == "script" {
+				inScript = false
 			}
 		case html.TextToken:
 			if inStyle {
 				for _, f := range ScanCSS(string(raw)) {
+					f.Line += startLine - 1
+					out = append(out, f)
+				}
+			}
+			if inScript {
+				for _, f := range ScanJS(string(raw)) {
 					f.Line += startLine - 1
 					out = append(out, f)
 				}
@@ -196,11 +208,11 @@ var jsLoaders = []struct {
 	kind string
 	re   *regexp.Regexp
 }{
-	{"js import", regexp.MustCompile(`\bimport\s*(?:[\w*${},\s]+\s+from\s*)?\(?\s*["']((?:https?:)?//[^"']*)["']`)},
-	{"js export from", regexp.MustCompile(`\bexport\s*(?:\*|\{[^}]*\})\s*(?:as\s+\w+\s*)?from\s*["']((?:https?:)?//[^"']*)["']`)},
-	{"js importScripts", regexp.MustCompile(`\bimportScripts\(\s*["']((?:https?:)?//[^"']*)["']`)},
-	{"js .src =", regexp.MustCompile(`\.src\s*=\s*["']((?:https?:)?//[^"']*)["']`)},
-	{"js new Worker", regexp.MustCompile(`\bnew\s+(?:Shared)?Worker\(\s*["']((?:https?:)?//[^"']*)["']`)},
+	{"js import", regexp.MustCompile(`\bimport\s*(?:[\w*${},\s]+\s+from\s*)?\(?\s*["']((?:(?i:https?):)?//[^"']*)["']`)},
+	{"js export from", regexp.MustCompile(`\bexport\s*(?:\*|\{[^}]*\})\s*(?:as\s+\w+\s*)?from\s*["']((?:(?i:https?):)?//[^"']*)["']`)},
+	{"js importScripts", regexp.MustCompile(`\bimportScripts\(\s*["']((?:(?i:https?):)?//[^"']*)["']`)},
+	{"js .src =", regexp.MustCompile(`\.src\s*=\s*["']((?:(?i:https?):)?//[^"']*)["']`)},
+	{"js new Worker", regexp.MustCompile(`\bnew\s+(?:Shared)?Worker\(\s*["']((?:(?i:https?):)?//[^"']*)["']`)},
 }
 
 // ScanJS reports external module imports, importScripts, Worker constructors and assignments to an

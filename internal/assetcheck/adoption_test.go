@@ -159,9 +159,6 @@ func TestSettingsBooleansAreJellySwitches(t *testing.T) {
 	if settings == "" {
 		return
 	}
-	if strings.Contains(settings, `type="checkbox"`) || strings.Contains(settings, "toggle-switch") {
-		t.Error("web/admin/settings.html still has a checkbox or .toggle-switch; every on/off setting is a <jelly-switch> and every environment a <jelly-segmented>")
-	}
 	found := map[string]map[string]string{}
 	for _, attrs := range startTags(settings, "jelly-switch") {
 		found[attrs["id"]] = attrs
@@ -177,6 +174,20 @@ func TestSettingsBooleansAreJellySwitches(t *testing.T) {
 		}
 		if strings.TrimSpace(attrs["label"]) == "" {
 			t.Errorf("<jelly-switch id=%q> has no label attribute; the switch is its own accessible name", id)
+		}
+	}
+	// Ticket 08 added two payment booleans alongside the original OAuth and gateway settings.
+	// Shipping-method and generated system-setting fields are dynamic and checked in browser acceptance.
+	for _, id := range []string{"transferOn", "sandboxOn"} {
+		if _, ok := found[id]; !ok {
+			t.Errorf("web/admin/settings.html has no <jelly-switch id=%q> for a main payment setting", id)
+		}
+	}
+	for _, id := range []string{"googleEnabled", "githubEnabled", "ecpayEnabled", "newebpayEnabled", "transferOn", "sandboxOn"} {
+		for _, attrs := range startTags(settings, "input") {
+			if attrs["id"] == id {
+				t.Errorf("web/admin/settings.html still renders the main boolean %q as a native input", id)
+			}
 		}
 	}
 	// A jelly-switch the browser has not upgraded yet would keep a property written to it as its own value

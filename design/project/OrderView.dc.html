@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>前台訂單檢視</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="./fonts.css">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.ic{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
+.chip.nd:before{display:none}
+.ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DCE6FF;color:#1A3F9E}.bad{background:#FBE1DE;color:#9C2318}.mint{background:#D4F5EE;color:#0B5E4E}
+.mark{display:inline-block;width:22px;height:26px}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px;white-space:nowrap}
+.seg span.on{background:#15161A;color:#fff}
+.tg{position:relative;width:40px;height:22px;border-radius:0 11px 0 11px;background:#13C2A3;display:inline-block;flex:0 0 auto}.tg:after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;background:#fff;border-radius:0 7px 0 7px}
+.tg.off{background:#D9DBE0}.tg.off:after{right:auto;left:3px}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}
+.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span,.seg.j a{min-height:30px;padding:0 14px;border-radius:999px}
+.seg.j span.on,.seg.j a.on{background:#15161A;color:#fff;box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
+.jt{display:flex;align-items:center;gap:11px;padding:11px 12px 11px 14px;background:#15161A;color:#fff;border-radius:0 12px 0 12px;font-size:13px;line-height:1.3;font-weight:600;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28)}
+.jt>i{width:11px;height:11px;border-radius:50%;flex:0 0 auto}.jt .d2{color:#C9CBD3;font-weight:500}
+.jt .xx{margin-left:auto;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#C9CBD3;flex:0 0 auto}.jt .xx .ic{width:13px;height:13px}
+.jt.light{background:#fff;color:#15161A;box-shadow:inset 0 0 0 1px #E2E3E8,0 14px 34px -16px rgba(21,22,26,.2)}.jt.light .d2{color:#5F6470}.jt.light .xx{color:#5F6470}
+.jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
+.jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
+.jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
+.mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
+.cube{position:absolute;border-radius:0 26% 0 26%}
+.kbd{display:inline-block;font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:#EDEEF1;color:#5F6470}
+
+body{font-size:15px}
+.ic{width:18px;height:18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 22px;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:46px;padding:0}.btn.sm{min-height:36px;padding:0 12px;font-size:13px}.btn.sm.i{width:36px}
+.nav a{color:#15161A;font-weight:600;font-size:15px;padding:0 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:0 8px 0 8px}
+.nav a.on{background:#15161A;color:#fff}
+.field{width:100%;box-sizing:border-box;min-height:46px;padding:0 14px;border:0;background:#F3F3F5;border-radius:0 10px 0 10px;font:inherit;font-size:15px;color:#15161A}
+.flbl{font-size:13px;font-weight:700;color:#15161A;display:block;margin-bottom:6px}
+.step{display:flex;align-items:center;gap:10px;font-weight:700;font-size:14px}
+.step i{width:28px;height:28px;display:grid;place-items:center;border-radius:0 9px 0 9px;background:#EDEEF1;color:#5F6470;font-style:normal;font-family:"Bricolage Grotesque",sans-serif}
+.step.on i{background:#15161A;color:#fff}.step.done i{background:#13C2A3;color:#fff}
+.opt{display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:0 12px 0 12px;box-shadow:inset 0 0 0 1px #E2E3E8;cursor:pointer}
+.opt.on{box-shadow:inset 0 0 0 2px #15161A;background:#F8F8FA}
+.opt .rad{width:18px;height:18px;border-radius:0 6px 0 6px;box-shadow:inset 0 0 0 2px #B9BCC6;flex:0 0 auto}
+.opt.on .rad{background:#E8285B;box-shadow:inset 0 0 0 5px #fff,0 0 0 2px #E8285B}
+.mark{width:26px;height:30px}
+.entry{display:grid;grid-template-columns:96px minmax(0,1fr);gap:24px;padding:28px 0;border-top:1px solid #E2E3E8}
+.entry h3{margin:0 0 8px;font-size:26px}.entry h3 a{color:#15161A}
+.entry p{margin:0;color:#5F6470;line-height:1.7}
+.day{font-size:44px;line-height:1}.ym{font-size:12px;color:#5F6470;font-weight:700;letter-spacing:.06em}
+.cm{display:grid;grid-template-columns:44px minmax(0,1fr);gap:16px;padding:20px 0;border-top:1px solid #E2E3E8}
+.cm .av{width:44px;height:44px;display:grid;place-items:center;color:#fff;font-weight:800;border-radius:0 12px 0 12px}
+
+.pc{position:relative;background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 16px 0 16px;overflow:hidden;display:flex;flex-direction:column;transition:box-shadow .15s,border-radius .25s}
+.pc:hover{box-shadow:inset 0 0 0 2px #15161A;border-radius:0 28px 0 28px}
+.pc .img{aspect-ratio:1;display:grid;place-items:center;color:#fff;font-weight:800;font-size:20px}
+.pc .b{padding:16px;display:flex;flex-direction:column;gap:6px}.pc h3{margin:0;font-size:18px}.pc h3 a{color:#15161A}
+.price{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:20px;letter-spacing:-.02em}
+.hero{padding:56px 40px 40px;position:relative;overflow:hidden}
+.hero .in{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:12px;position:relative}
+.side a{display:flex;justify-content:space-between;padding:8px 10px;color:#15161A;font-weight:600;border-radius:0 8px 0 8px}
+.side a.on{background:#15161A;color:#fff}.side a span{color:#5F6470}.side a.on span{color:#fff}
+.orow{display:grid;grid-template-columns:150px minmax(0,1fr) 130px 120px 44px;gap:16px;align-items:center;padding:18px 0;border-top:1px solid #E2E3E8}
+.tl{display:grid;grid-template-columns:20px minmax(0,1fr);gap:0 14px}
+.tl .dot{width:12px;height:12px;border-radius:0 4px 0 4px;background:#D9DBE0;margin:5px 4px}.tl .dot.on{background:#13C2A3}
+.tl .ln{width:2px;background:#E2E3E8;margin:0 9px;height:100%}
+</style>
+</helmet>
+<div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff; min-height: 100vh">
+  <div class="topline"></div>
+  <header style="display: flex; align-items: center; gap: 24px; padding: 14px 40px; max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box">
+    <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 12px; color: #15161A; font-size: 20px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</a>
+    <nav class="nav" style="display: flex; gap: 4px; margin-left: auto"><a href="Main.dc.html">首頁</a><a href="PostList.dc.html">文章</a><a href="Shop.dc.html" class="on">商店</a><a href="Page.dc.html">關於</a></nav>
+    <a class="btn t" href="Cart.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>購物車<span style="background:#E8285B;color:#fff;font-size:11px;min-width:18px;height:18px;display:inline-grid;place-items:center;border-radius:0 6px 0 6px">2</span></a>
+  </header>
+
+  <main style="max-width:1360px;margin:0 auto;width:100%;box-sizing:border-box;padding:40px 40px 96px;display:flex;flex-direction:column;gap:32px">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <span class="stripe"></span>
+        <div style="display:flex;align-items:center;gap:12px">
+          <h1 class="d" style="font-size:44px;letter-spacing:-.035em">訂單 JL-2026-0417</h1>
+          <span class="chip warn">處理中</span>
+        </div>
+        <div style="font-size:14px;color:#5F6470">下單時間：今天 16:02 · 以查詢連結開啟</div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <a class="btn t sm" href="OrderLookup.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>查其他訂單</a>
+        <a class="btn t sm" href="Shop.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>繼續逛商店</a>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:40px;align-items:start">
+      <section style="display:flex;flex-direction:column;gap:24px">
+        <div style="box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 16px 0 16px;padding:24px;display:flex;flex-direction:column;gap:16px">
+          <div class="lbl">訂單商品</div>
+          <div style="display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid #E2E3E8">
+            <span style="width:56px;height:56px;background:#E8285B;border-radius:0 10px 0 10px;flex:0 0 auto"></span>
+            <div style="flex:1"><b>榛果可可醬 200g</b><div style="font-size:13px;color:#5F6470">200g · 單價 NT$ 320</div></div>
+            <span style="font-size:14px;color:#5F6470">× 1</span>
+            <b class="mono" style="font-size:16px">NT$ 320</b>
+          </div>
+          <div style="display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid #E2E3E8">
+            <span style="width:56px;height:56px;background:#2F6BFF;border-radius:0 10px 0 10px;flex:0 0 auto"></span>
+            <div style="flex:1"><b>藍莓果凍 6 入</b><div style="font-size:13px;color:#5F6470">單價 NT$ 240</div></div>
+            <span style="font-size:14px;color:#5F6470">× 2</span>
+            <b class="mono" style="font-size:16px">NT$ 480</b>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr auto;gap:8px;font-size:14px;padding-top:8px">
+            <span style="color:#5F6470">商品小計</span><b>NT$ 800</b>
+            <span style="color:#5F6470">運費（宅配）</span><b>NT$ 80</b>
+            <span style="color:#5F6470">尾數調整</span><b>NT$ 0</b>
+            <span style="color:#5F6470">尾數調整</span><b>NT$ 0</b>
+            <span style="font-size:16px;font-weight:700;padding-top:8px;border-top:1px solid #E2E3E8">總計金額</span>
+            <span class="mono" style="font-size:24px;font-weight:800;padding-top:8px;border-top:1px solid #E2E3E8">NT$ 880</span>
+          </div>
+        </div>
+
+        <div style="background:#F5F5F7;border-radius:0 16px 0 16px;padding:24px;display:flex;flex-direction:column;gap:16px">
+          <div class="lbl">出貨時間軸</div>
+          <div class="tl" style="font-size:14px">
+            <span class="dot on"></span><div><b>訂單成立並付款</b> <span style="color:#5F6470;font-size:13px">今天 16:02 · 信用卡付款完成</span></div>
+            <span class="ln"></span><div style="height:14px"></div>
+            <span class="dot on"></span><div><b>備貨中</b> <span style="color:#5F6470;font-size:13px">預計 1-2 個工作天內出貨</span></div>
+            <span class="ln"></span><div style="height:14px"></div>
+            <span class="dot"></span><div style="color:#9A9FAB"><b>已出貨</b> <span style="font-size:13px">黑貓宅配，出貨時更新包裹追蹤號碼</span></div>
+            <span class="ln"></span><div style="height:14px"></div>
+            <span class="dot"></span><div style="color:#9A9FAB"><b>已送達</b></div>
+          </div>
+        </div>
+      </section>
+
+      <aside style="display:flex;flex-direction:column;gap:20px">
+        <div style="box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 16px 0 16px;padding:20px;display:flex;flex-direction:column;gap:14px">
+          <div class="lbl">收件與聯絡資料</div>
+          <div style="font-size:14px;line-height:1.7">
+            <div><b>收件人：</b>賴庭蓁</div>
+            <div><b>電話：</b>0912-345-678</div>
+            <div><b>配送方式：</b>宅配（本島 2 天）</div>
+            <div><b>地址：</b>台中市西屯區台灣大道三段 99 號</div>
+          </div>
+        </div>
+
+        <div style="box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 16px 0 16px;padding:20px;display:flex;flex-direction:column;gap:14px">
+          <div class="lbl">付款與發票</div>
+          <div style="font-size:14px;line-height:1.7">
+            <div><b>付款方式：</b>信用卡（綠界 ECPay）</div>
+            <div><b>付款狀態：</b>已付款（NT$ 880）</div><div style="font-size:12px;color:#5F6470">無需付款的訂單顯示「訂單已成立」，不標示付款成功。</div>
+            <div><b>發票載具：</b>手機條碼 /ABC1234</div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>列印收據</button>
+          <a class="btn t" href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4z"/></svg>聯絡客服（帶訂單編號）</a>
+          <div style="font-size:12px;color:#5F6470;line-height:1.6">要取消訂單請聯絡客服；有帳號的話也可以到會員中心取消未出貨的訂單。</div>
+        </div>
+      </aside>
+    </div>
+  </main>
+  <footer style="background: #15161A; color: #EDEDF0; padding: 48px 40px; margin-top: auto"><div style="max-width: 1360px; margin: 0 auto; display: flex; justify-content: space-between; font-size: 13px; color: #9A9FAB"><span>© 榛果繽紛樂</span><span>Powered by Jelly CMS</span></div></footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1300}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

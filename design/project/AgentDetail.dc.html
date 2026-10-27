@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>後台 · AI agent 詳情與輪替</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="./fonts.css">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.ic{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
+.chip.nd:before{display:none}
+.ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DCE6FF;color:#1A3F9E}.bad{background:#FBE1DE;color:#9C2318}.mint{background:#D4F5EE;color:#0B5E4E}
+.mark{display:inline-block;width:22px;height:26px}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px;white-space:nowrap}
+.seg span.on{background:#15161A;color:#fff}
+.tg{position:relative;width:40px;height:22px;border-radius:0 11px 0 11px;background:#13C2A3;display:inline-block;flex:0 0 auto}.tg:after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;background:#fff;border-radius:0 7px 0 7px}
+.tg.off{background:#D9DBE0}.tg.off:after{right:auto;left:3px}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}
+.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span,.seg.j a{min-height:30px;padding:0 14px;border-radius:999px}
+.seg.j span.on,.seg.j a.on{background:#15161A;color:#fff;box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
+.jt{display:flex;align-items:center;gap:11px;padding:11px 12px 11px 14px;background:#15161A;color:#fff;border-radius:0 12px 0 12px;font-size:13px;line-height:1.3;font-weight:600;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28)}
+.jt>i{width:11px;height:11px;border-radius:50%;flex:0 0 auto}.jt .d2{color:#C9CBD3;font-weight:500}
+.jt .xx{margin-left:auto;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#C9CBD3;flex:0 0 auto}.jt .xx .ic{width:13px;height:13px}
+.jt.light{background:#fff;color:#15161A;box-shadow:inset 0 0 0 1px #E2E3E8,0 14px 34px -16px rgba(21,22,26,.2)}.jt.light .d2{color:#5F6470}.jt.light .xx{color:#5F6470}
+.jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
+.jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
+.jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
+.mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
+.cube{position:absolute;border-radius:0 26% 0 26%}
+.kbd{display:inline-block;font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:#EDEEF1;color:#5F6470}
+
+body{font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font-weight:700;font-size:13px;border:0;border-radius:0 9px 0 9px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}.btn.s{min-height:30px;font-size:12px;padding:0 10px}.btn.s.i{width:30px}.btn.danger{background:#FBE1DE;color:#9C2318}
+.rail{background:#15161A;color:#fff;display:flex;flex-direction:column;padding:14px 10px;gap:2px}
+.ns{font-size:11px;letter-spacing:.08em;color:#7E838F;padding:14px 12px 4px;text-transform:uppercase;font-weight:700}
+.nl{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 12px;border-radius:0 10px 0 10px;color:#C9CBD3;font-weight:600;font-size:13.5px}
+.nl:hover{background:#2A2B31;color:#fff}.nl.on{background:#E8285B;color:#fff}
+.nl .n{margin-left:auto;font-size:11px;background:#2A2B31;padding:1px 7px;border-radius:0 6px 0 6px;color:#C9CBD3}.nl.on .n{background:#fff;color:#E8285B}
+.nl.new:after{content:"新";margin-left:auto;font-size:10px;padding:1px 6px;border-radius:0 5px 0 5px;background:#13C2A3;color:#0B3A31}
+.nl.new .n{display:none}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#5F6470;padding:8px 10px;border-bottom:1px solid #E2E3E8;font-weight:700;white-space:nowrap}
+td{padding:10px;border-bottom:1px solid #EEEFF2;vertical-align:middle}
+tr:hover td{background:#F8F8FA}
+td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.act .btn{opacity:1}
+.cb{width:16px;height:16px;border-radius:0 5px 0 5px;box-shadow:inset 0 0 0 1.5px #B9BCC6;display:inline-block;vertical-align:middle;background:#fff}
+.cb.on{background:#15161A;box-shadow:none;position:relative}.cb.on:after{content:"";position:absolute;left:5px;top:2px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.card{background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 14px 0 14px;padding:16px}
+.srow{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.9fr);gap:8px 32px;align-items:center;padding:12px 0;border-top:1px solid #EEEFF2}
+.srow label{font-weight:700;font-size:14px;color:#15161A;display:block}.srow .h{font-size:12px;color:#5F6470;margin-top:2px}
+.srow .c{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:440px;background:#fff;box-shadow:-1px 0 0 #E2E3E8,-24px 0 48px rgba(21,22,26,.08);border-radius:0 0 0 24px;display:flex;flex-direction:column}
+.tree a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#15161A;font-weight:600;font-size:13.5px}
+.tree a.on{background:#15161A;color:#fff}.tree a .n{margin-left:auto;font-size:11px;color:#7E838F;font-weight:700}.tree a.on .n{color:#fff}
+.tree .lv1{padding-left:28px}.tree .lv2{padding-left:46px}
+.mi{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px 0 6px;background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 10px 0 10px;font-weight:600;font-size:13.5px}
+.mi .k{font-size:11px;color:#5F6470;font-weight:700;margin-left:auto}
+.mi.drop{box-shadow:inset 0 0 0 2px #2F6BFF;background:#F0F4FF}
+.diff{font:13px/1.7 ui-monospace,"SF Mono",Menlo,monospace;white-space:pre-wrap}
+.diff .a{background:#FBE1DE;color:#9C2318;text-decoration:line-through;padding:0 2px}.diff .b{background:#DCF3E9;color:#0F6A45;padding:0 2px}
+.log{font:12.5px/1.7 ui-monospace,"SF Mono",Menlo,monospace}
+.log .r{display:grid;grid-template-columns:150px 64px 110px minmax(0,1fr);gap:12px;padding:6px 10px;border-bottom:1px solid #EEEFF2;align-items:baseline}
+.log .r:hover{background:#F8F8FA}
+.lv{font-weight:800;font-size:11px;letter-spacing:.06em;padding:1px 6px;border-radius:0 5px 0 5px;text-align:center}
+.lv.i{background:#DCE6FF;color:#1A3F9E}.lv.w{background:#FCF0C8;color:#7A5200}.lv.e{background:#FBE1DE;color:#9C2318}.lv.d{background:#EDEEF1;color:#5F6470}
+.pal{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border-radius:0 10px 0 10px;font-weight:600;font-size:14px;color:#15161A}
+.pal.on{background:#15161A;color:#fff}.pal .k{margin-left:auto;font-size:11px;color:#9A9FAB;font-weight:700}.pal.on .k{color:#C9CBD3}
+.ph{display:flex;flex-direction:column;gap:8px}.ph i{display:block;height:12px;border-radius:0 5px 0 5px;background:linear-gradient(90deg,#EDEEF1 0 40%,#F6F6F8 50%,#EDEEF1 60%);background-size:200% 100%;animation:sh 1.4s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.step{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px}
+.step i{width:24px;height:24px;display:grid;place-items:center;border-radius:0 8px 0 8px;background:#EDEEF1;color:#5F6470;font-style:normal;font-family:"Bricolage Grotesque",sans-serif;font-size:12px}
+.step.on i{background:#15161A;color:#fff}.step.done i{background:#13C2A3;color:#fff}
+.av{width:28px;height:28px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;border-radius:0 9px 0 9px;flex:0 0 auto}
+
+.btn.p{background:#D82050;color:#fff}.btn.danger{background:#CF3025;color:#fff}
+.chip.ok{background:color-mix(in srgb,#15A06A 14%,#fff);color:color-mix(in srgb,#15A06A 70%,#15161A)}
+.chip.warn{background:color-mix(in srgb,#F5B800 22%,#fff);color:color-mix(in srgb,#F5B800 45%,#15161A)}
+fieldset{border:0;padding:0;margin:0;min-inline-size:0}
+td.act{min-width:72px;white-space:nowrap}.chip.nd::before{display:none}
+.key-table-wrap{max-width:100%;overflow:auto}.key-table-wrap code{white-space:nowrap;word-break:normal}
+@media(min-width:601px){.key-table{min-width:864px}.key-table td{white-space:nowrap}}
+@media(max-width:600px){.key-scroll-hint{display:none}.key-table,.key-table tbody,.key-table tr,.key-table td{display:block;width:100%;box-sizing:border-box}.key-table thead{display:none}.key-table td{white-space:normal}}
+.k{font:12.5px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:#15161A;letter-spacing:0}
+.k.m{color:#5F6470}
+.note{display:flex;align-items:flex-start;gap:14px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;line-height:1.6}
+.note .ic{margin-top:2px}
+.keybox{background:#15161A;color:#fff;border-radius:0 14px 0 14px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.keybox .k{color:#fff;font-size:13px;word-break:break-all;flex:1}
+.keybox .lbl{color:#9A9FAB}
+.keybox .h{font-size:12px;color:#C9CBD3;line-height:1.6}
+.keybox .btn.t{background:#2A2B31;color:#fff}
+.pg{display:grid;grid-template-columns:minmax(0,1fr) 64px 64px;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #EEEFF2;font-size:13px}
+.pg .c{text-align:center}.pg .na{color:#B9BCC6;text-align:center;font-size:12px}
+.pg b{font-weight:700}.pg .h{font-size:11.5px;color:#5F6470}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:0 10px 0 10px;box-shadow:inset 0 0 0 1px #E2E3E8;font-size:13px}
+.opt.on{box-shadow:inset 0 0 0 2px #15161A;background:#F8F8FA}
+.opt .rad{width:16px;height:16px;border-radius:0 6px 0 6px;box-shadow:inset 0 0 0 2px #B9BCC6;flex:0 0 auto;margin-top:2px}
+.opt.on .rad{background:#E8285B;box-shadow:inset 0 0 0 4px #fff,0 0 0 2px #E8285B}
+.opt .h{font-size:12px;color:#5F6470;font-weight:400;margin-top:2px;line-height:1.5}
+.dlg{background:#fff;border-radius:0 18px 0 18px;box-shadow:inset 0 0 0 1px #E2E3E8,0 18px 48px rgba(21,22,26,.10);display:flex;flex-direction:column}
+.dlg .hd{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #EEEFF2}
+.dlg .bd{padding:14px 18px;display:flex;flex-direction:column;gap:12px;flex:1}
+.dlg .ft{padding:12px 18px;border-top:1px solid #EEEFF2;display:flex;gap:8px;align-items:center}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.06em;color:#5F6470;text-transform:uppercase}
+.st i{font-style:normal;width:20px;height:20px;display:grid;place-items:center;border-radius:0 7px 0 7px;background:#15161A;color:#fff;font-size:11px;letter-spacing:0}
+.err{font-size:12px;color:color-mix(in srgb,#E03B2E 75%,#15161A);display:flex;align-items:center;gap:6px;margin-top:6px}
+.ul.bad{border-bottom-color:color-mix(in srgb,#E03B2E 75%,#15161A)}
+.tl{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:10px 0;border-top:1px solid #EEEFF2;font-size:13px;align-items:baseline}
+.tl .t{color:#5F6470;font-size:12px}
+.lg{display:grid;grid-template-columns:72px 104px minmax(0,1fr) 196px 100px;gap:12px;padding:8px 10px;border-bottom:1px solid #EEEFF2;align-items:baseline;font-size:12.5px}
+.lg.hd{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#5F6470;font-weight:700;border-bottom:1px solid #E2E3E8}
+.lg .t{color:#5F6470;font-variant-numeric:tabular-nums}
+.mth{display:inline-block;min-width:44px;font:800 10.5px "Bricolage Grotesque",sans-serif;letter-spacing:.04em;color:#5F6470}
+.sel{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 10px;background:#F3F3F5;border-radius:0 8px 0 8px;font-size:12px;font-weight:700;color:#15161A}
+.danger-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-top:1px solid #EEEFF2}
+.danger-row .h{font-size:12px;color:#5F6470;line-height:1.55;margin-top:2px}
+@media(max-width:900px){main,main>div[style*="grid-template-columns"],main section>div[style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr)!important}aside{position:static!important}.side{display:none!important}.main{margin-left:0!important}main{padding:16px!important}table{display:block;max-width:100%;overflow:auto}.lg{grid-template-columns:70px minmax(0,1fr)!important}.lg>*{overflow-wrap:anywhere}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="width: 100%; min-height: 100vh; display: flex; flex-wrap: wrap; background: #fff; position: relative">
+  <aside class="rail" style="flex: 0 0 224px">
+    <a href="Dashboard.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 6px 12px 10px; color: #fff; font-size: 17px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#fff" fill-opacity=".9"/></svg>Jelly CMS</a>
+    <div class="ns">內容</div>
+    <a class="nl" href="Dashboard.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>儀表板</a>
+    <a class="nl" href="Posts.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></svg>文章</a>
+    <a class="nl" href="Posts.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM3 10h18M9 10v10"/></svg>頁面</a>
+    <a class="nl new" href="Taxonomy.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12V3h9l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/></svg>分類與標籤</a>
+    <a class="nl" href="Comments.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16v12H9l-5 4z"/></svg>留言<span class="n">7</span></a>
+    <a class="nl" href="Media.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM21 15l-5-5-8 8"/><circle cx="8" cy="10" r="1.5"/></svg>附件</a>
+    <a class="nl new" href="Trash.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>回收桶</a>
+    <div class="ns">商店</div>
+    <a class="nl" href="Products.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>商品</a>
+    <a class="nl" href="Orders.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>訂單<span class="n">3</span></a>
+    <a class="nl" href="Coupons.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4zM14 6v2M14 11v2M14 16v2"/></svg>折扣碼</a>
+    <div class="ns">外觀</div>
+    <a class="nl" href="Themes.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>主題</a>
+    <a class="nl new" href="Menus.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>導覽選單</a>
+    <a class="nl" href="Plugins.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>外掛</a>
+    <div class="ns">系統</div>
+    <a class="nl new" href="Users.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0M16 4a3.5 3.5 0 0 1 0 7M22 20a7 7 0 0 0-5-6.7"/></svg>使用者</a>
+    <a class="nl on new" href="Agents.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3M14 8l2 2"/></svg>AI agent</a>
+    <a class="nl new" href="Redirects.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10a4 4 0 0 1 0 8H4M8 11l-4 4 4 4"/></svg>轉址與 SEO</a>
+    <a class="nl new" href="Import.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M14 6a4 4 0 0 0 4 4l3-3-4-4-3 3zM14 6L4 16l4 4 10-10"/></svg>工具</a>
+    <a class="nl new" href="Logs.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM7 9l3 3-3 3M12 15h5"/></svg>日誌</a>
+    <a class="nl" href="Settings.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>設定</a>
+    <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 0 10px 0 10px; background: #2A2B31"><span style="width: 30px; height: 30px; display: grid; place-items: center; background: #E8285B; font-weight: 800; border-radius: 0 9px 0 9px">A</span><div><div style="font-weight: 700; font-size: 13px">管理員</div><a href="Profile.dc.html" style="color: #9A9FAB; font-size: 12px">個人帳號</a></div></div>
+  </aside>
+  <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
+    <div class="topline"></div>
+    <header style="display: flex; align-items: center; gap: 12px; padding: 10px 24px; border-bottom: 1px solid #EEEFF2">
+      <nav style="display: flex; align-items: center; gap: 8px; color: #5F6470; font-size: 13px" aria-label="路徑"><span>系統</span><span>/</span><span>AI agent</span><span>/</span><b style="color:#15161A">內容小幫手</b></nav>
+      <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:34px;width:260px;color:#5F6470;font-size:13px"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><input type="text" placeholder="搜尋或輸入指令…" aria-label="搜尋" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;color:#15161A"><span class="kbd">⌘K</span></label>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px"><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M7 4h4v16H7zM13 4h4v16h-4z"/></svg>停用</button><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>輪替金鑰</button></div>
+    </header>
+    <main style="padding:16px 24px 32px;display:flex;flex-direction:column;gap:28px">
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start">
+  <section style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    <div style="display:flex;align-items:center;gap:16px"><span style="width:56px;height:56px;display:grid;place-items:center;background:#2F6BFF;color:#fff;border-radius:0 18px 0 18px"><svg class="ic" style="width:24px;height:24px" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3M14 8l2 2"/></svg></span>
+      <div><div style="display:flex;align-items:center;gap:10px"><h1 class="d" style="font-size:26px">內容小幫手</h1><span class="chip ok">啟用</span></div>
+      <div style="color:#5F6470;font-size:13px;margin-top:4px">寫草稿、補摘要與標籤 · ID 3 · 擁有者 Hazel（管理員）· 建立於 2026/10/02</div></div></div>
+
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="lbl">金鑰</span><span style="font-size:12px;color:#5F6470">同時最多兩把有效：生效中一把、過渡中一把</span></div>
+      <p class="key-scroll-hint" style="font-size:12px;color:#5F6470">可左右捲動查看完整金鑰資料與操作。</p>
+      <div class="key-table-wrap" tabindex="0" role="region" aria-label="金鑰"><table class="key-table"><thead><tr><th>前綴</th><th>狀態</th><th>建立</th><th>最後使用</th><th>到期</th><th></th></tr></thead><tbody>
+        <tr><td><span class="k">jla_Qm3d8sKe…</span></td><td><span class="chip ok">生效中</span></td><td style="color:#5F6470;font-size:12.5px">10/24 15:42 · Hazel</td><td style="color:#5F6470;font-size:12.5px">2 分鐘前 · 1.160.10.0</td><td style="font-size:12.5px">—</td><td class="act"></td></tr>
+        <tr><td><span class="k">jla_7Hq2xP0a…</span></td><td><span class="chip warn">過渡中 · 剩 23:41</span></td><td style="color:#5F6470;font-size:12.5px">10/02 09:12 · Ting</td><td style="color:#5F6470;font-size:12.5px">16 分鐘前 · 1.160.10.0</td><td style="font-size:12.5px">今天 16:12</td><td class="act"><button class="btn danger s" type="button"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>提前撤銷</button></td></tr>
+        <tr><td><span class="k">jla_Lp0Wq8Zd…</span></td><td><span class="chip ">已撤銷</span></td><td style="color:#5F6470;font-size:12.5px">09/14 10:03 · Ting</td><td style="color:#5F6470;font-size:12.5px">10/02 09:10</td><td style="font-size:12.5px">—</td><td class="act"></td></tr>
+        <tr><td><span class="k">jla_m2Kc9Bv1…</span></td><td><span class="chip ">已過期</span></td><td style="color:#5F6470;font-size:12.5px">09/01 11:20 · Hazel</td><td style="color:#5F6470;font-size:12.5px">09/14 09:58</td><td style="font-size:12.5px">09/14 10:33</td><td class="act"></td></tr>
+      </tbody></table></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start">
+      <div class="card" style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px"><span class="lbl">權限</span><span class="chip ok" style="margin-left:auto">有效 3/3</span><button class="btn x s" type="button"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/></svg>修改</button></div>
+        <label><span class="lbl">名稱</span><input class="ul" value="內容小幫手" aria-label="名稱"></label>
+        <label><span class="lbl">說明（可選）</span><textarea class="ul" aria-label="說明">寫草稿、補摘要與標籤</textarea></label>
+        <div class="pg" style="border-top:0;padding-top:0"><span class="lbl">資源</span><span class="lbl" style="text-align:center">讀取</span><span class="lbl" style="text-align:center">寫入</span></div><div class="pg"><div><b>文章</b><div class="h k m" style="font-size:11px">posts.*</div><div class="h">含分類與標籤的讀取</div></div><span class="c"><span class="cb on" role="checkbox" aria-label="posts.read"></span></span><span class="c"><span class="cb on" role="checkbox" aria-label="posts.write"></span></span></div><div class="pg"><div><b>頁面</b><div class="h k m" style="font-size:11px">pages.*</div></div><span class="c"><span class="cb" role="checkbox" aria-label="pages.read"></span></span><span class="c"><span class="cb" role="checkbox" aria-label="pages.write"></span></span></div><div class="pg"><div><b>附件</b><div class="h k m" style="font-size:11px">media.*</div><div class="h">上傳、取代、改名、刪除</div></div><span class="c"><span class="cb" role="checkbox" aria-label="media.read"></span></span><span class="c"><span class="cb on" role="checkbox" aria-label="media.write"></span></span></div><div class="pg"><div><b>商品</b> <span class="chip nd" style="font-size:10px;min-height:18px;margin-left:4px">需管理員</span><div class="h k m" style="font-size:11px">products.*</div></div><span class="c"><span class="cb" role="checkbox" aria-label="products.read"></span></span><span class="c"><span class="cb" role="checkbox" aria-label="products.write"></span></span></div><div class="pg"><div><b>訂單</b> <span class="chip nd" style="font-size:10px;min-height:18px;margin-left:4px">需管理員</span><div class="h k m" style="font-size:11px">orders.*</div><div class="h">只能讀</div></div><span class="c"><span class="cb" role="checkbox" aria-label="orders.read"></span></span><span class="na">—</span></div><div class="pg"><div><b>主題</b> <span class="chip nd" style="font-size:10px;min-height:18px;margin-left:4px">需管理員</span><div class="h k m" style="font-size:11px">themes.*</div><div class="h">啟用、改主題設定</div></div><span class="c"><span class="cb" role="checkbox" aria-label="themes.read"></span></span><span class="c"><span class="cb" role="checkbox" aria-label="themes.write"></span></span></div><div class="pg"><div><b>外掛</b> <span class="chip nd" style="font-size:10px;min-height:18px;margin-left:4px">需管理員</span><div class="h k m" style="font-size:11px">plugins.*</div><div class="h">寫入只有重新載入</div></div><span class="c"><span class="cb" role="checkbox" aria-label="plugins.read"></span></span><span class="c"><span class="cb" role="checkbox" aria-label="plugins.write"></span></span></div><div class="pg"><div><b>設定</b> <span class="chip nd" style="font-size:10px;min-height:18px;margin-left:4px">需管理員</span><div class="h k m" style="font-size:11px">settings.*</div><div class="h">讀取時秘密一律遮罩</div></div><span class="c"><span class="cb" role="checkbox" aria-label="settings.read"></span></span><span class="c"><span class="cb" role="checkbox" aria-label="settings.write"></span></span></div><div class="pg"><div><b>紀錄</b> <span class="chip nd" style="font-size:10px;min-height:18px;margin-left:4px">需管理員</span><div class="h k m" style="font-size:11px">logs.*</div><div class="h">只看自己的請求</div></div><span class="c"><span class="cb" role="checkbox" aria-label="logs.read"></span></span><span class="na">—</span></div>
+        <button class="btn p" type="button"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h8V4M8 20v-6h8v6"/></svg>儲存變更</button>
+        <div style="font-size:12px;color:#5F6470;line-height:1.6">有效權限＝勾選的權限 ∩ 擁有者目前角色。擁有者若降為作者，文章與附件仍可用；降為非員工則全部 403。</div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;gap:2px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span class="lbl">輪替歷史</span></div>
+        <div class="tl"><span class="t">10/24 15:42</span><span><b>Hazel</b> · 輪替 · 過渡期 30 分 · <span class="k">jla_7Hq2…</span> → <span class="k">jla_Qm3d…</span></span></div>
+        <div class="tl"><span class="t">10/02 09:12</span><span><b>Ting</b> · 輪替 · 立即失效 · <span class="k">jla_Lp0W…</span> → <span class="k">jla_7Hq2…</span></span></div>
+        <div class="tl"><span class="t">09/14 10:03</span><span><b>Ting</b> · 提前撤銷 <span class="k">jla_m2Kc…</span></span></div>
+        <div class="tl"><span class="t">09/01 11:20</span><span><b>Hazel</b> · 建立 agent</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="lbl">活動紀錄</span>
+        <div class="seg"><span class="on">全部</span><span>2xx</span><span>4xx</span><span>5xx</span></div>
+        <span class="sel">全部模組 <svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span><span class="sel">所有金鑰 <svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span><span class="sel">最近 24 小時 <svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
+        <span style="margin-left:auto;font-size:12px;color:#5F6470">共 <b class="mono" style="font-size:14px;color:#15161A">1,284</b> 筆 · 跨越 3 次輪替</span></div>
+      <div class="lg hd"><span>時間</span><span>金鑰</span><span>請求</span><span>狀態</span><span>來源</span></div>
+      <div class="lg"><span class="t">15:44:10</span><span class="k" style="font-size:12px">jla_Qm3d…</span><span><span class="mth">PUT</span><span class="k">/posts/:id</span><div style="font-size:11.5px;color:#5F6470;margin-top:2px">params id=128 · 本文 2.1 KB</div></span><span><span class="chip ok">200</span></span><span class="k m" style="font-size:11.5px">1.160.10.0</span></div>
+      <div class="lg"><span class="t">15:43:57</span><span class="k" style="font-size:12px">jla_Qm3d…</span><span><span class="mth">GET</span><span class="k">/posts/:id</span><div style="font-size:11.5px;color:#5F6470;margin-top:2px">params id=128</div></span><span><span class="chip ok">200</span></span><span class="k m" style="font-size:11.5px">1.160.10.0</span></div>
+      <div class="lg"><span class="t">15:30:02</span><span class="k" style="font-size:12px">jla_Lp0W…</span><span><span class="mth">GET</span><span class="k">/me</span><div style="font-size:11.5px;color:#5F6470;margin-top:2px">舊金鑰仍在被使用</div></span><span><span class="chip bad">401 key_revoked</span></span><span class="k m" style="font-size:11.5px">203.0.113.0</span></div>
+      <div class="lg"><span class="t">15:12:44</span><span class="k" style="font-size:12px">jla_7Hq2…</span><span><span class="mth">PUT</span><span class="k">/posts/:id</span><div style="font-size:11.5px;color:#5F6470;margin-top:2px">params id=121 · base_updated_at 過期</div></span><span><span class="chip warn">409 version_conflict</span></span><span class="k m" style="font-size:11.5px">1.160.10.0</span></div>
+      <div class="lg"><span class="t">15:02:31</span><span class="k" style="font-size:12px">jla_7Hq2…</span><span><span class="mth">POST</span><span class="k">/pages</span><div style="font-size:11.5px;color:#5F6470;margin-top:2px">缺 pages.write</div></span><span><span class="chip warn">403 permission_missing</span></span><span class="k m" style="font-size:11.5px">1.160.10.0</span></div>
+      <div class="lg"><span class="t">14:58:10</span><span class="k" style="font-size:12px">jla_7Hq2…</span><span><span class="mth">GET</span><span class="k">/posts</span><div style="font-size:11.5px;color:#5F6470;margin-top:2px">query status</div></span><span><span class="chip ok">200</span></span><span class="k m" style="font-size:11.5px">1.160.10.0</span></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px"><button class="btn t s" type="button"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>載入更多</button><span style="font-size:12px;color:#5F6470">只存請求摘要（路徑參數、查詢鍵名、本文長度），不存內容；IP 去掉最後一段。</span></div>
+    </div>
+  </section>
+
+  <aside style="display:flex;flex-direction:column;gap:16px;position:sticky;top:16px">
+    <div class="card" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:14px">給 agent 的連線資訊</b></div>
+      <div><span class="lbl">API</span><div class="k" style="margin-top:2px">/api/agent/v1</div></div>
+      <div><span class="lbl">說明（不需金鑰）</span><div class="k" style="margin-top:2px">GET /api/agent/v1</div><div class="k">GET /api/agent/v1/openapi.json</div></div>
+      <div><span class="lbl">驗證</span><div class="k" style="margin-top:2px">Authorization: Bearer jla_…</div></div>
+      <div><span class="lbl">Agent Skill</span><div class="k" style="margin-top:2px">skills/jelly-cms/SKILL.md</div></div>
+      <button class="btn t s" type="button" style="align-self:flex-start"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 15V4h11"/></svg>複製給 agent 的說明</button>
+    </div>
+    <div class="card" style="display:flex;flex-direction:column">
+      <span class="lbl" style="margin-bottom:4px">停用與刪除</span>
+      <div class="danger-row" style="border-top:0"><div style="flex:1"><b style="font-size:13.5px">停用</b><div class="h">所有金鑰（含過渡中的）下一次請求 401。可以再啟用。</div></div><button class="btn t s" type="button"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M7 4h4v16H7zM13 4h4v16h-4z"/></svg>停用</button></div>
+      <div class="danger-row"><div style="flex:1"><b style="font-size:13.5px">刪除</b><div class="h">金鑰全部失效；活動紀錄保留。</div></div><button class="btn danger s" type="button"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>刪除</button></div>
+    </div>
+  </aside>
+  </div>
+
+  <div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">對話框狀態</b><span style="font-size:12px;color:#5F6470">輪替的兩種模式、過渡時長錯誤、新金鑰一次性顯示、提前撤銷、刪除</span></div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:start"><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>1</i>輪替金鑰 · 立即失效（預設）</span>
+      <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">輪替金鑰</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="bd"><div class="opt on"><span class="rad"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定 agent 那邊能馬上換金鑰時用。</div></span></div>
+      <div class="opt"><span class="rad"></span><span><b>過渡期</b><div class="h">新舊金鑰同時可用，期滿舊金鑰 401。最長 24 小時，可隨時提前撤銷。</div></span></div><div style="font-size:12px;color:#5F6470;line-height:1.6">agent 的 ID、名稱、權限、擁有者與紀錄都不變，只換金鑰。</div></div><div class="ft"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>輪替</button><button class="btn t" type="button">取消</button></div></div></div><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>2</i>輪替金鑰 · 過渡期</span>
+      <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">輪替金鑰</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="bd"><div class="opt"><span class="rad"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定 agent 那邊能馬上換金鑰時用。</div></span></div>
+      <div class="opt on"><span class="rad"></span><span><b>過渡期</b><div class="h">新舊金鑰同時可用，期滿舊金鑰 401。最長 24 小時，可隨時提前撤銷。</div></span></div><div><span class="lbl">過渡時長</span>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px"><input class="ul" type="text" value="30" aria-label="過渡分鐘" style="width:90px"><span style="font-size:13px;color:#5F6470">分鐘</span><div class="seg" style="margin-left:auto"><span>15</span><span class="on">30</span><span>60</span><span>1440</span></div></div></div><div style="font-size:12px;color:#3A3D45;background:#F5F5F7;border-radius:0 10px 0 10px;padding:8px 10px">舊金鑰 <span class="k">jla_Qm3d8sKe…</span> 會在 <b>今天 16:12</b> 失效。</div></div><div class="ft"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>輪替</button><button class="btn t" type="button">取消</button></div></div></div><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>3</i>輪替金鑰 · 過渡期超過上限</span>
+      <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">輪替金鑰</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="bd"><div class="opt"><span class="rad"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定 agent 那邊能馬上換金鑰時用。</div></span></div>
+      <div class="opt on"><span class="rad"></span><span><b>過渡期</b><div class="h">新舊金鑰同時可用，期滿舊金鑰 401。最長 24 小時，可隨時提前撤銷。</div></span></div><div><span class="lbl">過渡時長</span>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px"><input class="ul bad" type="text" value="1500" aria-label="過渡分鐘" style="width:90px"><span style="font-size:13px;color:#5F6470">分鐘</span><div class="seg" style="margin-left:auto"><span>15</span><span>30</span><span>60</span><span>1440</span></div></div><div class="err"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v5M12 18v1"/></svg>過渡期必須是 1 到 1440 分鐘（最長 24 小時）</div></div></div><div class="ft"><button class="btn p" type="button" disabled style="opacity:.45"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>輪替</button><button class="btn t" type="button">取消</button><span style="font-size:12px;color:color-mix(in srgb,#E03B2E 75%,#15161A);margin-left:auto">API 也會回 400 grace_out_of_range</span></div></div></div><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>4</i>新金鑰 · 只顯示這一次</span>
+      <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">新金鑰</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="bd"><div class="keybox"><span class="lbl">新金鑰</span>
+        <div style="display:flex;align-items:flex-start;gap:8px"><code class="k">jla_Wz6pR1tYcE8qN3vLbK0sXu5mJaHg7dFo2iCeQ9wTlZr</code><button class="btn t s i" type="button" aria-label="複製新金鑰"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 15V4h11"/></svg></button></div>
+        <div class="h">舊金鑰 <span class="k" style="color:#fff;font-size:12px">jla_Qm3d8sKe…</span> 過渡到 16:12，可在金鑰表提前撤銷。</div></div></div><div class="ft"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>我已複製，關閉</button></div></div></div><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>5</i>提前撤銷舊金鑰</span>
+      <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">提前撤銷舊金鑰</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="bd"><div style="font-size:13px;line-height:1.6">撤銷 <span class="k">jla_7Hq2xP0a…</span>？還剩 23 分的過渡期會直接結束，這把金鑰的下一次請求就 401。</div>
+        <div style="font-size:12px;color:#5F6470">生效中的 <span class="k">jla_Qm3d8sKe…</span> 不受影響。</div></div><div class="ft"><button class="btn danger" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>立即撤銷</button><button class="btn t" type="button">取消</button></div></div></div><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>6</i>刪除 agent</span>
+      <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">刪除 agent</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+      <div class="bd"><div style="font-size:13px;line-height:1.6">刪除「內容小幫手」？所有金鑰（含過渡中的）立刻失效，清單與詳情不再出現。</div>
+        <div style="font-size:12px;color:#5F6470;line-height:1.6">活動紀錄與輪替歷史會保留，之後仍可在紀錄裡依這個 agent 篩選。</div>
+        <div><span class="lbl">輸入名稱確認</span><input class="ul" type="text" placeholder="內容小幫手" aria-label="輸入名稱確認"></div></div><div class="ft"><button class="btn danger" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>刪除</button><button class="btn t" type="button">取消</button></div></div></div></div>
+  </div>
+</main>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2500}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

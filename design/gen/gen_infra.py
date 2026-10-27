@@ -1,6 +1,6 @@
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
-from gen import I, doc, ADMIN_CSS, OUT, admin
+from gen import I, doc, ADMIN_CSS, OUT, admin, settings_nav
 
 CSS = ADMIN_CSS + '''
 .sub a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#5F6470;font-weight:600;font-size:13px}
@@ -15,9 +15,7 @@ CSS = ADMIN_CSS + '''
 .kv{font:12px ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:#3A3D45}
 '''
 def subnav():
-    return f'''<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px" aria-label="設定分類">
-        <a href="Settings.dc.html">{I("globe",14)}網站</a><a href="Settings.dc.html">{I("key",14)}登入與 OAuth</a><a href="Settings.dc.html">{I("card",14)}金流</a><a href="Settings.dc.html">{I("truck",14)}運送</a><a href="Settings.dc.html">{I("mail",14)}郵件</a><a class="on" href="Infra.dc.html">{I("db",14)}快取與佇列</a><a href="Backup.dc.html">{I("db",14)}備份與匯入</a><a href="Users.dc.html">{I("users",14)}使用者</a><a href="Update.dc.html">{I("download",14)}更新</a><a href="Logs.dc.html">{I("terminal",14)}系統日誌</a>
-      </nav>'''
+    return settings_nav("快取與佇列")
 
 main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start">
       {subnav()}
@@ -31,7 +29,6 @@ main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-column
             <div style="display:flex;flex-direction:column;gap:6px">
               <label class="opt"><span class="cb" style="margin-top:2px"></span><span><b>記憶體（預設）</b><div class="h">不用設定。多台主機時各自一份，彼此不同步。</div></span></label>
               <label class="opt on"><span class="cb on" style="margin-top:2px"></span><span><b>Redis / Valkey</b><div class="h">頁面、物件、工作階段共用一份，多台主機也一致。</div></span></label>
-              <label class="opt"><span class="cb" style="margin-top:2px"></span><span><b>Memcached</b><div class="h">只做物件快取；工作階段會留在 PostgreSQL。</div></span></label>
             </div>
             <div><span class="lbl">連線</span><div style="display:flex;gap:8px;align-items:center"><input class="ul" type="text" value="redis://cache.internal:6379/0" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><button class="btn t s" type="button">{I("refresh",14)}測試</button></div><div style="font-size:12px;color:#5F6470;margin-top:6px">密碼放環境變數 <span class="kbd">JELLY_CACHE_URL</span> 也可以，這裡會顯示「由環境變數設定」而不是明碼。</div></div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
@@ -70,7 +67,7 @@ main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-column
             <div style="display:flex;gap:8px"><button class="btn t" type="button">{I("pause")}暫停所有工作者</button><a class="btn t" href="Logs.dc.html">{I("terminal")}失敗紀錄</a><span style="font-size:12px;color:#5F6470;align-self:center;margin-left:auto">今天處理 2,318 件 · 平均等待 0.8 秒</span></div>
           </div>
         </div>
-        <div style="font-size:12.5px;color:#5F6470;line-height:1.7;display:flex;gap:10px;align-items:flex-start">{I("alert",16)}<span>外掛也走同一套：外掛可以註冊自己的佇列和快取命名空間，但看不到別的外掛的資料。切換後端時會先把等待中的工作搬過去，再切，不會掉件。</span></div>
+        <div style="font-size:12.5px;color:#5F6470;line-height:1.7;display:flex;gap:10px;align-items:flex-start">{I("alert",16)}<span>工作列表顯示可選取複製的工作編號，可依佇列與狀態篩選並刷新，逐筆重試或刪除失敗工作。外掛也走同一套：外掛可以註冊自己的佇列和快取命名空間，但看不到別的外掛的資料。切換後端時會先把等待中的工作搬過去，再切，不會掉件。</span></div>
       </section>
     </main>'''
 

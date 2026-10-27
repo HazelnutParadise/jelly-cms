@@ -11,13 +11,14 @@ Jelly CMS 全部畫面的設計稿原始檔。程式與這裡必須一致：改�
 | 來源 | 板 | 怎麼改 |
 |---|---|---|
 | 手寫 | 前台原有頁面、登入安裝手機版、後台原有功能（Main、PostList、Post、Page、Search、NotFound、Login、Install、MobileHome、MobileAdmin、Dashboard、Posts、Editor、Media、Products、ProductEditor、Orders、OrderDetail、Themes、Plugins、Settings、Cart、Product、Shop） | 直接改 `.dc.html` |
-| 產生 | 其餘 27 張（`gen/*.py` 產出） | 改 `gen/` 裡的腳本，再執行腳本重新產生，不要直接改產出的 `.dc.html` |
+| 腳本 | Mermaid（圖表是 Pele 的實際輸出） | 改 `tools/mermaid-board/` 的 `build.cjs`、`board.css` 或 `render.cjs`，在 repo 根目錄執行 `node design/tools/mermaid-board/render.cjs && node design/tools/mermaid-board/build.cjs`；升級 Pele 後也要重跑 |
+| 產生 | 其餘由 `gen/*.py` 產出的板 | 改 `gen/` 裡的腳本，再執行腳本重新產生，不要直接改產出的 `.dc.html` |
 
 重新產生：
 
 ```sh
 cd design/gen
-for s in gen gen_editor gen_update gen_front2 gen_crawlers gen_halo gen_infra gen_layout gen_motion; do
+for s in gen gen_editor gen_update gen_front2 gen_crawlers gen_halo gen_infra gen_layout gen_motion gen_accounts gen_agents; do
   PYTHONDONTWRITEBYTECODE=1 python3 $s.py
 done
 ```
@@ -33,8 +34,10 @@ done
 | `gen_infra.py` | 快取與佇列 |
 | `gen_layout.py` | 編輯器版面模式、匯出文章（EditorLayout、EditorExport） |
 | `gen_motion.py` | 編輯器動效與互動元件（EditorMotion、Widgets） |
+| `gen_accounts.py` | 登入驗證碼步驟、接受邀請、重設密碼 |
+| `gen_agents.py` | AI agent 清單、詳情與輪替對話框 |
 
-九支腳本重新產生後 `git diff` 必須是空的（除非你正好改了它們）；改共用 CSS 或 helmet 後全部重跑。
+十一支腳本重新產生後 `git diff` 必須是空的（除非你正好改了它們）；改共用 CSS 或 helmet 後全部重跑。
 
 截圖檢查（需要 Playwright）：
 
@@ -46,7 +49,7 @@ node design/tools/shot.mjs Main Posts EditorFull
 
 1. 改程式的畫面時，同一次提交裡更新對應的板（手寫板直接改，產生板改腳本並重新產生）。
 2. 新畫面先在這裡補板、加進 `canvas.json` 所屬的那一排，再實作。
-3. 提交後把線上畫布更新成同一版：用 Claude 的 Artifact 工具發布到上面的網址，`root` 指向 `design/`，`file_path` 為 `project/canvas.json`，`files` 列出有改動的 `project/*.dc.html`。
+3. 實作與畫面驗收以 Repo 裡的設計板為準。提交並推送後，在對應 PR 標記 `@claude`，附上 commit 與變更板清單，請他同步至上面的既有線上畫布並保留其他 PR 的板；收到完成回報後才標示已同步。同步時包含 `project/fonts.css` 與 `project/fonts/*.woff2`。
 4. 視覺系統（顏色、形狀、字型、裝飾）定義在 `web/themes/default/layout.html` 與 `web/admin/layout.html` 的 CSS 變數，和板裡的 helmet 樣式對應；改其中一邊就要改另一邊。
 
 
@@ -64,9 +67,11 @@ node design/tools/shot.mjs Main Posts EditorFull
 
 | 控制項 | 板 | 板上的樣子 | 程式 |
 |---|---|---|---|
-| 開關 | Settings、SettingsRoutes、SettingsCrawlers（`.tg.j`） | 膠囊軌道、白色圓形拇指與柔影；開是薄荷色、關是灰；上游拇指移動時會拉長，靜態板不畫 | `<jelly-switch>`，設定頁四個啟用欄位（Google、GitHub、綠界、藍新） |
+| 開關 | Settings、SettingsRoutes、SettingsCrawlers（`.tg.j`） | 膠囊軌道、白色圓形拇指與柔影；開是薄荷色、關是灰；上游拇指移動時會拉長，靜態板不畫 | `<jelly-switch>`，設定頁的布林欄位，包含 OAuth、金流、閱讀、搜尋引擎與維護模式 |
 | 分段選擇 | Posts、Settings（`.seg.j`） | 膠囊軌道，選中的段是墨色膠囊與柔影；Posts 每段標籤後面接篇數，同字級同色（上游的段標籤只能是純文字）；Settings 的「環境」兩段是「測試」「正式」 | `<jelly-segmented>` 加 `<jelly-segment>`：文章列表的狀態篩選；設定頁綠界與藍新的「環境」（測試＝`test_mode: true`） |
 | 對話框 | Trash（`.jd`） | 對角單角圓角卡片、右上角圓形 ✕、背景暗化加輕微模糊；回收桶的「輸入刪除確認」是 `Jelly.confirm` 的 `requireText` 版 | `<jelly-dialog>`，由 `window.Jelly.confirm()` 產生 |
-| 通知 | States（`.jt`） | 墨色底（淺色版用白底）、圓形色點、右側圓形 ✕；動作按鈕與細節文字沿用 | `<jelly-toaster>`，由 `window.Jelly.toast()` 轉呼叫 `jellyToast()` |
+| 通知 | States（`.jt`） | 墨色底、圓形色點、右側圓形 ✕；動作按鈕與細節文字沿用 | `<jelly-toaster>`，由 `window.Jelly.toast()` 轉呼叫 `jellyToast()` |
+
+手機版的文章狀態選擇會縮減左右內距。標籤與篇數過長時，只在控制項所在的列內橫向捲動，不讓整頁溢出；開關與分段選擇的繪圖裁切保留 8px 焦點空間。
 
 兩個上游限制寫在這裡，免得有人誤會是板畫錯：開關與分段選擇是 canvas 繪製的膠囊形，圓角不能改成對角單角；只有對話框與通知有 `--jelly-<元件>-radius` 變數，所以這兩個維持對角圓角。

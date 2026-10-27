@@ -89,6 +89,8 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
 
 .sub a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#5F6470;font-weight:600;font-size:13px}
 .sub a.on{background:#F3F3F5;color:#15161A}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span{min-height:30px;padding:0 14px;border-radius:999px}.seg.j span.on{box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
 .nrow{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;padding:12px 10px;border-top:1px solid #EEEFF2;align-items:flex-start}
 .nrow.un{background:#F8F9FF}.nrow .t{font-size:12px;color:#5F6470;white-space:nowrap}
 .app{display:flex;flex-direction:column;gap:10px;padding:14px;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 14px 0 14px;background:#fff}
@@ -116,6 +118,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
     <div class="ns">商店</div>
     <a class="nl" href="Products.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>商品</a>
     <a class="nl" href="Orders.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>訂單<span class="n">3</span></a>
+    <a class="nl" href="Coupons.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4zM14 6v2M14 11v2M14 16v2"/></svg>折扣碼</a>
     <div class="ns">外觀</div>
     <a class="nl" href="Themes.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>主題</a>
     <a class="nl new" href="Menus.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>導覽選單</a>
@@ -138,7 +141,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
     <main style="padding:16px 24px 32px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start">
     <nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px"><a href="Profile.dc.html"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>基本資料</a><a href="Profile.dc.html"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 7l9 6 9-6"/></svg>通知</a><a href="Profile.dc.html" class="on"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3M14 8l2 2"/></svg>API 權杖</a><a href="Profile.dc.html"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4"/></svg>密碼與安全</a><a href="Profile.dc.html"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>登入裝置</a><a href="Profile.dc.html"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M10 14l4-4M8 16l-2 2a3 3 0 0 1-4-4l4-4M16 8l2-2a3 3 0 0 1 4 4l-4 4"/></svg>第三方帳號</a></nav>
     <section style="display:flex;flex-direction:column;gap:20px;max-width:980px">
-      <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;line-height:1.5"><svg class="ic" style="width:18px;height:18px" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3M14 8l2 2"/></svg><span>權杖用來呼叫 REST API，不用帳密。權限用角色範本限制，到期自動失效。完整 API 文件在 <a href="#">/api/docs</a>（OpenAPI）。</span></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;line-height:1.5"><svg class="ic" style="width:18px;height:18px" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3M14 8l2 2"/></svg><span>個人 API 權杖以 <code>jly_</code> 開頭，以你的身分呼叫 REST API，權限受目前角色限制，到期自動失效。API 文件在 <a href="#">/api/docs</a>（OpenAPI）。AI agent 使用獨立的 <code>jla_</code> 金鑰，由管理員在「<a href="Agents.dc.html">系統 › AI agent</a>」建立與管理。</span></div>
       <table>
         <thead><tr><th>名稱</th><th>權限</th><th>到期</th><th>最後使用</th><th>狀態</th><th></th></tr></thead>
         <tbody>

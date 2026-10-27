@@ -92,9 +92,9 @@ func TestAdminNavRoleVisibility(t *testing.T) {
 			sections: []string{"content", "shop", "appearance", "system"},
 			items: map[string][]string{
 				"content":    {"dashboard", "posts", "pages", "taxonomy", "comments", "media", "trash"},
-				"shop":       {"products", "orders"},
-				"appearance": {"themes", "menus", "plugins"},
-				"system":     {"settings"},
+				"shop":       {"products", "orders", "coupons"},
+				"appearance": {"themes", "menus", "plugins", "store"},
+				"system":     {"users", "agents", "settings", "redirects", "tools", "logs"},
 			},
 		},
 		{
@@ -199,7 +199,7 @@ func TestAdminNavNilUserSeesOnlyUnrestrictedEntries(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("nil user saw %v, want exactly the unrestricted entries %v", got, want)
 	}
-	for _, restricted := range []string{"pages", "products", "orders", "themes", "plugins", "settings"} {
+	for _, restricted := range []string{"pages", "products", "orders", "themes", "plugins", "settings", "agents"} {
 		if got[restricted] {
 			t.Errorf("nil user saw role-restricted entry %q", restricted)
 		}

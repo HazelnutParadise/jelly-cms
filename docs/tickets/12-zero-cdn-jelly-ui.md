@@ -3,9 +3,16 @@
 Epic：前端資源與介面元件
 User Story：站長與訪客的每一頁都只用 Jelly CMS 自己提供的腳本、樣式、字型與圖示，離線環境照常完整可用，CI 與驗收腳本會擋下任何外部資源；後台的設定開關、文章狀態篩選、確認對話框與通知條改用 Jelly UI（軟體物理感的 Web Components），按下去有果凍質感，但版面、側欄、卡片、表格、按鈕、自家圖示和白底墨字的視覺語言維持原樣。
 Blocked by：05 的字型自帶（已合併）。與 08（設定頁）、09（編輯器，移除 marked）有重疊，見〈相依與合併順序〉。
-Status：draft（本工作單只交付契約、設計板、檢查程式與「現在會失敗」的驗收測試；Jelly UI 的取得、對接與頁面改寫由另一批代理依本文件完成）
-設計稿：`design/project/Settings、SettingsRoutes、SettingsCrawlers、Posts、Trash、States.dc.html`（元件對照見 `design/README.md` 的〈Jelly UI 元件對照〉）；字型改自帶後全部 65 張板的 helmet 都改了。
+Status：實作完成，主代理驗收中。最新驗證與交付狀態見 `STATUS.md` 的 PR #33 紀錄。
+設計稿：`design/project/Settings、SettingsRoutes、SettingsCrawlers、Posts、Trash、States.dc.html`（元件對照見 `design/README.md` 的〈Jelly UI 元件對照〉）；字型改自帶後，含 main 新增畫面的全部 81 張板都使用自帶字型。
 來源：[issue #18](https://github.com/HazelnutParadise/jelly-cms/issues/18)
+
+## 整合 main 的調和（2026-10-27）
+
+- 工作單 09 已移除 marked，本次不重新加入套件或重建腳本。發布清單列出目前實際自帶的字型、Jelly UI、CodeMirror、KaTeX 與 Pele。
+- 設定開關涵蓋 main 新增的動態布林欄位。金流環境沿用 `/api/admin/shop/settings` 的變更集，`payment_ecpay_test_mode` 與 `payment_newebpay_test_mode` 在 JSON 請求中仍為布林，GET 與資料庫維持既有的 `"true"`／`"false"` 字串；OAuth 的 `enabled` 仍為布林，沒有改後端格式。
+- main 新增的商店、系統與 agent 純確認視窗一併改用 `Jelly.confirm`。建立與輪替金鑰等具有實際表單的視窗維持原流程。
+- 下列 2026-10-24 盤點與草稿測試狀態保留為起始證據，不能當成目前實作狀態。
 
 ## 現況盤點（2026-10-24，main `3aa5633`）
 
@@ -284,7 +291,7 @@ options = {
 | release checklist 包含字型與 Jelly UI | `TestReleaseChecklistListsVendoredPackages`；`TestSystemRequirementsNameTheBrowserFeaturesJellyUINeeds` |
 | 登入、安裝、前台不載入 Jelly UI；不影響既有設定值 | `TestLoginInstallAccountAndPublicPagesDoNotLoadJellyUI`、`TestOnlyTheAdminLayoutLoadsJellyUI`、`TestSettingsPayloadsStayTheSame`；腳本 `no page other than the admin loads Jelly UI` |
 
-### 測試檔與目前狀態
+### 草稿建立時的測試狀態（2026-10-24）
 
 | 檔案 | 測試 | 現在 |
 |---|---|---|

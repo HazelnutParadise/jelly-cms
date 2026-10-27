@@ -1,0 +1,354 @@
+.agents-page {
+  min-width: 0;
+}
+.agents-page .btn-primary {
+  background: #d82050;
+  color: #fff;
+}
+.agents-page .btn-primary:hover {
+  background: var(--ink);
+  color: var(--surface);
+}
+.agents-page .btn-danger {
+  background: #cf3025;
+  color: #fff;
+}
+.agents-page .badge-success {
+  color: color-mix(in srgb, var(--success) 70%, var(--ink));
+}
+.agents-page .badge-warning {
+  color: color-mix(in srgb, var(--warning) 45%, var(--ink));
+}
+.agents-page [hidden] {
+  display: none !important;
+}
+.agents-page h1 {
+  margin: 0;
+}
+.agents-page h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.85rem;
+}
+.agents-page p {
+  overflow-wrap: anywhere;
+}
+.agent-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 21rem);
+  gap: 1.5rem;
+  align-items: start;
+}
+.agent-main,
+.agent-side {
+  min-width: 0;
+  display: grid;
+  gap: 1rem;
+}
+.agent-card {
+  background: var(--surface-low);
+  border-radius: var(--r-md);
+  padding: 1.15rem;
+  min-width: 0;
+}
+.agent-note {
+  background: var(--surface-low);
+  padding: 0.9rem 1rem;
+  border-radius: var(--r-md);
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+.agent-actions,
+.agent-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.agent-filters {
+  margin: 0.8rem 0;
+}
+.agent-filters label {
+  flex: 1;
+  min-width: 8rem;
+}
+.agents-page[data-view="list"] .agent-filters {
+  align-items: end;
+}
+.agents-page[data-view="list"] .agent-filters > label {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.agents-page[data-view="list"] .agent-filters > select {
+  flex: 0 0 9rem;
+  width: auto;
+}
+.agents-page[data-view="list"] .agent-filters > .agent-count {
+  flex: none;
+  white-space: nowrap;
+  padding-bottom: 0.5rem;
+}
+.agents-page[data-view="list"] .agent-table td:last-child {
+  min-width: 4.5rem;
+  white-space: nowrap;
+}
+.agent-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+}
+.agent-chips .badge::before {
+  display: none;
+}
+.agent-form {
+  display: grid;
+  gap: 1rem;
+}
+.agent-form label,
+.agent-filters label {
+  font-size: 0.8rem;
+}
+.agent-form input:not([type="checkbox"]),
+.agent-form textarea,
+.agent-filters input,
+.agent-filters select {
+  width: 100%;
+  box-sizing: border-box;
+}
+.agent-form textarea {
+  resize: vertical;
+}
+.agent-muted {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.agent-error {
+  color: color-mix(in srgb, var(--error) 75%, var(--ink));
+  font-size: 0.85rem;
+  min-height: 1.3em;
+}
+.agent-table-wrap {
+  max-width: 100%;
+  overflow: auto;
+}
+.agent-table {
+  width: 100%;
+  font-size: 0.85rem;
+}
+.agent-table td {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.agent-table code {
+  word-break: break-all;
+}
+.agent-key-table-wrap .agent-table code {
+  white-space: nowrap;
+  word-break: normal;
+}
+@media (min-width: 601px) {
+  .agent-key-table-wrap .agent-table {
+    min-width: 54rem;
+  }
+  .agent-key-table-wrap .agent-table td {
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+}
+@media (max-width: 600px) {
+  .agent-scroll-hint {
+    display: none;
+  }
+}
+.agent-name {
+  font-weight: 700;
+}
+.agent-chips {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+.agent-chips code {
+  font-size: 0.7rem;
+}
+.agent-permissions {
+  display: grid;
+  gap: 0;
+}
+.agent-perm-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 3.2rem 3.2rem;
+  gap: 0.3rem;
+  align-items: center;
+  border-bottom: 1px solid var(--outline);
+  padding: 0.6rem 0;
+}
+.agent-perm-row > span:not(:first-child),
+.agent-perm-row > label {
+  text-align: center;
+  margin: 0;
+}
+.agent-perm-row input {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--primary);
+}
+.agent-perm-row small {
+  display: block;
+  font-size: 0.68rem;
+}
+.agent-keybox {
+  background: #15161a;
+  color: #fff;
+  padding: 1.1rem;
+  border-radius: var(--r-md);
+  display: grid;
+  gap: 0.8rem;
+}
+.agent-keybox code {
+  word-break: break-all;
+  user-select: all;
+  font-size: 0.9rem;
+}
+.agent-keybox p {
+  color: #d0d3db;
+  margin: 0;
+}
+.agents-page dialog {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--outline);
+  border-radius: var(--r-md);
+  padding: 1.5rem;
+  width: min(34rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  box-sizing: border-box;
+}
+.agents-page dialog::backdrop {
+  background: #0008;
+}
+.agent-dialog-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.agent-dialog-header h2 {
+  margin-top: 0.65rem;
+}
+.agent-option {
+  display: flex;
+  gap: 0.7rem;
+  padding: 0.8rem;
+  background: var(--surface-low);
+  border-radius: var(--r-sm);
+}
+.agent-option input {
+  flex: none;
+  width: auto !important;
+  margin-top: 0.25rem;
+}
+.agent-option small {
+  display: block;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.agent-history {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.agent-history li {
+  padding: 0.7rem 0;
+  border-top: 1px solid var(--outline);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+.agents-page :focus-visible {
+  outline: 3px solid var(--secondary);
+  outline-offset: 3px;
+}
+.agents-page button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.agent-count {
+  font-variant-numeric: tabular-nums;
+}
+.agent-danger {
+  color: color-mix(in srgb, var(--error) 75%, var(--ink));
+}
+@media (max-width: 1000px) {
+  .agent-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .agent-side {
+    position: static;
+  }
+  .agent-create {
+    max-width: none;
+  }
+}
+@media (max-width: 600px) {
+  .agent-card {
+    padding: 0.8rem;
+  }
+  .agents-page .page-header {
+    flex-wrap: wrap;
+    gap: 0.7rem;
+  }
+  .agent-actions > .btn {
+    flex: 1;
+  }
+  .agent-table thead {
+    display: none;
+  }
+  .agent-table,
+  .agent-table tbody,
+  .agent-table tr,
+  .agent-table td {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .agent-table tr {
+    border-bottom: 1px solid var(--outline);
+    padding: 0.65rem 0;
+  }
+  .agent-table td {
+    border: 0;
+    padding: 0.25rem 0;
+  }
+  .agent-table td:before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.68rem;
+    color: var(--muted);
+  }
+  .agent-filters > * {
+    min-width: 100% !important;
+  }
+  .agents-page dialog {
+    padding: 1rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agents-page * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.agent-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .agent-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

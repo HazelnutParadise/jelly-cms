@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>手機 後台編輯器</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="./fonts.css">
+<style>
+body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
+a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
+.d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
+.ic{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
+.stripe{display:block;width:56px;height:3px;transform:skewX(-32deg);transform-origin:left bottom;background:linear-gradient(90deg,#E8285B 0 52%,transparent 52% 60%,#2F6BFF 60% 82%,transparent 82% 88%,#13C2A3 88% 100%)}
+.topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
+.chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
+.chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
+.chip.nd:before{display:none}
+.ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DCE6FF;color:#1A3F9E}.bad{background:#FBE1DE;color:#9C2318}.mint{background:#D4F5EE;color:#0B5E4E}
+.mark{display:inline-block;width:22px;height:26px}
+.seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
+.seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px;white-space:nowrap}
+.seg span.on{background:#15161A;color:#fff}
+.tg{position:relative;width:40px;height:22px;border-radius:0 11px 0 11px;background:#13C2A3;display:inline-block;flex:0 0 auto}.tg:after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;background:#fff;border-radius:0 7px 0 7px}
+.tg.off{background:#D9DBE0}.tg.off:after{right:auto;left:3px}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}
+.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span,.seg.j a{min-height:30px;padding:0 14px;border-radius:999px}
+.seg.j span.on,.seg.j a.on{background:#15161A;color:#fff;box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
+.jt{display:flex;align-items:center;gap:11px;padding:11px 12px 11px 14px;background:#15161A;color:#fff;border-radius:0 12px 0 12px;font-size:13px;line-height:1.3;font-weight:600;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28)}
+.jt>i{width:11px;height:11px;border-radius:50%;flex:0 0 auto}.jt .d2{color:#C9CBD3;font-weight:500}
+.jt .xx{margin-left:auto;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#C9CBD3;flex:0 0 auto}.jt .xx .ic{width:13px;height:13px}
+.jt.light{background:#fff;color:#15161A;box-shadow:inset 0 0 0 1px #E2E3E8,0 14px 34px -16px rgba(21,22,26,.2)}.jt.light .d2{color:#5F6470}.jt.light .xx{color:#5F6470}
+.jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
+.jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
+.jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
+.mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
+.cube{position:absolute;border-radius:0 26% 0 26%}
+.kbd{display:inline-block;font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:#EDEEF1;color:#5F6470}
+
+body{font-size:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font-weight:700;font-size:13px;border:0;border-radius:0 9px 0 9px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
+.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}.btn.s{min-height:30px;font-size:12px;padding:0 10px}.btn.s.i{width:30px}.btn.danger{background:#FBE1DE;color:#9C2318}
+.rail{background:#15161A;color:#fff;display:flex;flex-direction:column;padding:14px 10px;gap:2px}
+.ns{font-size:11px;letter-spacing:.08em;color:#7E838F;padding:14px 12px 4px;text-transform:uppercase;font-weight:700}
+.nl{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 12px;border-radius:0 10px 0 10px;color:#C9CBD3;font-weight:600;font-size:13.5px}
+.nl:hover{background:#2A2B31;color:#fff}.nl.on{background:#E8285B;color:#fff}
+.nl .n{margin-left:auto;font-size:11px;background:#2A2B31;padding:1px 7px;border-radius:0 6px 0 6px;color:#C9CBD3}.nl.on .n{background:#fff;color:#E8285B}
+.nl.new:after{content:"新";margin-left:auto;font-size:10px;padding:1px 6px;border-radius:0 5px 0 5px;background:#13C2A3;color:#0B3A31}
+.nl.new .n{display:none}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#5F6470;padding:8px 10px;border-bottom:1px solid #E2E3E8;font-weight:700;white-space:nowrap}
+td{padding:10px;border-bottom:1px solid #EEEFF2;vertical-align:middle}
+tr:hover td{background:#F8F8FA}
+td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.act .btn{opacity:1}
+.cb{width:16px;height:16px;border-radius:0 5px 0 5px;box-shadow:inset 0 0 0 1.5px #B9BCC6;display:inline-block;vertical-align:middle;background:#fff}
+.cb.on{background:#15161A;box-shadow:none;position:relative}.cb.on:after{content:"";position:absolute;left:5px;top:2px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.card{background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 14px 0 14px;padding:16px}
+.srow{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,.9fr);gap:8px 32px;align-items:center;padding:12px 0;border-top:1px solid #EEEFF2}
+.srow label{font-weight:700;font-size:14px;color:#15161A;display:block}.srow .h{font-size:12px;color:#5F6470;margin-top:2px}
+.srow .c{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.sheet{position:absolute;top:0;right:0;bottom:0;width:440px;background:#fff;box-shadow:-1px 0 0 #E2E3E8,-24px 0 48px rgba(21,22,26,.08);border-radius:0 0 0 24px;display:flex;flex-direction:column}
+.tree a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#15161A;font-weight:600;font-size:13.5px}
+.tree a.on{background:#15161A;color:#fff}.tree a .n{margin-left:auto;font-size:11px;color:#7E838F;font-weight:700}.tree a.on .n{color:#fff}
+.tree .lv1{padding-left:28px}.tree .lv2{padding-left:46px}
+.mi{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 10px 0 6px;background:#fff;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 10px 0 10px;font-weight:600;font-size:13.5px}
+.mi .k{font-size:11px;color:#5F6470;font-weight:700;margin-left:auto}
+.mi.drop{box-shadow:inset 0 0 0 2px #2F6BFF;background:#F0F4FF}
+.diff{font:13px/1.7 ui-monospace,"SF Mono",Menlo,monospace;white-space:pre-wrap}
+.diff .a{background:#FBE1DE;color:#9C2318;text-decoration:line-through;padding:0 2px}.diff .b{background:#DCF3E9;color:#0F6A45;padding:0 2px}
+.log{font:12.5px/1.7 ui-monospace,"SF Mono",Menlo,monospace}
+.log .r{display:grid;grid-template-columns:150px 64px 110px minmax(0,1fr);gap:12px;padding:6px 10px;border-bottom:1px solid #EEEFF2;align-items:baseline}
+.log .r:hover{background:#F8F8FA}
+.lv{font-weight:800;font-size:11px;letter-spacing:.06em;padding:1px 6px;border-radius:0 5px 0 5px;text-align:center}
+.lv.i{background:#DCE6FF;color:#1A3F9E}.lv.w{background:#FCF0C8;color:#7A5200}.lv.e{background:#FBE1DE;color:#9C2318}.lv.d{background:#EDEEF1;color:#5F6470}
+.pal{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border-radius:0 10px 0 10px;font-weight:600;font-size:14px;color:#15161A}
+.pal.on{background:#15161A;color:#fff}.pal .k{margin-left:auto;font-size:11px;color:#9A9FAB;font-weight:700}.pal.on .k{color:#C9CBD3}
+.ph{display:flex;flex-direction:column;gap:8px}.ph i{display:block;height:12px;border-radius:0 5px 0 5px;background:linear-gradient(90deg,#EDEEF1 0 40%,#F6F6F8 50%,#EDEEF1 60%);background-size:200% 100%;animation:sh 1.4s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.step{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px}
+.step i{width:24px;height:24px;display:grid;place-items:center;border-radius:0 8px 0 8px;background:#EDEEF1;color:#5F6470;font-style:normal;font-family:"Bricolage Grotesque",sans-serif;font-size:12px}
+.step.on i{background:#15161A;color:#fff}.step.done i{background:#13C2A3;color:#fff}
+.av{width:28px;height:28px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px;border-radius:0 9px 0 9px;flex:0 0 auto}
+
+.tool{width:30px;height:30px;display:inline-grid;place-items:center;border:0;background:transparent;border-radius:4px;color:#3A3D45;cursor:pointer}
+.tool:hover{background:#EDEEF1}.tool.on{background:#E6E7EB;color:#15161A}.tool .ic{width:16px;height:16px;stroke-width:1.6}
+.mono2{font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Noto Sans Mono CJK TC",monospace}
+.src{font-size:14px;line-height:1.8;color:#15161A;white-space:pre-wrap;margin:0}
+.gut{text-align:right;color:#B0B4BF;user-select:none;white-space:pre;font-size:12px;line-height:1.8;padding-top:2px}
+.gut b{color:#15161A;font-weight:500}
+.prev{font-size:16px;line-height:1.85;color:#15161A}
+.prev h2{font-size:24px;font-weight:700;margin:28px 0 12px;line-height:1.35}.prev h3{font-size:18px;font-weight:700;margin:22px 0 8px}
+.prev p{margin:0 0 16px}.prev ul{margin:0 0 16px;padding-left:22px}
+.prev blockquote{margin:0 0 16px;padding:0 0 0 14px;border-left:3px solid #D9DBE0;color:#3A3D45}
+.prev pre{margin:0 0 16px;padding:12px 14px;background:#F6F7F9;border:1px solid #E6E7EB;border-radius:4px;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:13px}
+.ol a{display:flex;align-items:center;gap:8px;min-height:28px;padding:0 8px;border-radius:4px;color:#5F6470;font-size:13px}
+.ol a.h3{padding-left:22px;font-size:12.5px}.ol a.on{background:#EDEEF1;color:#15161A;font-weight:600}
+.ol a .n{margin-left:auto;font-size:11px;color:#B0B4BF}
+.float{position:absolute;display:inline-flex;align-items:center;gap:1px;padding:3px;background:#15161A;border-radius:6px;box-shadow:0 8px 24px rgba(21,22,26,.22)}
+.float .tool{color:#fff;width:28px;height:28px}.float .tool:hover{background:#2A2B31}.float .sep{width:1px;height:16px;background:#3A3D45;margin:0 3px}
+.slash{position:absolute;width:280px;background:#fff;border:1px solid #D9DBE0;border-radius:6px;box-shadow:0 12px 32px rgba(21,22,26,.14);overflow:hidden;font-size:13px}
+.slash .q{padding:8px 12px;border-bottom:1px solid #EEEFF2;color:#5F6470;display:flex;gap:6px;align-items:center}
+.slash a{display:flex;align-items:center;gap:10px;padding:7px 12px;color:#15161A}
+.slash a.on{background:#F3F3F5}.slash a .k{margin-left:auto;font-size:11px;color:#9A9FAB}
+.slash a .d2{font-size:11px;color:#5F6470;font-weight:400}
+.status{display:flex;align-items:center;gap:16px;padding:5px 16px;border-top:1px solid #E6E7EB;font-size:12px;color:#5F6470;background:#FAFAFB}
+.status b{font-weight:600;color:#3A3D45}
+.dim{color:#B9BCC6}
+.pop{position:absolute;background:#fff;border:1px solid #D9DBE0;border-radius:6px;box-shadow:0 12px 32px rgba(21,22,26,.14)}
+
+.slash{border-radius:0 12px 0 12px}
+.slash.c a{padding:5px 12px}
+.slash .hl{background:#F5B800;color:#15161A;border-radius:0 3px 0 3px;padding:0 1px}
+
+.lane{position:relative;display:flex;flex-direction:column;min-width:0;border-right:1px solid #E6E7EB}.lane:last-child{border-right:0}
+.lh{display:flex;align-items:center;gap:8px;min-height:44px;box-sizing:border-box;padding:0 14px;border-bottom:1px solid #EEEFF2;background:#FAFAFB;font-size:12.5px;color:#5F6470}
+.lh b{color:#15161A;font-size:14px}
+.ed{position:relative;height:716px;padding:10px 0;overflow:hidden;font-family:ui-monospace,"SF Mono",Menlo,Consolas,"Noto Sans Mono CJK TC",monospace;font-size:12.5px;color:#15161A}
+.ln{display:flex;height:22px;line-height:22px;white-space:pre}
+.ln.cur{background:#F6F7F9}
+.ln .gn{position:relative;flex:0 0 38px;box-sizing:border-box;text-align:right;padding-right:10px;color:#B0B4BF;font-size:11.5px}
+.ln.cur .gn{color:#15161A;font-weight:700}
+.ln .tx{flex:1;min-width:0;padding-left:12px;overflow:hidden}
+.gn.dk:before,.gn.dy:before{content:"";position:absolute;left:4px;top:8px;width:6px;height:6px;border-radius:0 2px 0 2px}
+.gn.dk:before{background:#15161A}.gn.dy:before{background:#F5B800}
+.sq-i{text-decoration:underline wavy #15161A;text-underline-offset:2px}
+.sq-w{text-decoration:underline wavy #D99A00;text-underline-offset:2px}
+.trig{background:#DCE6FF;color:#1A3F9E;font-weight:700;border-radius:0 4px 0 4px;padding:0 3px}
+.caret{display:inline-block;width:2px;height:15px;background:#E8285B;vertical-align:-3px;margin-left:1px}
+.ty{color:#15161A;font-weight:700}
+.dg{display:flex;align-items:center;gap:10px;min-height:42px;padding:0 14px;font-size:13px;font-weight:600}
+.dg.w{background:#FCF0C8;color:#7A5200}.dg.k{background:#15161A;color:#fff}
+.dg .where{font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:rgba(21,22,26,.1)}
+.dg.k .where{background:#2A2B31;color:#C9CBD3}
+.dg .btn{margin-left:auto}
+
+.mb .btn{min-height:40px;font-size:14px;padding:0 14px}.mb .btn.i{width:40px;padding:0}
+.mb .ic{width:18px;height:18px}
+.mb .ed{height:auto;flex:1;padding:6px 0;font-size:14px}
+.mb .ln{height:auto;min-height:26px;line-height:26px;white-space:pre-wrap;word-break:break-all}
+.mb .ln .gn{flex:0 0 32px;font-size:11px}
+.mb .ln .tx{padding-left:8px;padding-right:14px}
+.mb .ln .caret{height:17px;vertical-align:-3px}
+.mt{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#3A3D45;background:transparent;border:0;font-family:inherit;padding:0;cursor:pointer}
+.mt i{width:44px;height:40px;display:grid;place-items:center;background:#F3F3F5;border-radius:0 10px 0 10px;color:#15161A}
+.mt.on i{background:#15161A;color:#fff}
+.mt .ic{width:19px;height:19px}
+</style>
+</helmet>
+<div class="mb" style="width:390px;height:844px;box-sizing:border-box;overflow:hidden;background:#fff;display:flex;flex-direction:column;position:relative">
+  <div class="topline"></div>
+  <header style="display:flex;align-items:center;gap:8px;padding:8px 12px 8px 8px">
+    <a class="btn x" href="MobileAdmin.dc.html" style="padding:0 10px 0 6px"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>返回</a>
+    <span class="chip warn">草稿</span>
+    <button class="btn t" type="button" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h8V4M8 20v-6h8v6"/></svg>儲存</button>
+    <button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>發布</button>
+  </header>
+  <div style="padding:2px 16px 10px;border-bottom:1px solid #EEEFF2">
+    <h1 class="d" style="font-size:22px;line-height:1.3">為什麼我們決定用 Go 重寫一個 CMS</h1>
+  </div>
+  <main class="ed" aria-label="原稿" style="position:relative">
+<div class="ln"><span class="gn">13</span><span class="tx"><b>### 我們想要的</b></span></div>
+<div class="ln"><span class="gn">14</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">15</span><span class="tx">- 打開就能寫，格式用鍵盤打</span></div>
+<div class="ln"><span class="gn">16</span><span class="tx">- 貼圖片直接上傳</span></div>
+<div class="ln"><span class="gn">17</span><span class="tx"></span></div>
+<div class="ln"><span class="gn dk">18</span><span class="tx">:::cta {bg=mint <span class="sq-i">colour=blue</span>}</span></div>
+<div class="ln cur"><span class="gn">19</span><span class="tx">打開就能寫，不用找按鈕。<i class="caret"></i></span></div>
+<div class="ln"><span class="gn">20</span><span class="tx"><span style="color:#0B5E4E">:::</span></span></div>
+<div class="ln"><span class="gn">21</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">22</span><span class="tx">/</span></div>
+<div class="ln"><span class="gn">23</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">24</span><span class="tx">回應時間要壓在 $p_{95} &lt; 100\,\text{ms}$：</span></div>
+<div class="ln"><span class="gn">25</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">26</span><span class="tx">$$</span></div>
+<div class="ln"><span class="gn">27</span><span class="tx">T = \sum_{i=1}^{n} t_i</span></div>
+<div class="ln"><span class="gn">28</span><span class="tx">$$</span></div>
+<div class="ln"><span class="gn">29</span><span class="tx"></span></div>
+<div class="ln"><span class="gn">30</span><span class="tx"><span style="color:#7E838F">&gt; [!TIP]</span></span></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:36px;background:linear-gradient(180deg,rgba(255,255,255,0),#fff)"></div>
+  </main>
+  <!-- 工具列收進底部面板：全是圖示按鈕，往上拉可看到全部 -->
+  <section aria-label="格式與插入" style="background:#fff;box-shadow:0 -10px 28px rgba(21,22,26,.12);border-radius:0 22px 0 0;padding:8px 16px 12px;position:relative">
+    <span style="display:block;width:36px;height:4px;background:#D9DBE0;border-radius:2px;margin:0 auto 8px"></span>
+    <div style="display:flex;align-items:center;margin-bottom:8px"><b style="font-size:13px">格式與插入</b><button class="btn x s" type="button" style="margin-left:auto;min-height:30px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>收合</button></div>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px 4px">
+      <button class="mt" type="button" aria-label="粗體"><i><svg class="ic" viewBox="0 0 24 24"><path d="M7 4h7a3.5 3.5 0 0 1 0 7H7zM7 11h8a3.5 3.5 0 0 1 0 7H7z"/></svg></i>粗體</button>
+      <button class="mt" type="button" aria-label="斜體"><i><svg class="ic" viewBox="0 0 24 24"><path d="M10 4h8M6 20h8M14 4l-4 16"/></svg></i>斜體</button>
+      <button class="mt" type="button" aria-label="連結"><i><svg class="ic" viewBox="0 0 24 24"><path d="M10 14l4-4M8 16l-2 2a3 3 0 0 1-4-4l4-4M16 8l2-2a3 3 0 0 1 4 4l-4 4"/></svg></i>連結</button>
+      <button class="mt" type="button" aria-label="標題"><i><svg class="ic" viewBox="0 0 24 24"><path d="M5 4v16M19 4v16M5 12h14"/></svg></i>標題</button>
+      <button class="mt" type="button" aria-label="引用"><i><svg class="ic" viewBox="0 0 24 24"><path d="M5 15h4V9H5v6zM5 15c0 3 1 4 3 5M15 15h4V9h-4v6zM15 15c0 3 1 4 3 5"/></svg></i>引用</button>
+      <button class="mt" type="button" aria-label="程式碼"><i><svg class="ic" viewBox="0 0 24 24"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg></i>程式碼</button>
+      <button class="mt" type="button" aria-label="清單"><i><svg class="ic" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg></i>清單</button>
+      <button class="mt" type="button" aria-label="待辦"><i><svg class="ic" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg></i>待辦</button>
+      <button class="mt" type="button" aria-label="圖片"><i><svg class="ic" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM21 15l-5-5-8 8"/><circle cx="8" cy="10" r="1.5"/></svg></i>圖片</button>
+      <button class="mt" type="button" aria-label="表格"><i><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg></i>表格</button>
+      <button class="mt" type="button" aria-label="公式"><i><svg class="ic" viewBox="0 0 24 24"><path d="M18 5H6l7 7-7 7h12"/></svg></i>公式</button>
+      <button class="mt on" type="button" aria-label="更多"><i><svg class="ic" viewBox="0 0 24 24"><path d="M8 20L16 4"/></svg></i>更多</button>
+    </div>
+  </section>
+  <nav aria-label="頁面" style="display:flex;gap:8px;padding:10px 16px;background:#fff;border-top:1px solid #EEEFF2">
+    <button class="btn t" type="button" aria-pressed="false" style="flex:1"><svg class="ic" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>預覽<span class="kbd">全螢幕</span></button>
+    <button class="btn t" type="button" aria-haspopup="dialog" style="flex:1"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>設定<svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+  </nav>
+  <div class="status" style="padding:7px 16px;gap:10px;background:#FAFAFB"><span><b>1,284</b> 字</span><span>·</span><span style="display:inline-flex;align-items:center;gap:5px">已自動儲存 12:03 <svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg></span><span style="margin-left:auto">第 <b>19</b> 行</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

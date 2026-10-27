@@ -30,6 +30,9 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .prose code{font-family:ui-monospace,Menlo,monospace;background:#EDEEF1;padding:.1em .4em;border-radius:0 6px 0 6px;font-size:.9em}
 .toc a{display:block;padding:8px 0;color:#15161A;font-weight:600;font-size:14px;border-top:1px solid #E2E3E8}.toc a.on{color:#E8285B}
 .mark{display:inline-block;width:26px;height:30px}
+
+/* Shared content styles preserve the article typography and add Jelly blocks. */
+.jc-callout{padding:16px 20px;background:#F5F5F7;border-left:4px solid #2F6BFF;border-radius:0 8px 0 8px}.jc-callout-title{font-weight:700;margin-bottom:8px}.jc-table{overflow:auto}.jc-table table{width:100%;border-collapse:collapse;font-size:15px}.jc-table th,.jc-table td{text-align:left;padding:10px 12px;border-bottom:1px solid #DDE0E7}.jc-table caption{text-align:left;font-weight:700;padding-bottom:10px}
 </style>
 </helmet>
 <div style="width: 100%; box-sizing: border-box; display: flex; flex-direction: column; background: #fff; min-height: 100vh; position: relative">
@@ -60,6 +63,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
       <h2>為什麼要再做一個 CMS</h2>
       <p>因為現有的選擇不是太重，就是太難客製。我們想要一個安裝五分鐘、寫作零阻力、主題像換衣服一樣簡單的東西。</p>
       <blockquote>寫下來，才算數。</blockquote>
+<div class="jc-callout" role="note"><p class="jc-callout-title">Note</p><p>文章的提示框、表格與版面區塊沿用相同的內容樣式。</p></div>
       <h2>功能清單</h2>
       <ul><li>主題系統，顏色與版面可在後台調整</li><li>QuickJS 外掛，失敗不拖垮主程式</li><li>內建商店與金流</li></ul>
       <pre><code>go run ./cmd/jelly-cms</code></pre>

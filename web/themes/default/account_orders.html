@@ -1,0 +1,61 @@
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+{{- $root := . -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+<div class="shop" data-page="account-orders" data-lang="{{if $en}}en{{else}}zh-TW{{end}}" data-currency="{{.Currency}}">
+    <div class="acct">
+        <aside class="shop-side acct-side" aria-label="{{if $en}}Account{{else}}會員中心{{end}}">
+            {{with .Member}}<div class="acct-who"><span class="av" aria-hidden="true">{{if .Name}}{{initial .Name}}{{else}}{{initial .Email}}{{end}}</span><div><b>{{if .Name}}{{.Name}}{{else}}{{.Email}}{{end}}</b><small>{{.Email}}</small></div></div>{{end}}
+            <nav aria-label="{{if $en}}Account sections{{else}}會員中心分頁{{end}}">
+                <a href="/account/orders" aria-current="page"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2 12h12l2-8H6"/><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/></svg>{{if $en}}My orders{{else}}我的訂單{{end}}</span></a>
+                <a href="/account/addresses"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6h12v10H2zM14 10h4l4 4v2h-8z"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>{{if $en}}Addresses{{else}}收件地址{{end}}</span></a>
+                <a href="/account/invoices"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6h20v12H2zM2 10h20"/></svg>{{if $en}}Invoices{{else}}發票設定{{end}}</span></a>
+                <a href="/account/security"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>{{if $en}}Account and password{{else}}帳號與密碼{{end}}</span></a>
+                <a href="/account/notifications"><span class="ni"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v14H3zM3 5l9 7 9-7"/></svg>{{if $en}}Notifications{{else}}通知{{end}}</span></a>
+            </nav>
+            <form method="post" action="/auth/logout"><button class="btn x sm" type="submit">{{if $en}}Sign out{{else}}登出{{end}}</button></form>
+        </aside>
+        <section class="acct-main" aria-labelledby="acct-title">
+            <div style="display: flex; flex-direction: column; gap: .75rem;"><span class="shop-stripe"></span><h1 class="page-title" id="acct-title" style="font-size: clamp(2rem, 5vw, 2.75rem);">{{if $en}}My orders{{else}}我的訂單{{end}}</h1></div>
+            {{$st := print .Status}}
+            <nav class="seg" aria-label="{{if $en}}Order status{{else}}訂單狀態{{end}}" style="align-self: flex-start;">
+                <a href="/account/orders"{{if or (eq $st "") (eq $st "<nil>")}} aria-current="page"{{end}}>{{if $en}}All{{else}}全部{{end}} {{index .Counts "all"}}</a>
+                <a href="/account/orders?status=pending"{{if eq $st "pending"}} aria-current="page"{{end}}>{{if $en}}Awaiting payment{{else}}待付款{{end}} {{index .Counts "pending"}}</a>
+                <a href="/account/orders?status=paid"{{if eq $st "paid"}} aria-current="page"{{end}}>{{if $en}}Processing{{else}}處理中{{end}} {{index .Counts "paid"}}</a>
+                <a href="/account/orders?status=shipped"{{if eq $st "shipped"}} aria-current="page"{{end}}>{{if $en}}Shipped{{else}}已出貨{{end}} {{index .Counts "shipped"}}</a>
+                <a href="/account/orders?status=completed"{{if eq $st "completed"}} aria-current="page"{{end}}>{{if $en}}Completed{{else}}已完成{{end}} {{index .Counts "completed"}}</a>
+                <a href="/account/orders?status=cancelled"{{if eq $st "cancelled"}} aria-current="page"{{end}}>{{if $en}}Cancelled{{else}}已取消{{end}} {{index .Counts "cancelled"}}</a>
+                <a href="/account/orders?status=refunded"{{if eq $st "refunded"}} aria-current="page"{{end}}>{{if $en}}Refunded{{else}}已退款{{end}} {{index .Counts "refunded"}}</a>
+            </nav>
+            {{if .Orders}}
+            <div role="table" aria-label="{{if $en}}Orders{{else}}訂單列表{{end}}">
+                <div class="orow head" role="row"><span role="columnheader">{{if $en}}Order{{else}}訂單{{end}}</span><span role="columnheader">{{if $en}}Items{{else}}商品{{end}}</span><span role="columnheader">{{if $en}}Total{{else}}金額{{end}}</span><span role="columnheader">{{if $en}}Status{{else}}狀態{{end}}</span><span></span></div>
+                {{range .Orders}}
+                <div class="orow" role="row">
+                    <div role="cell"><a href="/account/orders/{{.Number}}"><b class="mono">{{.Number}}</b></a><div class="small muted">{{.CreatedAt.Format "2006-01-02"}}</div></div>
+                    <div class="items" role="cell"><span class="thumbs" aria-hidden="true">{{range $i, $src := .Images}}{{if lt $i 3}}<span class="thumb"><img src="{{$src}}" alt="" loading="lazy"></span>{{end}}{{end}}</span><span>{{.Summary}}{{if gt .ItemCount 1}} · {{if $en}}{{.ItemCount}} items{{else}}共 {{.ItemCount}} 件{{end}}{{end}}</span></div>
+                    <span class="mono" role="cell">{{money .Total}}</span>
+                    <span role="cell">{{if eq .Status "pending"}}<span class="chip dot warn">{{if $en}}Awaiting payment{{else}}待付款{{end}}</span>{{else if eq .Status "paid"}}<span class="chip dot info">{{if $en}}Processing{{else}}處理中{{end}}</span>{{else if eq .Status "shipped"}}<span class="chip dot info">{{if $en}}Shipped{{else}}已出貨{{end}}</span>{{else if eq .Status "completed"}}<span class="chip dot ok">{{if $en}}Completed{{else}}已完成{{end}}</span>{{else if eq .Status "refunded"}}<span class="chip dot">{{if $en}}Refunded{{else}}已退款{{end}}</span>{{else if eq .Status "expired"}}<span class="chip dot bad">{{if $en}}Expired{{else}}已逾期{{end}}</span>{{else if eq .Status "cancelled"}}<span class="chip dot bad">{{if $en}}Cancelled{{else}}已取消{{end}}</span>{{else}}<span class="chip">{{.Status}}</span>{{end}}</span>
+                    <a class="btn t sm i" href="/account/orders/{{.Number}}" aria-label="{{if $en}}View order {{.Number}}{{else}}查看訂單 {{.Number}}{{end}}">→</a>
+                </div>
+                {{end}}
+            </div>
+            {{else}}
+            <div class="empty">
+                <b>{{if $en}}No orders here yet{{else}}這裡還沒有訂單{{end}}</b>
+                <p class="muted">{{if $en}}Orders placed with this account's email show up here.{{else}}用這個帳號 Email 下的訂單都會出現在這裡。{{end}}</p>
+                <a class="btn p" href="/shop">{{if $en}}Go to the shop{{else}}去逛商店{{end}}</a>
+            </div>
+            {{end}}
+            {{with .TotalPages}}{{if gt . 1}}
+            <nav class="pager" aria-label="{{if $en}}Pages{{else}}分頁{{end}}">
+                {{if gt $root.Page 1}}<a class="btn t sm" rel="prev" href="/account/orders?page={{sub $root.Page 1}}{{with $root.Status}}&status={{.}}{{end}}">{{if $en}}Previous{{else}}上一頁{{end}}</a>{{end}}
+                <span>{{$root.Page}} / {{.}}</span>
+                {{if lt $root.Page .}}<a class="btn t sm" rel="next" href="/account/orders?page={{add $root.Page 1}}{{with $root.Status}}&status={{.}}{{end}}">{{if $en}}Next{{else}}下一頁{{end}}</a>{{end}}
+            </nav>
+            {{end}}{{end}}
+        </section>
+    </div>
+</div>
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}

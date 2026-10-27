@@ -68,6 +68,55 @@ func (m *Manager) GetActive() string {
 	return m.activeTheme
 }
 
+// ActiveAssetsDir returns the assets directory of the active theme. It resolves
+// symlinks and rejects theme or assets directories that escape the configured
+// themes root, so callers can safely serve files from the returned directory.
+func (m *Manager) ActiveAssetsDir() (string, error) {
+	m.mu.RLock()
+	active := m.activeTheme
+	themesDir := m.themesDir
+	m.mu.RUnlock()
+	if active == "" || !filepath.IsLocal(active) || filepath.Base(active) != active {
+		return "", fmt.Errorf("no valid active theme")
+	}
+
+	root, err := filepath.Abs(themesDir)
+	if err != nil {
+		return "", fmt.Errorf("resolve themes root: %w", err)
+	}
+	root, err = filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", fmt.Errorf("resolve themes root: %w", err)
+	}
+	themeDir, err := filepath.EvalSymlinks(filepath.Join(root, active))
+	if err != nil {
+		return "", fmt.Errorf("resolve active theme: %w", err)
+	}
+	if !withinDirectory(root, themeDir) {
+		return "", fmt.Errorf("active theme escapes themes root")
+	}
+	assetsDir, err := filepath.EvalSymlinks(filepath.Join(themeDir, "assets"))
+	if err != nil {
+		return "", fmt.Errorf("resolve active theme assets: %w", err)
+	}
+	if !withinDirectory(themeDir, assetsDir) {
+		return "", fmt.Errorf("active theme assets escape theme directory")
+	}
+	info, err := os.Stat(assetsDir)
+	if err != nil {
+		return "", fmt.Errorf("stat active theme assets: %w", err)
+	}
+	if !info.IsDir() {
+		return "", fmt.Errorf("active theme assets are not a directory")
+	}
+	return assetsDir, nil
+}
+
+func withinDirectory(root, candidate string) bool {
+	relative, err := filepath.Rel(root, candidate)
+	return err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) && !filepath.IsAbs(relative)
+}
+
 // RegisterFunc adds a template function available to every theme template,
 // for example "menu" or "comments" provided by the server package. It clears
 // the template cache so the next render picks it up.
@@ -201,6 +250,7 @@ func (m *Manager) templateFuncs() template.FuncMap {
 		"excerpt":  Excerpt, "initial": Initial, "firstImage": FirstImage,
 		"readingTime": ReadingTime, "highlight": Highlight, "snippet": Snippet,
 		"headingIDs": headingIDsForTemplate, "flavor": Flavor,
+		"contentAssets": contentAssetsForTemplate,
 		"themeColor": func(colors map[string]string, key, defaultValue string) string {
 			if val, ok := colors[key]; ok && val != "" {
 				return val

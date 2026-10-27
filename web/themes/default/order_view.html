@@ -1,0 +1,105 @@
+{{define "shop_order_status"}}{{$en := eq (print .Lang) "en"}}{{with .Order}}{{if eq .Status "pending"}}<span class="chip dot warn">{{if $en}}Awaiting payment{{else}}待付款{{end}}</span>{{else if eq .Status "paid"}}<span class="chip dot info">{{if $en}}Processing{{else}}處理中{{end}}</span>{{else if eq .Status "shipped"}}<span class="chip dot info">{{if $en}}Shipped{{else}}已出貨{{end}}</span>{{else if eq .Status "completed"}}<span class="chip dot ok">{{if $en}}Completed{{else}}已完成{{end}}</span>{{else if eq .Status "refunded"}}<span class="chip dot">{{if $en}}Refunded{{else}}已退款{{end}}</span>{{else if eq .Status "expired"}}<span class="chip dot bad">{{if $en}}Expired{{else}}已逾期{{end}}</span>{{else if eq .Status "cancelled"}}<span class="chip dot bad">{{if $en}}Cancelled{{else}}已取消{{end}}</span>{{else}}<span class="chip">{{.Status}}</span>{{end}}{{end}}{{end}}
+
+{{define "shop_order_body"}}{{$en := eq (print .Lang) "en"}}{{$root := .}}{{with .Order}}
+<div class="done-grid wide-left">
+    <section style="display: flex; flex-direction: column; gap: 1.5rem; min-width: 0;">
+        <div class="box">
+            <div class="shop-lbl">{{if $en}}Items{{else}}訂單商品{{end}}</div>
+            <div class="lines">
+                {{range .Items}}
+                <div>
+                    <span class="thumb">{{if .Image}}<img src="{{.Image}}" alt="" loading="lazy">{{else}}{{initial .Title}}{{end}}</span>
+                    <span>{{if .ProductSlug}}<a href="/shop/p/{{.ProductSlug}}"><b>{{.Title}}</b></a>{{else}}<b>{{.Title}}</b>{{end}}<div class="sub">{{if .VariantName}}{{.VariantName}} · {{end}}{{if $en}}each{{else}}單價{{end}} {{money .UnitPrice}}</div></span>
+                    <span class="muted small">× {{.Qty}}</span>
+                    <b class="mono">{{money .LineTotal}}</b>
+                </div>
+                {{end}}
+            </div>
+            <div class="sumgrid">
+                <span>{{if $en}}Subtotal{{else}}商品小計{{end}}</span><b>{{money .Subtotal}}</b>
+                {{if gt .DiscountTotal 0}}<span>{{if $en}}Discount{{else}}折扣{{end}}{{with .CouponCode}} ({{.}}){{end}}</span><b>-{{money .DiscountTotal}}</b>{{end}}
+                <span>{{if $en}}Shipping{{else}}運費{{end}}{{with .ShippingLabel}} · {{.}}{{end}}</span><b>{{if gt .ShippingTotal 0}}{{money .ShippingTotal}}{{else}}{{if $en}}Free{{else}}免運{{end}}{{end}}</b>
+                {{if gt .TaxTotal 0}}<span>{{if $en}}Tax included{{else}}內含稅額{{end}}</span><b>{{money .TaxTotal}}</b>{{end}}
+                {{if ne .RoundingAdjustment 0}}<span>{{if $en}}Rounding adjustment{{else}}尾數調整{{end}}</span><b>{{if gt .RoundingAdjustment 0}}+{{end}}{{money .RoundingAdjustment}}</b>{{end}}
+                {{if gt .RefundedTotal 0}}<span>{{if $en}}Refunded{{else}}已退款{{end}}</span><b>-{{money .RefundedTotal}}</b>{{end}}
+            </div>
+            <div class="total"><span>{{if $en}}Total{{else}}總計金額{{end}}</span><span class="d" style="font-size: 1.5rem;">{{money .Total}}</span></div>
+        </div>
+
+        <div class="box soft">
+            <div class="shop-lbl">{{if $en}}Progress{{else}}出貨進度{{end}}</div>
+            <ol class="tl">
+                <li class="on"><span class="dot"></span><div class="body"><b>{{if $en}}Order placed{{else}}訂單成立{{end}}</b><span>{{.CreatedAt.Format "2006-01-02 15:04"}}</span></div></li>
+                <li{{if .PaidAt}} class="on"{{end}}><span class="dot"></span><div class="body"><b>{{if eq .PaymentKind "none"}}{{if $en}}No payment required{{else}}無需付款{{end}}{{else}}{{if $en}}Paid{{else}}已付款{{end}}{{end}}</b>{{if ne .PaymentKind "none"}}{{with .PaidAt}}<span>{{.Format "2006-01-02 15:04"}}</span>{{end}}{{end}}</div></li>
+                <li{{if .PaidAt}} class="on"{{end}}><span class="dot"></span><div class="body"><b>{{if $en}}Preparing{{else}}備貨中{{end}}</b></div></li>
+                <li{{if .ShippedAt}} class="on"{{end}}><span class="dot"></span><div class="body"><b>{{if $en}}Shipped{{else}}已出貨{{end}}</b>{{with .ShippedAt}}<span>{{.Format "2006-01-02 15:04"}}</span>{{end}}{{if .TrackingNo}}<span>{{.Carrier}} {{.TrackingNo}}</span>{{end}}</div></li>
+                <li{{if .CompletedAt}} class="on"{{end}}><span class="dot"></span><div class="body"><b>{{if $en}}Delivered{{else}}已送達{{end}}</b>{{with .CompletedAt}}<span>{{.Format "2006-01-02 15:04"}}</span>{{end}}</div></li>
+                {{if .CancelledAt}}<li class="x"><span class="dot"></span><div class="body"><b>{{if eq .Status "expired"}}{{if $en}}Expired{{else}}已逾期{{end}}{{else}}{{if $en}}Cancelled{{else}}已取消{{end}}{{end}}</b>{{with .CancelledAt}}<span>{{.Format "2006-01-02 15:04"}}</span>{{end}}</div></li>
+                {{else if eq .Status "expired"}}<li class="x"><span class="dot"></span><div class="body"><b>{{if $en}}Expired{{else}}已逾期{{end}}</b></div></li>{{end}}
+                {{if eq .Status "refunded"}}<li class="x"><span class="dot"></span><div class="body"><b>{{if $en}}Refunded{{else}}已退款{{end}}</b><span>{{money .RefundedTotal}}</span></div></li>{{end}}
+            </ol>
+        </div>
+    </section>
+
+    <aside style="display: flex; flex-direction: column; gap: 1.25rem; min-width: 0;">
+        <div class="box">
+            <div class="shop-lbl">{{if $en}}Delivery and contact{{else}}收件與聯絡資料{{end}}</div>
+            <dl class="kv">
+                <dt>{{if $en}}Recipient{{else}}收件人{{end}}</dt><dd>{{.Shipping.Name}}</dd>
+                {{with .Phone}}<dt>{{if $en}}Phone{{else}}電話{{end}}</dt><dd>{{.}}</dd>{{end}}
+                <dt>Email</dt><dd>{{.Email}}</dd>
+                <dt>{{if $en}}Method{{else}}配送方式{{end}}</dt><dd>{{if .ShippingLabel}}{{.ShippingLabel}}{{else}}{{.ShippingMethod}}{{end}}</dd>
+                {{if .Shipping.Address}}<dt>{{if $en}}Address{{else}}地址{{end}}</dt><dd>{{.Shipping.Postcode}} {{.Shipping.City}}{{.Shipping.Address}}</dd>{{end}}
+            </dl>
+        </div>
+        <div class="box">
+            <div class="shop-lbl">{{if $en}}Payment and invoice{{else}}付款與發票{{end}}</div>
+            <dl class="kv">
+                <dt>{{if $en}}Payment{{else}}付款方式{{end}}</dt><dd>{{if eq .PaymentKind "none"}}{{if $en}}No payment required{{else}}無需付款{{end}}{{else if eq .PaymentMethod "credit_card"}}{{if $en}}Credit card{{else}}信用卡{{end}}{{else if eq .PaymentMethod "atm"}}{{if $en}}ATM transfer{{else}}ATM 轉帳{{end}}{{else if eq .PaymentMethod "cvs"}}{{if $en}}Convenience store code{{else}}超商代碼{{end}}{{else if eq .PaymentMethod "bank_transfer"}}{{if $en}}Bank transfer{{else}}銀行轉帳{{end}}{{else}}{{.PaymentMethod}}{{end}}</dd>
+                <dt>{{if $en}}Status{{else}}付款狀態{{end}}</dt><dd>{{if eq .PaymentKind "none"}}{{if $en}}Order placed{{else}}訂單已成立{{end}}{{else if .PaidAt}}{{if $en}}Paid{{else}}已付款{{end}} ({{money .Total}}){{else if eq .PaymentStatus "failed"}}{{if $en}}Failed{{else}}付款失敗{{end}}{{else}}{{if $en}}Awaiting payment{{else}}等待付款{{end}}{{end}}{{with .PaymentInfo}} · {{.}}{{end}}</dd>
+                {{if and (eq .Status "pending") .Instructions}}<dt>{{if $en}}How to pay{{else}}付款說明{{end}}</dt><dd>{{.Instructions}}</dd>{{end}}
+                <dt>{{if $en}}Invoice{{else}}發票{{end}}</dt><dd>{{if eq .Invoice.Kind "personal_carrier"}}{{if $en}}Mobile barcode{{else}}手機條碼{{end}} {{.Invoice.CarrierCode}}{{else if eq .Invoice.Kind "tax_id"}}{{if $en}}Tax ID{{else}}統編{{end}} {{.Invoice.TaxID}} {{.Invoice.CompanyName}}{{else if eq .Invoice.Kind "donation"}}{{if $en}}Donated{{else}}捐贈{{end}} {{.Invoice.DonationCode}}{{else}}{{if $en}}Email receipt{{else}}Email 收據{{end}}{{end}}</dd>
+            </dl>
+        </div>
+        <div class="acts no-print" style="flex-direction: column; align-items: stretch;">
+            {{if $root.ReceiptURL}}<a class="btn t" href="{{$root.ReceiptURL}}">{{if $en}}Download receipt{{else}}下載收據{{end}}</a>{{else}}<button class="btn t" type="button" data-print>{{if $en}}Print receipt{{else}}列印收據{{end}}</button>{{end}}
+            {{with $root.ContactEmail}}<a class="btn t" href="mailto:{{.}}?subject={{$root.Order.Number}}">{{if $en}}Contact support{{else}}聯絡客服（帶訂單編號）{{end}}</a>{{end}}
+            {{template "shop_order_extra" $root}}
+        </div>
+    </aside>
+</div>
+{{end}}{{end}}
+
+{{define "shop_order_extra"}}{{end}}
+
+{{define "content"}}
+{{- $en := eq (print .Lang) "en" -}}
+<link rel="stylesheet" href="/theme/assets/shop.css">
+<div class="shop" data-page="view" data-lang="{{if $en}}en{{else}}zh-TW{{end}}" data-currency="{{.Currency}}">
+    {{with .Order}}
+    <div class="shop-head">
+        <div>
+            <span class="shop-stripe"></span>
+            <div style="display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;">
+                <h1 class="page-title" style="font-size: clamp(2rem, 5vw, 2.75rem);">{{if $en}}Order{{else}}訂單{{end}} <span class="mono">{{.Number}}</span></h1>
+                {{template "shop_order_status" $}}
+            </div>
+            <div class="small muted">{{if $en}}Placed {{.CreatedAt.Format "2006-01-02 15:04"}} · opened with a lookup link{{else}}下單時間：{{.CreatedAt.Format "2006-01-02 15:04"}} · 以查詢連結開啟{{end}}</div>
+        </div>
+        <div class="acts no-print">
+            <a class="btn t sm" href="/orders/lookup">← {{if $en}}Look up another order{{else}}查其他訂單{{end}}</a>
+            <a class="btn t sm" href="/shop">{{if $en}}Keep shopping{{else}}繼續逛商店{{end}}</a>
+        </div>
+    </div>
+    {{template "shop_order_body" $}}
+    {{else}}
+    <div class="done-hero neutral" style="max-width: 44rem;">
+        <span class="shop-stripe stripe-ink"></span>
+        <h1>{{if $en}}This link has expired.{{else}}這個連結已失效。{{end}}</h1>
+        <p>{{if $en}}Lookup links work once and for a limited time. Request a new one with the order number and email.{{else}}查詢連結只在限定時間內有效。輸入訂單編號與 Email 就能再收到一個新的。{{end}}</p>
+        <div class="acts"><a class="btn" href="/orders/lookup">{{if $en}}Look up an order{{else}}查詢訂單{{end}}</a></div>
+    </div>
+    {{end}}
+</div>
+<script src="/theme/assets/shop.js" defer></script>
+{{end}}

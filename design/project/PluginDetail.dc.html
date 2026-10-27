@@ -89,6 +89,8 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
 
 .sub a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#5F6470;font-weight:600;font-size:13px}
 .sub a.on{background:#F3F3F5;color:#15161A}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span{min-height:30px;padding:0 14px;border-radius:999px}.seg.j span.on{box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
 .nrow{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;padding:12px 10px;border-top:1px solid #EEEFF2;align-items:flex-start}
 .nrow.un{background:#F8F9FF}.nrow .t{font-size:12px;color:#5F6470;white-space:nowrap}
 .app{display:flex;flex-direction:column;gap:10px;padding:14px;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 14px 0 14px;background:#fff}
@@ -116,6 +118,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
     <div class="ns">商店</div>
     <a class="nl" href="Products.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>商品</a>
     <a class="nl" href="Orders.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>訂單<span class="n">3</span></a>
+    <a class="nl" href="Coupons.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4zM14 6v2M14 11v2M14 16v2"/></svg>折扣碼</a>
     <div class="ns">外觀</div>
     <a class="nl" href="Themes.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>主題</a>
     <a class="nl new" href="Menus.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>導覽選單</a>
@@ -141,7 +144,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
       <div class="tab"><span>詳情</span><span class="on">設定</span><span>擴充設定</span><span>權限</span><span>日誌</span></div>
       <div style="padding-top:8px">
         <div class="srow"><div><label>Meilisearch 網址</label></div><div class="c"><input class="ul" type="text" value="http://search.internal:7700" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></div></div>
-        <div class="srow"><div><label>API 金鑰</label></div><div class="c"><input class="ul" type="text" value="由環境變數 MEILI_KEY 設定" disabled style="color:#5F6470"></div></div>
+        <div class="srow"><div><label>API 金鑰</label></div><div class="c"><input class="ul" type="password" placeholder="••••1234，留空保留"></div></div>
         <div class="srow"><div><label>索引內容</label></div><div class="c"><span class="chip nd">文章</span><span class="chip nd">頁面</span><span class="chip nd">商品</span><span class="chip nd" style="opacity:.5">留言</span></div></div>
         <div class="srow"><div><label>錯字容忍</label><div class="h">「焦塘布丁」也找得到焦糖布丁。</div></div><div class="c"><span class="tg"></span></div></div>
         <div class="srow"><div><label>重建索引</label><div class="h">上次 10/20 03:05 · 1,318 筆 · 12 秒</div></div><div class="c"><button class="btn t s" type="button"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>立刻重建</button></div></div>
@@ -149,7 +152,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
       </div>
       <div style="margin-top:28px">
         <div class="tab" style="margin-bottom:8px"><span class="on" style="border-color:#2F6BFF">擴充設定 · 這個功能由誰提供</span></div>
-        <p style="margin:0 0 10px;font-size:12.5px;color:#5F6470">同一個功能可能有好幾個外掛能做。這裡選現在用哪一個，切換不用重啟。</p>
+        <p style="margin:0 0 10px;font-size:12.5px;color:#5F6470">搜尋引擎選一個提供者；附件儲存可多選。尚未接上執行流程的擴充點只顯示宣告。</p>
         <table><thead><tr><th>擴充點</th><th>目前使用</th><th>其他可選</th></tr></thead><tbody>
           <tr><td><b>搜尋引擎</b></td><td><span class="chip info">Meilisearch 搜尋</span></td><td style="color:#5F6470">內建 PostgreSQL 全文搜尋</td></tr>
           <tr><td><b>附件儲存</b></td><td><span class="chip nd">本機</span> <span class="chip nd">S3 相容</span></td><td style="color:#5F6470">（可同時多個，在儲存策略選）</td></tr>
@@ -161,7 +164,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
     </section>
     <aside style="display:flex;flex-direction:column;gap:12px;position:sticky;top:16px">
       <div class="card" style="display:flex;flex-direction:column;gap:8px;font-size:13px">
-        <div class="lbl">這個外掛要的權限</div>
+        <div class="lbl">這個外掛要的權限（已強制 / 僅宣告）</div>
         <div style="display:flex;align-items:center;gap:8px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>對外連線：search.internal:7700</div>
         <div style="display:flex;align-items:center;gap:8px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/></svg>讀：文章、頁面、商品（含草稿）</div>
         <div style="display:flex;align-items:center;gap:8px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>自己的資料表：1 張（meili_sync）</div>

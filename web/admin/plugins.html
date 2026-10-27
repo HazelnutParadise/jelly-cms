@@ -121,7 +121,7 @@
     }
 
     async function reloadPlugin(id) {
-        if (!confirm(`${T.reloadConfirm} "${id}"?`)) return;
+        if (!await Jelly.confirm({title:`${T.reloadConfirm} "${id}"?`, confirmLabel:document.documentElement.lang === 'en' ? 'Reload' : '重新載入', cancelLabel:document.documentElement.lang === 'en' ? 'Cancel' : '取消', tone:'danger'})) return;
 
         try {
             const res = await fetch(`/api/admin/plugins/${id}/reload`, {

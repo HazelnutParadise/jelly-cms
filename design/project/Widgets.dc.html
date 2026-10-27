@@ -137,6 +137,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
     <div class="ns">商店</div>
     <a class="nl" href="Products.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg>商品</a>
     <a class="nl" href="Orders.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h2l2 12h11l2-8H6"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/></svg>訂單<span class="n">3</span></a>
+    <a class="nl" href="Coupons.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4zM14 6v2M14 11v2M14 16v2"/></svg>折扣碼</a>
     <div class="ns">外觀</div>
     <a class="nl on" href="Themes.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>主題</a>
     <a class="nl new" href="Menus.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>導覽選單</a>
@@ -158,50 +159,30 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
     </header>
     <main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 520px;gap:24px;align-items:start">
     <section style="display:flex;flex-direction:column;gap:16px">
-      <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;line-height:1.5"><svg class="ic" style="width:18px;height:18px" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/></svg><span><b>三層，權限不一樣。</b>動效屬性和內建互動元件誰都能用、沒有程式。自訂元件可以寫 HTML／CSS／JS，但跑在隔離框裡，拿不到登入狀態和網站其他部分，只有管理員能建立。</span></div>
-      <div style="display:flex;align-items:center;gap:10px"><div class="seg"><span class="on">全部 <b>9</b></span><span>內建 7</span><span>自訂 2</span><span>來自外掛 0</span></div><button class="btn p" type="button" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新增自訂元件</button></div>
+      <div style="padding:14px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;color:#5F6470">內建元件可直接使用；自訂元件在隔離框中執行。</div>
+      <div class="seg" style="align-self:flex-start"><span class="on">全部</span><span>內建</span><span>自訂</span><span>來自外掛</span></div>
       <div>
-        <div class="wrow" style="border-top:0;padding-top:0;font-size:11px;font-weight:700;color:#5F6470;letter-spacing:.06em;text-transform:uppercase"><span></span><span>元件</span><span>來源</span><span>使用</span><span>狀態</span></div>
-        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg></span><div><b>分頁 tabs</b><div style="font-size:12px;color:#5F6470">::tabs 容器，每個 ::: tab 一頁，鍵盤可操作</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">12 頁用到</span><span><span class="chip ok">可用</span></span></div>
-        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span><div><b>摺疊 accordion</b><div style="font-size:12px;color:#5F6470">FAQ 常用，可預設展開第一項</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">8 頁用到</span><span><span class="chip ok">可用</span></span></div>
-        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM21 15l-5-5-8 8"/><circle cx="8" cy="10" r="1.5"/></svg></span><div><b>輪播 carousel</b><div style="font-size:12px;color:#5F6470">拖曳、自動播放可關、縮圖列</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">3 頁用到</span><span><span class="chip ok">可用</span></span></div>
-        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><div><b>燈箱 lightbox</b><div style="font-size:12px;color:#5F6470">圖片點開放大，圖庫自動套用</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">41 頁用到</span><span><span class="chip ok">可用</span></span></div>
-        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><div><b>數字跳動 counter</b><div style="font-size:12px;color:#5F6470">捲到時從 0 跳到目標值</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">2 頁用到</span><span><span class="chip ok">可用</span></span></div>
-        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg></span><div><b>前後比較 compare</b><div style="font-size:12px;color:#5F6470">兩張圖拉桿比較</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">1 頁用到</span><span><span class="chip ok">可用</span></span></div>
-        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M7 4l12 8-12 8z"/></svg></span><div><b>Lottie / Rive 動畫</b><div style="font-size:12px;color:#5F6470">上傳 .json 或 .riv，可設觸發方式</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">4 頁用到</span><span><span class="chip ok">可用</span></span></div>
-        <div class="wrow"><span style="width:48px;height:48px;background:#E8285B;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span><div><b>預購倒數</b><div style="font-size:12px;color:#5F6470">到 to 指定時間為止，結束後顯示 done 文字</div></div><span style="font-size:12px;color:#5F6470">Hazel · 自訂</span><span class="mono" style="font-size:14px">2 頁用到</span><span><span class="chip ok">已發布</span></span></div>
-        <div class="wrow"><span style="width:48px;height:48px;background:#2F6BFF;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M12 3l2.8 6 6.2.7-4.6 4.3 1.3 6.3L12 17l-5.7 3.3 1.3-6.3L3 9.7 9.2 9z"/></svg></span><div><b>果凍物理</b><div style="font-size:12px;color:#5F6470">滑鼠靠近會晃的果凍丁，純 CSS + 20 行 JS</div></div><span style="font-size:12px;color:#5F6470">Ting · 自訂</span><span class="mono" style="font-size:14px">0 頁用到</span><span><span class="chip warn">草稿</span></span></div>
+        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg></span><div><b>分頁 tabs</b><div style="font-size:12px;color:#5F6470">:::tabs 容器，每個 ::: tab {title="…"} 一頁，鍵盤可操作</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">使用數未提供</span><span><span class="chip ok">可用</span></span></div>
+        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span><div><b>摺疊 accordion</b><div style="font-size:12px;color:#5F6470">原生 details，鍵盤可操作</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">使用數未提供</span><span><span class="chip ok">可用</span></span></div>
+        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM21 15l-5-5-8 8"/><circle cx="8" cy="10" r="1.5"/></svg></span><div><b>輪播 carousel</b><div style="font-size:12px;color:#5F6470">水平捲動、上一張與下一張</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">使用數未提供</span><span><span class="chip ok">可用</span></span></div>
+        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></span><div><b>燈箱 lightbox</b><div style="font-size:12px;color:#5F6470">圖庫圖片點開放大，Escape 關閉</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">使用數未提供</span><span><span class="chip ok">可用</span></span></div>
+        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span><div><b>倒數 countdown</b><div style="font-size:12px;color:#5F6470">指定截止時間，隔離框執行</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">使用數未提供</span><span><span class="chip ok">可用</span></span></div>
+        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><div><b>數字跳動 counter</b><div style="font-size:12px;color:#5F6470">捲到時跳到目標值，減少動態直接顯示</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">使用數未提供</span><span><span class="chip ok">可用</span></span></div>
+        <div class="wrow"><span style="width:48px;height:48px;background:#15161A;color:#fff;display:grid;place-items:center;border-radius:0 14px 0 14px"><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg></span><div><b>前後比較 compare</b><div style="font-size:12px;color:#5F6470">原生圖片與可鍵盤操作的滑桿</div></div><span style="font-size:12px;color:#5F6470">內建</span><span class="mono" style="font-size:14px">使用數未提供</span><span><span class="chip ok">可用</span></span></div>
       </div>
-      <div style="font-size:12.5px;color:#5F6470;line-height:1.7;display:flex;gap:10px;align-items:flex-start"><svg class="ic" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v5M12 18v1"/></svg><span>內建元件的 JS 只在頁面真的用到時才載入，每個都在 3 KB 以內。自訂元件的 JS 不會和網站主程式同一個環境執行，所以也不能改網站其他地方；要做到那種程度請寫外掛。</span></div>
+      <p style="font-size:12px;color:#5F6470">內建元件使用數未提供；自訂元件的使用頁數由登錄資料顯示。</p>
     </section>
-    <aside class="card" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:12px;padding:0;overflow:hidden">
-      <div style="display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid #EEEFF2"><span class="stripe" style="width:40px"></span><b style="font-size:15px">自訂元件：預購倒數</b><span class="chip ok" style="margin-left:auto">已發布 v3</span></div>
-      <div class="tab" style="padding:0 16px"><span class="on">程式</span><span>參數</span><span>預覽</span><span>版本</span></div>
-      <div style="padding:0 16px;display:flex;flex-direction:column;gap:10px">
-        <div><span class="lbl">在文章裡這樣用</span><div class="code" style="margin-top:6px"><b>::widget</b>{name=countdown to="2026-09-25T00:00+08:00" done="開賣了！"}</div></div>
-        <div><span class="lbl">HTML + CSS + JS（同一個檔）</span>
-<div class="cm" style="margin-top:6px;max-height:260px">&lt;div class="cd"&gt;&lt;b data-d&gt;&lt;/b&gt; 天 &lt;b data-h&gt;&lt;/b&gt; 時&lt;/div&gt;
-&lt;style&gt;.cd{font:800 2rem/1 var(--font-display);color:var(--flavor)}&lt;/style&gt;
-&lt;script&gt;
-  <i>// props 來自 ::widget 的屬性，已驗證過型別</i>
-  const to = new Date(<b>props.to</b>);
-  <u>tick</u>(() =&gt; {
-    const ms = to - Date.now();
-    if (ms &lt;= 0) return <u>replace</u>(<b>props.done</b>);
-    el('[data-d]').textContent = Math.floor(ms/864e5);
-    el('[data-h]').textContent = Math.floor(ms/36e5)%24;
-  }, 1000);
-&lt;/script&gt;</div></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;color:#5F6470;line-height:1.6">
-          <div><b style="color:#15161A">拿得到</b><br>props、主題 CSS 變數、自己的 DOM、tick／replace 這類小工具、fetch 到白名單網域</div>
-          <div><b style="color:#15161A">拿不到</b><br>cookie、登入狀態、頁面其他 DOM、localStorage、父頁面的 JS</div>
-        </div>
-        <div><span class="lbl">參數宣告</span><div class="code" style="margin-top:6px">to:   datetime  必填
-done: string    預設 "開始了"
-size: enum(sm,md,lg) 預設 md</div></div>
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F5F5F7;border-radius:0 9px 0 9px;font-size:12px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg><span>自動檢查通過：無外部 script、無 eval、大小 1.8 KB、減少動態下可用</span></div>
-      </div>
-      <div style="padding:12px 16px;border-top:1px solid #EEEFF2;display:flex;gap:8px"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h8V4M8 20v-6h8v6"/></svg>儲存並發布 v4</button><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>預覽</button><button class="btn x" type="button" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5M12 7v5l3 3"/></svg>版本</button></div>
+    <aside class="card" style="display:flex;flex-direction:column;gap:14px;padding:20px;background:#F6F7F9">
+      <b style="font-size:16px">新增自訂元件</b>
+      <label class="lbl">名稱<input class="ul" type="text" value=""></label>
+      <label class="lbl">顯示名稱<input class="ul" type="text" value=""></label>
+      <label class="lbl">HTML、CSS 與 JavaScript<textarea style="width:100%;min-height:280px;margin-top:8px;border:1px solid #DDE0E7;background:#fff;font:12px/1.65 ui-monospace,monospace"></textarea></label>
+      <label class="lbl">參數宣告（JSON）<textarea style="width:100%;min-height:100px;margin-top:8px;border:1px solid #DDE0E7;background:#fff;font:12px/1.65 ui-monospace,monospace">[]</textarea></label>
+      <small style="color:#5F6470;line-height:1.7">陣列欄位：name、type、required、default、values、maxLength。</small>
+      <div style="padding:12px;background:#fff;font-size:12px">自動檢查<br>原始碼與參數在儲存時由伺服器驗證。</div>
+      <small style="color:#5F6470;line-height:1.7">每次儲存建立新版本，既有已發布版本保持不變。</small>
+      <div style="display:flex;gap:8px"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h8V4M8 20v-6h8v6"/></svg>儲存新版本</button></div>
+      <b style="margin-top:12px">版本</b>
     </aside>
   </main>
   </div>

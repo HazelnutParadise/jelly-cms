@@ -98,7 +98,11 @@ func TestJellyUIVendoredBuildIsPresent(t *testing.T) {
 
 func TestVendorScriptsExistAndRebuild(t *testing.T) {
 	root := repoRoot(t)
-	for _, name := range []string{"jelly-ui.sh", "marked.sh", "fonts.sh"} {
+	scripts := []string{"jelly-ui.sh", "fonts.sh"}
+	if markedPresent(root) {
+		scripts = append(scripts, "marked.sh")
+	}
+	for _, name := range scripts {
 		path := filepath.Join(root, "scripts", "vendor", name)
 		info, err := os.Stat(path)
 		switch {
@@ -114,9 +118,11 @@ func TestVendorScriptsExistAndRebuild(t *testing.T) {
 			t.Errorf("scripts/vendor/jelly-ui.sh does not mention %q; it must clone, build and copy dist/jelly.js, LICENSE and VERSION", want)
 		}
 	}
-	marked := mustRead(t, root, "scripts", "vendor", "marked.sh")
-	if marked != "" && !regexp.MustCompile(`(?m)^marked_version=\d+\.\d+\.\d+\s*$`).MatchString(marked) {
-		t.Error("scripts/vendor/marked.sh must pin the release with a line `marked_version=<x.y.z>`")
+	if markedPresent(root) {
+		marked := mustRead(t, root, "scripts", "vendor", "marked.sh")
+		if marked != "" && !regexp.MustCompile(`(?m)^marked_version=\d+\.\d+\.\d+\s*$`).MatchString(marked) {
+			t.Error("scripts/vendor/marked.sh must pin the release with a line `marked_version=<x.y.z>`")
+		}
 	}
 }
 
@@ -168,7 +174,16 @@ func TestMarkedIsVendoredAsAPackageDirectory(t *testing.T) {
 // package directories is treated as an unlabelled third-party file. sortable.js, jelly-motion.js and
 // jelly-components.js arrive with ticket 09 (docs/tickets/09-editor.md on its branch) and are first-party.
 var firstPartyAssets = map[string]bool{
-	"jelly-mark.svg": true, "sortable.js": true, "jelly-motion.js": true, "jelly-components.js": true,
+	"jelly-mark.svg":      true,
+	"sortable.js":         true,
+	"jelly-motion.js":     true,
+	"jelly-components.js": true,
+	"agents.css":          true, "agents.js": true,
+	"editor.css": true, "editor.js": true,
+	"jelly-mermaid.js": true,
+	"shop-admin.css":   true, "shop-admin.js": true,
+	"system-admin.css": true, "system-admin.js": true,
+	"content.css": true, "shop.css": true, "shop.js": true,
 }
 
 func TestEveryThirdPartyPackageHasLicenseAndVersion(t *testing.T) {
@@ -211,12 +226,23 @@ func TestReleaseChecklistListsVendoredPackages(t *testing.T) {
 	if checklist == "" {
 		return
 	}
-	for _, want := range []string{
-		"scripts/vendor/fonts.sh", "scripts/vendor/jelly-ui.sh", "scripts/vendor/marked.sh",
-		"web/admin/assets/jelly-ui", "Jelly UI", "marked", "字型",
-	} {
+	wants := []string{
+		"scripts/vendor/fonts.sh", "scripts/vendor/jelly-ui.sh",
+		"web/admin/assets/jelly-ui", "Jelly UI", "字型",
+		"scripts/vendor/codemirror.sh", "web/admin/assets/codemirror", "CodeMirror",
+		"scripts/vendor/katex.sh", "web/vendor/katex", "KaTeX",
+		"scripts/vendor/pele.sh", "web/admin/assets/pele", "Pele",
+	}
+	for _, want := range wants {
 		if !strings.Contains(checklist, want) {
 			t.Errorf("docs/release-checklist.md does not list %q in its vendored package inventory", want)
+		}
+	}
+	if markedPresent(root) {
+		for _, want := range []string{"scripts/vendor/marked.sh", "web/admin/assets/marked", "marked"} {
+			if !strings.Contains(checklist, want) {
+				t.Errorf("docs/release-checklist.md does not list %q in its vendored package inventory", want)
+			}
 		}
 	}
 }
