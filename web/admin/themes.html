@@ -402,7 +402,7 @@
     }
 
     async function resetToDefaults() {
-        if (!confirm(T.resetConfirm)) {
+        if (!await Jelly.confirm({title:T.resetConfirm, confirmLabel:document.documentElement.lang === 'en' ? 'Reset' : '重設', cancelLabel:document.documentElement.lang === 'en' ? 'Cancel' : '取消', tone:'danger'})) {
             return;
         }
 

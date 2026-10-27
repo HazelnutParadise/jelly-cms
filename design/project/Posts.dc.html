@@ -8,9 +8,7 @@
 <body>
 <x-dc>
 <helmet>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./fonts.css">
 <style>
 body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;font-size:14px;-webkit-font-smoothing:antialiased}
 a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
@@ -30,6 +28,8 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
 .seg a{min-height:30px;padding:0 12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#5F6470;border-radius:0 8px 0 8px}
 .seg a.on{background:#15161A;color:#fff}.seg a .c{font-size:11px;opacity:.7}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j a{min-height:30px;padding:0 14px;border-radius:999px}.seg.j a.on{box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
+.seg.j a .c{font-size:inherit;opacity:1;margin-left:.35em}
 table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.04em;color:#5F6470;padding:6px 10px;border-bottom:1px solid #E2E3E8;white-space:nowrap;position:sticky;top:0;background:#fff}td{padding:0 10px;height:40px;border-bottom:1px solid #EEEFF2;vertical-align:middle;white-space:nowrap}
 td.a{text-align:right}tr:hover td{background:#F5F5F7}tr.sel td{background:#FDE9EE}
 .kbd{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:#fff;padding:1px 5px;border-radius:0 5px 0 5px;color:#5F6470}
@@ -71,7 +71,7 @@ input[type=checkbox]{width:16px;height:16px;accent-color:#E8285B;margin:0}
 
     <main style="padding: 16px 24px 32px; display: flex; flex-direction: column; gap: 12px">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap">
-        <div style="display: flex; align-items: center; gap: 16px"><h1 class="d" style="font-size: 26px">文章</h1><nav class="seg" aria-label="狀態"><a href="Posts.dc.html" class="on">全部<span class="c">126</span></a><a href="Posts.dc.html">已發布<span class="c">96</span></a><a href="Posts.dc.html">草稿<span class="c">27</span></a><a href="Posts.dc.html">待審核<span class="c">3</span></a></nav></div>
+        <div style="display: flex; align-items: center; gap: 16px"><h1 class="d" style="font-size: 26px">文章</h1><nav class="seg j" role="radiogroup" aria-label="狀態"><a href="Posts.dc.html" class="on">全部<span class="c">126</span></a><a href="Posts.dc.html">已發布<span class="c">96</span></a><a href="Posts.dc.html">草稿<span class="c">27</span></a><a href="Posts.dc.html">待審核<span class="c">3</span></a></nav></div>
         <div style="display: flex; align-items: center; gap: 6px">
           <label for="f" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">篩選標題</label>
           <input id="f" type="search" placeholder="篩選標題…" style="width: 220px; min-height: 36px; padding: 0 12px; border: 0; background: #F3F3F5; border-radius: 0 9px 0 9px; font: inherit">

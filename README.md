@@ -19,6 +19,8 @@
 - PostgreSQL 資料庫
 - 可選：Docker 和 Docker Compose（用於容器化部署）
 
+後台瀏覽器支援與執行環境需求見[系統需求](docs/system-requirements.md)。
+
 ## 🚀 快速開始
 
 ### 使用 Docker Compose（推薦）

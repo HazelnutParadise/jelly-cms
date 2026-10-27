@@ -97,11 +97,6 @@ const spec = `<div class="spec">
   <ul><li>圖表框 <code>max-width:100%</code>、<code>overflow-x:auto</code>，只有框內捲動。</li><li>SVG 隨框寬縮放，最小為原寬 75%。</li><li>列印或存成 PDF 時縮至紙張寬度，整張圖完整保留。</li><li>圖表保留 Pele 的粗體與標題字重。</li><li>原文超過 50 000 字元、語法錯誤、不支援的圖種：保留原文並提示，同頁其他圖照常。</li><li>連結只留 http(s)、mailto 與站內路徑，外部連結加 <code>rel="noopener noreferrer"</code>。</li></ul>
 </div>`;
 
-const FONT_CSS = ['noto-sans-tc', 'bricolage-grotesque'].map((name, index) => {
-  const bytes = fs.readFileSync(path.join(__dirname, '../../../web/admin/assets/fonts', name + '.woff2'));
-  const family = index === 0 ? 'Noto Sans TC' : 'Bricolage Grotesque';
-  return `@font-face{font-family:"${family}";src:url(data:font/woff2;base64,${bytes.toString('base64')}) format("woff2");font-weight:100 900;font-style:normal;font-display:swap}`;
-}).join('\n');
 const editorPreview = dark => `<div class="fr editor-example${dark ? ' dk' : ''}">
   <div class="topline"></div>
   <div class="editor-example-toolbar"><strong>用圖表說清楚發布流程</strong><div><span>原稿</span><span class="on">分割</span><span>預覽</span></div><span>已儲存</span></div>
@@ -120,8 +115,8 @@ const html = `<!doctype html>
 <body>
 <x-dc>
 <helmet>
+<link rel="stylesheet" href="./fonts.css">
 <style>
-${FONT_CSS}
 ${CSS}
 </style>
 </helmet>

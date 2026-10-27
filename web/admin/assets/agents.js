@@ -39,6 +39,7 @@
     agents = [],
     current = null,
     busy = false,
+    confirmationPending = false,
     secret = "",
     returnFocus = null,
     epoch = 0,
@@ -705,86 +706,80 @@
       ]);
     });
   }
-  function confirmAction(action, key) {
-    const title =
-      action === "delete"
-        ? tr("刪除 agent", "Delete agent")
-        : action === "revoke"
-          ? tr("撤銷金鑰", "Revoke key")
-          : action === "disable"
-            ? tr("停用 agent", "Disable agent")
-            : tr("啟用 agent", "Enable agent");
-    const body = node("div");
-    body.append(
-      node(
-        "p",
+  async function confirmAction(action, key) {
+    const target = current;
+    const targetEndpoint = endpoint;
+    const targetKey = key ? { id:key.id, prefix:key.prefix } : null;
+    if (!target || busy || confirmationPending) return;
+    confirmationPending = true;
+    try {
+      const title =
         action === "delete"
-          ? tr(
-              "所有金鑰會立即失效。活動紀錄與輪替歷史會保留。",
-              "All keys will stop working immediately. Activity and rotation history are retained.",
-            )
+          ? tr("刪除 agent", "Delete agent")
           : action === "revoke"
-            ? tr(
-                "撤銷後，這把金鑰的下一次請求會被拒絕。",
-                "This key’s next request will be rejected after revocation.",
-              )
+            ? tr("撤銷金鑰", "Revoke key")
             : action === "disable"
+              ? tr("停用 agent", "Disable agent")
+              : tr("啟用 agent", "Enable agent");
+      const body = node("div");
+      body.append(
+        node(
+          "p",
+          action === "delete"
+            ? tr(
+                "所有金鑰會立即失效。活動紀錄與輪替歷史會保留。",
+                "All keys will stop working immediately. Activity and rotation history are retained.",
+              )
+            : action === "revoke"
               ? tr(
-                  "所有金鑰（含過渡中的）會暫停使用，可再啟用。",
-                  "All keys, including grace-period keys, will stop working until enabled again.",
+                  "撤銷後，這把金鑰的下一次請求會被拒絕。",
+                  "This key’s next request will be rejected after revocation.",
                 )
-              : tr(
-                  "未撤銷且未過期的金鑰將恢復使用。",
-                  "Unrevoked, unexpired keys will work again.",
-                ),
-      ),
-    );
-    body.append(node("p", key ? key.prefix + "…" : current.name));
-    let check;
-    const confirm = mutationButton(
-      title,
-      () => {
-        if (action === "delete" && check.value !== current.name) return;
-        let path = endpoint,
-          method = "POST";
-        if (action === "delete") method = "DELETE";
-        else if (action === "revoke")
-          path += "/keys/" + encodeURIComponent(key.id) + "/revoke";
-        else path += "/" + action;
-        mutate(path, method, undefined, async (result) => {
-          closeDialog(true);
-          if (action === "delete") {
-            location.assign("/admin/agents");
-            return;
-          }
-          if (action === "revoke")
-            current.keys = current.keys.map((k) =>
-              String(k.id) === String(result.id) ? result : k,
-            );
-          else current = result;
-          refreshDetailSummary();
-          activity.reset();
-          history.reset();
-          message(status, tr("已完成。", "Done."));
-        });
-      },
-      action === "delete" || action === "revoke" ? "danger" : "primary",
-    );
-    if (action === "delete") {
-      const f = field(
-        tr("輸入名稱確認", "Type the name to confirm"),
-        "delete-name",
+              : action === "disable"
+                ? tr(
+                    "所有金鑰（含過渡中的）會暫停使用，可再啟用。",
+                    "All keys, including grace-period keys, will stop working until enabled again.",
+                  )
+                : tr(
+                    "未撤銷且未過期的金鑰將恢復使用。",
+                    "Unrevoked, unexpired keys will work again.",
+                  ),
+        ),
+        node("p", targetKey ? targetKey.prefix + "…" : target.name),
       );
-      check = f.input;
-      body.append(f.wrap);
-      confirm.dataset.invalid = "true";
-      confirm.disabled = true;
-      check.addEventListener("input", () => {
-        confirm.dataset.invalid = String(check.value !== current.name);
-        confirm.disabled = busy || check.value !== current.name;
+      const targetName = target.name;
+      const confirmed = await Jelly.confirm({
+        title,
+        message:body.textContent,
+        confirmLabel:tr("確認", "Confirm"),
+        cancelLabel:tr("取消", "Cancel"),
+        inputLabel:action === "delete" ? tr("輸入「" + targetName + "」確認", "Type \"" + targetName + "\" to confirm") : tr("輸入名稱確認", "Type the name to confirm"),
+        tone:action === "delete" || action === "revoke" ? "danger" : "primary",
+        ...(action === "delete" ? {requireText:targetName} : {}),
       });
+      if (!confirmed || !pageActive || busy) return;
+      let path = targetEndpoint, method = "POST";
+      if (action === "delete") method = "DELETE";
+      else if (action === "revoke") path += "/keys/" + encodeURIComponent(targetKey.id) + "/revoke";
+      else path += "/" + action;
+      await mutate(path, method, undefined, async (result) => {
+        if (action === "delete") {
+          location.assign("/admin/agents");
+          return;
+        }
+        if (action === "revoke")
+          current.keys = current.keys.map((k) =>
+            String(k.id) === String(result.id) ? result : k,
+          );
+        else current = result;
+        refreshDetailSummary();
+        activity.reset();
+        history.reset();
+        message(status, tr("已完成。", "Done."));
+      }, status);
+    } finally {
+      confirmationPending = false;
     }
-    openDialog(title, body, [confirm, cancel()]);
   }
   function rotate() {
     const form = node("form", undefined, "agent-form");

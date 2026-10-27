@@ -88,7 +88,7 @@ Build tools: fontTools $fonttools_version, Brotli $brotli_version
 Build date (UTC): $build_date
 EOF
 
-for destination in "$repo_root/web/admin/assets/fonts"; do
+for destination in "$repo_root/web/admin/assets/fonts" "$repo_root/design/project/fonts"; do
   mkdir -p "$destination"
   cp "$temp_dir/bricolage-grotesque.woff2" "$destination/bricolage-grotesque.woff2"
   cp "$temp_dir/noto-sans-tc.woff2" "$destination/noto-sans-tc.woff2"

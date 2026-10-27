@@ -7,7 +7,12 @@
 | 套件 | 目錄 | 重建腳本 |
 |---|---|---|
 | Noto Sans TC／Bricolage Grotesque 字型 | `web/admin/assets/fonts/` | `scripts/vendor/fonts.sh` |
+| Jelly UI | `web/admin/assets/jelly-ui/` | `scripts/vendor/jelly-ui.sh` |
+| CodeMirror | `web/admin/assets/codemirror/` | `scripts/vendor/codemirror.sh` |
+| KaTeX | `web/vendor/katex/` | `scripts/vendor/katex.sh` |
 | Pele | `web/admin/assets/pele/` | `scripts/vendor/pele.sh` |
+
+逐一核對上游最新版：[Google Fonts](https://github.com/google/fonts)、[Jelly UI](https://github.com/jelly-org/ui)、[CodeMirror](https://github.com/codemirror/dev)、[KaTeX](https://github.com/KaTeX/KaTeX)、[Pele](https://github.com/obsidianmd/pele)。升版前確認各套件官方發布與變更紀錄；Jelly UI 內含的 Fluent System Icons 授權見 [Microsoft 官方 LICENSE](https://github.com/microsoft/fluentui-system-icons/blob/main/LICENSE)。
 
 - 列出 `web/` 下所有自帶的第三方套件：每個套件目錄都有 `VERSION`（目前版本、來源 commit 或 tag、建置日期）與 `LICENSE`。
 - 逐一查上游最新版本（GitHub Releases、npm 或上游網站），以 `scripts/vendor/<套件>.sh` 重新取得或重新建置到最新版，更新 `VERSION`。

@@ -357,7 +357,7 @@
     /* ---------- menus ---------- */
     async function selectMenu(id) {
         if (id === curId) return;
-        if (dirtyCount() > 0 && !(await confirmSheet(T.discardTitle, T.discardBody, T.discard))) return;
+        if (dirtyCount() > 0 && !(await confirmAction(T.discardTitle, T.discardBody, T.discard))) return;
         curId = id;
         loadRows();
         closePanel();
@@ -748,6 +748,7 @@
             ov.appendChild(box);
             const done = (v) => { document.removeEventListener('keydown', onKey, true); ov.remove(); if (prev && document.contains(prev)) prev.focus(); resolve(v); };
             const onKey = (e) => {
+                if (ov.inert) return;
                 if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); }
                 if (e.key === 'Tab') {
                     const els = Array.from(ov.querySelectorAll('button:not([disabled]), input, select, a[href]')).filter(x => !x.hidden);
@@ -763,19 +764,8 @@
             build(box, done);
         });
     }
-    function confirmSheet(title, body, okText) {
-        return sheet((box, done) => {
-            box.classList.add('mn-confirm');
-            box.setAttribute('role', 'alertdialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-labelledby', 'cfT'); box.setAttribute('aria-describedby', 'cfB');
-            box.innerHTML = '<div class="modal-header"><h2 id="cfT"></h2></div><p id="cfB"></p><div class="modal-footer"><button type="button" class="btn btn-danger" data-ok></button><button type="button" class="btn btn-secondary" data-cancel></button></div>';
-            box.querySelector('#cfT').textContent = title;
-            box.querySelector('#cfB').textContent = body;
-            box.querySelector('[data-ok]').textContent = okText;
-            box.querySelector('[data-cancel]').textContent = T.cancel;
-            box.querySelector('[data-ok]').addEventListener('click', () => done(true));
-            box.querySelector('[data-cancel]').addEventListener('click', () => done(null));
-            box.querySelector('[data-cancel]').focus();
-        }).then(v => v === true);
+    function confirmAction(title, body, okText) {
+        return Jelly.confirm({title:title, message:body, confirmLabel:okText, cancelLabel:T.cancel, tone:'danger'});
     }
 
     function openMenuSheet(menu, from) {
@@ -808,7 +798,7 @@
             del.textContent = T.delete; del.hidden = !menu;
             f.querySelector('[data-cancel]').addEventListener('click', () => done(null));
             del.addEventListener('click', async () => {
-                if (!(await confirmSheet(fmt(T.deleteTitle, menu.name), T.deleteBody, T.delete))) return;
+                if (!(await confirmAction(fmt(T.deleteTitle, menu.name), T.deleteBody, T.delete))) return;
                 try {
                     await api('DELETE', '/api/admin/menus/' + menu.id);
                     done(true);

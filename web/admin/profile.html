@@ -599,7 +599,7 @@
             } else if (action === 'revoke' || action === 'restore') {
                 await checked('/api/account/tokens/' + encodeURIComponent(item.id) + '/' + action, jsonOptions('POST'));
             } else if (action === 'delete') {
-                if (!window.confirm(en ? 'Delete this revoked token?' : '確定刪除此已撤銷權杖？')) return;
+                if (!await Jelly.confirm({title:en ? 'Delete this revoked token?' : '確定刪除此已撤銷權杖？', confirmLabel:en ? 'Delete' : '刪除', cancelLabel:en ? 'Cancel' : '取消', tone:'danger'})) return;
                 await checked('/api/account/tokens/' + encodeURIComponent(item.id), { method: 'DELETE' });
             }
             await loadTokens();
@@ -768,7 +768,7 @@
         finally { setBusy(false); }
     });
     $('revokeOtherSessions').addEventListener('click', async () => {
-        if (state.busy || !window.confirm(en ? 'Sign out all other active devices?' : '確定要登出其他所有有效裝置？')) return;
+        if (state.busy || !await Jelly.confirm({title:en ? 'Sign out all other active devices?' : '確定要登出其他所有有效裝置？', confirmLabel:en ? 'Sign out' : '登出', cancelLabel:en ? 'Cancel' : '取消', tone:'danger'})) return;
         setBusy(true);
         try { await checked('/api/account/sessions/revoke-others', jsonOptions('POST')); await loadSessions(); message($('profileStatus'), en ? 'Other sessions were signed out.' : '其他裝置已登出。', 'success'); }
         catch (error) { $('sessionError').textContent = error.message; $('sessionError').hidden = false; }

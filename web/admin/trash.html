@@ -40,18 +40,6 @@
     .tr-del { color: color-mix(in srgb, var(--error) 80%, var(--ink)); }
     .tr-del:hover { color: #fff; background: var(--error); }
 
-    .tr-overlay { position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center; padding: 1rem; background: color-mix(in srgb, var(--ink) 45%, transparent); }
-    .tr-overlay[hidden] { display: none; }
-    .tr-dlg { width: min(27.5rem, 100%); background: var(--surface); border-radius: 0 1.5rem 0 1.5rem; box-shadow: 0 0 0 1px var(--outline), 0 24px 64px rgba(21, 22, 26, .28); padding: 1.5rem; display: flex; flex-direction: column; gap: .9rem; animation: tr-pop .16s ease; }
-    @keyframes tr-pop { from { transform: translateY(.5rem); opacity: 0; } to { transform: none; opacity: 1; } }
-    .tr-dlg .head { display: flex; align-items: center; gap: .7rem; }
-    .tr-dlg .head b { font-size: 1rem; line-height: 1.35; overflow-wrap: anywhere; }
-    .tr-dlg .warn { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; flex: 0 0 auto; background: color-mix(in srgb, var(--error) 14%, var(--surface)); color: color-mix(in srgb, var(--error) 80%, var(--ink)); border-radius: 0 .75rem 0 .75rem; }
-    .tr-dlg .warn .icon { width: 1.25rem; height: 1.25rem; }
-    .tr-dlg p { margin: 0; font-size: .84375rem; line-height: 1.6; color: var(--muted); }
-    .tr-dlg .label b { color: var(--ink); }
-    .tr-dlg .foot { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
-    .tr-dlg .foot .tr-danger[disabled] { opacity: .4; }
 
     [hidden] { display: none !important; }
     .tr-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -118,20 +106,6 @@
     </table>
 </div>
 
-<div class="tr-overlay" id="dlg" hidden>
-    <form class="tr-dlg" id="dlgForm" role="alertdialog" aria-modal="true" aria-labelledby="dlgTitle" aria-describedby="dlgText" autocomplete="off">
-        <div class="head"><span class="warn"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg></span><b id="dlgTitle"></b></div>
-        <p id="dlgText"></p>
-        <div>
-            <label for="dlgInput" class="label">{{.T.trTypeToConfirm}} <b id="dlgWord"></b> {{.T.trTypeToConfirmTail}}</label>
-            <input type="text" id="dlgInput" autocomplete="off" autocapitalize="off" spellcheck="false">
-        </div>
-        <div class="foot">
-            <button class="btn btn-secondary" type="button" id="dlgCancel"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>{{.T.cancel}}</button>
-            <button class="btn tr-danger" type="submit" id="dlgOk" disabled><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>{{.T.trDeleteForever}}</button>
-        </div>
-    </form>
-</div>
 {{end}}
 {{define "scripts"}}
 <script>
@@ -140,7 +114,7 @@
     var T = {
         restoreAll: {{.T.trRestoreAll}}, restoreSelected: {{.T.trRestoreSelected}}, emptyBin: {{.T.trEmptyBin}},
         retentionLead: {{.T.trRetentionLead}}, restore: {{.T.trRestore}}, deleteForever: {{.T.trDeleteForever}},
-        word: {{.T.trConfirmWord}},
+        word: {{.T.trConfirmWord}}, typeToConfirm: {{.T.trTypeToConfirm}}, typeToConfirmTail: {{.T.trTypeToConfirmTail}},
         kinds: { post: {{.T.trKindPost}}, page: {{.T.trKindPage}}, product: {{.T.trKindProduct}}, comment: {{.T.trKindComment}} },
         today: {{.T.trToday}}, tomorrow: {{.T.trTomorrow}}, dueNow: {{.T.trDueNow}}, days: {{.T.trDays}}, justNow: {{.T.trJustNow}}, unknown: {{.T.trUnknownUser}},
         dlgItemTitle: {{.T.trDlgItemTitle}}, dlgItemText: {{.T.trDlgItemText}}, dlgItemTextProduct: {{.T.trDlgItemTextProduct}},
@@ -158,7 +132,7 @@
     var tbody = $('list'), listWrap = $('listWrap');
     var boxes = { loading: $('loadingBox'), error: $('errorBox'), empty: $('emptyBox') };
     var state = { kind: 'all', q: '', items: [], counts: {}, retention: 30, selected: {} };
-    var seq = 0, dlg = null;
+    var seq = 0;
 
     function el(tag, cls, text) {
         var n = document.createElement(tag);
@@ -364,24 +338,12 @@
         });
     }
 
-    function askConfirm(opts) {
-        dlg = { onOk: opts.onOk, opener: document.activeElement };
-        $('dlgTitle').textContent = opts.title;
-        $('dlgText').textContent = opts.text;
-        $('dlgWord').textContent = T.word;
-        $('dlgInput').value = '';
-        $('dlgInput').placeholder = T.word;
-        $('dlgOk').disabled = true;
-        $('dlg').hidden = false;
-        $('dlgInput').focus();
+    async function askConfirm(opts) {
+        const instruction = T.typeToConfirm + ' ' + T.word + ' ' + T.typeToConfirmTail;
+        if (!await Jelly.confirm({title:opts.title, message:opts.text + ' ' + instruction, confirmLabel:T.deleteForever, cancelLabel:document.documentElement.lang === 'en' ? 'Cancel' : '取消', tone:'danger', requireText:T.word})) return;
+        try { await opts.onOk(); } catch (err) { fail(err); }
     }
-    function closeConfirm() {
-        if (!dlg) return;
-        $('dlg').hidden = true;
-        var op = dlg.opener;
-        dlg = null;
-        if (op && op.focus && document.contains(op)) op.focus();
-    }
+
     function deleteOne(it) {
         askConfirm({
             title: fmt(T.dlgItemTitle, { title: it.title }),
@@ -435,29 +397,6 @@
     });
     $('restoreAll').addEventListener('click', restoreMany);
     $('emptyBin').addEventListener('click', emptyAll);
-
-    $('dlgInput').addEventListener('input', function (e) { $('dlgOk').disabled = e.target.value.trim() !== T.word; });
-    $('dlgCancel').addEventListener('click', closeConfirm);
-    $('dlg').addEventListener('mousedown', function (e) { if (e.target === $('dlg')) closeConfirm(); });
-    $('dlgForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        if (!dlg || $('dlgInput').value.trim() !== T.word) return;
-        var job = dlg.onOk;
-        var btn = $('dlgOk');
-        btn.disabled = true;
-        job().then(closeConfirm, function (err) { fail(err); closeConfirm(); });
-    });
-    $('dlg').addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeConfirm(); return; }
-        if (e.key === 'Tab') {
-            var f = Array.prototype.slice.call($('dlg').querySelectorAll('button, input')).filter(function (x) { return !x.disabled; });
-            if (!f.length) return;
-            var i = f.indexOf(document.activeElement);
-            var next = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
-            e.preventDefault();
-            f[next].focus();
-        }
-    });
 
     $('restoreAllLabel').textContent = fmt(T.restoreAll, { n: 0 });
     $('emptyBinLabel').textContent = fmt(T.emptyBin, { n: 0 });

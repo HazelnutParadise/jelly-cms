@@ -31,12 +31,9 @@
         <div class="settings-group-head">
             <div>
                 <h2>Google OAuth</h2>
-                <p>Let administrators sign in with a Google account.</p>
+                <p>{{.T.googleOAuthHint}}</p>
             </div>
-            <label class="toggle-switch">
-                <input type="checkbox" id="googleEnabled" onchange="toggleGoogle()">
-                <span class="slider"></span>
-            </label>
+            <jelly-switch id="googleEnabled" name="google_enabled" label="Google OAuth" onchange="toggleGoogle()"></jelly-switch>
         </div>
         <div id="googleCard">
             <div class="setting-row">
@@ -48,7 +45,7 @@
                 <div class="control"><input type="text" id="googleClientSecret" required></div>
             </div>
             <div class="setting-row actions">
-                <button type="submit" class="btn btn-primary btn-sm" id="googleSaveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save Google OAuth Settings</button>
+                <button type="submit" class="btn btn-primary btn-sm" id="googleSaveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>{{.T.saveGoogleOAuth}}</button>
             </div>
         </div>
     </form>
@@ -57,12 +54,9 @@
         <div class="settings-group-head">
             <div>
                 <h2>GitHub OAuth</h2>
-                <p>Let administrators sign in with a GitHub account.</p>
+                <p>{{.T.githubOAuthHint}}</p>
             </div>
-            <label class="toggle-switch">
-                <input type="checkbox" id="githubEnabled" onchange="toggleGitHub()">
-                <span class="slider"></span>
-            </label>
+            <jelly-switch id="githubEnabled" name="github_enabled" label="GitHub OAuth" onchange="toggleGitHub()"></jelly-switch>
         </div>
         <div id="githubCard">
             <div class="setting-row">
@@ -74,7 +68,7 @@
                 <div class="control"><input type="text" id="githubClientSecret" required></div>
             </div>
             <div class="setting-row actions">
-                <button type="submit" class="btn btn-primary btn-sm" id="githubSaveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Save GitHub OAuth Settings</button>
+                <button type="submit" class="btn btn-primary btn-sm" id="githubSaveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>{{.T.saveGitHubOAuth}}</button>
             </div>
         </div>
     </form>
@@ -168,33 +162,33 @@
     <form class="settings-group gateway-card" novalidate data-shop-form data-gw="ecpay">
         <div class="settings-group-head">
             <div><h2 data-t="ecpayTitle"></h2><p data-t="ecpayHint"></p></div>
-            <label class="toggle-switch"><input type="checkbox" data-key="payment_ecpay_enabled" data-bool id="ecpayOn"><span class="slider"></span></label>
+            <jelly-switch id="ecpayEnabled" name="ecpay_enabled" label="{{if eq .Lang "en"}}ECPay{{else}}綠界 ECPay{{end}}" data-key="payment_ecpay_enabled" data-bool></jelly-switch>
         </div>
         <div class="setting-row"><div><label for="ecpayMid" data-t="merchantId"></label></div><div class="control" data-field><input type="text" id="ecpayMid" data-key="payment_ecpay_merchant_id" maxlength="20" spellcheck="false"></div></div>
         <div class="setting-row"><div><label for="ecpayKey">Hash Key</label><small class="hint" data-t="secretHint"></small></div><div class="control" data-field data-secret="payment_ecpay_hash_key" data-for="ecpayKey"></div></div>
         <div class="setting-row"><div><label for="ecpayIv">Hash IV</label></div><div class="control" data-field data-secret="payment_ecpay_hash_iv" data-for="ecpayIv"></div></div>
         <div class="setting-row"><div><span class="label" id="lEcpayEnv" data-t="env"></span><small class="hint" data-t="envHint"></small></div>
-            <div class="control"><span class="segmented" role="radiogroup" aria-labelledby="lEcpayEnv"><label><input type="radio" name="payment_ecpay_test_mode" value="true" data-key="payment_ecpay_test_mode"><span data-t="envTest"></span></label><label><input type="radio" name="payment_ecpay_test_mode" value="false" data-key="payment_ecpay_test_mode"><span data-t="envLive"></span></label></span></div></div>
+            <div class="control"><jelly-segmented id="ecpayTestMode" name="ecpay_test_mode" data-key="payment_ecpay_test_mode" label="環境" value="test"><jelly-segment value="test" data-t="envTest">測試</jelly-segment><jelly-segment value="live" data-t="envLive">正式</jelly-segment></jelly-segmented></div></div>
         <div class="setting-row"><div><span class="label" data-t="notifyUrl"></span><small class="hint" data-t="notifyHintEcpay"></small></div><div class="control sa-codebox"><code data-notify="ecpay"></code><button type="button" class="btn btn-secondary btn-sm" data-copy-notify="ecpay"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span data-t="copy"></span></button></div></div>
         <div class="setting-row"><div><span class="label" data-t="testConn"></span><small class="sa-test-result" data-test-result="ecpay" role="status" aria-live="polite"></small></div><div class="control sa-codebox"><span data-test-badge="ecpay"></span><button type="button" class="btn btn-secondary btn-sm" data-test="ecpay"><svg class="icon" aria-hidden="true"><use href="#i-plug"/></svg><span data-t="testConn"></span></button></div></div>
     </form>
     <form class="settings-group gateway-card" novalidate data-shop-form data-gw="newebpay">
         <div class="settings-group-head">
             <div><h2 data-t="newebpayTitle"></h2><p data-t="newebpayHint"></p></div>
-            <label class="toggle-switch"><input type="checkbox" data-key="payment_newebpay_enabled" data-bool id="newebpayOn"><span class="slider"></span></label>
+            <jelly-switch id="newebpayEnabled" name="newebpay_enabled" label="{{if eq .Lang "en"}}NewebPay{{else}}藍新 NeWebPay{{end}}" data-key="payment_newebpay_enabled" data-bool></jelly-switch>
         </div>
         <div class="setting-row"><div><label for="newebpayMid" data-t="merchantId"></label></div><div class="control" data-field><input type="text" id="newebpayMid" data-key="payment_newebpay_merchant_id" maxlength="20" spellcheck="false"></div></div>
         <div class="setting-row"><div><label for="newebpayKey">Hash Key</label><small class="hint" data-t="secretHint"></small></div><div class="control" data-field data-secret="payment_newebpay_hash_key" data-for="newebpayKey"></div></div>
         <div class="setting-row"><div><label for="newebpayIv">Hash IV</label></div><div class="control" data-field data-secret="payment_newebpay_hash_iv" data-for="newebpayIv"></div></div>
-        <div class="setting-row"><div><span class="label" id="lNewebEnv" data-t="env"></span></div>
-            <div class="control"><span class="segmented" role="radiogroup" aria-labelledby="lNewebEnv"><label><input type="radio" name="payment_newebpay_test_mode" value="true" data-key="payment_newebpay_test_mode"><span data-t="envTest"></span></label><label><input type="radio" name="payment_newebpay_test_mode" value="false" data-key="payment_newebpay_test_mode"><span data-t="envLive"></span></label></span></div></div>
+        <div class="setting-row"><div><span class="label" id="lNewebEnv" data-t="env"></span><small class="hint" data-t="envHint"></small></div>
+            <div class="control"><jelly-segmented id="newebpayTestMode" name="newebpay_test_mode" data-key="payment_newebpay_test_mode" label="環境" value="test"><jelly-segment value="test" data-t="envTest">測試</jelly-segment><jelly-segment value="live" data-t="envLive">正式</jelly-segment></jelly-segmented></div></div>
         <div class="setting-row"><div><span class="label" data-t="notifyUrl"></span></div><div class="control sa-codebox"><code data-notify="newebpay"></code><button type="button" class="btn btn-secondary btn-sm" data-copy-notify="newebpay"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span data-t="copy"></span></button></div></div>
         <div class="setting-row"><div><span class="label" data-t="testConn"></span><small class="sa-test-result" data-test-result="newebpay" role="status" aria-live="polite"></small></div><div class="control sa-codebox"><span data-test-badge="newebpay"></span><button type="button" class="btn btn-secondary btn-sm" data-test="newebpay"><svg class="icon" aria-hidden="true"><use href="#i-plug"/></svg><span data-t="testConn"></span></button></div></div>
     </form>
     <form class="settings-group" novalidate data-shop-form>
         <div class="settings-group-head">
             <div><h2 data-t="transferTitle"></h2><p data-t="transferHint"></p></div>
-            <label class="toggle-switch"><input type="checkbox" id="transferOn"><span class="slider"></span></label>
+            <jelly-switch id="transferOn" label="{{if eq .Lang "en"}}Bank transfer{{else}}銀行轉帳{{end}}"></jelly-switch>
         </div>
         <div class="setting-row"><div><label for="sTransferNote" data-t="transferNote"></label><small class="hint" data-t="transferNoteHint"></small></div><div class="control wide"><textarea id="sTransferNote" data-key="shop_manual_transfer_note" rows="4"></textarea></div></div>
         <div class="setting-row"><div><span class="label" data-t="holdTime"></span><small class="hint" data-t="holdTimeHint"></small></div><div class="control"><span class="badge" id="transferHold"></span></div></div>
@@ -208,7 +202,7 @@
     <form class="settings-group" novalidate data-shop-form>
         <div class="settings-group-head">
             <div><h2 data-t="sandboxTitle"></h2><p data-t="sandboxHint"></p></div>
-            <label class="toggle-switch"><input type="checkbox" data-key="payment_sandbox_enabled" data-bool id="sandboxOn"><span class="slider"></span></label>
+            <jelly-switch id="sandboxOn" name="sandbox_enabled" label="{{if eq .Lang "en"}}Sandbox{{else}}沙盒{{end}}" data-key="payment_sandbox_enabled" data-bool></jelly-switch>
         </div>
     </form>
     <p class="sa-note"><svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg><span data-t="secretNote"></span></p>
@@ -217,6 +211,12 @@
 {{define "scripts"}}
 <script type="application/json" id="systemI18n">{{json .T}}</script>
 <script src="/admin/assets/system-admin.js" defer></script>
+<script>
+    const isOn = id => document.getElementById(id).hasAttribute('checked');
+    const setOn = (id, value) => document.getElementById(id).toggleAttribute('checked', !!value);
+    const isTestMode = id => document.getElementById(id).getAttribute('value') === 'test';
+    const setTestMode = (id, value) => document.getElementById(id).setAttribute('value', value ? 'test' : 'live');
+</script>
 {{if eq .ActiveTab "auth"}}
 <script>
     async function loadOAuthSettings() {
@@ -233,7 +233,7 @@
             document.getElementById('googleClientID').value = clientID;
             document.getElementById('googleClientSecret').value = clientSecret;
             
-            document.getElementById('googleEnabled').checked = enabled;
+            setOn('googleEnabled', enabled);
             toggleGoogle();
             checkGoogleForm();
         }
@@ -248,7 +248,7 @@
             document.getElementById('githubClientID').value = clientID;
             document.getElementById('githubClientSecret').value = clientSecret;
             
-            document.getElementById('githubEnabled').checked = enabled;
+            setOn('githubEnabled', enabled);
             toggleGitHub();
             checkGitHubForm();
         }
@@ -263,7 +263,7 @@
     
 
     function toggleGoogle() {
-        const enabled = document.getElementById('googleEnabled').checked;
+        const enabled = isOn('googleEnabled');
         const form = document.getElementById('googleForm');
         const card = document.getElementById('googleCard');
         form.querySelectorAll('input[type="text"]').forEach(input => {
@@ -278,7 +278,7 @@
     }
 
     function toggleGitHub() {
-        const enabled = document.getElementById('githubEnabled').checked;
+        const enabled = isOn('githubEnabled');
         const form = document.getElementById('githubForm');
         const card = document.getElementById('githubCard');
         form.querySelectorAll('input[type="text"]').forEach(input => {
@@ -296,7 +296,7 @@
         const clientID = document.getElementById('googleClientID').value.trim();
         const clientSecret = document.getElementById('googleClientSecret').value.trim();
         const btn = document.getElementById('googleSaveBtn');
-        const enabled = document.getElementById('googleEnabled').checked;
+        const enabled = isOn('googleEnabled');
         
         const hasChanges = enabled !== originalValues.google.enabled ||
                           clientID !== originalValues.google.clientID ||
@@ -310,7 +310,7 @@
         const clientID = document.getElementById('githubClientID').value.trim();
         const clientSecret = document.getElementById('githubClientSecret').value.trim();
         const btn = document.getElementById('githubSaveBtn');
-        const enabled = document.getElementById('githubEnabled').checked;
+        const enabled = isOn('githubEnabled');
         
         const hasChanges = enabled !== originalValues.github.enabled ||
                           clientID !== originalValues.github.clientID ||
@@ -324,7 +324,7 @@
     document.getElementById('googleForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const data = {
-            enabled: document.getElementById('googleEnabled').checked,
+            enabled: isOn('googleEnabled'),
             client_id: document.getElementById('googleClientID').value.trim(),
             client_secret: document.getElementById('googleClientSecret').value.trim()
         };
@@ -357,7 +357,7 @@
     document.getElementById('githubForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const data = {
-            enabled: document.getElementById('githubEnabled').checked,
+            enabled: isOn('githubEnabled'),
             client_id: document.getElementById('githubClientID').value.trim(),
             client_secret: document.getElementById('githubClientSecret').value.trim()
         };
@@ -464,13 +464,9 @@
     let tests = {};
 
     document.querySelectorAll('#shopSettings [data-t], #shopTab [data-t], #shippingTab [data-t], #paymentTab [data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
+    ['ecpayTestMode', 'newebpayTestMode'].forEach(id => $(id).setAttribute('label', t('env')));
     document.querySelectorAll('[data-notify]').forEach(el => { el.textContent = location.origin + '/api/payment/' + el.dataset.notify + '/notify'; });
     document.querySelectorAll('[data-copy-notify]').forEach(b => b.addEventListener('click', () => SA.copy(location.origin + '/api/payment/' + b.dataset.copyNotify + '/notify')));
-    document.querySelectorAll('#paymentTab .settings-group-head .toggle-switch input').forEach(i => {
-        const h = i.closest('.settings-group-head').querySelector('h2');
-        i.setAttribute('aria-label', t('enable', h ? h.textContent : ''));
-    });
-
     /* ---------- tabs ---------- */
     const shopTabActive = () => TABS.some(n => $(n + 'Tab').classList.contains('active'));
     function syncBar() { $('shopSettings').hidden = !shopTabActive(); $('shopSaveBar').hidden = !orig; }
@@ -507,13 +503,17 @@
 
     /* ---------- read / write simple keys ---------- */
     function readKey(el) {
+        if (el.tagName === 'JELLY-SWITCH') return el.hasAttribute('checked') ? 'true' : 'false';
+        if (el.tagName === 'JELLY-SEGMENTED') return el.getAttribute('value') === 'test' ? 'true' : 'false';
         if (el.type === 'checkbox') return el.checked ? 'true' : 'false';
         if (el.type === 'radio') { const c = document.querySelector('input[name="' + el.name + '"]:checked'); return c ? c.value : ''; }
         if (el.hasAttribute('data-money')) { const a = SA.parseAmount(el.value); return a.ok ? String(a.minor) : el.value; }
         return el.tagName === 'TEXTAREA' ? el.value : el.value.trim();
     }
     function writeKey(el, v) {
-        if (el.type === 'checkbox') el.checked = v === 'true';
+        if (el.tagName === 'JELLY-SWITCH') el.toggleAttribute('checked', v === 'true');
+        else if (el.tagName === 'JELLY-SEGMENTED') setTestMode(el.id, v !== 'false');
+        else if (el.type === 'checkbox') el.checked = v === 'true';
         else if (el.type === 'radio') el.checked = el.value === v;
         else if (el.hasAttribute('data-money')) el.value = v && v !== '0' ? SA.toInput(+v) : '';
         else el.value = v;
@@ -524,7 +524,7 @@
         out.shop_shipping_methods = JSON.stringify(ship.map(r => ({ id: r.id, label: r.label, fee: r.fee, free_over: r.free_over || 0, eta_days: r.eta_days, requires_address: !!r.requires_address, enabled: !!r.enabled })));
         const map = {};
         METHODS.forEach(m => { if (pm[m]) map[m] = pm[m]; });
-        if ($('transferOn').checked) map.bank_transfer = 'manual_transfer';
+        if (isOn('transferOn')) map.bank_transfer = 'manual_transfer';
         out.payment_methods = JSON.stringify(map);
         return out;
     }
@@ -540,13 +540,30 @@
         });
         return diff;
     }
+    function serializeShopSettings(diff) {
+        const payload = Object.assign({}, diff);
+        ['payment_ecpay_enabled', 'payment_ecpay_test_mode', 'payment_newebpay_enabled', 'payment_newebpay_test_mode', 'payment_sandbox_enabled'].forEach(key => {
+            if (!Object.prototype.hasOwnProperty.call(payload, key)) return;
+            if (payload[key] !== 'true' && payload[key] !== 'false') throw new Error(t('fixErrors'));
+            payload[key] = payload[key] === 'true';
+        });
+        ['shop_shipping_methods', 'payment_methods'].forEach(key => {
+            if (!Object.prototype.hasOwnProperty.call(payload, key)) return;
+            const value = JSON.parse(payload[key]);
+            if (key === 'shop_shipping_methods' ? !Array.isArray(value) : !value || typeof value !== 'object' || Array.isArray(value)) {
+                throw new Error(t('fixErrors'));
+            }
+            payload[key] = value;
+        });
+        return payload;
+    }
     function syncDirty() {
         const n = Object.keys(changes()).length;
         $('shopDirty').hidden = !n;
         $('shopDirty').textContent = t('unsavedN', n);
         $('shopSave').disabled = shopOperationPending || $('shopSave').dataset.busy === '1' || !n;
         $('shopRevert').disabled = shopOperationPending || !n;
-        document.querySelectorAll('[data-gw]').forEach(f => { const on = f.querySelector('[data-bool]'); f.classList.toggle('disabled', !on.checked); });
+        document.querySelectorAll('[data-gw]').forEach(f => { const on = f.querySelector('[data-bool]'); f.classList.toggle('disabled', !on.hasAttribute('checked')); });
         const h = $('sHoldOffline').value.trim();
         $('transferHold').textContent = (h || '72') + ' ' + t('hours');
     }
@@ -599,8 +616,8 @@
                 '<td data-l="' + esc(t('shMethod')) + '" data-field><input type="text" id="shipLabel' + i + '" data-k="label" value="' + esc(r.label) + '" maxlength="40" aria-label="' + esc(t('methodName')) + '"' + dis + '>' + (soon ? ' <span class="badge">' + esc(t('comingSoon')) + '</span>' : '') + '</td>' +
                 '<td data-l="' + esc(t('shFee')) + '" data-field><input type="text" id="shipFee' + i + '" data-k="fee" value="' + esc(SA.toInput(r.fee)) + '" inputmode="decimal" class="sa-num" aria-label="' + esc(t('shFee') + ' ' + r.label) + '"' + dis + '></td>' +
                 '<td data-l="' + esc(t('shEta')) + '" data-field><input type="text" id="shipEta' + i + '" data-k="eta_days" value="' + esc(String(r.eta_days == null ? '' : r.eta_days)) + '" inputmode="numeric" class="sa-num" style="width:4rem" aria-label="' + esc(t('shEta') + ' ' + r.label) + '"' + dis + '></td>' +
-                '<td data-l="' + esc(t('shAddress')) + '"><input type="checkbox" data-k="requires_address"' + (r.requires_address ? ' checked' : '') + ' aria-label="' + esc(t('shAddress') + ' ' + r.label) + '"' + dis + '></td>' +
-                '<td data-l="' + esc(t('shEnabled')) + '"><label class="toggle-switch"><input type="checkbox" data-k="enabled"' + (r.enabled && !soon ? ' checked' : '') + ' aria-label="' + esc(t('enable', r.label)) + '"' + dis + '><span class="slider"></span></label></td>' +
+                '<td data-l="' + esc(t('shAddress')) + '"><jelly-switch data-k="requires_address" label="' + esc(t('shAddress') + ' ' + r.label) + '"' + (r.requires_address ? ' checked' : '') + dis + '></jelly-switch></td>' +
+                '<td data-l="' + esc(t('shEnabled')) + '"><jelly-switch data-k="enabled" label="' + esc(t('enable', r.label)) + '"' + (r.enabled && !soon ? ' checked' : '') + dis + '></jelly-switch></td>' +
                 '<td class="actions">' + (builtIn ? '' : '<button type="button" class="btn btn-text btn-sm btn-icon" data-rm="' + i + '" aria-label="' + esc(t('removeMethod', r.label)) + '" title="' + esc(t('removeMethod', r.label)) + '">' + SA.svg('i-trash') + '</button>') + '</td></tr>';
         }).join('');
     }
@@ -611,9 +628,14 @@
         if (k === 'label') r.label = e.target.value.trim();
         else if (k === 'fee') { const a = SA.parseAmount(e.target.value); r.fee = a.ok ? a.minor : NaN; }
         else if (k === 'eta_days') { const n = SA.parseInt(e.target.value); r.eta_days = n.ok ? n.value : NaN; }
-        else r[k] = e.target.checked;
         SA.fieldError(e.target, '');
-        if (k === 'enabled') tr.classList.toggle('off', !e.target.checked);
+        syncDirty();
+    });
+    $('shipRows').addEventListener('change', e => {
+        const tr = e.target.closest('tr[data-i]'), k = e.target.dataset.k;
+        if (!tr || (k !== 'enabled' && k !== 'requires_address')) return;
+        ship[+tr.dataset.i][k] = e.target.hasAttribute('checked');
+        if (k === 'enabled') tr.classList.toggle('off', !e.target.hasAttribute('checked'));
         syncDirty();
     });
     $('shipRows').addEventListener('click', (e) => {
@@ -682,7 +704,7 @@
         const map = parseJSON(orig.payment_methods, {});
         pm = {};
         METHODS.forEach(m => { pm[m] = map && PROVIDERS.includes(map[m]) ? map[m] : ''; });
-        $('transferOn').checked = !!(map && map.bank_transfer === 'manual_transfer');
+        setOn('transferOn', !!(map && map.bank_transfer === 'manual_transfer'));
         renderShip(); renderMethods();
         base = collect();
         syncDirty();
@@ -704,7 +726,7 @@
             if (!Number.isFinite(r.eta_days)) fail($('shipEta' + i), t('invalidInt'));
         });
         ['ecpay', 'newebpay'].forEach(gw => {
-            if (!$(gw + 'On').checked) return;
+            if (!$(gw + 'Enabled').hasAttribute('checked')) return;
             const mid = $(gw + 'Mid');
             const keyOk = secretPresent('payment_' + gw + '_hash_key'), ivOk = secretPresent('payment_' + gw + '_hash_iv');
             if (!mid.value.trim() || !keyOk || !ivOk) {
@@ -734,7 +756,7 @@
                 if (!Object.keys(diff).length) return;
                 let r;
                 try {
-                    r = await SA.api('PUT', '/api/admin/shop/settings', diff);
+                    r = await SA.api('PUT', '/api/admin/shop/settings', serializeShopSettings(diff));
                 } catch (err) {
                     const fields = SA.fieldErrors(err);
                     Object.keys(fields).forEach(k => {

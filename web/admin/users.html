@@ -632,7 +632,7 @@
     }
     async function submitBulk(action) {
         if (!selected.size) return;
-        if (!window.confirm(text.confirmBulk)) return;
+        if (!await Jelly.confirm({title:text.confirmBulk, confirmLabel:en ? 'Continue' : '繼續', cancelLabel:en ? 'Cancel' : '取消', tone:'danger'})) return;
         const body = { ids: Array.from(selected).map((id) => Number(id)), action };
         if (action === 'set_role') {
             const role = $('bulkRole').value;

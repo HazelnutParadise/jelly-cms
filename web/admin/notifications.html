@@ -279,7 +279,7 @@
             const action = moderation.dataset.commentAction;
             const postID = moderation.dataset.postId;
             if (action === 'approve' && !/^[1-9]\d*$/.test(postID || '')) return;
-            if (action === 'spam' && !window.confirm(en ? 'Mark this comment as spam?' : '確定將此留言標為垃圾留言？')) return;
+            if (action === 'spam' && !await Jelly.confirm({title:en ? 'Mark this comment as spam?' : '確定將此留言標為垃圾留言？', confirmLabel:en ? 'Mark as spam' : '標記垃圾留言', cancelLabel:en ? 'Cancel' : '取消', tone:'danger'})) return;
             state.busy = true; root.setAttribute('aria-busy', 'true'); moderation.disabled = true;
             let updated = 0;
             let moderationError = null;

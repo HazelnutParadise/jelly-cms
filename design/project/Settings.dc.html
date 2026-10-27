@@ -8,9 +8,7 @@
 <body>
 <x-dc>
 <helmet>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./fonts.css">
 <style>
 body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;font-size:14px;-webkit-font-smoothing:antialiased}
 a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
@@ -51,6 +49,8 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 textarea.ul{resize:vertical;line-height:1.6}
 .ro{background:#F5F5F7;padding-left:8px;padding-right:8px;font-family:ui-monospace,Menlo,monospace;letter-spacing:.04em}
 .chip.nd:before{display:none}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span{min-height:30px;padding:0 14px;border-radius:999px}.seg.j span.on{box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
 </style>
 </helmet>
 <div style="width: 100%; min-height: 100vh; display: flex; flex-wrap: wrap; background: #fff">
@@ -91,7 +91,7 @@ textarea.ul{resize:vertical;line-height:1.6}
             <div class="srow"><div><label for="e1">商店代號 (Merchant ID)</label></div><div class="c"><input id="e1" class="ul mono" type="text" value="2000132"></div></div>
             <div class="srow"><div><label for="e2">Hash Key</label><div class="h">只顯示最後四碼，按右邊的筆重新輸入即覆蓋。</div></div><div class="c"><input id="e2" class="ul ro" type="text" value="****1234" readonly><button class="btn t s i" type="button" aria-label="重新輸入"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/></svg></button></div></div>
             <div class="srow"><div><label for="e3">Hash IV</label></div><div class="c"><input id="e3" class="ul ro" type="text" value="****5678" readonly><button class="btn t s i" type="button" aria-label="重新輸入"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/></svg></button></div></div>
-            <div class="srow"><div><label>環境</label><div class="h">測試環境不會真的收款。</div></div><div class="c"><div class="seg"><span class="on">測試</span><span>正式</span></div></div></div>
+            <div class="srow"><div><label>環境</label><div class="h">測試環境不會真的收款。</div></div><div class="c"><div class="seg j"><span class="on">測試</span><span>正式</span></div></div></div>
             <div class="srow"><div><label>通知網址 (Notify URL)</label><div class="h">貼到綠界後台的「付款結果通知網址」。</div></div><div class="c"><span class="code">/api/payment/ecpay/notify</span><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 15V4h11"/></svg>複製</button></div></div>
             <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label>連線測試</label><div class="h">上次：10/21 14:02 成功</div></div><div class="c"><span class="chip ok">憑證有效</span><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>連線測試</button></div></div>
           </div>
@@ -100,6 +100,7 @@ textarea.ul{resize:vertical;line-height:1.6}
             <div class="srow" style="opacity: .5"><div><label for="n1">商店代號 (Merchant ID)</label></div><div class="c"><input id="n1" class="ul" type="text" placeholder="MS1234567"></div></div>
             <div class="srow" style="opacity: .5"><div><label for="n2">Hash Key</label></div><div class="c"><input id="n2" class="ul" type="password"></div></div>
             <div class="srow" style="opacity: .5"><div><label for="n3">Hash IV</label></div><div class="c"><input id="n3" class="ul" type="password"></div></div>
+          <div class="srow" style="opacity: .5; border-bottom: 1px solid #EEEFF2"><div><label>環境</label><div class="h">測試環境不會真的收款。</div></div><div class="c"><div class="seg j" role="radiogroup" aria-label="環境"><span class="on" role="radio" aria-checked="true">測試</span><span role="radio" aria-checked="false">正式</span></div></div></div>
             <div class="srow" style="border-bottom: 1px solid #EEEFF2"><div><label>通知網址 (Notify URL)</label></div><div class="c"><span class="code" style="opacity:.6">/api/payment/newebpay/notify</span><button class="btn t s" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 15V4h11"/></svg>複製</button><button class="btn t s" type="button" disabled style="opacity: .5"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>連線測試</button></div></div>
           </div>
           <div>

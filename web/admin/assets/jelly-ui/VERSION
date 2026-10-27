@@ -1,0 +1,9 @@
+Version: 1.1.0
+Source: https://github.com/jelly-org/ui
+Commit: 1b775385b17884ecb48374615c96ec6ee1b58d21
+Build date (UTC): 2026-10-27
+Build: npm ci && npm run build; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+Node: v24.18.0
+npm: 11.16.0
+jelly.js SHA-256: 9c41e06d05398627b5ad7669a7b9f2cb6ceed956f49a654826b57a2d571994e5
+Source map comment: stripped; source map is not shipped

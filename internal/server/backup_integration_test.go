@@ -19,6 +19,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/backup"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
+	"github.com/HazelnutParadise/jelly-cms/internal/settings"
 	"github.com/labstack/echo/v4"
 )
 
@@ -326,6 +327,11 @@ func TestBackupScheduleAndPrune(t *testing.T) {
 	oldest := bkpSeed(t, h, "scheduled", now.Add(-48*time.Hour), []byte("day-2"))
 	middle := bkpSeed(t, h, "scheduled", now.Add(-24*time.Hour), []byte("day-1"))
 	third := bkpSeed(t, h, "scheduled", now, []byte("day-0"))
+
+	// Disable weekly retention so this case isolates the daily limit across ISO week boundaries.
+	if err := settings.Set(context.Background(), 0, map[string]string{"backup_keep_weekly_months": "0"}); err != nil {
+		t.Fatalf("set backup_keep_weekly_months: %v", err)
+	}
 
 	if err := backup.Prune(context.Background()); err != nil {
 		t.Fatalf("backup.Prune: %v", err)

@@ -501,10 +501,10 @@
     var DONE = { approve: 'doneApprove', unapprove: 'doneRestore', spam: 'doneSpam', trash: 'doneTrash', restore: 'doneRestore', delete: 'doneDelete' };
     function fail(err) { toast(err.message || T.failed, { kind: 'error' }); }
 
-    function act(action, it) {
-        if (!it) return Promise.resolve();
+    async function act(action, it) {
+        if (!it) return;
         if (action === 'delete') {
-            if (!window.confirm(T.confirmDelete)) return Promise.resolve();
+            if (!await Jelly.confirm({title:T.confirmDelete, confirmLabel:T.doneDelete, cancelLabel:document.documentElement.lang === 'en' ? 'Cancel' : '取消', tone:'danger'})) return;
             return api('DELETE', '/api/admin/comments/' + it.id).then(function () {
                 toast(T.doneDelete, { kind: 'success' });
                 return load({ quiet: true });
@@ -519,10 +519,10 @@
         }).catch(fail);
     }
 
-    function bulk(action) {
+    async function bulk(action) {
         var ids = selectedIds();
         if (!ids.length) return;
-        if (action === 'delete' && !window.confirm(fmt(T.confirmBulkDelete, { n: ids.length }))) return;
+        if (action === 'delete' && !await Jelly.confirm({title:fmt(T.confirmBulkDelete, { n: ids.length }), confirmLabel:document.documentElement.lang === 'en' ? 'Delete' : '刪除', cancelLabel:document.documentElement.lang === 'en' ? 'Cancel' : '取消', tone:'danger'})) return;
         api('POST', '/api/admin/comments/bulk', { ids: ids, action: action }).then(function (res) {
             toast(fmt(T.bulkDone, { n: res.updated != null ? res.updated : ids.length }), { kind: 'success' });
             return load({ quiet: true });

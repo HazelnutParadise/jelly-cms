@@ -617,32 +617,8 @@
     $('sortBtn').addEventListener('click', () => { sortMode = !sortMode; render(); });
 
     /* ---------- delete with confirm ---------- */
-    function confirmSheet(title, body, okText) {
-        return new Promise((resolve) => {
-            const prev = document.activeElement;
-            const ov = document.createElement('div');
-            ov.className = 'modal-overlay open';
-            ov.innerHTML = '<div class="modal-content tx-confirm" role="alertdialog" aria-modal="true" aria-labelledby="cfT" aria-describedby="cfB"><div class="modal-header"><h2 id="cfT"></h2></div><p id="cfB"></p><div class="modal-footer"><button type="button" class="btn btn-danger" data-ok></button><button type="button" class="btn btn-secondary" data-cancel></button></div></div>';
-            ov.querySelector('#cfT').textContent = title;
-            ov.querySelector('#cfB').textContent = body;
-            ov.querySelector('[data-ok]').textContent = okText;
-            ov.querySelector('[data-cancel]').textContent = T.cancel;
-            const done = (v) => { document.removeEventListener('keydown', onKey, true); ov.remove(); if (prev && document.contains(prev)) prev.focus(); resolve(v); };
-            const onKey = (e) => {
-                if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); }
-                if (e.key === 'Tab') {
-                    const els = ov.querySelectorAll('button'); const first = els[0], last = els[els.length - 1];
-                    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-                    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-                }
-            };
-            document.addEventListener('keydown', onKey, true);
-            ov.addEventListener('click', (e) => { if (e.target === ov) done(false); });
-            ov.querySelector('[data-ok]').addEventListener('click', () => done(true));
-            ov.querySelector('[data-cancel]').addEventListener('click', () => done(false));
-            document.body.appendChild(ov);
-            ov.querySelector('[data-cancel]').focus();
-        });
+    function confirmAction(title, body, okText) {
+        return Jelly.confirm({title:title, message:body, confirmLabel:okText, cancelLabel:T.cancel, tone:'danger'});
     }
 
     async function askDelete(kind, id, from) {
@@ -650,7 +626,7 @@
         const isP = kind === 'pcat';
         const item = listOf(kind).find(x => x.id === id);
         if (!item) return;
-        const ok = await confirmSheet(
+        const ok = await confirmAction(
             fmt(isP ? TP.deleteTitle : isCat ? T.deleteCategoryTitle : T.deleteTagTitle, item.name),
             isP ? TP.deleteBody : isCat ? T.deleteCategoryBody : fmt(T.deleteTagBody, item.post_count || 0),
             T.delete);

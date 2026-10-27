@@ -70,7 +70,7 @@
         let input;
         if (spec.type === 'select') input = '<select' + attrs + '>' + spec.options.map(option => { const pair = Array.isArray(option) ? option : [option, option]; return '<option value="' + esc(pair[0]) + '"' + (String(value) === String(pair[0]) ? ' selected' : '') + '>' + esc(t(pair[1])) + '</option>'; }).join('') + '</select>';
         else if (spec.type === 'multiselect') input = '<select multiple' + attrs + '>' + spec.options.map(pair => '<option value="' + esc(pair[0]) + '"' + ((value || []).includes(pair[0]) ? ' selected' : '') + '>' + esc(t(pair[1])) + '</option>').join('') + '</select>';
-        else if (spec.type === 'bool') input = '<input type="checkbox"' + attrs + ((value === true || value === 'true') ? ' checked' : '') + '>';
+        else if (spec.type === 'bool') input = '<jelly-switch' + attrs + ' label="' + esc(t(spec.label || spec.key)) + '"' + ((value === true || value === 'true') ? ' checked' : '') + '></jelly-switch>';
         else if (spec.type === 'textarea' || spec.type === 'json') input = '<textarea' + attrs + ' rows="' + (spec.rows || 4) + '"' + (spec.type === 'json' ? ' class="sys-mono" spellcheck="false"' : '') + '>' + esc(typeof value === 'object' ? JSON.stringify(value, null, 2) : value) + '</textarea>';
         else input = '<input type="' + (spec.type === 'secret' ? 'password' : (spec.type || 'text')) + '"' + attrs + ' value="' + (spec.type === 'file' || spec.type === 'secret' ? '' : esc(value)) + '"' + (spec.type === 'secret' ? ' autocomplete="new-password" placeholder="' + esc(value || t('unset')) + '"' : '') + (spec.accept ? ' accept="' + esc(spec.accept) + '"' : '') + '>';
         if (spec.type === 'secret') input += '<small class="sys-hint">' + esc(t('keepSecret')) + '</small>' + (spec.clear === false ? '' : '<label class="sys-check"><input type="checkbox" data-clear-secret="' + esc(spec.key) + '">' + esc(t('clearSecret')) + '</label>');
@@ -81,7 +81,7 @@
         const result = {};
         for (const spec of specs) {
             const el = form.elements[spec.key];
-            let value = spec.type === 'bool' ? el.checked : el.value;
+            let value = spec.type === 'bool' ? el.hasAttribute('checked') : el.value;
             if (spec.type === 'secret') {
                 if (form.querySelector('[data-clear-secret="' + CSS.escape(spec.key) + '"]:checked')) value = '';
                 else if (value === '') continue;
@@ -99,7 +99,9 @@
         const container = document.createElement('section'); container.className = 'sys-card';
         container.innerHTML = '<h2>' + esc(t(title)) + '</h2>' + (hint ? '<p class="sys-subtitle">' + esc(t(hint)) + '</p>' : '') + '<form>' + fields(specs, initial) + '<div class="sys-actions"><button type="submit" class="btn btn-primary btn-sm">' + esc(t(label)) + '</button>' + extra + '</div></form>';
         const form = $('form', container); form.dataset.formKey = title;
-        form.addEventListener('input', () => { dirty = true; form.dataset.dirty = 'true'; });
+        const markDirty = () => { dirty = true; form.dataset.dirty = 'true'; };
+        form.addEventListener('input', markDirty);
+        form.addEventListener('change', event => { if (event.target.matches('jelly-switch')) markDirty(); });
         form.addEventListener('submit', event => {
             event.preventDefault(); if (!form.reportValidity()) return;
             busy($('[type=submit]', form), async () => {
@@ -130,6 +132,10 @@
         }, hint);
     }
     async function modal(title, specs = [], initial = {}, hint = '', label = 'confirm', extra = '', validate = null, configure = null) {
+        if (!specs.length && !extra && !validate && !configure) {
+            const confirmed = await Jelly.confirm({title:t(title), message:hint ? t(hint) : '', confirmLabel:t(label), cancelLabel:t('cancel'), tone:'danger'});
+            return confirmed ? {} : null;
+        }
         const dialog = document.createElement('dialog'); dialog.className = 'sys-dialog';
         dialog.innerHTML = '<form><h2>' + esc(t(title)) + '</h2>' + (hint ? '<p>' + esc(t(hint)) + '</p>' : '') + extra + fields(specs, initial) + '<div class="sys-actions"><button type="submit" class="btn btn-primary">' + esc(t(label)) + '</button><button type="button" class="btn btn-secondary" data-cancel>' + esc(t('cancel')) + '</button></div></form>';
         document.body.append(dialog); const form = $('form', dialog); const previous = document.activeElement;
@@ -492,13 +498,13 @@
     window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
     window.addEventListener('pagehide',()=>{pageActive=false;++epoch;stopImportTimer();importPoll=null;stopLive();if(downloadURL)URL.revokeObjectURL(downloadURL);});
     refresh=async(polling=false)=>{
-        const preserved=all('form[data-dirty]:not([data-saving])').map(form=>({key:form.dataset.formKey,fields:Array.from(form.elements).filter(el=>el.name&&el.type!=='file').map(el=>({name:el.name,type:el.type,value:el.value,checked:el.checked,selected:el.multiple?Array.from(el.selectedOptions,option=>option.value):null}))}));
+        const preserved=all('form[data-dirty]:not([data-saving])').map(form=>({key:form.dataset.formKey,fields:Array.from(form.elements).filter(el=>el.getAttribute('name')&&el.type!=='file').map(el=>({name:el.getAttribute('name'),type:el.type,value:el.value,checked:el.tagName==='JELLY-SWITCH'?el.hasAttribute('checked'):el.checked,selected:el.multiple?Array.from(el.selectedOptions,option=>option.value):null}))}));
         const token=++epoch;stopImportTimer();stopLive();root.setAttribute('aria-busy','true');
         try{
             const page=root.dataset.page;
             if(page.startsWith('settings-'))await showSettings(page.slice(9));
             else if(page==='backup')await showBackup();else if(page==='import')await showImport(polling);else if(page==='logs')await showLogs();else if(page==='redirects')await showRedirects();else if(page==='store')await showStore();else if(page==='plugin')await showPlugin();else if(page==='media')await showMedia();
-            for(const saved of preserved){const form=all('form[data-form-key]').find(form=>form.dataset.formKey===saved.key);if(!form)continue;for(const field of saved.fields){const el=form.elements[field.name];if(!el)continue;if(field.type==='checkbox')el.checked=field.checked;else if(field.selected)Array.from(el.options).forEach(option=>{option.selected=field.selected.includes(option.value);});else el.value=field.value;}form.dataset.dirty='true';}
+            for(const saved of preserved){const form=all('form[data-form-key]').find(form=>form.dataset.formKey===saved.key);if(!form)continue;for(const field of saved.fields){const el=form.elements[field.name];if(!el)continue;if(el.tagName==='JELLY-SWITCH')el.toggleAttribute('checked',field.checked);else if(field.type==='checkbox')el.checked=field.checked;else if(field.selected)Array.from(el.options).forEach(option=>{option.selected=field.selected.includes(option.value);});else el.value=field.value;}form.dataset.dirty='true';}
             dirty=!!$('form[data-dirty]');
             if(token===epoch)root.setAttribute('aria-busy','false');
         }catch(err){if(token===epoch){root.setAttribute('aria-busy','false');status(root,t('loadFailed')+': '+errorText(err),'error');if(!$('[data-action=refresh]'))root.insertAdjacentHTML('beforeend',button('retry','refresh'));}throw err;}

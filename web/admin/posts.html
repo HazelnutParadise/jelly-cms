@@ -1,8 +1,16 @@
 {{define "title"}}{{.T.posts}}{{end}}
 {{define "content"}}
-<div class="page-header">
-    <div class="page-title-wrapper">
+<div class="page-header posts-page-header">
+    <div class="page-title-wrapper posts-page-title">
         <h1>{{.T.posts}}</h1>
+        <div class="posts-status-scroll">
+            <jelly-segmented id="postStatus" name="status" value="all" label="{{.T.status}}">
+                <jelly-segment value="all">{{.T.all}}</jelly-segment>
+                <jelly-segment value="published">{{.T.published}}</jelly-segment>
+                <jelly-segment value="draft">{{.T.draft}}</jelly-segment>
+                <jelly-segment value="pending">{{.T.pending}}</jelly-segment>
+            </jelly-segmented>
+        </div>
     </div>
     <div class="page-actions">
         <a href="/admin/posts/new" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>New Post</a>
@@ -28,7 +36,9 @@
 {{end}}
 {{define "scripts"}}
 <script>
-    const T = { noPosts: "{{.T.noPosts}}", published: "{{.T.published}}", draft: "{{.T.draft}}", pending: "{{.T.pending}}", edit: "{{.T.edit}}", view: "{{.T.view}}" };
+    const T = { noPosts: "{{.T.noPosts}}", published: "{{.T.published}}", draft: "{{.T.draft}}", pending: "{{.T.pending}}", edit: "{{.T.edit}}", view: "{{.T.view}}", all: "{{.T.all}}", failed: "{{.T.requestFailed}}", retry: "{{.T.retry}}" };
+    let allPosts = [];
+    const statusFilter = document.getElementById('postStatus');
 
     function escapeHtml(text) {
         const div = document.createElement('div');
@@ -38,7 +48,20 @@
 
     async function loadPosts() {
         const res = await fetch('/api/admin/posts');
+        if (!res.ok) throw new Error('Unable to load posts');
         const posts = await res.json();
+        if (!Array.isArray(posts)) throw new Error('Invalid posts response');
+        allPosts = posts;
+        [['all', T.all], ['published', T.published], ['draft', T.draft], ['pending', T.pending]].forEach(([value, label]) => {
+            const segment = statusFilter.querySelector('jelly-segment[value="' + value + '"]');
+            if (segment) segment.textContent = label + ' ' + (value === 'all' ? posts.length : posts.filter(post => post.status === value).length);
+        });
+        renderPosts();
+    }
+
+    function renderPosts() {
+        const filter = statusFilter.getAttribute('value') || 'all';
+        const posts = filter === 'all' ? allPosts : allPosts.filter(post => post.status === filter);
         const tbody = document.getElementById('postsList');
         tbody.innerHTML = '';
 
@@ -63,6 +86,14 @@
             tbody.appendChild(tr);
         });
     }
-    loadPosts();
+    statusFilter.addEventListener('change', () => {
+        renderPosts();
+        const scrollport = document.querySelector('.posts-status-scroll');
+        if (!scrollport || scrollport.scrollWidth <= scrollport.clientWidth) return;
+        const selected = statusFilter.shadowRoot && statusFilter.shadowRoot.querySelector('button[role="radio"][aria-checked="true"]');
+        if (selected) selected.scrollIntoView({block:'nearest', inline:'nearest'});
+    });
+    function showLoadError() { const tbody = document.getElementById('postsList'); tbody.innerHTML = ''; const row = document.createElement('tr'), cell = document.createElement('td'), retry = document.createElement('button'); cell.colSpan = 4; cell.className = 'table-empty'; cell.setAttribute('role', 'alert'); cell.setAttribute('aria-live', 'assertive'); cell.textContent = T.failed + ' '; retry.type = 'button'; retry.className = 'btn btn-secondary btn-sm'; retry.textContent = T.retry; retry.addEventListener('click', () => { retry.disabled = true; loadPosts().catch(showLoadError); }); cell.appendChild(retry); row.appendChild(cell); tbody.appendChild(row); }
+    loadPosts().catch(showLoadError);
 </script>
 {{end}}

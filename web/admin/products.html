@@ -151,7 +151,7 @@
 
     async function remove(p, btn) {
         if (!p) return;
-        const ok = await SA.confirm({ title: t('delTitle', p.title || ''), body: t('delBody'), ok: t('delete'), danger: true });
+        const ok = await Jelly.confirm({ title: t('delTitle', p.title || ''), message: t('delBody'), confirmLabel: t('delete'), cancelLabel: t('cancel'), tone: 'danger' });
         if (!ok) return;
         await SA.busy(btn, async () => {
             try {

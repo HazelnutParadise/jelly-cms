@@ -6,7 +6,7 @@ import gen
 from gen import I, doc, ADMIN_CSS, OUT, admin
 
 # These two boards share the shipped admin fonts; no network fonts in previews.
-gen.FONTS = '<style>@font-face{font-family:"Bricolage Grotesque";src:url("/admin/assets/fonts/bricolage-grotesque.woff2") format("woff2")}@font-face{font-family:"Noto Sans TC";src:url("/admin/assets/fonts/noto-sans-tc.woff2") format("woff2")}</style>'
+gen.FONTS = '<link rel="stylesheet" href="./fonts.css">'
 
 # 側欄「系統」區加上 AI agent（只影響這支腳本產生的板）。
 for _sec, _items in gen.NAV:

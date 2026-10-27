@@ -8,9 +8,7 @@
 <body>
 <x-dc>
 <helmet>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Noto+Sans+TC:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./fonts.css">
 <style>
 body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;-webkit-font-smoothing:antialiased}
 a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
@@ -29,6 +27,17 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .seg span.on{background:#15161A;color:#fff}
 .tg{position:relative;width:40px;height:22px;border-radius:0 11px 0 11px;background:#13C2A3;display:inline-block;flex:0 0 auto}.tg:after{content:"";position:absolute;top:3px;right:3px;width:16px;height:16px;background:#fff;border-radius:0 7px 0 7px}
 .tg.off{background:#D9DBE0}.tg.off:after{right:auto;left:3px}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}
+.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span,.seg.j a{min-height:30px;padding:0 14px;border-radius:999px}
+.seg.j span.on,.seg.j a.on{background:#15161A;color:#fff;box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
+.jt{display:flex;align-items:center;gap:11px;padding:11px 12px 11px 14px;background:#15161A;color:#fff;border-radius:0 12px 0 12px;font-size:13px;line-height:1.3;font-weight:600;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28)}
+.jt>i{width:11px;height:11px;border-radius:50%;flex:0 0 auto}.jt .d2{color:#C9CBD3;font-weight:500}
+.jt .xx{margin-left:auto;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#C9CBD3;flex:0 0 auto}.jt .xx .ic{width:13px;height:13px}
+.jt.light{background:#fff;color:#15161A;box-shadow:inset 0 0 0 1px #E2E3E8,0 14px 34px -16px rgba(21,22,26,.2)}.jt.light .d2{color:#5F6470}.jt.light .xx{color:#5F6470}
+.jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
+.jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
+.jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
 .ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
 .cube{position:absolute;border-radius:0 26% 0 26%}
@@ -80,6 +89,8 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
 
 .sub a{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 10px;border-radius:0 9px 0 9px;color:#5F6470;font-weight:600;font-size:13px}
 .sub a.on{background:#F3F3F5;color:#15161A}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span{min-height:30px;padding:0 14px;border-radius:999px}.seg.j span.on{box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
 .nrow{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:12px;padding:12px 10px;border-top:1px solid #EEEFF2;align-items:flex-start}
 .nrow.un{background:#F8F9FF}.nrow .t{font-size:12px;color:#5F6470;white-space:nowrap}
 .app{display:flex;flex-direction:column;gap:10px;padding:14px;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 14px 0 14px;background:#fff}
@@ -92,6 +103,8 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
 .pol{display:flex;align-items:center;gap:12px;padding:12px;box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 12px 0 12px}
 .pol .ico{width:36px;height:36px;border-radius:0 10px 0 10px;display:grid;place-items:center;color:#fff;flex:0 0 auto}
 
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span{min-height:30px;padding:0 14px;border-radius:999px}.seg.j span.on{box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
 .bot{display:grid;grid-template-columns:minmax(0,1fr) 120px 120px 90px;gap:10px;align-items:center;padding:9px 0;border-top:1px solid #EEEFF2;font-size:13px}
 .bot .ua{font:12px ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:#5F6470}
 .tri{display:inline-flex;gap:2px;padding:2px;background:#F3F3F5;border-radius:0 8px 0 8px}
@@ -140,11 +153,11 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
 
       <div>
         <div class="lbl" style="margin-bottom:4px">搜尋引擎（Google、Bing、DuckDuckGo…）</div>
-        <div class="srow"><div><label>讓搜尋引擎索引這個網站</label><div class="h">關掉等於整站 noindex，測試站或還沒上線用。</div></div><div class="c"><span class="tg"></span></div></div>
+        <div class="srow"><div><label>讓搜尋引擎索引這個網站</label><div class="h">關掉等於整站 noindex，測試站或還沒上線用。</div></div><div class="c"><span class="tg j"></span></div></div>
         <div class="srow"><div><label>哪些頁面可以被索引</label><div class="h">不索引的頁面不會進 sitemap，並加 noindex。單篇文章可以另外覆寫。</div></div><div class="c" style="flex-wrap:wrap;justify-content:flex-start;gap:6px"><span class="chip ok">首頁</span><span class="chip ok">文章</span><span class="chip ok">頁面</span><span class="chip ok">分類頁</span><span class="chip">標籤頁</span><span class="chip ok">作者頁</span><span class="chip">月份彙整</span><span class="chip ok">商品</span><span class="chip">搜尋結果</span><span class="chip">購物車與結帳</span><span class="chip">會員中心</span></div></div>
         <div class="srow"><div><label>圖片</label></div><div class="c"><div class="seg"><span class="on">可被圖片搜尋</span><span>不要（noimageindex）</span></div></div></div>
         <div class="srow"><div><label>摘要長度與快照</label><div class="h">對應 max-snippet、max-image-preview、noarchive。</div></div><div class="c"><div class="seg"><span class="on">不限制</span><span>只給短摘要</span><span>不給快取副本</span></div></div></div>
-        <div class="srow"><div><label>變更時通知搜尋引擎</label><div class="h">IndexNow（Bing、Yandex、Naver…）。金鑰留空保留，可明確清除。</div></div><div class="c"><span class="tg"></span></div></div>
+        <div class="srow"><div><label>變更時通知搜尋引擎</label><div class="h">IndexNow（Bing、Yandex、Naver…）。金鑰留空保留，可明確清除。</div></div><div class="c"><span class="tg j"></span></div></div>
       </div>
 
       <div>
@@ -161,11 +174,11 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
         <div class="bot"><div><b>ByteDance</b> <span style="font-size:12px;color:#5F6470">· 豆包</span><div class="ua">Bytespider</div></div><span class="tri"><span class="">允許</span><span class="no">封鎖</span></span><span style="font-size:12px;color:#B9BCC6">—</span><span style="font-size:12px;color:#9C2318">會無視 robots</span></div>
         <div class="bot"><div><b>Amazon</b> <span style="font-size:12px;color:#5F6470">· Alexa、AI 功能</span><div class="ua">Amazonbot</div></div><span class="tri"><span class="">允許</span><span class="no">封鎖</span></span><span class="tri"><span class="ok">允許</span><span class="">封鎖</span></span><span style="font-size:12px;color:#5F6470">遵守 robots</span></div>
         <div class="bot"><div><b>其他</b> <span style="font-size:12px;color:#5F6470">· 小型或資料仲介</span><div class="ua">cohere-ai · Diffbot · omgili · YouBot · PetalBot · 共 14 個</div></div><span class="tri"><span class="">允許</span><span class="no">封鎖</span></span><span style="font-size:12px;color:#B9BCC6">—</span><span style="font-size:12px;color:#5F6470">遵守 robots</span></div>
-        <div class="srow"><div><label>允許瀏覽器 AI 使用網站工具（WebMCP）</label><div class="h">提供搜尋、列出文章、讀取公開內容與網站資訊的唯讀工具。關閉後，重新載入的前台頁面不再提供工具。</div></div><div class="c"><span class="tg"></span></div></div>
+        <div class="srow"><div><label>允許瀏覽器 AI 使用網站工具（WebMCP）</label><div class="h">提供搜尋、列出文章、讀取公開內容與網站資訊的唯讀工具。關閉後，重新載入的前台頁面不再提供工具。</div></div><div class="c"><span class="tg j"></span></div></div>
         <div style="display:flex;gap:8px;margin-top:10px;align-items:center"><input class="ul" type="text" placeholder="加一個 User-Agent，例如 MyCompanyBot" style="max-width:320px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><button class="btn t s" type="button"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>加入</button></div>
-        <div class="srow" style="margin-top:8px"><div><label>伺服器端直接擋不守規矩的</label><div class="h">對標成「會無視 robots」的爬蟲，依 User-Agent 與已知 IP 段回 403，並寫進日誌。可能誤擋，所以預設只擋名單上那幾個。</div></div><div class="c"><span class="tg"></span></div></div>
-        <div class="srow"><div><label>宣告資料探勘保留（TDM-Reservation）</label><div class="h">歐盟 DSM 指令承認的機器可讀聲明，加在 HTTP 標頭與 HTML。</div></div><div class="c"><span class="tg"></span></div></div>
-        <div class="srow"><div><label>提供 llms.txt</label><div class="h">給允許的 AI 一份乾淨的站點摘要與重要頁面清單，少爬一點、答得準一點。</div></div><div class="c"><span class="tg"></span></div></div>
+        <div class="srow" style="margin-top:8px"><div><label>伺服器端直接擋不守規矩的</label><div class="h">對標成「會無視 robots」的爬蟲，依 User-Agent 與已知 IP 段回 403，並寫進日誌。可能誤擋，所以預設只擋名單上那幾個。</div></div><div class="c"><span class="tg j"></span></div></div>
+        <div class="srow"><div><label>宣告資料探勘保留（TDM-Reservation）</label><div class="h">歐盟 DSM 指令承認的機器可讀聲明，加在 HTTP 標頭與 HTML。</div></div><div class="c"><span class="tg j"></span></div></div>
+        <div class="srow"><div><label>提供 llms.txt</label><div class="h">給允許的 AI 一份乾淨的站點摘要與重要頁面清單，少爬一點、答得準一點。</div></div><div class="c"><span class="tg j"></span></div></div>
       </div>
 
       <div>

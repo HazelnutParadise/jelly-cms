@@ -288,35 +288,9 @@
         if (actions && !list.length) actions.remove();
     }
 
-    /** confirm({title, body, ok, danger}) → Promise<boolean>, keyboard-trapped sheet. */
     function confirmSheet(o) {
-        return new Promise(function (resolve) {
-            var prev = document.activeElement;
-            var ov = document.createElement('div');
-            ov.className = 'modal-overlay open';
-            ov.innerHTML = '<div class="modal-content" role="alertdialog" aria-modal="true" aria-labelledby="saCfT" aria-describedby="saCfB"><div class="modal-header"><h2 id="saCfT"></h2></div><p id="saCfB" class="muted"></p><div class="modal-footer"><button type="button" class="btn" data-ok></button><button type="button" class="btn btn-secondary" data-cancel></button></div></div>';
-            ov.querySelector('#saCfT').textContent = o.title || '';
-            ov.querySelector('#saCfB').textContent = o.body || '';
-            var ok = ov.querySelector('[data-ok]');
-            ok.textContent = o.ok || t('yes');
-            ok.classList.add(o.danger ? 'btn-danger' : 'btn-primary');
-            ov.querySelector('[data-cancel]').textContent = o.cancel || t('cancel');
-            function done(v) { document.removeEventListener('keydown', onKey, true); ov.remove(); if (prev && document.contains(prev)) prev.focus(); resolve(v); }
-            function onKey(e) {
-                if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); }
-                if (e.key === 'Tab') {
-                    var els = ov.querySelectorAll('button'), first = els[0], last = els[els.length - 1];
-                    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-                    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-                }
-            }
-            document.addEventListener('keydown', onKey, true);
-            ov.addEventListener('click', function (e) { if (e.target === ov) done(false); });
-            ok.addEventListener('click', function () { done(true); });
-            ov.querySelector('[data-cancel]').addEventListener('click', function () { done(false); });
-            document.body.appendChild(ov);
-            ov.querySelector('[data-cancel]').focus();
-        });
+        o = o || {};
+        return root.Jelly.confirm({ title:o.title || '', message:o.body || '', confirmLabel:o.ok || t('yes'), cancelLabel:o.cancel || t('cancel'), tone:o.danger ? 'danger' : 'primary' });
     }
 
     /**

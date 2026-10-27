@@ -68,16 +68,6 @@
     .rv-foot .legend { font: .8125rem var(--font); }
     .rv-foot .btn { margin-left: auto; }
 
-    .rv-overlay { position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center; padding: 1rem; background: color-mix(in srgb, var(--ink) 45%, transparent); }
-    .rv-overlay[hidden] { display: none; }
-    .rv-dlg { width: min(27.5rem, 100%); background: var(--surface); border-radius: 0 1.5rem 0 1.5rem; box-shadow: 0 0 0 1px var(--outline), 0 24px 64px rgba(21, 22, 26, .28); padding: 1.5rem; display: flex; flex-direction: column; gap: .9rem; animation: rv-pop .16s ease; }
-    @keyframes rv-pop { from { transform: translateY(.5rem); opacity: 0; } to { transform: none; opacity: 1; } }
-    .rv-dlg .head { display: flex; align-items: center; gap: .7rem; }
-    .rv-dlg .head b { font-size: 1rem; line-height: 1.35; }
-    .rv-dlg .ico { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; flex: 0 0 auto; background: var(--primary-container); color: var(--on-primary-container); border-radius: 0 .75rem 0 .75rem; }
-    .rv-dlg .ico .icon { width: 1.25rem; height: 1.25rem; }
-    .rv-dlg p { margin: 0; font-size: .84375rem; line-height: 1.6; color: var(--muted); }
-    .rv-dlg .foot { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
 
     [hidden] { display: none !important; }
     .rv-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -129,16 +119,6 @@
     </section>
 </div>
 
-<div class="rv-overlay" id="dlg" hidden>
-    <form class="rv-dlg" id="dlgForm" role="alertdialog" aria-modal="true" aria-labelledby="dlgTitle" aria-describedby="dlgText">
-        <div class="head"><span class="ico"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg></span><b id="dlgTitle"></b></div>
-        <p id="dlgText">{{.T.rvConfirmText}}</p>
-        <div class="foot">
-            <button class="btn btn-secondary" type="button" id="dlgCancel"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>{{.T.cancel}}</button>
-            <button class="btn btn-primary" type="submit" id="dlgOk"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg>{{.T.rvConfirmOk}}</button>
-        </div>
-    </form>
-</div>
 {{end}}
 {{define "scripts"}}
 <script>
@@ -150,7 +130,7 @@
         count: {{.T.rvCount}}, earlier: {{.T.rvEarlier}}, only: {{.T.rvOnly}}, today: {{.T.rvToday}}, yesterday: {{.T.rvYesterday}},
         currentTo: {{.T.rvCurrentTo}}, title: {{.T.rvSecTitle}}, body: {{.T.rvSecBody}}, excerpt: {{.T.rvSecExcerpt}},
         same: {{.T.rvSame}}, sameRun: {{.T.rvSameRun}}, legend: {{.T.rvLegend}}, legendAdd: {{.T.rvLegendAdd}}, legendDel: {{.T.rvLegendDel}}, copy: {{.T.rvCopy}}, copied: {{.T.rvCopied}},
-        confirmTitle: {{.T.rvConfirmTitle}}, restored: {{.T.rvRestored}}, restoreDisabled: {{.T.rvRestoreDisabled}},
+        confirmTitle: {{.T.rvConfirmTitle}}, confirmMessage: {{.T.rvConfirmText}}, confirmOk: {{.T.rvConfirmOk}}, restored: {{.T.rvRestored}}, restoreDisabled: {{.T.rvRestoreDisabled}},
         failed: {{.T.rvActionFailed}}, noId: {{.T.rvNoId}}, you: {{.T.rvUnknownUser}}
     };
     var LANG = {{.Lang}};
@@ -162,7 +142,6 @@
     var boxes = { loading: $('loadingBox'), error: $('errorBox'), empty: $('emptyBox'), grid: $('grid') };
     var state = { kind: m ? m[1] : 'posts', id: m ? m[2] : '', post: null, revs: [], currentIsNewest: false, selected: null, to: 'current', mode: 'inline', collapse: true, showAll: false, diff: null, detail: {}, expanded: {}, seq: 0 };
     var base = '/api/admin/posts/' + state.id;
-    var dlgOpener = null;
 
     function el(tag, cls, text) {
         var n = document.createElement(tag);
@@ -534,17 +513,17 @@
     }
 
     /* ---------- 還原 ---------- */
-    function openConfirm() {
-        if (isCurrent(state.selected)) return;
-        dlgOpener = document.activeElement;
-        $('dlgTitle').textContent = fmt(T.confirmTitle, { v: label(state.selected) });
-        $('dlg').hidden = false;
-        $('dlgOk').focus();
-    }
-    function closeConfirm() {
-        $('dlg').hidden = true;
-        if (dlgOpener && dlgOpener.focus && document.contains(dlgOpener)) dlgOpener.focus();
-        dlgOpener = null;
+    async function openConfirm() {
+        var rev = state.selected;
+        if (isCurrent(rev)) return;
+        var ok = await Jelly.confirm({title:fmt(T.confirmTitle, { v: label(rev) }), message:T.confirmMessage, confirmLabel:T.confirmOk, cancelLabel:document.documentElement.lang === 'en' ? 'Cancel' : '取消', tone:'primary'});
+        if (!ok || state.selected !== rev) return;
+        try {
+            await api('POST', base + '/revisions/' + rev.id + '/restore');
+            toast(fmt(T.restored, { v: label(rev) }), { kind:'success', action:{label:$('backLink').textContent.trim(), href:$('backLink').getAttribute('href')} });
+            state.selected = null;
+            await init();
+        } catch (err) { toast(err.message || T.failed, {kind:'error'}); }
     }
 
     /* ---------- 事件 ---------- */
@@ -566,34 +545,6 @@
         if (g) { state.expanded[g.dataset.gap] = true; renderCard(); }
     });
     $('restoreBtn').addEventListener('click', openConfirm);
-    $('dlgCancel').addEventListener('click', closeConfirm);
-    $('dlg').addEventListener('mousedown', function (e) { if (e.target === $('dlg')) closeConfirm(); });
-    $('dlg').addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeConfirm(); return; }
-        if (e.key === 'Tab') {
-            var f = Array.prototype.slice.call($('dlg').querySelectorAll('button')).filter(function (x) { return !x.disabled; });
-            var i = f.indexOf(document.activeElement);
-            var next = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
-            e.preventDefault();
-            f[next].focus();
-        }
-    });
-    $('dlgForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        var rev = state.selected, btn = $('dlgOk');
-        btn.disabled = true;
-        api('POST', base + '/revisions/' + rev.id + '/restore').then(function () {
-            btn.disabled = false;
-            closeConfirm();
-            toast(fmt(T.restored, { v: label(rev) }), { kind: 'success', action: { label: $('backLink').textContent.trim(), href: $('backLink').getAttribute('href') } });
-            state.selected = null;
-            return init();
-        }).catch(function (err) {
-            btn.disabled = false;
-            closeConfirm();
-            toast(err.message || T.failed, { kind: 'error' });
-        });
-    });
     $('copyBtn').addEventListener('click', function () {
         var rev = state.selected;
         var get = state.detail[rev.id] ? Promise.resolve(state.detail[rev.id]) : api('GET', base + '/revisions/' + rev.id).then(function (d) { state.detail[rev.id] = d; return d; });

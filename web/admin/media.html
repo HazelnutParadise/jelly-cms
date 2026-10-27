@@ -93,7 +93,7 @@
     }
 
     async function deleteFile(filename) {
-        if (!confirm(`Delete ${filename}? This cannot be undone.`)) return;
+        if (!await Jelly.confirm({title:`Delete ${filename}? This cannot be undone.`, confirmLabel:document.documentElement.lang === 'en' ? 'Delete' : '刪除', cancelLabel:document.documentElement.lang === 'en' ? 'Cancel' : '取消', tone:'danger'})) return;
 
         const res = await fetch(`/api/admin/media/${filename}`, {
             method: 'DELETE'

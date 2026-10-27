@@ -6,6 +6,162 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
+    <script>
+    (function () {
+      var pendingToasts = [], activeToasts = [], confirmQueue = Promise.resolve();
+      function tone(kind) { return kind === 'error' ? 'danger' : ['success', 'warning'].includes(kind) ? kind : 'info'; }
+      function closeLabel() { return (document.documentElement.lang || '').toLowerCase().startsWith('zh') ? '關閉' : 'Close'; }
+      function localizeClose(root) {
+        if (!root || !root.querySelectorAll) return;
+        root.querySelectorAll('[aria-label]').forEach(function (el) {
+          if (/^(close|dismiss)$/i.test(el.getAttribute('aria-label') || '') && el.getAttribute('aria-label') !== closeLabel()) el.setAttribute('aria-label', closeLabel());
+        });
+      }
+      window.Jelly = window.Jelly || {};
+
+      window.Jelly.toast = function (message, options) {
+        if (message && typeof message === 'object') { options = message; message = options.message; }
+        options = options || {};
+        var dismissed = false, element = null, timer = null, remaining = 0, started = 0, hovered = false, focused = false, removalObserver = null;
+        var action = options.action;
+        var duration = typeof options.duration === 'number' ? options.duration : options.kind === 'error' ? 0 : action ? 8000 : 4000;
+        function removeFromQueue() { var i = pendingToasts.indexOf(show); if (i >= 0) pendingToasts.splice(i, 1); }
+        function cleanup() {
+          clearTimeout(timer); timer = null;
+          if (removalObserver) { removalObserver.disconnect(); removalObserver = null; }
+          activeToasts = activeToasts.filter(function (entry) { return entry.element !== element; });
+        }
+        function dismiss() {
+          if (dismissed) return;
+          dismissed = true; removeFromQueue();
+          var close = element && element.querySelector('.close');
+          if (close) close.click();
+          cleanup();
+        }
+        function evict() {
+          if (dismissed) return;
+          dismissed = true; removeFromQueue();
+          if (element) element.remove();
+          cleanup();
+        }
+        function show() {
+          if (dismissed) return;
+          element = window.jellyToast(String(message == null ? '' : message), { tone: tone(options.kind), duration: 0 });
+          if (!element) return;
+          localizeClose(element);
+          var text = element.querySelector('.toast-text');
+          element.style.flexWrap = 'wrap';
+          if (text) {
+            text.style.minWidth = '0'; text.style.flex = '1 1 0%'; text.style.maxWidth = '100%'; text.style.whiteSpace = 'normal'; text.style.overflowWrap = 'anywhere';
+            text.textContent = '';
+            var strong = document.createElement('b'); strong.textContent = String(message == null ? '' : message); text.appendChild(strong);
+            if (options.detail) { text.appendChild(document.createTextNode(' ')); var detail = document.createElement('span'); detail.textContent = String(options.detail); detail.style.opacity = '.72'; detail.style.minWidth = '0'; detail.style.maxWidth = '100%'; detail.style.whiteSpace = 'normal'; detail.style.overflowWrap = 'anywhere'; text.appendChild(detail); }
+          }
+          var dot = element.querySelector('.dot');
+          if (dot) dot.style.background = 'var(' + (options.kind === 'success' ? '--accent' : options.kind === 'error' ? '--primary' : options.kind === 'warning' ? '--warning' : '--secondary') + ')';
+          if (options.kind === 'error') element.setAttribute('role', 'alert');
+          if (action && action.label) {
+            var button = action.href ? document.createElement('a') : document.createElement('button');
+            button.textContent = action.label;
+            if (action.href) { button.href = action.href; if (/^https?:/i.test(action.href)) { button.target = '_blank'; button.rel = 'noopener'; } }
+            else { button.type = 'button'; button.style.cssText = 'border:0;background:transparent;color:inherit;text-decoration:underline;cursor:pointer'; }
+            button.style.minWidth = '0'; button.style.maxWidth = '100%'; button.style.flex = '0 1 auto'; button.style.whiteSpace = 'normal'; button.style.overflowWrap = 'anywhere'; button.style.boxSizing = 'border-box';
+            button.addEventListener('click', function (event) { if (action.href) event.stopPropagation(); if (typeof action.onClick === 'function') action.onClick(dismiss); if (!action.href) dismiss(); });
+            element.insertBefore(button, element.querySelector('.close'));
+          }
+          activeToasts.push({ element: element, dismiss: dismiss, evict: evict });
+          var closeButton = element.querySelector('.close'); if (closeButton) { closeButton.style.flex = '0 0 22px'; closeButton.style.minWidth = '22px'; closeButton.style.boxSizing = 'border-box'; closeButton.addEventListener('click', function () { dismissed = true; cleanup(); }, { once: true }); }
+          removalObserver = new MutationObserver(function () { if (!element.isConnected) { dismissed = true; cleanup(); } });
+          removalObserver.observe(element.getRootNode(), { childList: true, subtree: true });
+          var rail = element.getRootNode().querySelector('.rail');
+          while (rail && rail.children.length > 4) {
+            var oldest = rail.firstElementChild;
+            var tracked = activeToasts.find(function (entry) { return entry.element === oldest; });
+            if (tracked) tracked.evict();
+            else oldest.remove();
+          }
+          if (duration > 0) {
+            function arm(ms) { remaining = ms; started = Date.now(); timer = setTimeout(dismiss, ms); }
+            function pause() { if (timer) { clearTimeout(timer); timer = null; remaining -= Date.now() - started; } }
+            function resume() { if (!hovered && !focused && !timer && remaining > 0) arm(Math.max(remaining, 1500)); }
+            element.addEventListener('mouseenter', function () { hovered = true; pause(); }); element.addEventListener('mouseleave', function () { hovered = false; resume(); });
+            element.addEventListener('focusin', function () { focused = true; pause(); }); element.addEventListener('focusout', function (event) { if (!element.contains(event.relatedTarget)) { focused = false; resume(); } });
+            arm(duration);
+          }
+        }
+        if (customElements.get('jelly-toaster')) show();
+        else { pendingToasts.push(show); customElements.whenDefined('jelly-toaster').then(function () { pendingToasts.slice().forEach(function (run) { run(); }); pendingToasts = []; }); }
+        return { dismiss: dismiss, get element() { return element; } };
+      };
+
+      window.Jelly.confirm = function (options) {
+        options = options || {};
+        var result;
+        var outcome = new Promise(function (resolve) { result = resolve; });
+        confirmQueue = confirmQueue.then(function () {
+          return new Promise(function (resolve) {
+            var opener = document.activeElement, dialog = document.createElement('jelly-dialog');
+            var finished = false, observer, resolved = false;
+            function settle(value) {
+              if (resolved) return; resolved = true;
+              if (observer) observer.disconnect();
+              if (labelObserver) labelObserver.disconnect();
+              if (opener && opener.isConnected) opener.focus();
+              result(value); resolve();
+            }
+            function close(value) {
+              if (finished) return; finished = true;
+              dialog.addEventListener('close', function () { dialog.remove(); settle(value); }, { once: true });
+              dialog.open = false;
+              setTimeout(function () { if (!resolved) { dialog.remove(); settle(value); } }, 600);
+            }
+            dialog.setAttribute('data-jelly-confirm', ''); dialog.setAttribute('label', options.title || '');
+            var content = document.createElement('div'), heading = document.createElement('h2'); heading.textContent = options.title || ''; content.appendChild(heading);
+            if (options.message) { var paragraph = document.createElement('p'); paragraph.textContent = options.message; content.appendChild(paragraph); }
+            var input = null;
+            if (options.requireText !== undefined) {
+              input = document.createElement('input'); input.type = 'text'; input.id = 'jelly-confirm-input'; input.setAttribute('data-jelly-confirm-input', '');
+              if (options.inputLabel) { var label = document.createElement('label'); label.htmlFor = input.id; label.textContent = options.inputLabel; content.appendChild(label); }
+              else input.setAttribute('aria-label', options.message || options.title || '');
+              content.appendChild(input);
+            }
+            var actions = document.createElement('div'), cancel = document.createElement('button'), confirm = document.createElement('button');
+            actions.className = 'confirm-actions'; cancel.type = confirm.type = 'button'; cancel.className = 'btn btn-secondary'; confirm.className = 'btn ' + (options.tone === 'primary' ? 'btn-primary' : 'btn-danger');
+            cancel.setAttribute('data-jelly-cancel', ''); confirm.setAttribute('data-jelly-confirm', ''); cancel.textContent = options.cancelLabel || 'Cancel'; confirm.textContent = options.confirmLabel || 'OK'; actions.append(cancel, confirm); content.appendChild(actions); dialog.appendChild(content);
+            function sync() { confirm.disabled = !!input && input.value.trim() !== options.requireText; }
+            if (input) {
+              input.addEventListener('input', sync); sync();
+              input.addEventListener('keydown', function (event) { if (event.key === 'Enter' && !confirm.disabled) { event.preventDefault(); confirm.click(); } });
+            }
+            confirm.addEventListener('click', function () { if (!confirm.disabled) close(true); }); cancel.addEventListener('click', function () { close(false); });
+            dialog.addEventListener('close', function () { if (!finished) { finished = true; dialog.remove(); settle(false); } }, { once: true });
+            observer = new MutationObserver(function () { if (!dialog.isConnected && !resolved) { finished = true; settle(false); } });
+            var labelObserver;
+            customElements.whenDefined('jelly-dialog').then(function () {
+              document.body.appendChild(dialog); observer.observe(document.body, { childList: true }); dialog.open = true;
+              if (dialog.shadowRoot) { localizeClose(dialog.shadowRoot); labelObserver = new MutationObserver(function () { localizeClose(dialog.shadowRoot); }); labelObserver.observe(dialog.shadowRoot, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label'] }); }
+              setTimeout(function () { if (input) input.focus(); else if (options.tone === 'primary') confirm.focus(); else cancel.focus(); }, 0);
+            });
+          });
+        });
+        return outcome;
+      };
+    })();
+    </script>
+    <style>
+      :root { --jelly-color-background-default:var(--surface); --jelly-color-background-surface:var(--surface); --jelly-color-background-muted:var(--field); --jelly-color-background-neutral:var(--surface-high); --jelly-color-background-accent:var(--accent); --jelly-color-foreground-default:var(--ink); --jelly-color-foreground-muted:var(--muted); --jelly-color-foreground-on-accent:var(--ink); --jelly-color-border-default:var(--outline); --jelly-color-border-focus:var(--secondary); --jelly-font-display:var(--font-display); --jelly-font-text:var(--font); --jelly-font-mono:var(--mono); --jelly-dialog-radius:0 1.5rem 0 1.5rem; --jelly-toast-radius:0 .75rem 0 .75rem; }
+      jelly-toaster { --jelly-toast-radius:inherit; }
+      jelly-segmented { --jelly-pill:var(--ink); --jelly-label-on:var(--surface); --jelly-track:var(--surface-mid); }
+      jelly-switch, jelly-segmented { overflow:clip; overflow-clip-margin:8px; }
+      jelly-toaster::part(toast) { background:var(--toast-bg); color:#fff; border:0; }
+      jelly-toaster::part(close) { color:#fff; }
+      jelly-dialog[data-jelly-confirm] .confirm-actions { display:flex; justify-content:flex-end; gap:.5rem; margin-top:1.25rem; flex-wrap:wrap; }
+      jelly-dialog[data-jelly-confirm] [data-jelly-confirm-input] { display:block; width:100%; margin-top:.75rem; }
+    </style>
+    <script>
+      (function(){var mq=window.matchMedia('(prefers-color-scheme: dark)'),root=document.documentElement;function sync(){var theme=root.getAttribute('data-theme');root.setAttribute('data-jelly-mode',theme==='dark'?'dark':theme==='light'?'light':mq.matches?'dark':'light');window.dispatchEvent(new CustomEvent('jelly-theme-change'));}sync();if(mq.addEventListener)mq.addEventListener('change',sync);else if(mq.addListener)mq.addListener('change',sync);new MutationObserver(sync).observe(root,{attributes:true,attributeFilter:['data-theme']});})();
+    </script>
+    <script type="module" src="/admin/assets/jelly-ui/jelly.js"></script>
     <title>{{if .Title}}{{.Title}}{{else}}{{block "title" .}}Jelly CMS{{end}}{{end}} · Jelly CMS</title>
     <style>
         @font-face {
@@ -539,25 +695,6 @@
         .palette-foot .brand { margin-left: auto; display: inline-flex; align-items: center; gap: .375rem; }
         .palette-foot .brand svg { width: 14px; height: 16px; }
 
-        /* ---------- Toast：墨色底、左邊口味色方點 ---------- */
-        .toasts { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 1200; display: flex; flex-direction: column; align-items: flex-end; gap: .625rem; width: min(26rem, calc(100vw - 2.5rem)); pointer-events: none; }
-        .toast { pointer-events: auto; display: flex; align-items: center; gap: .625rem; width: 100%; padding: .75rem .875rem; background: var(--toast-bg); color: #fff; border-radius: 0 .75rem 0 .75rem; font-size: .8125rem; line-height: 1.45; box-shadow: 0 .75rem 2rem rgba(21, 22, 26, .22), 0 0 0 1px var(--rail-line); animation: toast-in .18s ease; }
-        .toast.leaving { opacity: 0; transform: translateY(.5rem); transition: opacity .16s ease, transform .16s ease; }
-        @keyframes toast-in { from { transform: translateY(.75rem); opacity: 0; } to { transform: none; opacity: 1; } }
-        .toast-dot { width: .5rem; height: .5rem; flex: 0 0 auto; border-radius: 0 .1875rem 0 .1875rem; background: var(--secondary); }
-        .toast-success .toast-dot { background: var(--accent); }
-        .toast-error .toast-dot { background: var(--primary); }
-        .toast-warning .toast-dot { background: var(--warning); }
-        .toast-info .toast-dot { background: var(--secondary); }
-        .toast-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-        .toast-body b { font-weight: 700; }
-        .toast-detail { color: #C9CBD3; margin-left: .375rem; }
-        .toast .toast-action, .toast .toast-close { display: inline-flex; align-items: center; justify-content: center; gap: .3rem; min-height: 1.875rem; padding: 0 .625rem; background: transparent; color: #fff; border: 0; border-radius: 0 .5rem 0 .5rem; font-weight: 700; font-size: .75rem; cursor: pointer; white-space: nowrap; }
-        .toast .toast-close { padding: 0; width: 1.875rem; color: #C9CBD3; }
-        .toast .toast-action:hover, .toast .toast-close:hover { background: rgba(255, 255, 255, .14); color: #fff; }
-        .toast :focus-visible { outline-color: #fff; }
-        .toast .icon { width: .875rem; height: .875rem; }
-
         /* ---------- 狀態：空白、載入、錯誤、無權限 ---------- */
         .state { margin: 1rem 0; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .625rem; min-height: 25rem; padding: 3rem 1.5rem; text-align: center; border-radius: var(--r-md); overflow: hidden; }
         .state h1, .state h2 { font-size: 1.75rem; line-height: 1.1; letter-spacing: -.02em; }
@@ -628,13 +765,15 @@
             .content { padding: .25rem 1rem 2.5rem; }
             h1 { font-size: 1.5rem; }
             .page-header, .header { align-items: flex-start; flex-direction: column; }
+            .posts-page-header, .posts-page-header .posts-page-title { width:100%; min-width:0; }
+            .posts-status-scroll { box-sizing:border-box; width:calc(100% + 16px); max-width:calc(100% + 16px); min-width:0; margin:-8px; padding:8px; overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain; }
+            .posts-status-scroll #postStatus { width:max-content; min-width:100%; max-width:none; --jelly-segmented-min-width:max-content; --jelly-segmented-padding-inline:8px; --jelly-segmented-font-size:13px; }
             .setting-row { grid-template-columns: 1fr; }
             .setting-row .control { justify-content: flex-start; }
             .modal-content { width: 100%; border-radius: 0; }
             .palette-overlay { padding: 1rem .75rem; }
             .palette { max-height: calc(100vh - 2rem); max-height: calc(100dvh - 2rem); }
             .palette-modes, .palette-foot .hint-newtab { display: none; }
-            .toasts { right: .75rem; left: .75rem; bottom: .75rem; width: auto; align-items: stretch; }
             .state { min-height: 18rem; padding: 2rem 1rem; }
             .state h1, .state h2 { font-size: 1.5rem; }
         }
@@ -736,7 +875,7 @@
         </div>
     </div>
 
-    <div class="toasts" id="toasts" role="region" aria-label="{{.T.toastRegion}}"></div>
+    <jelly-toaster position="bottom" role="region" aria-label="{{.T.toastRegion}}"></jelly-toaster>
 
     <script>
         (function () {
@@ -793,69 +932,7 @@
             });
 
             /* ---------- Toast ---------- */
-            var toastRoot = $('#toasts');
-            var MAX_TOASTS = 4;
-            function toast(message, opts) {
-                if (message && typeof message === 'object') { opts = message; message = opts.message; }
-                opts = opts || {};
-                var kind = ['success', 'error', 'info', 'warning'].indexOf(opts.kind) >= 0 ? opts.kind : 'info';
-                var item = el('div', 'toast toast-' + kind);
-                item.setAttribute('role', kind === 'error' ? 'alert' : 'status');
-                item.appendChild(el('span', 'toast-dot'));
-                var body = el('div', 'toast-body');
-                body.appendChild(el('b', '', message == null ? '' : String(message)));
-                if (opts.detail) body.appendChild(el('span', 'toast-detail', String(opts.detail)));
-                item.appendChild(body);
-
-                var timer = null, remaining = 0, startedAt = 0, gone = false;
-                function dismiss() {
-                    if (gone) return;
-                    gone = true;
-                    clearTimeout(timer);
-                    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-                    if (reduce) { item.remove(); return; }
-                    item.classList.add('leaving');
-                    setTimeout(function () { item.remove(); }, 180);
-                }
-                var act = opts.action;
-                if (act && act.label) {
-                    var btn = act.href ? el('a', 'toast-action') : el('button', 'toast-action');
-                    if (act.href) { btn.href = act.href; if (/^https?:/.test(act.href)) { btn.target = '_blank'; btn.rel = 'noopener'; } }
-                    else btn.type = 'button';
-                    btn.appendChild(doc.createTextNode(String(act.label)));
-                    btn.addEventListener('click', function () {
-                        if (typeof act.onClick === 'function') act.onClick(dismiss);
-                        if (!act.href) dismiss();
-                    });
-                    item.appendChild(btn);
-                }
-                var close = el('button', 'toast-close');
-                close.type = 'button';
-                close.setAttribute('aria-label', L.close);
-                close.appendChild(icon('i-x'));
-                close.addEventListener('click', dismiss);
-                item.appendChild(close);
-
-                // error 不自動消失；其餘 4 秒（帶動作的 8 秒），滑過或聚焦時暫停。
-                var duration = typeof opts.duration === 'number' ? opts.duration : (kind === 'error' ? 0 : (act ? 8000 : 4000));
-                function arm(ms) {
-                    if (!(ms > 0) || gone) return;
-                    remaining = ms; startedAt = Date.now();
-                    clearTimeout(timer);
-                    timer = setTimeout(dismiss, ms);
-                }
-                function pause() { if (timer) { clearTimeout(timer); timer = null; remaining -= Date.now() - startedAt; } }
-                function resume() { if (!timer && remaining > 0) arm(Math.max(remaining, 1500)); }
-                item.addEventListener('mouseenter', pause);
-                item.addEventListener('mouseleave', resume);
-                item.addEventListener('focusin', pause);
-                item.addEventListener('focusout', resume);
-
-                toastRoot.appendChild(item);
-                while (toastRoot.children.length > MAX_TOASTS) toastRoot.firstElementChild.remove();
-                arm(duration);
-                return { dismiss: dismiss, element: item };
-            }
+            var toast = window.Jelly.toast;
 
             /* ---------- ⌘K 指令面板 ---------- */
             var overlay = $('#palette'), input = $('#paletteInput'), list = $('#paletteList'), chipsEl = $('#paletteChips');
@@ -1069,7 +1146,6 @@
             });
 
             window.Jelly = window.Jelly || {};
-            window.Jelly.toast = toast;
             window.Jelly.palette = { open: function () { openPalette(); }, close: closePalette };
         })();
     </script>
