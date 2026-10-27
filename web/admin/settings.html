@@ -168,7 +168,7 @@
         <div class="setting-row"><div><label for="ecpayKey">Hash Key</label><small class="hint" data-t="secretHint"></small></div><div class="control" data-field data-secret="payment_ecpay_hash_key" data-for="ecpayKey"></div></div>
         <div class="setting-row"><div><label for="ecpayIv">Hash IV</label></div><div class="control" data-field data-secret="payment_ecpay_hash_iv" data-for="ecpayIv"></div></div>
         <div class="setting-row"><div><span class="label" id="lEcpayEnv" data-t="env"></span><small class="hint" data-t="envHint"></small></div>
-            <div class="control"><jelly-segmented id="ecpayTestMode" name="ecpay_test_mode" data-key="payment_ecpay_test_mode" label="環境" value="test"><jelly-segment value="test">測試</jelly-segment><jelly-segment value="live">正式</jelly-segment></jelly-segmented></div></div>
+            <div class="control"><jelly-segmented id="ecpayTestMode" name="ecpay_test_mode" data-key="payment_ecpay_test_mode" label="環境" value="test"><jelly-segment value="test" data-t="envTest">測試</jelly-segment><jelly-segment value="live" data-t="envLive">正式</jelly-segment></jelly-segmented></div></div>
         <div class="setting-row"><div><span class="label" data-t="notifyUrl"></span><small class="hint" data-t="notifyHintEcpay"></small></div><div class="control sa-codebox"><code data-notify="ecpay"></code><button type="button" class="btn btn-secondary btn-sm" data-copy-notify="ecpay"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span data-t="copy"></span></button></div></div>
         <div class="setting-row"><div><span class="label" data-t="testConn"></span><small class="sa-test-result" data-test-result="ecpay" role="status" aria-live="polite"></small></div><div class="control sa-codebox"><span data-test-badge="ecpay"></span><button type="button" class="btn btn-secondary btn-sm" data-test="ecpay"><svg class="icon" aria-hidden="true"><use href="#i-plug"/></svg><span data-t="testConn"></span></button></div></div>
     </form>
@@ -181,7 +181,7 @@
         <div class="setting-row"><div><label for="newebpayKey">Hash Key</label><small class="hint" data-t="secretHint"></small></div><div class="control" data-field data-secret="payment_newebpay_hash_key" data-for="newebpayKey"></div></div>
         <div class="setting-row"><div><label for="newebpayIv">Hash IV</label></div><div class="control" data-field data-secret="payment_newebpay_hash_iv" data-for="newebpayIv"></div></div>
         <div class="setting-row"><div><span class="label" id="lNewebEnv" data-t="env"></span><small class="hint" data-t="envHint"></small></div>
-            <div class="control"><jelly-segmented id="newebpayTestMode" name="newebpay_test_mode" data-key="payment_newebpay_test_mode" label="環境" value="test"><jelly-segment value="test">測試</jelly-segment><jelly-segment value="live">正式</jelly-segment></jelly-segmented></div></div>
+            <div class="control"><jelly-segmented id="newebpayTestMode" name="newebpay_test_mode" data-key="payment_newebpay_test_mode" label="環境" value="test"><jelly-segment value="test" data-t="envTest">測試</jelly-segment><jelly-segment value="live" data-t="envLive">正式</jelly-segment></jelly-segmented></div></div>
         <div class="setting-row"><div><span class="label" data-t="notifyUrl"></span></div><div class="control sa-codebox"><code data-notify="newebpay"></code><button type="button" class="btn btn-secondary btn-sm" data-copy-notify="newebpay"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span data-t="copy"></span></button></div></div>
         <div class="setting-row"><div><span class="label" data-t="testConn"></span><small class="sa-test-result" data-test-result="newebpay" role="status" aria-live="polite"></small></div><div class="control sa-codebox"><span data-test-badge="newebpay"></span><button type="button" class="btn btn-secondary btn-sm" data-test="newebpay"><svg class="icon" aria-hidden="true"><use href="#i-plug"/></svg><span data-t="testConn"></span></button></div></div>
     </form>
@@ -464,6 +464,7 @@
     let tests = {};
 
     document.querySelectorAll('#shopSettings [data-t], #shopTab [data-t], #shippingTab [data-t], #paymentTab [data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
+    ['ecpayTestMode', 'newebpayTestMode'].forEach(id => $(id).setAttribute('label', t('env')));
     document.querySelectorAll('[data-notify]').forEach(el => { el.textContent = location.origin + '/api/payment/' + el.dataset.notify + '/notify'; });
     document.querySelectorAll('[data-copy-notify]').forEach(b => b.addEventListener('click', () => SA.copy(location.origin + '/api/payment/' + b.dataset.copyNotify + '/notify')));
     /* ---------- tabs ---------- */

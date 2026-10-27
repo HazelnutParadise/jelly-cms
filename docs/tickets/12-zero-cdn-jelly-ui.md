@@ -3,7 +3,7 @@
 Epic：前端資源與介面元件
 User Story：站長與訪客的每一頁都只用 Jelly CMS 自己提供的腳本、樣式、字型與圖示，離線環境照常完整可用，CI 與驗收腳本會擋下任何外部資源；後台的設定開關、文章狀態篩選、確認對話框與通知條改用 Jelly UI（軟體物理感的 Web Components），按下去有果凍質感，但版面、側欄、卡片、表格、按鈕、自家圖示和白底墨字的視覺語言維持原樣。
 Blocked by：05 的字型自帶（已合併）。與 08（設定頁）、09（編輯器，移除 marked）有重疊，見〈相依與合併順序〉。
-Status：實作完成，主代理驗收中。最新驗證與交付狀態見 `STATUS.md` 的 PR #33 紀錄。
+Status：實作與瀏覽器驗收完成。完整套件、CI 與交付結果見 `STATUS.md` 及 [PR #33](https://github.com/HazelnutParadise/jelly-cms/pull/33) 的最終紀錄。
 設計稿：`design/project/Settings、SettingsRoutes、SettingsCrawlers、Posts、Trash、States.dc.html`（元件對照見 `design/README.md` 的〈Jelly UI 元件對照〉）；字型改自帶後，含 main 新增畫面的全部 81 張板都使用自帶字型。
 來源：[issue #18](https://github.com/HazelnutParadise/jelly-cms/issues/18)
 
@@ -51,18 +51,20 @@ issue 的目標有一部分在 main 已完成，下列以實測為準。
 
 ## 流程與驗收
 
-- [ ] 站長在後台任何一頁都不會有外部請求：Chromium 封鎖所有非本站網域後，後台與前台每一頁沒有被擋或失敗的請求，Bricolage Grotesque 與 Noto Sans TC 載入成功。
-- [x] 設計畫布的 65 張板不從 Google Fonts 載入字型：每張板的 helmet 只有 `<link rel="stylesheet" href="./fonts.css">`，字型來自 `design/project/fonts/*.woff2`（不進版控，由 `scripts/vendor/fonts.sh` 複製）。
+- [x] 站長在後台任何一頁都不會有外部請求：Chromium 封鎖所有非本站網域後，後台與前台每一頁沒有被擋或失敗的請求，Bricolage Grotesque 與 Noto Sans TC 載入成功。
+- [x] 設計畫布的 81 張板不從 Google Fonts 載入字型：每張板的 helmet 只有 `<link rel="stylesheet" href="./fonts.css">`，字型來自 `design/project/fonts/*.woff2`（不進版控，由 `scripts/vendor/fonts.sh` 複製）。
 - [x] 任何人在 `web/`、`design/`、`cmd/` 的 `.html`、`.tmpl`、`.css`、`.js` 加入外部 script、link、img、iframe、source、`@import`、`url()` 時，`go test ./internal/assetcheck` 會失敗並指出檔名與行號；`<a href>` 與 `<textarea>`、`<code>` 內的示範文字不算。
-- [ ] 維護者執行 `scripts/vendor/jelly-ui.sh` 就得到 `web/admin/assets/jelly-ui/{jelly.js,LICENSE,VERSION}`，釘住上游 commit；改 commit 重跑就重現。`marked` 同樣有 `scripts/vendor/marked.sh`、`LICENSE`、`VERSION`，並移到 `web/admin/assets/marked/`。
-- [ ] 站長打開任何後台頁（含錯誤頁）都載入 Jelly UI 模組一次；登入頁、安裝頁、個人帳號頁、前台頁都不載入。
-- [ ] 站長在設定頁用滑鼠或空白鍵切換 Google／GitHub OAuth、綠界、藍新的啟用（四個開關），並在綠界與藍新各自的「環境」分段選擇（測試／正式）選擇；選「測試」就是 `test_mode: true`，選「正式」是 `false`。畫面與資料行為和原本的核取方塊一致（儲存的 JSON 與資料庫內容不變，仍是布林）。設定頁沒有英文硬字串的新標籤（繁中板就是繁中）。
-- [ ] 站長在文章列表用「全部／已發布／草稿／待審核」分段選擇（每段顯示篇數）篩選列表，滑鼠點擊、方向鍵、Home 都可用。
-- [ ] 站長在後台做刪除、永久刪除、清空回收桶、還原版本、重載外掛、重設主題等需要確認的動作時，看到 Jelly UI 對話框而不是瀏覽器的 `confirm()`；Esc、取消、點背景、✕ 都不執行動作；回收桶的「輸入刪除確認」改由同一個函式提供。
-- [ ] 後台所有通知（既有 `Jelly.toast(message, {kind, detail, action, duration})` 呼叫端與伺服器端 `toast` 範本）改由 Jelly UI 的通知條顯示，呼叫端與參數都不改；成功、警告、資訊 4 秒、帶動作的 8 秒、錯誤不自動消失、滑過或聚焦暫停、最多同時 4 則。
-- [ ] 深色模式下 `<html data-jelly-mode="dark">`，亮暗切換即時同步；鍵盤可操作四種元件；`dir="rtl"` 下開關與對話框照常運作（`prefers-reduced-motion` 由上游處理）。
-- [ ] `docs/release-checklist.md` 列出字型、Jelly UI、marked 三個自帶套件與各自的腳本；`docs/system-requirements.md` 寫明瀏覽器需求。
-- [ ] `design/README.md` 記下元件對照；板已改（Settings 家族、Posts、Trash、States），線上畫布由主代理在合併後同步，且要把 `project/fonts.css` 與 `project/fonts/*.woff2` 一起發布。
+- [x] 維護者執行 `scripts/vendor/jelly-ui.sh` 就得到 `web/admin/assets/jelly-ui/{jelly.js,LICENSE,VERSION}`，釘住上游 commit；改 commit 重跑就重現。marked 已由 main 的工作單 09 移除，不重新加入。
+- [x] 站長打開任何後台頁（含錯誤頁）都載入 Jelly UI 模組一次；登入頁、安裝頁、個人帳號頁、前台頁都不載入。
+- [x] 站長在設定頁用滑鼠或空白鍵切換 Google／GitHub OAuth、綠界、藍新的啟用（四個開關），並在綠界與藍新各自的「環境」分段選擇（測試／正式）選擇；選「測試」就是 `test_mode: true`，選「正式」是 `false`。畫面與資料行為和原本的核取方塊一致（JSON 請求使用布林，GET 與資料庫維持既有字串）。設定頁沒有英文硬字串的新標籤（繁中板就是繁中）。
+- [x] 站長在文章列表用「全部／已發布／草稿／待審核」分段選擇（每段顯示篇數）篩選列表，滑鼠點擊、方向鍵、Home 都可用。
+- [x] 站長在後台做刪除、永久刪除、清空回收桶、還原版本、重載外掛、重設主題等需要確認的動作時，看到 Jelly UI 對話框而不是瀏覽器的 `confirm()`；Esc、取消、點背景、✕ 都不執行動作；回收桶的「輸入刪除確認」改由同一個函式提供。
+- [x] 後台所有通知（既有 `Jelly.toast(message, {kind, detail, action, duration})` 呼叫端與伺服器端 `toast` 範本）改由 Jelly UI 的通知條顯示，呼叫端與參數都不改；成功、警告、資訊 4 秒、帶動作的 8 秒、錯誤不自動消失、滑過或聚焦暫停、最多同時 4 則。
+- [x] 深色模式下 `<html data-jelly-mode="dark">`，亮暗切換即時同步；鍵盤可操作四種元件；`dir="rtl"` 下開關與對話框照常運作（`prefers-reduced-motion` 由上游處理）。
+- [x] `docs/release-checklist.md` 列出字型、Jelly UI、CodeMirror、KaTeX、Pele 與各自的腳本；`docs/system-requirements.md` 寫明瀏覽器需求。
+- [x] `design/README.md` 記下元件對照；板已改（Settings 家族、Posts、Trash、States）。
+
+線上畫布依 `design/README.md` 的流程發布，包含 `project/fonts.css` 與 `project/fonts/*.woff2`；同步結果見 PR #33 的完成回報。
 
 ## 錯誤與邊界
 
@@ -194,16 +196,16 @@ options = {
 | `ecpayTestMode` | `ecpay_test_mode` | `環境` | `<jelly-segment value="test">測試</jelly-segment>`、`<jelly-segment value="live">正式</jelly-segment>` |
 | `newebpayTestMode` | `newebpay_test_mode` | `環境` | 同上 |
 
-- 兩段的順序固定（測試在前），標籤是繁體中文「測試」「正式」，不得出現英文硬字串（原本的 `測試模式 (Test Mode)` 標籤與 `Use the sandbox endpoint; no real charges.` 說明改成板上的「環境」與「測試環境不會真的收款。」）。
-- 伺服器輸出 `value="test"`（預設）。選「測試」＝`test_mode: true`，選「正式」＝`test_mode: false`；送到 API 的 JSON 與資料庫內容（`payment_ecpay_test_mode`、`payment_newebpay_test_mode` 為 `"true"`／`"false"` 字串）完全不變，仍是布林。
+- 兩段的順序固定（測試在前）。繁中標籤為「測試」「正式」，英文為「Test」「Live」，群組名稱也依語言顯示；繁中介面不得混入英文說明（原本的 `測試模式 (Test Mode)` 標籤與 `Use the sandbox endpoint; no real charges.` 說明改成板上的「環境」與「測試環境不會真的收款。」）。
+- 伺服器輸出 `value="test"`（預設）。選「測試」＝`test_mode: true`，選「正式」＝`test_mode: false`；JSON 請求維持布林，GET 與資料庫的 `payment_ecpay_test_mode`、`payment_newebpay_test_mode` 維持 `"true"`／`"false"` 字串。
 - **讀寫寫法（釘死，避開升級前屬性遮蔽的競態）**：寫入一律 `el.setAttribute('value', isTest ? 'test' : 'live')`，讀取一律 `el.getAttribute('value') === 'test'`；測試禁止對 `…TestMode` 用 `.value =` 賦值或 `.checked`。建議在腳本頂端加 `isTestMode(id)`、`setTestMode(id, bool)`，取代現有 `ecpayTestMode`、`newebpayTestMode` 各自的 `.checked` 讀寫。
-- 既有的 `…TestMode.addEventListener('change', checkECPayForm)`（藍新同）照舊：`change` 事件由 `jelly-segmented` 在使用者操作時發出（`detail.value`），程式用 `setAttribute` 載入時不發，與原生核取方塊的語意一致。
+- 沿用 main 的設定變更與未儲存狀態處理：`change` 事件由 `jelly-segmented` 在使用者操作時發出（`detail.value`），程式用 `setAttribute` 載入時不發，與原生核取方塊的語意一致。
 - 段落文字是純文字（上游不支援在段內放其他元素）；`label="環境"` 是群組的可存取名稱。
 
 - 原本在 `settings-group-head` 裡的 `<label class="toggle-switch"><input type="checkbox" …><span class="slider"></span></label>` 整段換成單一 `<jelly-switch …></jelly-switch>`；兩個 `測試模式` 原本是 `<div class="control"><input type="checkbox" …></div>`，換成上面的 `<jelly-segmented>`（留在原本的 `.setting-row` 與 `.control` 內，左欄標籤改成「環境」與說明「測試環境不會真的收款。」）。`onchange="toggleGoogle()"` 等行內處理器保留（`change` 事件在元素本身上發出）。
 - 頁面腳本寫入一律 `el.toggleAttribute('checked', value)`，讀取一律 `el.hasAttribute('checked')`；測試禁止 `…Enabled').checked =` 的賦值寫法。建議在腳本頂端加兩個小函式 `isOn(id)`、`setOn(id, value)`，取代四個開關現有的 `.checked`。
 - 伺服器輸出的開關不帶 `checked`（預設值由腳本在讀到設定後設定）；環境分段選擇輸出 `value="test"`，載入設定後由腳本以 `setAttribute` 改成已存的值。
-- 送到 `POST /api/admin/payment/gateways/{ecpay,newebpay}` 與 `POST /api/admin/oauth/providers/{google,github}` 的 JSON（`enabled`、`test_mode` 為布林）與資料庫內容（`payment_ecpay_enabled`、`payment_ecpay_test_mode` 為 `"true"`／`"false"` 字串）完全不變，後端不動。
+- OAuth 沿用 `POST /api/admin/oauth/providers/{google,github}` 的布林 `enabled`。金流沿用 main 的 `PUT /api/admin/shop/settings` 變更集，付款開關與環境送 JSON 布林，物流方式送陣列、付款方式對應送物件；GET 與資料庫內容維持原格式。後端與舊的付款設定端點不變。
 - 設定頁其餘的 `alert(...)` 不在本工作單範圍（`COMPONENTS.md` 已註記「之後逐頁改成 `Jelly.toast`」）。
 - `layout.html` 的 `.toggle-switch`／`.slider` 樣式保留：`menus.html`、`taxonomy.html`、`revisions.html`、`components.html` 還在用（見決策紀錄）。
 

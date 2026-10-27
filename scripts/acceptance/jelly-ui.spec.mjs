@@ -165,19 +165,28 @@ async function captureVisualMatrixPage(context, combination, kind, runId) {
       const environment = page.locator('#ecpayTestMode');
       await toggle.waitFor({ state: 'visible', timeout: 10000 });
       await environment.waitFor({ state: 'visible', timeout: 10000 });
+      const expectedEnvironment = locale === 'en'
+        ? { label: 'Environment', options: ['Test', 'Live'] }
+        : { label: '環境', options: ['測試', '正式'] };
       record.actualLabels = await page.evaluate(() => ({
         switches: ['ecpayEnabled', 'newebpayEnabled'].map((id) => {
           const el = document.getElementById(id);
           return { id, label: el?.getAttribute('label') || '', checked: el?.hasAttribute('checked') || false };
         }),
-        environment: {
-          label: document.getElementById('ecpayTestMode')?.getAttribute('label') || '',
-          selected: document.getElementById('ecpayTestMode')?.getAttribute('value') || '',
-          options: [...(document.getElementById('ecpayTestMode')?.querySelectorAll('jelly-segment') || [])].map((el) => el.innerText.trim()),
-        },
+        environments: ['ecpayTestMode', 'newebpayTestMode'].map((id) => {
+          const el = document.getElementById(id);
+          return {
+            id,
+            label: el?.getAttribute('label') || '',
+            selected: el?.getAttribute('value') || '',
+            options: [...(el?.querySelectorAll('jelly-segment') || [])].map((option) => option.innerText.trim()),
+          };
+        }),
       }));
-      assert(record.actualLabels.switches.every((item) => item.label) && record.actualLabels.environment.options.length === 2,
-        `payment settings labels are incomplete: ${JSON.stringify(record.actualLabels)}`);
+      assert(record.actualLabels.switches.every((item) => item.label) &&
+        record.actualLabels.environments.length === 2 && record.actualLabels.environments.every((item) =>
+          item.label === expectedEnvironment.label && JSON.stringify(item.options) === JSON.stringify(expectedEnvironment.options)),
+      `payment environment labels for ${locale} do not match ${JSON.stringify(expectedEnvironment)}: ${JSON.stringify(record.actualLabels)}`);
       await toggle.focus();
       await settleVisualElement(page, toggle, 'payment switch');
     } else if (kind === 'posts') {
@@ -416,6 +425,12 @@ async function runAdmin(browser) {
     assert(second.includes('Save failed') && second.includes('link down'), `error toast text was ${JSON.stringify(second)}`);
     assert(await page.evaluate(() => typeof window.__failed.dismiss === 'function' && window.__failed.element instanceof HTMLElement), 'Jelly.toast must return {dismiss(), element}');
     assert(await page.evaluate(() => document.querySelectorAll('.toasts, .toast-dot').length === 0), 'the old hand-made toast container is still in the page');
+    const toastRadii = await page.evaluate(() => {
+      const style = getComputedStyle(window.__failed.element);
+      return [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomRightRadius, style.borderBottomLeftRadius];
+    });
+    assert(JSON.stringify(toastRadii) === JSON.stringify(['0px', '12px', '0px', '12px']),
+      `toast corners should follow the asymmetric brand radius, got ${JSON.stringify(toastRadii)}`);
     await page.locator('jelly-toaster .toast button:has-text("Retry now")').click();
     assert(await page.evaluate(() => window.__clicked) === 1, 'the toast action onClick did not run exactly once');
     // the success toast leaves by itself; an error toast stays until dismissed

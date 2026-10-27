@@ -55,7 +55,7 @@
             text.style.minWidth = '0'; text.style.flex = '1 1 0%'; text.style.maxWidth = '100%'; text.style.whiteSpace = 'normal'; text.style.overflowWrap = 'anywhere';
             text.textContent = '';
             var strong = document.createElement('b'); strong.textContent = String(message == null ? '' : message); text.appendChild(strong);
-            if (options.detail) { var detail = document.createElement('span'); detail.textContent = String(options.detail); detail.style.opacity = '.72'; detail.style.minWidth = '0'; detail.style.maxWidth = '100%'; detail.style.whiteSpace = 'normal'; detail.style.overflowWrap = 'anywhere'; text.appendChild(detail); }
+            if (options.detail) { text.appendChild(document.createTextNode(' ')); var detail = document.createElement('span'); detail.textContent = String(options.detail); detail.style.opacity = '.72'; detail.style.minWidth = '0'; detail.style.maxWidth = '100%'; detail.style.whiteSpace = 'normal'; detail.style.overflowWrap = 'anywhere'; text.appendChild(detail); }
           }
           var dot = element.querySelector('.dot');
           if (dot) dot.style.background = 'var(' + (options.kind === 'success' ? '--accent' : options.kind === 'error' ? '--primary' : options.kind === 'warning' ? '--warning' : '--secondary') + ')';
@@ -150,6 +150,7 @@
     </script>
     <style>
       :root { --jelly-color-background-default:var(--surface); --jelly-color-background-surface:var(--surface); --jelly-color-background-muted:var(--field); --jelly-color-background-neutral:var(--surface-high); --jelly-color-background-accent:var(--accent); --jelly-color-foreground-default:var(--ink); --jelly-color-foreground-muted:var(--muted); --jelly-color-foreground-on-accent:var(--ink); --jelly-color-border-default:var(--outline); --jelly-color-border-focus:var(--secondary); --jelly-font-display:var(--font-display); --jelly-font-text:var(--font); --jelly-font-mono:var(--mono); --jelly-dialog-radius:0 1.5rem 0 1.5rem; --jelly-toast-radius:0 .75rem 0 .75rem; }
+      jelly-toaster { --jelly-toast-radius:inherit; }
       jelly-segmented { --jelly-pill:var(--ink); --jelly-label-on:var(--surface); --jelly-track:var(--surface-mid); }
       jelly-switch, jelly-segmented { overflow:clip; overflow-clip-margin:8px; }
       jelly-toaster::part(toast) { background:var(--toast-bg); color:#fff; border:0; }
