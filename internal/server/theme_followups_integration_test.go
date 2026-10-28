@@ -11,6 +11,7 @@ package server
 // (gaps, widths, contrast, mobile hero height) are browser acceptance conditions in the ticket, not here.
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -580,8 +581,21 @@ func TestFollowupAdminFontsAreCacheable(t *testing.T) {
 			continue
 		}
 		cc := r.header.Get(echo.HeaderCacheControl)
-		if !strings.Contains(cc, "public") || !strings.Contains(cc, "max-age=2592000") {
-			t.Errorf("GET %s: Cache-Control = %q, want public, max-age=2592000", path, cc)
+		if !strings.Contains(cc, "no-cache") {
+			t.Errorf("unhashed GET %s: Cache-Control = %q, want no-cache", path, cc)
+		}
+		hash := fmt.Sprintf("%x", sha256.Sum256([]byte(r.body)))
+		versioned := archivesGet(t, h, path+"?v="+hash)
+		if versioned.code != http.StatusOK || versioned.body != r.body {
+			t.Errorf("hashed GET %s: status=%d body matches unversioned response=%t", path, versioned.code, versioned.body == r.body)
+			continue
+		}
+		immutable := versioned.header.Get(echo.HeaderCacheControl)
+		if !strings.Contains(immutable, "public") || !strings.Contains(immutable, "max-age=31536000") || !strings.Contains(immutable, "immutable") {
+			t.Errorf("hashed GET %s: Cache-Control = %q, want public, one-year immutable", path, immutable)
+		}
+		if actual := fmt.Sprintf("%x", sha256.Sum256([]byte(versioned.body))); actual != hash {
+			t.Errorf("hashed GET %s: response SHA-256 %s differs from URL hash %s", path, actual, hash)
 		}
 	}
 }

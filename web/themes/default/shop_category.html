@@ -1,7 +1,7 @@
 {{define "content"}}
 {{- $en := eq (print .Lang) "en" -}}
 {{- $root := . -}}
-<link rel="stylesheet" href="/theme/assets/shop.css">
+<link rel="stylesheet" href="{{assetURL "/theme/assets/shop.css"}}">
 <div class="shop" data-page="list" data-lang="{{if $en}}en{{else}}zh-TW{{end}}" data-currency="{{.Currency}}">
     {{with .Term}}
     <section class="shop-hero blue">
@@ -139,5 +139,5 @@
     </div>
     {{end}}
 </div>
-<script src="/theme/assets/shop.js" defer></script>
+<script src="{{assetURL "/theme/assets/shop.js"}}" defer></script>
 {{end}}

@@ -122,11 +122,13 @@ func registerInstallRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugi
 			data["DBTimezone"] = "Asia/Taipei"
 		}
 
-		tmpl, err := template.ParseFiles("web/admin/install.html")
+		tmpl, err := template.New("install.html").Funcs(adminFuncsFor(c)).ParseFiles("web/admin/install.html")
 		if err != nil {
 			return err
 		}
 
+		c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
+		c.Response().Header().Set(echo.HeaderCacheControl, "no-cache")
 		return tmpl.Execute(c.Response().Writer, data)
 	})
 

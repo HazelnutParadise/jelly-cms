@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -26,9 +27,9 @@ import (
 )
 
 const (
-	mermaidITPeleTag        = `<script src="/admin/assets/pele/pele.global.js" defer></script>`
-	mermaidITIntegrationTag = `<script src="/admin/assets/jelly-mermaid.js" defer></script>`
-	mermaidITRenderCall     = `JellyMermaid.render(document)`
+	mermaidITPelePath        = "/admin/assets/pele/pele.global.js"
+	mermaidITIntegrationPath = "/admin/assets/jelly-mermaid.js"
+	mermaidITRenderCall      = `JellyMermaid.render(document)`
 
 	// mermaidITMarkdown is what an author types; mermaidITHTML is what the editor's Markdown converter
 	// stores for it in content (marked 15 output: the source is HTML-escaped inside the code element).
@@ -69,6 +70,63 @@ func mermaidITSources(t *testing.T, path, body string) []string {
 	}
 	walk(doc)
 	return sources
+}
+
+func mermaidITScriptURLs(t *testing.T, body, assetPath string) []string {
+	t.Helper()
+	doc, err := xhtml.Parse(strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("parse HTML for %s: %v", assetPath, err)
+	}
+	var urls []string
+	var walk func(*xhtml.Node)
+	walk = func(n *xhtml.Node) {
+		if n.Type == xhtml.ElementNode && n.Data == "script" {
+			for _, attr := range n.Attr {
+				if attr.Key != "src" {
+					continue
+				}
+				u, parseErr := url.Parse(attr.Val)
+				if parseErr == nil && u.Path == assetPath {
+					urls = append(urls, attr.Val)
+				}
+			}
+		}
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	walk(doc)
+	return urls
+}
+
+func mermaidITHasDeferredClassicScript(t *testing.T, body, assetPath string) bool {
+	t.Helper()
+	doc, err := xhtml.Parse(strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("parse HTML for %s: %v", assetPath, err)
+	}
+	valid := false
+	var walk func(*xhtml.Node)
+	walk = func(n *xhtml.Node) {
+		if n.Type == xhtml.ElementNode && n.Data == "script" {
+			attrs := map[string]string{}
+			for _, attr := range n.Attr {
+				attrs[attr.Key] = attr.Val
+			}
+			u, parseErr := url.Parse(attrs["src"])
+			_, hasDefer := attrs["defer"]
+			_, hasType := attrs["type"]
+			if parseErr == nil && u.Path == assetPath && hasDefer && !hasType && regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(u.Query().Get("v")) {
+				valid = true
+			}
+		}
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	walk(doc)
+	return valid
 }
 
 // mermaidITWantSources requires the page's mermaid blocks to hold exactly want, still escaped in the markup.
@@ -115,15 +173,19 @@ func mermaidITHead(t *testing.T, path, body string) string {
 func mermaidITWantAssets(t *testing.T, path, body string) {
 	t.Helper()
 	head := mermaidITHead(t, path, body)
-	for _, tag := range []string{mermaidITPeleTag, mermaidITIntegrationTag} {
-		if !strings.Contains(head, tag) {
-			t.Errorf("GET %s: <head> does not contain %s", path, tag)
+	for _, assetPath := range []string{mermaidITPelePath, mermaidITIntegrationPath} {
+		urls := mermaidITScriptURLs(t, body, assetPath)
+		if len(urls) != 1 {
+			t.Errorf("GET %s: found %d script references to %s, want exactly one", path, len(urls), assetPath)
+		}
+		if !mermaidITHasDeferredClassicScript(t, head, assetPath) {
+			t.Errorf("GET %s: <head> must contain one deferred classic script for %s with a full SHA-256 v parameter", path, assetPath)
 		}
 	}
 	if !strings.Contains(head, mermaidITRenderCall) || !strings.Contains(head, "DOMContentLoaded") {
 		t.Errorf("GET %s: <head> must call %s on DOMContentLoaded", path, mermaidITRenderCall)
 	}
-	if i, j := strings.Index(head, mermaidITPeleTag), strings.Index(head, mermaidITIntegrationTag); i >= 0 && j >= 0 && i > j {
+	if i, j := strings.Index(head, mermaidITPelePath), strings.Index(head, mermaidITIntegrationPath); i >= 0 && j >= 0 && i > j {
 		t.Errorf("GET %s: pele.global.js must load before jelly-mermaid.js", path)
 	}
 	for _, file := range []string{"pele.global.js", "jelly-mermaid.js"} {

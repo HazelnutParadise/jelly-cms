@@ -1,6 +1,6 @@
 {{define "content"}}
 {{- $en := eq (print .Lang) "en" -}}
-<link rel="stylesheet" href="/theme/assets/shop.css">
+<link rel="stylesheet" href="{{assetURL "/theme/assets/shop.css"}}">
 <div class="shop narrow" data-page="sandbox" data-lang="{{if $en}}en{{else}}zh-TW{{end}}" data-currency="{{.Currency}}" data-trade="{{.TradeNo}}">
     <div class="notice warn" role="note">
         <div><b>{{if $en}}Sandbox test mode:{{else}}沙盒測試模式：{{end}}</b> {{if $en}}this page only exists outside production with the sandbox gateway enabled. No real payment or charge happens.{{else}}這頁只在非正式環境且啟用沙盒金流時出現，不會產生真實付款或扣款。{{end}}</div>
@@ -27,5 +27,5 @@
         <div data-sandbox-status hidden aria-live="polite"></div>
     </div>
 </div>
-<script src="/theme/assets/shop.js" defer></script>
+<script src="{{assetURL "/theme/assets/shop.js"}}" defer></script>
 {{end}}

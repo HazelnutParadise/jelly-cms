@@ -21,25 +21,6 @@ import (
 // limit themselves (see uploadBodyLimit in handlers_admin.go) and are skipped here.
 const globalBodyLimit = "2M"
 
-func adminFontCacheHeaders(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		if !strings.HasPrefix(c.Request().URL.EscapedPath(), "/admin/assets/fonts/") {
-			return next(c)
-		}
-		c.Response().Header().Set(echo.HeaderCacheControl, "public, max-age=2592000")
-		c.Response().Before(func() {
-			if c.Response().Status >= http.StatusBadRequest {
-				c.Response().Header().Del(echo.HeaderCacheControl)
-			}
-		})
-		err := next(c)
-		if err != nil {
-			c.Response().Header().Del(echo.HeaderCacheControl)
-		}
-		return err
-	}
-}
-
 // isUploadRoute reports whether the matched route accepts file uploads.
 func isUploadRoute(c echo.Context) bool {
 	// Agent routes apply their own body cap after authentication and auditing so
@@ -66,7 +47,15 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	e.Pre(permalinkRouting)
 	e.Pre(indexNowKeyRouting)
 	wireLogSinks()
-	e.Use(adminFontCacheHeaders)
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if tm != nil {
+				c.Set("assetSnapshot", tm.AssetSnapshot())
+			}
+			return next(c)
+		}
+	})
+	e.Use(htmlRevalidation)
 	e.Use(syslog.RequestID())
 	e.Use(syslog.AccessLog())
 	e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
@@ -84,7 +73,7 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	e.Use(enforceStaffAdminPages)
 	e.Use(settingsURLGuard)
 	registerUploadRoutes(e)
-	e.Static("/admin/assets", "web/admin/assets")
+	registerAssetHashRoutes(e, tm)
 
 	// Install Routes
 	registerInstallRoutes(e, tm, pluginRuntime)
@@ -175,11 +164,12 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	})
 
 	e.GET("/login", func(c echo.Context) error {
-		tmpl, err := template.ParseFiles("web/admin/login.html")
+		tmpl, err := template.New("login.html").Funcs(adminFuncsFor(c)).ParseFiles("web/admin/login.html")
 		if err != nil {
 			return err
 		}
 		c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
+		c.Response().Header().Set(echo.HeaderCacheControl, "no-cache")
 		lang := "en"
 		if requested, ok := c.Get("lang").(string); ok && strings.HasPrefix(strings.ToLower(requested), "zh") {
 			lang = "zh-TW"

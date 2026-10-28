@@ -8,14 +8,14 @@
     <style>
         @font-face {
             font-family: "Noto Sans TC";
-            src: url("/admin/assets/fonts/noto-sans-tc.woff2") format("woff2");
+            src: url('{{assetURL "/admin/assets/fonts/noto-sans-tc.woff2"}}') format("woff2");
             font-style: normal;
             font-weight: 100 900;
             font-display: swap;
         }
         @font-face {
             font-family: "Bricolage Grotesque";
-            src: url("/admin/assets/fonts/bricolage-grotesque.woff2") format("woff2");
+            src: url('{{assetURL "/admin/assets/fonts/bricolage-grotesque.woff2"}}') format("woff2");
             font-style: normal;
             font-weight: 100 900;
             font-display: swap;
@@ -132,7 +132,7 @@
     <main class="page">
         <header class="page-header">
             <div>
-                <div class="brand-row" aria-hidden="true"><img class="mark" src="/admin/assets/jelly-mark.svg" alt="" aria-hidden="true"><span>Jelly CMS</span></div>
+                <div class="brand-row" aria-hidden="true"><img class="mark" src="{{assetURL "/admin/assets/jelly-mark.svg"}}" alt="" aria-hidden="true"><span>Jelly CMS</span></div>
                 <h1 class="brand" data-i18n="title">安裝 Jelly CMS</h1>
                 <p class="intro" data-i18n="intro">設定資料庫與網站管理者，即可開始使用 Jelly CMS。</p>
             </div>

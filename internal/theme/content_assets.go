@@ -11,6 +11,10 @@ import (
 // markup package owns feature detection so themes and renderers use one source
 // of truth. Scripts are emitted once and in dependency order.
 func ContentAssets(contents ...string) template.HTML {
+	return contentAssets(contents, func(raw string) string { return raw })
+}
+
+func contentAssets(contents []string, assetURL func(string) string) template.HTML {
 	features := make(map[string]bool)
 	for _, content := range contents {
 		for _, feature := range markup.Features(content) {
@@ -30,18 +34,18 @@ func ContentAssets(contents ...string) template.HTML {
 
 	var out template.HTML
 	if needsMath {
-		out += `<link rel="stylesheet" href="/vendor/katex/katex.min.css">`
-		out += `<script src="/vendor/katex/katex.min.js" defer></script>`
+		out += template.HTML(`<link rel="stylesheet" href="` + template.HTMLEscapeString(assetURL("/vendor/katex/katex.min.css")) + `">`)
+		out += template.HTML(`<script src="` + template.HTMLEscapeString(assetURL("/vendor/katex/katex.min.js")) + `" defer></script>`)
 	}
 	if needsComponents {
-		out += `<script src="/theme/assets/jelly-components.js" defer></script>`
+		out += template.HTML(`<script src="` + template.HTMLEscapeString(assetURL("/theme/assets/jelly-components.js")) + `" defer></script>`)
 	}
 	if needsMotion {
-		out += `<script src="/theme/assets/jelly-motion.js" defer></script>`
+		out += template.HTML(`<script src="` + template.HTMLEscapeString(assetURL("/theme/assets/jelly-motion.js")) + `" defer></script>`)
 	}
 	if needsMermaid {
-		out += `<script src="/admin/assets/pele/pele.global.js" defer></script>`
-		out += `<script src="/admin/assets/jelly-mermaid.js" defer></script>`
+		out += template.HTML(`<script src="` + template.HTMLEscapeString(assetURL("/admin/assets/pele/pele.global.js")) + `" defer></script>`)
+		out += template.HTML(`<script src="` + template.HTMLEscapeString(assetURL("/admin/assets/jelly-mermaid.js")) + `" defer></script>`)
 		out += `<script>document.addEventListener("DOMContentLoaded",function(){window.JellyMermaid&&window.JellyMermaid.render(document)});</script>`
 	}
 	return out
@@ -50,6 +54,10 @@ func ContentAssets(contents ...string) template.HTML {
 // contentAssetsForTemplate backs the "contentAssets" template function. It
 // intentionally reads only singular page data, never content listings.
 func contentAssetsForTemplate(data any) template.HTML {
+	return contentAssetsForTemplateWithURL(data, func(raw string) string { return raw })
+}
+
+func contentAssetsForTemplateWithURL(data any, assetURL func(string) string) template.HTML {
 	values, ok := data.(map[string]interface{})
 	if !ok {
 		return ""
@@ -72,5 +80,8 @@ func contentAssetsForTemplate(data any) template.HTML {
 	case template.HTML:
 		contents = append(contents, string(content))
 	}
-	return ContentAssets(contents...)
+	if assetURL == nil {
+		assetURL = func(raw string) string { return raw }
+	}
+	return contentAssets(contents, assetURL)
 }

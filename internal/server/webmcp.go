@@ -13,10 +13,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"html/template"
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"regexp"
 	"strings"
@@ -33,27 +33,26 @@ import (
 const (
 	// webmcpEnabledKey is the option row that switches WebMCP; a missing row means "true".
 	webmcpEnabledKey = "webmcp_enabled"
-	// webmcpScriptTag is inserted once into every public theme page while WebMCP is on.
-	webmcpScriptTag = `<script type="module" src="/_jelly/webmcp.js"></script>`
-	// webmcpScriptFile is the vendored script served at /_jelly/webmcp.js.
 	webmcpScriptFile = "web/jelly/webmcp.js"
+	webmcpScriptTag  = `<script type="module" src="/_jelly/webmcp.js"></script>`
 )
 
 var webMCPToolNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 
 func registerWebMCPRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runtime) {
-	e.GET("/_jelly/webmcp.js", func(c echo.Context) error {
+	serveScript := func(c echo.Context) error {
 		if !webMCPEnabled() {
 			return echo.ErrNotFound
 		}
-		body, err := os.ReadFile(webmcpScriptFile)
-		if err != nil {
-			log.Printf("read WebMCP script: %v", err)
+		snapshot := requestAssetSnapshot(c)
+		if snapshot == nil {
 			return echo.ErrNotFound
 		}
-		c.Response().Header().Set(echo.HeaderContentType, "text/javascript; charset=utf-8")
-		return c.Blob(http.StatusOK, "text/javascript; charset=utf-8", body)
-	})
+		snapshot.ServeHTTP(c.Response(), c.Request())
+		return nil
+	}
+	e.GET("/_jelly/webmcp.js", serveScript)
+	e.HEAD("/_jelly/webmcp.js", serveScript)
 	e.GET("/_jelly/webmcp-tools.json", func(c echo.Context) error {
 		if !webMCPEnabled() {
 			return echo.ErrNotFound
@@ -268,7 +267,8 @@ func renderedPublicHTML(c echo.Context, status int, body []byte) error {
 		return c.HTMLBlob(status, body)
 	}
 	if webMCPEnabled() {
-		body = theme.InjectBeforeHeadEnd(body, webmcpScriptTag)
+		url := requestAssetURL(c)("/_jelly/webmcp.js")
+		body = theme.InjectBeforeHeadEnd(body, `<script type="module" src="`+template.HTMLEscapeString(url)+`"></script>`)
 	} else {
 		mergeToolsPolicy(c)
 	}

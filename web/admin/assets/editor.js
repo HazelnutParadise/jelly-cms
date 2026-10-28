@@ -47,7 +47,9 @@
  }
  function ensureMermaid() {
   if(window.pele&&window.JellyMermaid)return Promise.resolve();
-  if(!mermaidLoadPromise)mermaidLoadPromise=loadEditorScript('/admin/assets/pele/pele.global.js',()=>!!window.pele).then(()=>loadEditorScript('/admin/assets/jelly-mermaid.js',()=>!!window.JellyMermaid)).catch(error=>{mermaidLoadPromise=null;throw error;});
+  const editorRoot=$('jellyEditor'), peleURL=editorRoot?.dataset.peleUrl, mermaidURL=editorRoot?.dataset.mermaidUrl;
+  if(!peleURL||!mermaidURL)return Promise.reject(Error('Mermaid asset URLs are unavailable'));
+  if(!mermaidLoadPromise)mermaidLoadPromise=loadEditorScript(peleURL,()=>!!window.pele).then(()=>loadEditorScript(mermaidURL,()=>!!window.JellyMermaid)).catch(error=>{mermaidLoadPromise=null;throw error;});
   return mermaidLoadPromise;
  }
  async function render() {

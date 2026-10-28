@@ -131,7 +131,14 @@ func adminFuncs() template.FuncMap {
 			return template.JS(b)
 		},
 		"safeHTML": func(s string) template.HTML { return template.HTML(s) },
+		"assetURL": func(raw string) string { return raw },
 	}
+}
+
+func adminFuncsFor(c echo.Context) template.FuncMap {
+	funcs := adminFuncs()
+	funcs["assetURL"] = requestAssetURL(c)
+	return funcs
 }
 
 // viewerFor builds the layout's user block from the request. It never fails:
@@ -196,7 +203,7 @@ func renderAdminPage(c echo.Context, p AdminPage) error {
 			files = append(files, editor)
 		}
 	}
-	tmpl, err := template.New("base").Funcs(adminFuncs()).ParseFiles(files...)
+	tmpl, err := template.New("base").Funcs(adminFuncsFor(c)).ParseFiles(files...)
 	if err != nil {
 		return fmt.Errorf("parse admin template %s: %w", p.File, err)
 	}
@@ -214,6 +221,10 @@ func renderAdminPage(c echo.Context, p AdminPage) error {
 	}
 	for k, v := range p.Data {
 		data[k] = v
+	}
+	c.Response().Header().Set(echo.HeaderContentType, echo.MIMETextHTMLCharsetUTF8)
+	if !hasNoStore(c.Response().Header().Get(echo.HeaderCacheControl)) {
+		c.Response().Header().Set(echo.HeaderCacheControl, "no-cache")
 	}
 	return tmpl.ExecuteTemplate(c.Response().Writer, "base", data)
 }

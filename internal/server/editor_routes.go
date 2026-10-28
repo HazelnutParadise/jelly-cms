@@ -48,7 +48,6 @@ import (
 // registerEditorRoutes registers the editor endpoints. content is the group
 // for admin, editor and author; api is the admin-only group.
 func registerEditorRoutes(e *echo.Echo, content, api *echo.Group) {
-	e.Static("/vendor/katex", "web/vendor/katex")
 	limiter := newRenderLimiter()
 	content.POST("/render", func(c echo.Context) error { return renderEditorSource(c, limiter) })
 	content.GET("/render/schema", func(c echo.Context) error { return c.JSON(http.StatusOK, markup.Schema()) })

@@ -1,6 +1,6 @@
 {{define "content"}}
 {{- $en := eq (print .Lang) "en" -}}
-<link rel="stylesheet" href="/theme/assets/shop.css">
+<link rel="stylesheet" href="{{assetURL "/theme/assets/shop.css"}}">
 <div class="shop" data-page="checkout" data-lang="{{if $en}}en{{else}}zh-TW{{end}}" data-currency="{{.Currency}}"{{if .Customer}} data-member="1"{{end}}>
     <div class="shop-head">
         <div><span class="shop-stripe"></span><h1 class="page-title">{{if $en}}Checkout{{else}}結帳{{end}}</h1></div>
@@ -134,5 +134,5 @@
         </aside>
     </form>
 </div>
-<script src="/theme/assets/shop.js" defer></script>
+<script src="{{assetURL "/theme/assets/shop.js"}}" defer></script>
 {{end}}

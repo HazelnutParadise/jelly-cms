@@ -1,6 +1,6 @@
 {{define "title"}}{{.T.agents}}{{end}}
 {{define "content"}}
-<link rel="stylesheet" href="/admin/assets/agents.css">
+<link rel="stylesheet" href="{{assetURL "/admin/assets/agents.css"}}">
 <div id="agentsPage" class="agents-page" data-view="detail" data-lang="{{.Lang}}" aria-busy="true">
  <div class="page-header"><h1>{{.T.agents}}</h1><a class="btn btn-secondary" href="/api/agent/v1">{{if eq .Lang "en"}}API documentation{{else}}API 說明{{end}}</a></div>
  <p id="agentsStatus" role="status" aria-live="polite">{{if eq .Lang "en"}}Loading…{{else}}載入中…{{end}}</p>
@@ -8,5 +8,5 @@
  <div id="agentsContent"></div>
  <dialog id="agentDialog" aria-labelledby="agentDialogTitle"><div class="agent-dialog-header"><h2 id="agentDialogTitle"></h2><button id="agentDialogClose" class="btn btn-text" type="button">{{if eq .Lang "en"}}Close{{else}}關閉{{end}}</button></div><div id="agentDialogBody"></div><p id="agentDialogStatus" role="status" aria-live="polite"></p><div id="agentDialogActions" class="agent-actions"></div></dialog>
 </div>
-<script src="/admin/assets/agents.js" defer></script>
+<script src="{{assetURL "/admin/assets/agents.js"}}" defer></script>
 {{end}}

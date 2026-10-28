@@ -18,8 +18,8 @@ import (
 	"golang.org/x/net/html"
 )
 
-// moduleTag is the one tag that loads Jelly UI; the admin layout carries it and nothing else does.
-const moduleTag = `<script type="module" src="/admin/assets/jelly-ui/jelly.js"></script>`
+// moduleAssetSource is the one local asset passed through the admin layout's content-hash helper.
+const moduleAssetSource = `{{assetURL "/admin/assets/jelly-ui/jelly.js"}}`
 
 // startTags returns the attributes of every start tag called name in an HTML or Go template source.
 func startTags(src, name string) []map[string]string {
@@ -47,8 +47,11 @@ func startTags(src, name string) []map[string]string {
 func TestOnlyTheAdminLayoutLoadsJellyUI(t *testing.T) {
 	root := repoRoot(t)
 	layout := mustRead(t, root, "web", "admin", "layout.html")
-	if got := strings.Count(layout, moduleTag); got != 1 {
-		t.Errorf("web/admin/layout.html contains the Jelly UI module tag %d times, want exactly 1: %s", got, moduleTag)
+	if got := strings.Count(layout, moduleAssetSource); got != 1 {
+		t.Errorf("web/admin/layout.html uses the Jelly UI asset helper %d times, want exactly 1: %s", got, moduleAssetSource)
+	}
+	if got := strings.Count(layout, `<script type="module" src="`+moduleAssetSource+`"></script>`); got != 1 {
+		t.Errorf("web/admin/layout.html must use the hashed asset helper in exactly one module script, got %d", got)
 	}
 
 	var others []string
