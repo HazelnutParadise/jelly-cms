@@ -58,17 +58,13 @@ func activateTheme(c echo.Context, tm *theme.Manager) error {
 	if err := c.Bind(&req); err != nil {
 		return err
 	}
-	if err := tm.Activate(req.Name); err != nil {
+	if data.DB == nil {
+		return c.JSON(500, map[string]string{"error": "database is unavailable"})
+	}
+	db := data.DB.WithContext(c.Request().Context())
+	if err := tm.ActivateAndPersist(req.Name, db); err != nil {
 		return c.JSON(500, map[string]string{"error": err.Error()})
 	}
-	var opt core.Option
-	result := data.DB.Where("key = ?", "active_theme").First(&opt)
-	if result.Error != nil {
-		opt = core.Option{Key: "active_theme", Value: req.Name}
-	} else {
-		opt.Value = req.Name
-	}
-	data.DB.Save(&opt)
 	return c.JSON(200, map[string]string{"message": "Theme activated"})
 }
 func getThemeConfig(c echo.Context, tm *theme.Manager) error {

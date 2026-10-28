@@ -18,6 +18,8 @@ WordPress 對照來源：https://wordpress.org/about/features/ 。內容遷移�
 
 前端資源在啟動與主題啟用時建立不可變內容快照，模板透過 `assetURL` 取得 SHA-256 網址。CSS 的本地相依資源先版本化，再計算實際 CSS 回應的 hash。HTML 每次重新確認，已有 `no-store` 的頁面保留原設定；只有 hash 與回應內容相符的資源可以長期快取。既有未版本化網址保持可用並要求重新確認，過期 hash 回 404 與 `no-store`。詳細範圍、例外與驗收見 `docs/tickets/15-asset-hashes.md`。
 
+主題選擇沿用 `options.active_theme`。切換流程為驗證並建立候選快照 → 在同一 Manager 鎖內持久化 → 發布主題與快照，儲存失敗保留目前可用狀態。啟動流程為讀取保存值 → 啟用該主題，無保存值使用 default；保存值無法載入時記錄警告並嘗試 default，不覆寫原紀錄。CLI 預覽與 runtime 使用相同的編輯器模板依賴，靜態預覽不模擬後台 API。驗收與例外見 `docs/tickets/16-theme-startup-preview.md`。
+
 ## 驗收里程碑
 
 1. 安裝與啟動：輸入驗證、測試連線隔離、設定原子儲存、重複安裝防護、失敗可恢復、服務即時初始化。

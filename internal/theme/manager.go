@@ -2,6 +2,7 @@ package theme
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,12 +13,14 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/assets"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Manager struct {
@@ -59,24 +62,62 @@ func (m *Manager) Load(name string) (*core.ThemeConfig, error) {
 }
 
 func (m *Manager) Activate(name string) error {
-	if !filepath.IsLocal(name) || filepath.Base(name) != name || name == "." || name == ".." {
-		return fmt.Errorf("invalid theme name")
-	}
-	if _, err := m.Load(name); err != nil {
-		return err
-	}
-	snapshot, err := m.buildAssetSnapshot(name)
+	snapshot, err := m.prepareActivation(name)
 	if err != nil {
-		return fmt.Errorf("build theme asset snapshot: %w", err)
+		return err
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.publishActivation(name, snapshot)
+	return nil
+}
+
+// ActivateAndPersist publishes a theme only after its selection is durably saved.
+func (m *Manager) ActivateAndPersist(name string, db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("persist active theme: database is unavailable")
+	}
+	snapshot, err := m.prepareActivation(name)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(db.Statement.Context, 2*time.Second)
+	defer cancel()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		option := core.Option{Key: "active_theme", Value: name}
+		return tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "key"}},
+			DoUpdates: clause.AssignmentColumns([]string{"value"}),
+		}).Create(&option).Error
+	}); err != nil {
+		return fmt.Errorf("persist active theme: %w", err)
+	}
+	m.publishActivation(name, snapshot)
+	return nil
+}
+
+func (m *Manager) prepareActivation(name string) (*assets.Snapshot, error) {
+	if !filepath.IsLocal(name) || filepath.Base(name) != name || name == "." || name == ".." {
+		return nil, fmt.Errorf("invalid theme name")
+	}
+	if _, err := m.Load(name); err != nil {
+		return nil, err
+	}
+	snapshot, err := m.buildAssetSnapshot(name)
+	if err != nil {
+		return nil, fmt.Errorf("build theme asset snapshot: %w", err)
+	}
+	return snapshot, nil
+}
+
+func (m *Manager) publishActivation(name string, snapshot *assets.Snapshot) {
 	m.activeTheme = name
 	m.assetSnapshot = snapshot
 	m.assetErr = nil
 	m.generation++
 	m.cache = make(map[string]*template.Template) // Clear cache
-	return nil
 }
 
 // AssetSnapshot returns the immutable resources captured for the current theme generation.

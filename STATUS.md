@@ -2,12 +2,16 @@
 
 ## 目前驗收狀態
 
+- 工作單 16：啟動會還原 `active_theme`，缺失或損壞的主題會保留保存值並嘗試 default。切換先完成保存再發布主題與 hash 快照，儲存失敗回 500 並保留原本狀態。CLI 補載共用編輯器模板，繁中與英文皆完整產生明列的 21 頁。範圍及失敗政策見 `docs/tickets/16-theme-startup-preview.md`。
+- 工作單 16 已驗證：主代理重跑四個套件的專用 PostgreSQL 競態回歸通過，包含保存、還原、損壞 fallback、儲存失敗、並行切換與 CLI 全部頁面及相依資源 hash。隔離站實際安裝、登入、切換後停止程序，以新程序啟動，已選主題標記、保存值與 CSS SHA-256 網址相同。CLI 的文章／頁面編輯器與一般列表已在瀏覽器查看，字型與編輯器資源正常；靜態預覽沒有後台 API，資料載入與伺服器渲染預覽仍顯示既有錯誤狀態。
+- 工作單 16 交付：獨立審查沒有本次新增的確認缺陷；NATS、格式、vet 與原生／Windows／macOS amd64 編譯通過。完整 PostgreSQL／Redis 競態批次、必要 CI、合併與分支清理結果以本工作單 PR 的最終紀錄為準。沒有部署。
+- 另列既有問題：`saveThemeSettings` 先讀目前主題再呼叫 `Activate`，同時切換主題時，過期設定重載可能造成 runtime 與保存值不同。建議後續以主題世代條件阻止過期 reload 發布；本工作單的並行保證限於持久化切換入口，不新增跨實例同步。
+
 - 工作單 15：已實作自帶 CSS／JS／字型的 SHA-256 網址、自動模板引用、CSS 相依 hash 與不可變資源快照，HTML 使用重新確認快取。啟動、主題啟用與重新載入會重建資源，錯誤／過期 hash 回 404 與 no-store。範圍與例外見 `docs/tickets/15-asset-hashes.md`；完整批次、必要 CI、合併與分支清理結果見 [PR #34](https://github.com/HazelnutParadise/jelly-cms/pull/34) 的最終紀錄。沒有部署。
 - 工作單 15 已驗證：主代理重跑 assets／theme／assetcheck 競態、NATS、vet、格式與原生／Windows／macOS amd64 編譯通過。隔離站瀏覽器五項驗收通過，包含登入、後台、編輯器、公式、Mermaid、CSS 相依字型與主題切換，沒有外部請求、失敗請求或 JavaScript 例外；1280px／390px 截圖已檢查。更新隔離站 CSS 並重啟後，新 HTML 引用與實際回應 hash 一致，未變動 JS 網址保持相同，舊 hash 回 404/no-store。
 - 工作單 15 HTTP 回歸：主代理重跑資源 hash、主題設定重建失敗、Mermaid、WebMCP、Jelly UI 與文章腳本安全競態批次通過（server 253.660 秒），真實 HTTP 字型快取與腳本反例另批通過（9.302 秒）。本機完整批次曾在既有 OAuth 遷移的三秒觀察期限內，尚未到達被鎖定資料表便被取消；該測試隔離重跑及 data 整個套件重跑均通過（2.094／18.654 秒），沒有修改遷移程式或測試期限。
 - 工作單 15 完整批次修正：本機與第一輪 CI 共同發現兩處舊斷言仍要求未版本化系統腳本及原始 KaTeX CSS。測試改為要求唯一同源 hash 腳本、按實際字型內容精確替換 CSS 引用，保留其餘 CSS 位元組、匿名字型／JS 與目錄穿越檢查；主代理競態回歸通過（server 4.667 秒）。其餘完整測試套件通過，最終提交仍以必要 CI 全綠為合併條件。
-- 工作單 15 預覽限制：`jellypreview` 產出的 25 個資源與 CSS 相依 hash 符合複製後位元組；完整產頁在 post_editor 缺少 editor-scripts 定義時停止，已在 main `c8b4661` 原始 CLI 與模板重現，屬既有問題。此次不宣稱完整 CLI 預覽驗收通過。
-- 另列既有問題：主題啟用 API 在 `internal/server/agent_shared_handlers.go` 保存 `active_theme`，但 `cmd/server/main.go` 啟動時固定 `Activate("default")`，目前沒有讀回已選主題。重啟與系統更新後可能回到預設主題，建議另立工作單修復啟動還原並增加跨程序回歸；本次工作單 15 不擴大修改主題持久化流程。
+- 工作單 15 曾列出的 CLI 產頁中止及啟動固定 default 問題，已由工作單 16 修正；驗收見上方紀錄。
 
 - PR #33：工作單 12 已整合 main 的帳號、商店、系統、編輯器、Mermaid、WebMCP 與 Agent API。Jelly UI 1.1.0 釘選 `1b775385`，後台使用自帶開關、分段選擇、確認視窗與通知，沿用既有設定 API 與資料格式，沒有新增遷移。
 - PR #33 資源與設計：81 張設計板改用自帶字型，十一支產生器與 Mermaid 板重建後內容一致。主代理重建 Jelly UI 與字型，產物 SHA-256 相同；Jelly UI bundle 為 318,496 bytes，附上游及 Fluent System Icons MIT 授權。marked 已由 main 的編輯器移除，沒有重新加入。
