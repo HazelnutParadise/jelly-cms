@@ -110,8 +110,8 @@ func run(parent context.Context) error {
 
 	// Theme Manager
 	tm := theme.NewManager("web/themes")
-	if err := tm.Activate("default"); err != nil {
-		log.Printf("Failed to activate default theme: %v", err)
+	if err := activateStartupTheme(ctx, tm, data.DB); err != nil {
+		log.Printf("Theme startup fallback: %v", err)
 	}
 
 	// Initialize i18n

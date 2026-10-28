@@ -210,11 +210,15 @@ func copySnapshotMount(snapshot interface {
 func render(adminDir, path string, p page, t map[string]string, lang string, assetURL func(string) string) error {
 	funcs := adminFuncs()
 	funcs["assetURL"] = assetURL
-	tmpl, err := template.New("base").Funcs(funcs).ParseFiles(
+	files := []string{
 		filepath.Join(adminDir, "components.html"),
 		filepath.Join(adminDir, "layout.html"),
 		filepath.Join(adminDir, p.file),
-	)
+	}
+	if p.file == "post_editor.html" || p.file == "page_editor.html" {
+		files = append(files, filepath.Join(adminDir, "editor.html"))
+	}
+	tmpl, err := template.New("base").Funcs(funcs).ParseFiles(files...)
 	if err != nil {
 		return fmt.Errorf("parse: %w", err)
 	}
