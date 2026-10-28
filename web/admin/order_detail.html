@@ -1,5 +1,5 @@
 {{define "title"}}{{.T.orderDetail}}{{end}}
-{{define "styles"}}<link rel="stylesheet" href="/admin/assets/shop-admin.css">{{end}}
+{{define "styles"}}<link rel="stylesheet" href="{{assetURL "/admin/assets/shop-admin.css"}}">{{end}}
 {{define "content"}}
 <div class="sa-editor-bar">
     <a href="/admin/orders" class="btn btn-secondary btn-sm"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>{{.T.orders}}</a>
@@ -88,7 +88,7 @@
 </div>
 {{end}}
 {{define "scripts"}}
-<script src="/admin/assets/shop-admin.js"></script>
+<script src="{{assetURL "/admin/assets/shop-admin.js"}}"></script>
 <script>
 (function () {
     'use strict';

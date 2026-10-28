@@ -5,8 +5,8 @@
     .gateway-card.disabled .setting-row:not(.toggle-row) { opacity: .45; }
     .tabs > a.tab { text-decoration: none; }
 </style>
-<link rel="stylesheet" href="/admin/assets/shop-admin.css">
-<link rel="stylesheet" href="/admin/assets/system-admin.css">
+<link rel="stylesheet" href="{{assetURL "/admin/assets/shop-admin.css"}}">
+<link rel="stylesheet" href="{{assetURL "/admin/assets/system-admin.css"}}">
 {{end}}
 {{define "content"}}
 <div class="page-header">
@@ -210,7 +210,7 @@
 {{end}}
 {{define "scripts"}}
 <script type="application/json" id="systemI18n">{{json .T}}</script>
-<script src="/admin/assets/system-admin.js" defer></script>
+<script src="{{assetURL "/admin/assets/system-admin.js"}}" defer></script>
 <script>
     const isOn = id => document.getElementById(id).hasAttribute('checked');
     const setOn = (id, value) => document.getElementById(id).toggleAttribute('checked', !!value);
@@ -398,7 +398,7 @@
     loadOAuthSettings();
 </script>
 {{end}}
-<script src="/admin/assets/shop-admin.js"></script>
+<script src="{{assetURL "/admin/assets/shop-admin.js"}}"></script>
 <script>
 // 商店、運送、金流分頁：GET 只讀不寫，儲存時只送有變更的鍵；金鑰只顯示遮罩值。
 (function () {

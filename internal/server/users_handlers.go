@@ -491,7 +491,7 @@ func renderUserLinkPage(c echo.Context, page, token string, user core.User, link
 		switchURL, switchLabel = "?lang=en", translations["switchToEnglish"]
 	}
 	backURL, backLabel := "/login?lang="+url.QueryEscape(lang), translations["backToLogin"]
-	tmpl, err := template.New("account_layout.html").ParseFiles(
+	tmpl, err := template.New("account_layout.html").Funcs(adminFuncsFor(c)).ParseFiles(
 		"web/admin/account_layout.html", "web/admin/"+page,
 	)
 	if err != nil {

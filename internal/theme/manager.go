@@ -15,24 +15,33 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/assets"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"gorm.io/gorm"
 )
 
 type Manager struct {
-	themesDir   string
-	activeTheme string
-	generation  uint64
-	mu          sync.RWMutex
-	cache       map[string]*template.Template
-	extraFuncs  template.FuncMap
+	themesDir     string
+	activeTheme   string
+	generation    uint64
+	mu            sync.RWMutex
+	cache         map[string]*template.Template
+	extraFuncs    template.FuncMap
+	assetSnapshot *assets.Snapshot
+	assetErr      error
 }
 
 func NewManager(themesDir string) *Manager {
-	return &Manager{
+	m := &Manager{
 		themesDir: themesDir,
 		cache:     make(map[string]*template.Template),
 	}
+	if snapshot, err := m.buildAssetSnapshot(""); err == nil {
+		m.assetSnapshot = snapshot
+	} else {
+		m.assetErr = err
+	}
+	return m
 }
 
 func (m *Manager) Load(name string) (*core.ThemeConfig, error) {
@@ -50,16 +59,91 @@ func (m *Manager) Load(name string) (*core.ThemeConfig, error) {
 }
 
 func (m *Manager) Activate(name string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
+	if !filepath.IsLocal(name) || filepath.Base(name) != name || name == "." || name == ".." {
+		return fmt.Errorf("invalid theme name")
+	}
 	if _, err := m.Load(name); err != nil {
 		return err
 	}
+	snapshot, err := m.buildAssetSnapshot(name)
+	if err != nil {
+		return fmt.Errorf("build theme asset snapshot: %w", err)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.activeTheme = name
+	m.assetSnapshot = snapshot
+	m.assetErr = nil
 	m.generation++
 	m.cache = make(map[string]*template.Template) // Clear cache
 	return nil
+}
+
+// AssetSnapshot returns the immutable resources captured for the current theme generation.
+func (m *Manager) AssetSnapshot() *assets.Snapshot {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.assetSnapshot
+}
+
+// AssetError reports a builtin snapshot initialization failure for startup diagnostics.
+func (m *Manager) AssetError() error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.assetErr
+}
+
+// AssetURL resolves a local URL against the current immutable asset snapshot.
+func (m *Manager) AssetURL(raw string) string {
+	snapshot := m.AssetSnapshot()
+	if snapshot == nil {
+		return raw
+	}
+	return snapshot.URL(raw)
+}
+
+func (m *Manager) buildAssetSnapshot(themeName string) (*assets.Snapshot, error) {
+	webRoot := filepath.Dir(filepath.Clean(m.themesDir))
+	mounts := map[string]string{}
+	for prefix, root := range map[string]string{
+		"/admin/assets/": filepath.Join(webRoot, "admin", "assets"),
+		"/vendor/katex/": filepath.Join(webRoot, "vendor", "katex"),
+		"/_jelly/":       filepath.Join(webRoot, "jelly"),
+	} {
+		if _, err := os.Stat(root); err == nil {
+			mounts[prefix] = root
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("stat asset root %s: %w", root, err)
+		}
+	}
+	if themeName != "" {
+		themeRoot := filepath.Join(m.themesDir, themeName)
+		resolvedThemes, err := filepath.EvalSymlinks(m.themesDir)
+		if err != nil {
+			return nil, fmt.Errorf("resolve themes root: %w", err)
+		}
+		resolvedTheme, err := filepath.EvalSymlinks(themeRoot)
+		if err != nil {
+			return nil, fmt.Errorf("resolve theme root: %w", err)
+		}
+		if !withinDirectory(resolvedThemes, resolvedTheme) {
+			return nil, fmt.Errorf("theme escapes themes root")
+		}
+		assetRoot := filepath.Join(resolvedTheme, "assets")
+		if _, err := os.Stat(assetRoot); err == nil {
+			resolvedAssets, err := filepath.EvalSymlinks(assetRoot)
+			if err != nil {
+				return nil, fmt.Errorf("resolve theme assets: %w", err)
+			}
+			if !withinDirectory(resolvedTheme, resolvedAssets) {
+				return nil, fmt.Errorf("theme assets escape theme directory")
+			}
+			mounts["/theme/assets/"] = resolvedAssets
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("stat theme assets: %w", err)
+		}
+	}
+	return assets.Build(mounts)
 }
 
 func (m *Manager) GetActive() string {
@@ -158,7 +242,7 @@ func (m *Manager) renderTemplate(templateName string, data interface{}, db inter
 	First(dest interface{}, conds ...interface{}) *gorm.DB
 }, withLayout bool) ([]byte, error) {
 	m.mu.RLock()
-	active, generation := m.activeTheme, m.generation
+	active, generation, snapshot := m.activeTheme, m.generation, m.assetSnapshot
 	m.mu.RUnlock()
 	if active == "" {
 		return nil, fmt.Errorf("no active theme")
@@ -201,7 +285,7 @@ func (m *Manager) renderTemplate(templateName string, data interface{}, db inter
 	if tmpl == nil {
 		themeDir := filepath.Join(m.themesDir, active)
 		tmplPath := filepath.Join(themeDir, templateName)
-		funcMap := m.templateFuncs()
+		funcMap := m.templateFuncsWithSnapshot(snapshot)
 		var err error
 		if withLayout {
 			tmpl, err = parseRenderSet(funcMap, themeDir, filepath.Join(themeDir, "layout.html"), tmplPath)
@@ -230,6 +314,16 @@ func (m *Manager) renderTemplate(templateName string, data interface{}, db inter
 }
 
 func (m *Manager) templateFuncs() template.FuncMap {
+	return m.templateFuncsWithSnapshot(m.AssetSnapshot())
+}
+
+func (m *Manager) templateFuncsWithSnapshot(snapshot *assets.Snapshot) template.FuncMap {
+	assetURL := func(raw string) string {
+		if snapshot == nil {
+			return raw
+		}
+		return snapshot.URL(raw)
+	}
 	funcMap := template.FuncMap{
 		"menu": func(string) interface{} { return nil },
 		"substr": func(s string, start, end int) string {
@@ -250,7 +344,8 @@ func (m *Manager) templateFuncs() template.FuncMap {
 		"excerpt":  Excerpt, "initial": Initial, "firstImage": FirstImage,
 		"readingTime": ReadingTime, "highlight": Highlight, "snippet": Snippet,
 		"headingIDs": headingIDsForTemplate, "flavor": Flavor,
-		"contentAssets": contentAssetsForTemplate,
+		"assetURL":      assetURL,
+		"contentAssets": func(data any) template.HTML { return contentAssetsForTemplateWithURL(data, assetURL) },
 		"themeColor": func(colors map[string]string, key, defaultValue string) string {
 			if val, ok := colors[key]; ok && val != "" {
 				return val

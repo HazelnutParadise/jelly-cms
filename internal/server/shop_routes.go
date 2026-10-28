@@ -85,6 +85,7 @@ func registerShopRoutes(e *echo.Echo, tm *theme.Manager) {
 
 	// Storefront assets are served from the currently active theme.
 	e.GET("/theme/assets/*", shopThemeAssetHandler(tm))
+	e.HEAD("/theme/assets/*", shopThemeAssetHandler(tm))
 
 	// Storefront
 	e.GET("/shop", shopCatalogPage(tm))

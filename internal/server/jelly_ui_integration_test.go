@@ -10,6 +10,8 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -18,7 +20,9 @@ import (
 	nethtml "golang.org/x/net/html"
 )
 
-const jellyUIModuleTag = `<script type="module" src="/admin/assets/jelly-ui/jelly.js"></script>`
+const jellyUIModulePath = "/admin/assets/jelly-ui/jelly.js"
+
+var jellyUIHashPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 // jellyUIAdminPages are the admin pages a signed-in administrator can open; every one shares layout.html.
 var jellyUIAdminPages = []string{
@@ -62,6 +66,21 @@ func jellyUITags(body, name string) []map[string]string {
 	return out
 }
 
+func jellyUIModuleReferenceCounts(body string) (pathCount, validHashCount int) {
+	for _, attrs := range jellyUITags(body, "script") {
+		u, err := url.Parse(attrs["src"])
+		if err != nil || u.Path != jellyUIModulePath {
+			continue
+		}
+		pathCount++
+		values := u.Query()["v"]
+		if attrs["type"] == "module" && len(values) == 1 && jellyUIHashPattern.MatchString(values[0]) {
+			validHashCount++
+		}
+	}
+	return pathCount, validHashCount
+}
+
 func TestAdminPagesLoadTheJellyUIModuleOnce(t *testing.T) {
 	h := archivesHarness(t)
 	admin := h.user("admin", "jelly-ui-admin")
@@ -78,8 +97,9 @@ func TestAdminPagesLoadTheJellyUIModuleOnce(t *testing.T) {
 			t.Errorf("GET %s status = %d, want 200", path, r.code)
 			continue
 		}
-		if got := strings.Count(r.body, jellyUIModuleTag); got != 1 {
-			t.Errorf("GET %s contains the Jelly UI module tag %d times, want exactly 1", path, got)
+		paths, valid := jellyUIModuleReferenceCounts(r.body)
+		if paths != 1 || valid != 1 {
+			t.Errorf("GET %s contains %d Jelly UI module references, %d with a full SHA-256, want 1 of each", path, paths, valid)
 		}
 		if !strings.Contains(r.body, `<jelly-toaster position="bottom"`) {
 			t.Errorf("GET %s has no <jelly-toaster position=\"bottom\"> host", path)
@@ -87,7 +107,8 @@ func TestAdminPagesLoadTheJellyUIModuleOnce(t *testing.T) {
 	}
 
 	notFound := jellyUIAdminGet(t, h, token, "/admin/does-not-exist")
-	if notFound.code != http.StatusNotFound || strings.Count(notFound.body, jellyUIModuleTag) != 1 {
+	paths, valid := jellyUIModuleReferenceCounts(notFound.body)
+	if notFound.code != http.StatusNotFound || paths != 1 || valid != 1 {
 		t.Errorf("the admin 404 page (status %d) must be rendered in the admin layout with the Jelly UI module", notFound.code)
 	}
 }

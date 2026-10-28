@@ -1,5 +1,5 @@
 {{define "title"}}{{index .T .PageTitle}}{{end}}
-{{define "styles"}}<link rel="stylesheet" href="/admin/assets/system-admin.css">{{end}}
+{{define "styles"}}<link rel="stylesheet" href="{{assetURL "/admin/assets/system-admin.css"}}">{{end}}
 {{define "content"}}
 <div class="page-header"><div class="page-title-wrapper"><h1>{{index .T .PageTitle}}</h1></div></div>
 <div class="sys-root" id="systemRoot" data-page="{{.SystemPage}}" data-plugin-id="{{.PluginID}}" aria-busy="true">
@@ -9,5 +9,5 @@
 {{end}}
 {{define "scripts"}}
 <script type="application/json" id="systemI18n">{{json .T}}</script>
-<script src="/admin/assets/system-admin.js" defer></script>
+<script src="{{assetURL "/admin/assets/system-admin.js"}}" defer></script>
 {{end}}

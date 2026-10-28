@@ -2,6 +2,13 @@
 
 ## 目前驗收狀態
 
+- 工作單 15：已實作自帶 CSS／JS／字型的 SHA-256 網址、自動模板引用、CSS 相依 hash 與不可變資源快照，HTML 使用重新確認快取。啟動、主題啟用與重新載入會重建資源，錯誤／過期 hash 回 404 與 no-store。範圍與例外見 `docs/tickets/15-asset-hashes.md`；完整批次、必要 CI、合併與分支清理結果見 [PR #34](https://github.com/HazelnutParadise/jelly-cms/pull/34) 的最終紀錄。沒有部署。
+- 工作單 15 已驗證：主代理重跑 assets／theme／assetcheck 競態、NATS、vet、格式與原生／Windows／macOS amd64 編譯通過。隔離站瀏覽器五項驗收通過，包含登入、後台、編輯器、公式、Mermaid、CSS 相依字型與主題切換，沒有外部請求、失敗請求或 JavaScript 例外；1280px／390px 截圖已檢查。更新隔離站 CSS 並重啟後，新 HTML 引用與實際回應 hash 一致，未變動 JS 網址保持相同，舊 hash 回 404/no-store。
+- 工作單 15 HTTP 回歸：主代理重跑資源 hash、主題設定重建失敗、Mermaid、WebMCP、Jelly UI 與文章腳本安全競態批次通過（server 253.660 秒），真實 HTTP 字型快取與腳本反例另批通過（9.302 秒）。本機完整批次曾在既有 OAuth 遷移的三秒觀察期限內，尚未到達被鎖定資料表便被取消；該測試隔離重跑及 data 整個套件重跑均通過（2.094／18.654 秒），沒有修改遷移程式或測試期限。
+- 工作單 15 完整批次修正：本機與第一輪 CI 共同發現兩處舊斷言仍要求未版本化系統腳本及原始 KaTeX CSS。測試改為要求唯一同源 hash 腳本、按實際字型內容精確替換 CSS 引用，保留其餘 CSS 位元組、匿名字型／JS 與目錄穿越檢查；主代理競態回歸通過（server 4.667 秒）。其餘完整測試套件通過，最終提交仍以必要 CI 全綠為合併條件。
+- 工作單 15 預覽限制：`jellypreview` 產出的 25 個資源與 CSS 相依 hash 符合複製後位元組；完整產頁在 post_editor 缺少 editor-scripts 定義時停止，已在 main `c8b4661` 原始 CLI 與模板重現，屬既有問題。此次不宣稱完整 CLI 預覽驗收通過。
+- 另列既有問題：主題啟用 API 在 `internal/server/agent_shared_handlers.go` 保存 `active_theme`，但 `cmd/server/main.go` 啟動時固定 `Activate("default")`，目前沒有讀回已選主題。重啟與系統更新後可能回到預設主題，建議另立工作單修復啟動還原並增加跨程序回歸；本次工作單 15 不擴大修改主題持久化流程。
+
 - PR #33：工作單 12 已整合 main 的帳號、商店、系統、編輯器、Mermaid、WebMCP 與 Agent API。Jelly UI 1.1.0 釘選 `1b775385`，後台使用自帶開關、分段選擇、確認視窗與通知，沿用既有設定 API 與資料格式，沒有新增遷移。
 - PR #33 資源與設計：81 張設計板改用自帶字型，十一支產生器與 Mermaid 板重建後內容一致。主代理重建 Jelly UI 與字型，產物 SHA-256 相同；Jelly UI bundle 為 318,496 bytes，附上游及 Fluent System Icons MIT 授權。marked 已由 main 的編輯器移除，沒有重新加入。
 - PR #33 修正：確認框保留取消與焦點恢復、首尾空白比對與延遲載入排隊。設定開關在內部刷新時保留未儲存值；選單內層確認取消不關閉外層編輯器；agent 操作失敗顯示於主頁並允許重試。通知保留 detail／action、計時暫停、四則上限及手機長字串換行。

@@ -11,6 +11,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -168,21 +169,64 @@ func edtScriptsMatchBaseline(t *testing.T, page, baseline string) bool {
 	for _, signature := range edtScriptSignatures(t, page) {
 		counts[signature]++
 	}
-	allowed := map[edtScriptSignature]bool{
-		{Location: "head", Attributes: "defer=\x00src=/vendor/katex/katex.min.js"}:        true,
-		{Location: "head", Attributes: "defer=\x00src=/theme/assets/jelly-components.js"}: true,
+	allowedPaths := map[string]bool{
+		"/vendor/katex/katex.min.js":        false,
+		"/theme/assets/jelly-components.js": false,
 	}
 	for signature, count := range counts {
-		if count < 0 || (count != 0 && (!allowed[signature] || count != 1)) {
+		if count < 0 {
 			return false
 		}
+		if count == 0 {
+			continue
+		}
+		if count != 1 || signature.Location != "head" || signature.Text != "" {
+			return false
+		}
+		attrs := map[string]string{}
+		for _, item := range strings.Split(signature.Attributes, "\x00") {
+			parts := strings.SplitN(item, "=", 2)
+			if len(parts) != 2 {
+				return false
+			}
+			attrs[parts[0]] = parts[1]
+		}
+		if len(attrs) != 2 || attrs["defer"] != "" {
+			return false
+		}
+		if _, ok := attrs["defer"]; !ok {
+			return false
+		}
+		u, err := url.Parse(attrs["src"])
+		if err != nil || !allowedPathsHasHash(allowedPaths, u) {
+			return false
+		}
+		allowedPaths[u.Path] = true
 	}
-	for signature := range allowed {
-		if counts[signature] != 1 {
+	for _, found := range allowedPaths {
+		if !found {
 			return false
 		}
 	}
 	return true
+}
+
+func allowedPathsHasHash(allowed map[string]bool, u *url.URL) bool {
+	values := u.Query()["v"]
+	if u.IsAbs() || u.Host != "" || u.Opaque != "" || u.Fragment != "" || !allowedPathExists(allowed, u.Path) || len(u.Query()) != 1 || len(values) != 1 || len(values[0]) != 64 {
+		return false
+	}
+	for _, r := range values[0] {
+		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func allowedPathExists(allowed map[string]bool, path string) bool {
+	_, ok := allowed[path]
+	return ok
 }
 
 func TestPostSaveRendersSourceAndIgnoresClientContent(t *testing.T) {
@@ -386,13 +430,18 @@ func TestPublicPostPageRendersJellyBlocks(t *testing.T) {
 
 func TestPublicPostScriptOracleRejectsInjectedScript(t *testing.T) {
 	baseline := `<html><head><script src="/base.js"></script></head><body><main>plain</main></body></html>`
-	page := `<html><head><script src="/base.js"></script><script src="/vendor/katex/katex.min.js" defer></script><script src="/theme/assets/jelly-components.js" defer></script></head><body><main>math</main></body></html>`
+	hash := strings.Repeat("a", 64)
+	page := `<html><head><script src="/base.js"></script><script src="/vendor/katex/katex.min.js?v=` + hash + `" defer></script><script src="/theme/assets/jelly-components.js?v=` + hash + `" defer></script></head><body><main>math</main></body></html>`
 	if !edtScriptsMatchBaseline(t, page, baseline) {
 		t.Fatal("oracle rejected the exact permitted math scripts")
 	}
 	injected := strings.Replace(page, "</main>", "<script>alertX()</script></main>", 1)
 	if edtScriptsMatchBaseline(t, injected, baseline) {
 		t.Fatal("oracle accepted a content-injected script")
+	}
+	external := strings.Replace(page, `src="/vendor/katex/katex.min.js?v=`+hash, `src="https://evil.example/vendor/katex/katex.min.js?v=`+hash, 1)
+	if edtScriptsMatchBaseline(t, external, baseline) {
+		t.Fatal("oracle accepted an external script that shares an allowed local asset path")
 	}
 }
 

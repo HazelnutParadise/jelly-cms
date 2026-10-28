@@ -123,7 +123,7 @@ func renderAccountPage(c echo.Context, page string) error {
 		}
 	}
 
-	tmpl, err := template.New("account_layout.html").ParseFiles("web/admin/account_layout.html", "web/admin/"+page)
+	tmpl, err := template.New("account_layout.html").Funcs(adminFuncsFor(c)).ParseFiles("web/admin/account_layout.html", "web/admin/"+page)
 	if err != nil {
 		return err
 	}

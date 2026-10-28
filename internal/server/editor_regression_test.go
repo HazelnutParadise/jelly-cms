@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -52,26 +53,73 @@ func TestWidgetPublishedVersionsRemainImmutableAndAddressable(t *testing.T) {
 func TestKaTeXVendorAssetsServedThroughPublicHTTP(t *testing.T) {
 	h := newAccessHarness(t)
 	root := filepath.Join(repoRoot(t), "web", "vendor", "katex")
-	assets := []struct {
+	cssPath := filepath.Join(root, "katex.min.css")
+	expectedCSS, err := os.ReadFile(cssPath)
+	if err != nil {
+		t.Fatalf("read vendored CSS %s: %v", cssPath, err)
+	}
+	fontDir := filepath.Join(root, "fonts")
+	fontEntries, err := os.ReadDir(fontDir)
+	if err != nil {
+		t.Fatalf("read KaTeX font directory %s: %v", fontDir, err)
+	}
+	fontFiles := 0
+	for _, entry := range fontEntries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".woff2") {
+			continue
+		}
+		fontFiles++
+		fontName := entry.Name()
+		fontPath := filepath.Join(fontDir, fontName)
+		fontBytes, readErr := os.ReadFile(fontPath)
+		if readErr != nil {
+			t.Fatalf("read vendored font %s: %v", fontPath, readErr)
+		}
+		hash := fmt.Sprintf("%x", sha256.Sum256(fontBytes))
+		sourceRef := []byte("fonts/" + fontName)
+		if count := bytes.Count(expectedCSS, sourceRef); count == 0 {
+			t.Errorf("vendored CSS does not reference existing font %s", fontName)
+		} else {
+			replacement := []byte("/vendor/katex/fonts/" + fontName + "?v=" + hash)
+			expectedCSS = bytes.ReplaceAll(expectedCSS, sourceRef, replacement)
+		}
+		fontURL := "/vendor/katex/fonts/" + fontName + "?v=" + hash
+		response := h.request(http.MethodGet, fontURL, "", "", "", "")
+		if response.code != http.StatusOK {
+			t.Errorf("anonymous GET %s returned %d, want 200", fontURL, response.code)
+			continue
+		}
+		if !bytes.Equal([]byte(response.body), fontBytes) {
+			t.Errorf("anonymous GET %s did not return the corresponding vendored file bytes", fontURL)
+		}
+	}
+	if fontFiles == 0 {
+		t.Fatal("no vendored KaTeX .woff2 files found")
+	}
+	for _, asset := range []struct {
 		path string
 		file string
+		want []byte
 	}{
-		{path: "/vendor/katex/katex.min.css", file: filepath.Join(root, "katex.min.css")},
+		{path: "/vendor/katex/katex.min.css", file: cssPath, want: expectedCSS},
 		{path: "/vendor/katex/katex.min.js", file: filepath.Join(root, "katex.min.js")},
-		{path: "/vendor/katex/fonts/KaTeX_Main-Regular.woff2", file: filepath.Join(root, "fonts", "KaTeX_Main-Regular.woff2")},
-	}
-	for _, asset := range assets {
-		expected, err := os.ReadFile(asset.file)
-		if err != nil {
-			t.Fatalf("read vendored asset %s: %v", asset.file, err)
+		{path: "/vendor/katex/fonts/KaTeX_Main-Regular.woff2", file: filepath.Join(fontDir, "KaTeX_Main-Regular.woff2")},
+	} {
+		fileBytes, readErr := os.ReadFile(asset.file)
+		if readErr != nil {
+			t.Fatalf("read vendored asset %s: %v", asset.file, readErr)
+		}
+		want := asset.want
+		if want == nil {
+			want = fileBytes
 		}
 		response := h.request(http.MethodGet, asset.path, "", "", "", "")
 		if response.code != http.StatusOK {
 			t.Errorf("anonymous GET %s returned %d, want 200", asset.path, response.code)
 			continue
 		}
-		if !bytes.Equal([]byte(response.body), expected) {
-			t.Errorf("anonymous GET %s did not return the corresponding vendored file bytes", asset.path)
+		if !bytes.Equal([]byte(response.body), want) {
+			t.Errorf("anonymous GET %s did not return the expected vendored bytes and exact font URL substitutions", asset.path)
 		}
 	}
 

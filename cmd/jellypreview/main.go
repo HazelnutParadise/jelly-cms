@@ -10,9 +10,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/HazelnutParadise/jelly-cms/internal/assets"
 	"html/template"
 	"io"
 	"log"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 )
@@ -110,8 +113,29 @@ func main() {
 	if err := os.MkdirAll(*out, 0o755); err != nil {
 		log.Fatal(err)
 	}
-	// Pages reference /admin/assets/*, which the real server serves statically.
-	if err := copyDir(filepath.Join(adminDir, "assets"), filepath.Join(*out, "admin", "assets")); err != nil {
+	webRoot := filepath.Dir(adminDir)
+	mounts := map[string]string{"/admin/assets/": filepath.Join(adminDir, "assets")}
+	if _, err := os.Stat(filepath.Join(webRoot, "vendor", "katex")); err == nil {
+		mounts["/vendor/katex/"] = filepath.Join(webRoot, "vendor", "katex")
+	}
+	if _, err := os.Stat(filepath.Join(webRoot, "jelly")); err == nil {
+		mounts["/_jelly/"] = filepath.Join(webRoot, "jelly")
+	}
+	if _, err := os.Stat(filepath.Join(webRoot, "themes", "default", "assets")); err == nil {
+		mounts["/theme/assets/"] = filepath.Join(webRoot, "themes", "default", "assets")
+	}
+	snapshot, err := assets.Build(mounts)
+	if err != nil {
+		log.Fatalf("build asset snapshot: %v", err)
+	}
+	// Copy the exact bytes the runtime snapshot serves, including rewritten CSS dependencies.
+	if err := copySnapshotMount(snapshot, filepath.Join(adminDir, "assets"), "/admin/assets/", filepath.Join(*out, "admin", "assets")); err != nil {
+		log.Fatal(err)
+	}
+	if err := copySnapshotMount(snapshot, filepath.Join(webRoot, "vendor", "katex"), "/vendor/katex/", filepath.Join(*out, "vendor", "katex")); err != nil {
+		log.Fatal(err)
+	}
+	if err := copySnapshotMount(snapshot, filepath.Join(webRoot, "themes", "default", "assets"), "/theme/assets/", filepath.Join(*out, "theme", "assets")); err != nil {
 		log.Fatal(err)
 	}
 
@@ -142,15 +166,51 @@ func main() {
 
 	for _, p := range pages {
 		path := filepath.Join(*out, "admin-"+p.out+".html")
-		if err := render(adminDir, path, p, t, *lang); err != nil {
+		if err := render(adminDir, path, p, t, *lang, snapshot.URL); err != nil {
 			log.Fatalf("%s: %v", p.out, err)
 		}
 		fmt.Println("wrote", path)
 	}
 }
 
-func render(adminDir, path string, p page, t map[string]string, lang string) error {
-	tmpl, err := template.New("base").Funcs(adminFuncs()).ParseFiles(
+func copySnapshotMount(snapshot interface {
+	ServeHTTP(http.ResponseWriter, *http.Request)
+}, source, prefix, target string) error {
+	if _, err := os.Stat(source); os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	return filepath.WalkDir(source, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		rel = filepath.ToSlash(rel)
+		req := httptest.NewRequest("GET", prefix+rel, nil)
+		response := httptest.NewRecorder()
+		snapshot.ServeHTTP(response, req)
+		if response.Code != 200 {
+			return fmt.Errorf("snapshot %s returned %d", prefix+rel, response.Code)
+		}
+		output := filepath.Join(target, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(output), 0o755); err != nil {
+			return err
+		}
+		return os.WriteFile(output, response.Body.Bytes(), 0o644)
+	})
+}
+
+func render(adminDir, path string, p page, t map[string]string, lang string, assetURL func(string) string) error {
+	funcs := adminFuncs()
+	funcs["assetURL"] = assetURL
+	tmpl, err := template.New("base").Funcs(funcs).ParseFiles(
 		filepath.Join(adminDir, "components.html"),
 		filepath.Join(adminDir, "layout.html"),
 		filepath.Join(adminDir, p.file),

@@ -9,14 +9,14 @@
     <style>
         @font-face {
             font-family: "Noto Sans TC";
-            src: url("/admin/assets/fonts/noto-sans-tc.woff2") format("woff2");
+            src: url('{{assetURL "/admin/assets/fonts/noto-sans-tc.woff2"}}') format("woff2");
             font-style: normal;
             font-weight: 100 900;
             font-display: swap;
         }
         @font-face {
             font-family: "Bricolage Grotesque";
-            src: url("/admin/assets/fonts/bricolage-grotesque.woff2") format("woff2");
+            src: url('{{assetURL "/admin/assets/fonts/bricolage-grotesque.woff2"}}') format("woff2");
             font-style: normal;
             font-weight: 100 900;
             font-display: swap;
@@ -132,7 +132,7 @@
     <svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></symbol><symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14 9l3 3"/></symbol><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol></svg>
     <aside class="art" aria-hidden="true">
         <i></i><i></i><i></i><i></i><i></i>
-        <div class="art-brand"><img class="mark" src="/admin/assets/jelly-mark.svg" alt="" aria-hidden="true"><span>Jelly CMS</span></div>
+        <div class="art-brand"><img class="mark" src="{{assetURL "/admin/assets/jelly-mark.svg"}}" alt="" aria-hidden="true"><span>Jelly CMS</span></div>
         <div class="art-note">{{if eq .Lang "en"}}A faster content management system than WordPress.{{else}}比 WordPress 更快的內容管理系統。{{end}}</div>
     </aside>
 

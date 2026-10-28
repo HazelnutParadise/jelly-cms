@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +18,10 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/settings"
 	"github.com/labstack/echo/v4"
+	xhtml "golang.org/x/net/html"
 )
+
+var systemCompletionAssetHash = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 func TestSystemCompletionMailSettingsMaskPreserveAndValidate(t *testing.T) {
 	h := newAccessHarness(t)
@@ -183,6 +188,36 @@ func TestSystemCompletionCategoryAndAuthorFeedsFilterPublicPosts(t *testing.T) {
 	}
 }
 
+func systemCompletionAdminScriptCounts(body string) (pathCount, validHashCount int) {
+	doc, err := xhtml.Parse(strings.NewReader(body))
+	if err != nil {
+		return 0, 0
+	}
+	var walk func(*xhtml.Node)
+	walk = func(n *xhtml.Node) {
+		if n.Type == xhtml.ElementNode && n.Data == "script" {
+			attrs := make(map[string]string, len(n.Attr))
+			for _, attr := range n.Attr {
+				attrs[attr.Key] = attr.Val
+			}
+			u, parseErr := url.Parse(attrs["src"])
+			if parseErr == nil && u.Path == "/admin/assets/system-admin.js" {
+				pathCount++
+				_, hasDefer := attrs["defer"]
+				values := u.Query()["v"]
+				if !u.IsAbs() && u.Host == "" && u.Opaque == "" && u.Fragment == "" && len(u.Query()) == 1 && len(values) == 1 && systemCompletionAssetHash.MatchString(values[0]) && hasDefer && attrs["type"] == "" {
+					validHashCount++
+				}
+			}
+		}
+		for child := n.FirstChild; child != nil; child = child.NextSibling {
+			walk(child)
+		}
+	}
+	walk(doc)
+	return pathCount, validHashCount
+}
+
 func TestSystemCompletionAdminPagesUseLocalSystemRenderer(t *testing.T) {
 	h := newAccessHarness(t)
 	admin := h.user("admin", "system-completion-pages-admin")
@@ -202,8 +237,9 @@ func TestSystemCompletionAdminPagesUseLocalSystemRenderer(t *testing.T) {
 		if !strings.Contains(r.body, `id="systemRoot"`) || !strings.Contains(r.body, `data-page="`+tc.page+`"`) {
 			t.Errorf("%s does not render the shared system page root for %q", tc.path, tc.page)
 		}
-		if !strings.Contains(r.body, `src="/admin/assets/system-admin.js"`) {
-			t.Errorf("%s does not load the bundled system admin script", tc.path)
+		paths, valid := systemCompletionAdminScriptCounts(r.body)
+		if paths != 1 || valid != 1 {
+			t.Errorf("%s references system-admin.js %d times, with %d valid same-origin hashed deferred scripts; want one of each", tc.path, paths, valid)
 		}
 		if strings.Contains(strings.ToLower(r.body), "placeholder.html") || strings.Contains(strings.ToLower(r.body), "not implemented") {
 			t.Errorf("%s still renders placeholder content", tc.path)

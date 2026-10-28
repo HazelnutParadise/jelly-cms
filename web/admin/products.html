@@ -1,5 +1,5 @@
 {{define "title"}}{{.T.products}}{{end}}
-{{define "styles"}}<link rel="stylesheet" href="/admin/assets/shop-admin.css">{{end}}
+{{define "styles"}}<link rel="stylesheet" href="{{assetURL "/admin/assets/shop-admin.css"}}">{{end}}
 {{define "content"}}
 <div class="sa-head">
     <h1>{{.T.products}}</h1>
@@ -13,7 +13,7 @@
 <nav class="sa-pager" id="pager" hidden></nav>
 {{end}}
 {{define "scripts"}}
-<script src="/admin/assets/shop-admin.js"></script>
+<script src="{{assetURL "/admin/assets/shop-admin.js"}}"></script>
 <script>
 (function () {
     'use strict';

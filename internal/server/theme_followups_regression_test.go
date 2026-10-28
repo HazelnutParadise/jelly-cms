@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -105,34 +106,50 @@ func TestFollowupRegressionFontCacheOverHTTP(t *testing.T) {
 	server := httptest.NewServer(h.echo)
 	defer server.Close()
 	client := server.Client()
-	get := func(path string) *http.Response {
+	type httpResult struct {
+		response *http.Response
+		body     []byte
+	}
+	get := func(path string) httpResult {
 		t.Helper()
 		response, err := client.Get(server.URL + path)
 		if err != nil {
 			t.Fatalf("GET %s: %v", path, err)
 		}
-		if _, err := io.Copy(io.Discard, response.Body); err != nil {
+		body, err := io.ReadAll(response.Body)
+		if err != nil {
 			t.Errorf("read GET %s response: %v", path, err)
 		}
 		if err := response.Body.Close(); err != nil {
 			t.Errorf("close GET %s response: %v", path, err)
 		}
-		return response
+		return httpResult{response: response, body: body}
 	}
 	for _, name := range []string{"bricolage-grotesque.woff2", "noto-sans-tc.woff2"} {
-		response := get("/admin/assets/fonts/" + name)
-		cacheControl := response.Header.Get("Cache-Control")
-		if response.StatusCode != http.StatusOK || !strings.Contains(cacheControl, "public") || !strings.Contains(cacheControl, "max-age=2592000") {
-			t.Errorf("real GET /admin/assets/fonts/%s status=%d Cache-Control=%q; want 200 and public max-age=2592000", name, response.StatusCode, cacheControl)
+		path := "/admin/assets/fonts/" + name
+		legacy := get(path)
+		legacyCache := legacy.response.Header.Get("Cache-Control")
+		if legacy.response.StatusCode != http.StatusOK || len(legacy.body) == 0 || !strings.Contains(legacyCache, "no-cache") {
+			t.Errorf("real unhashed GET %s status=%d bytes=%d Cache-Control=%q; want 200 and no-cache", path, legacy.response.StatusCode, len(legacy.body), legacyCache)
+			continue
+		}
+		hash := fmt.Sprintf("%x", sha256.Sum256(legacy.body))
+		versioned := get(path + "?v=" + hash)
+		cacheControl := versioned.response.Header.Get("Cache-Control")
+		if versioned.response.StatusCode != http.StatusOK || !strings.EqualFold(fmt.Sprintf("%x", sha256.Sum256(versioned.body)), hash) {
+			t.Errorf("real hashed GET %s status=%d; want 200 with bytes matching %s", path, versioned.response.StatusCode, hash)
+		}
+		if !strings.Contains(cacheControl, "public") || !strings.Contains(cacheControl, "max-age=31536000") || !strings.Contains(cacheControl, "immutable") {
+			t.Errorf("real hashed GET %s Cache-Control=%q; want public one-year immutable", path, cacheControl)
 		}
 	}
 	missing := get("/admin/assets/fonts/followup-missing-font.woff2")
-	if missing.StatusCode != http.StatusNotFound || strings.Contains(missing.Header.Get("Cache-Control"), "max-age=2592000") {
-		t.Errorf("real GET missing font status=%d Cache-Control=%q; want 404 without the 30-day font cache", missing.StatusCode, missing.Header.Get("Cache-Control"))
+	if missing.response.StatusCode != http.StatusNotFound || strings.Contains(missing.response.Header.Get("Cache-Control"), "immutable") {
+		t.Errorf("real GET missing font status=%d Cache-Control=%q; want 404 without immutable caching", missing.response.StatusCode, missing.response.Header.Get("Cache-Control"))
 	}
 	other := get("/admin/assets/editor.js")
-	if other.StatusCode != http.StatusOK || strings.Contains(other.Header.Get("Cache-Control"), "max-age=2592000") {
-		t.Errorf("real GET other admin asset status=%d Cache-Control=%q; want 200 without the font-specific cache policy", other.StatusCode, other.Header.Get("Cache-Control"))
+	if other.response.StatusCode != http.StatusOK || !strings.Contains(other.response.Header.Get("Cache-Control"), "no-cache") {
+		t.Errorf("real GET other admin asset status=%d Cache-Control=%q; want 200 with no-cache", other.response.StatusCode, other.response.Header.Get("Cache-Control"))
 	}
 }
 

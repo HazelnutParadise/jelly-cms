@@ -35,10 +35,15 @@ import (
 )
 
 const (
-	webmcpTag           = `<script type="module" src="/_jelly/webmcp.js"></script>`
+	webmcpScriptPath    = "/_jelly/webmcp.js"
 	webmcpFixturePlugin = "webmcp-fixture"
 	webmcpAltTheme      = "webmcp-alt"
 	webmcpAltMarker     = `class="webmcp-alt-theme"`
+)
+
+var (
+	webmcpTagPattern       = regexp.MustCompile(`<script type="module" src="/_jelly/webmcp\.js\?v=([a-f0-9]{64})"></script>`)
+	webmcpScriptRefPattern = regexp.MustCompile(`<script\b[^>]*\bsrc="/_jelly/webmcp\.js(?:\?[^" ]*)?"[^>]*></script>`)
 )
 
 var (
@@ -150,8 +155,10 @@ func webmcpWantInjectedOnce(t *testing.T, path string, r accessResult, wantCode 
 		t.Errorf("GET %s status = %d, want %d; body=%q", path, r.code, wantCode, archivesSnippet(r.body))
 		return
 	}
-	if n := strings.Count(r.body, webmcpTag); n != 1 {
-		t.Errorf("GET %s: WebMCP script tag appears %d times, want exactly 1", path, n)
+	matches := webmcpTagPattern.FindAllStringIndex(r.body, -1)
+	refs := webmcpScriptRefPattern.FindAllStringIndex(r.body, -1)
+	if len(refs) != 1 || len(matches) != 1 {
+		t.Errorf("GET %s: WebMCP script refs=%d, valid module refs=%d; want exactly one of each", path, len(refs), len(matches))
 		return
 	}
 	ends := webmcpHeadEndPattern.FindAllStringIndex(r.body, -1)
@@ -160,15 +167,15 @@ func webmcpWantInjectedOnce(t *testing.T, path string, r accessResult, wantCode 
 		return
 	}
 	lastHeadEnd := ends[len(ends)-1][0]
-	if at := strings.Index(r.body, webmcpTag); at+len(webmcpTag) != lastHeadEnd {
+	if at := matches[0][0]; matches[0][1] != lastHeadEnd {
 		t.Errorf("GET %s: WebMCP tag is not placed right before the last </head> (tag at %d, </head> at %d)", path, at, lastHeadEnd)
 	}
 }
 
 func webmcpWantNotInjected(t *testing.T, path string, r accessResult) {
 	t.Helper()
-	if strings.Contains(r.body, "/_jelly/webmcp.js") {
-		t.Errorf("GET %s (status %d) references /_jelly/webmcp.js, want no WebMCP script", path, r.code)
+	if strings.Contains(r.body, webmcpScriptPath) || strings.Contains(r.body, "/_jelly/%77ebmcp.js") {
+		t.Errorf("GET %s (status %d) references the WebMCP script, want no WebMCP script", path, r.code)
 	}
 }
 
@@ -735,6 +742,12 @@ func TestWebMCPDisabledSwitchesOffScriptAndSendsPolicy(t *testing.T) {
 		}
 		webmcpWantInjectedOnce(t, p.path+" (default on)", r, p.code)
 	}
+	enabledPage := h.page("/")
+	versionedTag := webmcpTagPattern.FindString(enabledPage.body)
+	if versionedTag == "" {
+		t.Fatal("enabled WebMCP home page has no valid versioned module tag")
+	}
+	versionedScriptURL := strings.TrimSuffix(strings.TrimPrefix(versionedTag, `<script type="module" src="`), `"></script>`)
 
 	h.setEnabled(t, "false")
 	for _, p := range pages {
@@ -750,6 +763,17 @@ func TestWebMCPDisabledSwitchesOffScriptAndSendsPolicy(t *testing.T) {
 	for _, path := range []string{"/_jelly/webmcp.js", "/_jelly/webmcp-tools.json"} {
 		if r := h.getJSON(path); r.code != http.StatusNotFound {
 			t.Errorf("GET %s with WebMCP off status = %d, want 404", path, r.code)
+		}
+	}
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{http.MethodGet, "/_jelly/%77ebmcp.js"},
+		{http.MethodHead, versionedScriptURL},
+	} {
+		if r := h.request(tc.method, tc.path, "", "", "*/*", ""); r.code != http.StatusNotFound {
+			t.Errorf("%s %s with WebMCP off status = %d, want 404", tc.method, tc.path, r.code)
 		}
 	}
 	for _, path := range []string{"/api/public/site", "/api/public/posts", "/api/public/content/webmcp-switch-post"} {
