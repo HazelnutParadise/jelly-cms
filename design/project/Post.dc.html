@@ -29,7 +29,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .prose pre{margin:1.5em 0;padding:20px 24px;background:#15161A;color:#F2F2F2;border-radius:0 16px 0 16px;font-family:ui-monospace,Menlo,monospace;font-size:14px;overflow:auto}
 .prose code{font-family:ui-monospace,Menlo,monospace;background:#EDEEF1;padding:.1em .4em;border-radius:0 6px 0 6px;font-size:.9em}
 .toc a{display:block;padding:8px 0;color:#15161A;font-weight:600;font-size:14px;border-top:1px solid #E2E3E8}.toc a.on{color:#E8285B}
-.mark{display:inline-block;width:26px;height:30px}
+.mark{display:inline-block;width:26px;height:30px;object-fit:contain}
 
 /* Shared content styles preserve the article typography and add Jelly blocks. */
 .jc-callout{padding:16px 20px;background:#F5F5F7;border-left:4px solid #2F6BFF;border-radius:0 8px 0 8px}.jc-callout-title{font-weight:700;margin-bottom:8px}.jc-table{overflow:auto}.jc-table table{width:100%;border-collapse:collapse;font-size:15px}.jc-table th,.jc-table td{text-align:left;padding:10px 12px;border-bottom:1px solid #DDE0E7}.jc-table caption{text-align:left;font-weight:700;padding-bottom:10px}
@@ -39,7 +39,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
   <!-- 閱讀進度：三色線，寬度隨捲動 -->
   <div style="height: 3px; width: 38%; background: linear-gradient(90deg, #E8285B 0 64%, #2F6BFF 64% 86%, #13C2A3 86% 100%)" aria-hidden="true"></div>
   <header style="display: flex; align-items: center; gap: 24px; padding: 14px 40px; max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box">
-    <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 12px; color: #15161A; font-size: 20px" class="d"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".8"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".82"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".9" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800" fill-opacity=".95"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</a>
+    <a href="Main.dc.html" style="display: inline-flex; align-items: center; gap: 12px; color: #15161A; font-size: 20px" class="d"><img class="mark" src="./jelly-mark.svg" alt="" aria-hidden="true">榛果繽紛樂</a>
     <nav class="nav" style="display: flex; gap: 4px; margin-left: auto"><a href="Main.dc.html">首頁</a><a href="PostList.dc.html" class="on">文章</a><a href="Page.dc.html">關於</a></nav>
     <form style="display: flex; gap: 6px; margin: 0"><label for="q" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">搜尋</label><input id="q" class="field" type="search" placeholder="搜尋" style="width: 200px"><button class="btn t i" type="button" aria-label="搜尋"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button></form>
   </header>

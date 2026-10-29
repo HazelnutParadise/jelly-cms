@@ -4,7 +4,7 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "project")
 
 FONTS = '''<link rel="stylesheet" href="./fonts.css">'''
 
-MARK = '<svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="{ink}" fill-opacity=".9"/></svg>'
+MARK = '<img class="mark" src="./jelly-mark.svg" alt="" aria-hidden="true">'
 
 ICONS = {
  "plus": '<path d="M12 5v14M5 12h14"/>',
@@ -96,7 +96,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
 .chip.nd:before{display:none}
 .ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DCE6FF;color:#1A3F9E}.bad{background:#FBE1DE;color:#9C2318}.mint{background:#D4F5EE;color:#0B5E4E}
-.mark{display:inline-block;width:22px;height:26px}
+.mark{display:inline-block;width:22px;height:26px;object-fit:contain}
 .seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
 .seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px;white-space:nowrap}
 .seg span.on{background:#15161A;color:#fff}
@@ -134,7 +134,7 @@ body{font-size:15px}
 .opt.on{box-shadow:inset 0 0 0 2px #15161A;background:#F8F8FA}
 .opt .rad{width:18px;height:18px;border-radius:0 6px 0 6px;box-shadow:inset 0 0 0 2px #B9BCC6;flex:0 0 auto}
 .opt.on .rad{background:#E8285B;box-shadow:inset 0 0 0 5px #fff,0 0 0 2px #E8285B}
-.mark{width:26px;height:30px}
+.mark{width:26px;height:30px;object-fit:contain}
 .entry{display:grid;grid-template-columns:96px minmax(0,1fr);gap:24px;padding:28px 0;border-top:1px solid #E2E3E8}
 .entry h3{margin:0 0 8px;font-size:26px}.entry h3 a{color:#15161A}
 .entry p{margin:0;color:#5F6470;line-height:1.7}
@@ -1005,6 +1005,8 @@ pages["States"] = ("後台狀態畫面", ADMIN_CSS, 1440, 1000, admin("posts", [
   </main>'''))
 
 if __name__ == "__main__":
+    import shutil
+    shutil.copyfile(os.path.join(OUT, "../../web/admin/assets/jelly-mark.svg"), os.path.join(OUT, "jelly-mark.svg"))
     for name,(title,css,w,h,body) in pages.items():
         if os.environ.get("JELLY_DESIGN_ONLY") and name not in os.environ["JELLY_DESIGN_ONLY"].split(","):
             continue

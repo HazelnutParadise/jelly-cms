@@ -16,7 +16,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .ul{width:100%;min-height:44px;padding:8px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:16px;color:#15161A;box-sizing:border-box}
 .lbl{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#5F6470}
 label{display:block;font-size:13px;font-weight:600;color:#5F6470;margin-bottom:2px}
-.mark{display:inline-block;width:26px;height:30px}
+.mark{display:inline-block;width:26px;height:30px;object-fit:contain}
 .chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
 .chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
 .chip.nd:before{display:none}
@@ -31,8 +31,8 @@ label{display:block;font-size:13px;font-weight:600;color:#5F6470;margin-bottom:2
 .meter{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}.meter i{height:4px;background:#E2E3E8;border-radius:0 2px 0 2px}.meter i.on{background:#F5B800}.meter i.good{background:#13C2A3}
 '''
 
-# the mark exactly as Login.dc.html draws it on the ink wall
-LOGIN_MARK = '''<svg class="mark" viewBox="0 0 85 100"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".8"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".82"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".9" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800" fill-opacity=".95"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#fff" fill-opacity=".9"/></svg>'''
+# Keep the existing placeholder API used by the login-board template.
+LOGIN_MARK = '<img class="mark" src="./jelly-mark.svg" alt="" aria-hidden="true">'
 
 LEFT = '''<aside style="position: relative; overflow: hidden; background: #15161A; color: #fff; padding: 32px; display: flex; flex-direction: column; justify-content: space-between; border-radius: 0 56px 0 0" aria-hidden="true">
     <span style="position: absolute; left: 14%; top: 16%; width: 36%; aspect-ratio: 1; background: #2F6BFF; opacity: .85; border-radius: 0 24% 0 24%"></span>

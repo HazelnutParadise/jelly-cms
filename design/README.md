@@ -53,6 +53,12 @@ node design/tools/shot.mjs Main Posts EditorFull
 4. 視覺系統（顏色、形狀、字型、裝飾）定義在 `web/themes/default/layout.html` 與 `web/admin/layout.html` 的 CSS 變數，和板裡的 helmet 樣式對應；改其中一邊就要改另一邊。
 
 
+## Logo 素材
+
+正式來源為 `../web/admin/assets/jelly-mark.svg`，設計板一律引用本目錄的 `project/jelly-mark.svg` 可攜副本，不各自重畫或改色。共用 Python 產生器會從正式來源同步副本；兩份檔案位元組必須相同。手寫板與 Mermaid 板也引用此副本，保留原始比例。
+
+同步線上畫布時，除了板與字型，`files` 也必須包含 `project/jelly-mark.svg`。原本的背景果凍丁與空狀態插圖是裝飾，不取代品牌位置的完整 logo。
+
 ## 字型
 
 板不從網路載入字型。`project/fonts.css` 以 `@font-face` 指向 `project/fonts/*.woff2`（Bricolage Grotesque 與 Noto Sans TC 的子集，和 `web/admin/assets/fonts/` 是同一份檔案）；每張板的 helmet 只有一行 `<link rel="stylesheet" href="./fonts.css">`。

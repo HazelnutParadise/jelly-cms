@@ -21,7 +21,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
 .chip.nd:before{display:none}
 .ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DCE6FF;color:#1A3F9E}.bad{background:#FBE1DE;color:#9C2318}.mint{background:#D4F5EE;color:#0B5E4E}
-.mark{display:inline-block;width:22px;height:26px}
+.mark{display:inline-block;width:22px;height:26px;object-fit:contain}
 .seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
 .seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px;white-space:nowrap}
 .seg span.on{background:#15161A;color:#fff}
@@ -58,7 +58,7 @@ body{font-size:15px}
 .opt.on{box-shadow:inset 0 0 0 2px #15161A;background:#F8F8FA}
 .opt .rad{width:18px;height:18px;border-radius:0 6px 0 6px;box-shadow:inset 0 0 0 2px #B9BCC6;flex:0 0 auto}
 .opt.on .rad{background:#E8285B;box-shadow:inset 0 0 0 5px #fff,0 0 0 2px #E8285B}
-.mark{width:26px;height:30px}
+.mark{width:26px;height:30px;object-fit:contain}
 .entry{display:grid;grid-template-columns:96px minmax(0,1fr);gap:24px;padding:28px 0;border-top:1px solid #E2E3E8}
 .entry h3{margin:0 0 8px;font-size:26px}.entry h3 a{color:#15161A}
 .entry p{margin:0;color:#5F6470;line-height:1.7}
@@ -87,7 +87,7 @@ body{font-size:15px}
 .hp.dark{background:#141519;color:#ECEDF1;box-shadow:0 0 0 1px #2A2B31}
 .hp-card{width:100%;max-width:440px;display:flex;flex-direction:column;gap:16px}
 .hp-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px}
-.hp-brand .mark{width:26px;height:30px}
+.hp-brand .mark{width:26px;height:30px;object-fit:contain}
 .hp h1{margin:0;font-size:32px;line-height:1.1;letter-spacing:-.03em;font-weight:800}
 .hp p{margin:0;line-height:1.7;font-size:15px}
 .hp .muted{color:#5F6470}.hp.dark .muted{color:#9A9FAB}
@@ -104,21 +104,21 @@ body{font-size:15px}
 </style>
 </helmet>
 <div class="hp-row">
-  <div class="hp-col"><span class="hp-cap">1280 · 淺色 · 繁中</span><div class="hp" style="width:640px;min-height:640px"><div class="hp-card"><div class="hp-brand"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</div><span class="stripe"></span><div class="lbl">安全付款</div>
+  <div class="hp-col"><span class="hp-cap">1280 · 淺色 · 繁中</span><div class="hp" style="width:640px;min-height:640px"><div class="hp-card"><div class="hp-brand"><img class="mark" src="./jelly-mark.svg" alt="" aria-hidden="true">榛果繽紛樂</div><span class="stripe"></span><div class="lbl">安全付款</div>
         <h1>正在前往綠界付款頁</h1>
         <div class="hp-bar" role="progressbar" aria-label="前往付款頁"><i></i></div>
         <p class="muted">這一頁不會收集卡號。卡片資料只在綠界的付款頁輸入，付款完成後會回到本站顯示結果。</p>
         <div class="hp-sum"><span class="muted">訂單</span><b class="mono">JL-2026-0417</b><span class="muted">金額</span><b class="mono">NT$ 880</b><span class="muted">付款方式</span><b>信用卡</b></div>
         <button class="hp-btn" type="submit">沒有自動跳轉？繼續前往綠界</button>
         <a class="hp-link" href="OrderDone.dc.html"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>回到訂單</a></div></div></div>
-  <div class="hp-col"><span class="hp-cap">390 · 深色 · English</span><div class="hp dark" style="width:390px;min-height:640px"><div class="hp-card"><div class="hp-brand"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#ECEDF1" fill-opacity=".9"/></svg>Hazel Jelly</div><span class="stripe"></span><div class="lbl">Secure payment</div>
+  <div class="hp-col"><span class="hp-cap">390 · 深色 · English</span><div class="hp dark" style="width:390px;min-height:640px"><div class="hp-card"><div class="hp-brand"><img class="mark" src="./jelly-mark.svg" alt="" aria-hidden="true">Hazel Jelly</div><span class="stripe"></span><div class="lbl">Secure payment</div>
         <h1>Taking you to ECPay</h1>
         <div class="hp-bar" role="progressbar" aria-label="Redirecting"><i></i></div>
         <p class="muted">This page never asks for your card. You enter card details only on the ECPay page, then return here for the result.</p>
         <div class="hp-sum"><span class="muted">Order</span><b class="mono">JL-2026-0417</b><span class="muted">Amount</span><b class="mono">NT$ 880</b><span class="muted">Method</span><b>Credit card</b></div>
         <button class="hp-btn" type="submit">Not redirected? Continue to ECPay</button>
         <a class="hp-link" href="OrderDone.dc.html"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg>Back to your order</a></div></div></div>
-  <div class="hp-col"><span class="hp-cap">390 · 淺色 · 連線失敗</span><div class="hp" style="width:390px;min-height:640px"><div class="hp-card"><div class="hp-brand"><svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#15161A" fill-opacity=".9"/></svg>榛果繽紛樂</div><span class="stripe"></span><div class="lbl">安全付款</div>
+  <div class="hp-col"><span class="hp-cap">390 · 淺色 · 連線失敗</span><div class="hp" style="width:390px;min-height:640px"><div class="hp-card"><div class="hp-brand"><img class="mark" src="./jelly-mark.svg" alt="" aria-hidden="true">榛果繽紛樂</div><span class="stripe"></span><div class="lbl">安全付款</div>
         <h1>暫時無法前往付款頁</h1>
         <div class="hp-err" role="alert">付款服務沒有回應，訂單沒有被扣款，商品仍保留到 10/27 16:02。</div>
         <div class="hp-sum"><span class="muted">訂單</span><b class="mono">JL-2026-0417</b><span class="muted">金額</span><b class="mono">NT$ 880</b><span class="muted">付款方式</span><b>信用卡</b></div>

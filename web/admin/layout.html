@@ -696,7 +696,7 @@
         .palette-empty { padding: 2rem 1rem; text-align: center; color: var(--muted); }
         .palette-foot { display: flex; align-items: center; gap: .875rem; flex-wrap: wrap; padding: .625rem 1.125rem; border-top: 1px solid var(--line); font-size: .75rem; color: var(--muted); }
         .palette-foot .brand { margin-left: auto; display: inline-flex; align-items: center; gap: .375rem; }
-        .palette-foot .brand svg { width: 14px; height: 16px; }
+        .palette-foot .brand .mark { width: 14px; height: 16px; object-fit: contain; }
 
         /* ---------- 狀態：空白、載入、錯誤、無權限 ---------- */
         .state { margin: 1rem 0; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .625rem; min-height: 25rem; padding: 3rem 1.5rem; text-align: center; border-radius: var(--r-md); overflow: hidden; }
@@ -794,7 +794,7 @@
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <a href="/admin" class="sidebar-logo" aria-label="Jelly CMS">
-                <svg class="mark" viewBox="0 0 85 100" aria-hidden="true"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".9"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".9"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".95" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="#fff" fill-opacity=".9"/></svg>
+                <img class="mark" src="{{assetURL "/admin/assets/jelly-mark.svg"}}" alt="" aria-hidden="true">
                 <span>Jelly CMS</span>
             </a>
         </div>
@@ -873,7 +873,7 @@
                 <span><span class="kbd">↑↓</span> {{.T.paletteMove}}</span>
                 <span><span class="kbd">↵</span> {{.T.paletteOpen}}</span>
                 <span class="hint-newtab"><span class="kbd">⌘↵</span> {{.T.paletteNewTab}}</span>
-                <span class="brand"><svg viewBox="0 0 85 100"><path d="M10.8 9.2H36.3A6.5 6.5 0 0 1 42.8 15.7V41.2H17.3A6.5 6.5 0 0 1 10.8 34.7Z" fill="#2F6BFF" fill-opacity=".85"/><path d="M26.7 30.5H52.2A6.5 6.5 0 0 1 58.7 37V62.5H33.2A6.5 6.5 0 0 1 26.7 56Z" fill="#13C2A3" fill-opacity=".85"/><path d="M42 52H67.5A6.5 6.5 0 0 1 74 58.5V84H48.5A6.5 6.5 0 0 1 42 77.5Z" fill="#E8285B" fill-opacity=".92" transform="rotate(-7 58 68)"/><path d="M12 77H23.5A3 3 0 0 1 26.5 80V91.5H15A3 3 0 0 1 12 88.5Z" fill="#F5B800"/><path d="M62.5 16.5H71.1A2.2 2.2 0 0 1 73.3 18.7V27.3H64.7A2.2 2.2 0 0 1 62.5 25.1Z" fill="currentColor" fill-opacity=".9"/></svg>{{.T.paletteBrand}}</span>
+                <span class="brand"><img class="mark" src="{{assetURL "/admin/assets/jelly-mark.svg"}}" alt="" aria-hidden="true">{{.T.paletteBrand}}</span>
             </div>
         </div>
     </div>
