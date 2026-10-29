@@ -14,7 +14,7 @@ body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;colo
 a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.08;margin:0}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:0 14px;font-weight:700;font-size:14px;border:0;border-radius:0 10px 0 10px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
-.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.i{width:40px;padding:0}
+.btn.p{background:#D92153}.btn.t{background:#EDEEF1;color:#15161A}.btn.i{width:40px;padding:0}
 .chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A}
 .chip:before{content:"";width:6px;height:6px;background:currentColor;border-radius:0 2px 0 2px}
 .ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}.info{background:#DDE7FF;color:#1C47B8}
@@ -22,10 +22,14 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .seg{display:flex;gap:4px;padding:4px;background:#F3F3F5;border-radius:0 10px 0 10px;overflow:auto}
 .seg a{flex:0 0 auto;min-height:32px;padding:0 12px;display:inline-flex;align-items:center;font-size:13px;font-weight:700;color:#5F6470;border-radius:0 8px 0 8px}
 .seg a.on{background:#15161A;color:#fff}
-.row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #EEEFF2}
-.row .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
-.row .t b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.row .t small{color:#5F6470;font-size:12px}
+.table-wrap{width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain}
+table{width:100%;min-width:490px;border-collapse:collapse;font-size:13px}
+th{padding:8px;text-align:left;color:#5F6470;font-size:11px;white-space:nowrap;border-bottom:1px solid #E2E3E8}
+td{padding:10px 8px;vertical-align:middle;border-bottom:1px solid #EEEFF2}
+td.cell-title{min-width:12rem;font-weight:700;overflow-wrap:anywhere}
+td.date{white-space:nowrap;color:#5F6470}
+td.actions{white-space:nowrap}
+td.actions .btn{width:32px;height:32px;min-height:32px;padding:0}
 .tab{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;font-size:11px;font-weight:700;color:#9A9FAB;padding:10px 0}
 .tab.on{color:#fff}
 .mark{display:inline-block;width:22px;height:26px}
@@ -39,14 +43,19 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
     <a class="btn p" href="Editor.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新文章</a>
   </header>
   <div style="padding: 0 16px 10px"><nav class="seg"><a href="MobileAdmin.dc.html" class="on">全部 126</a><a href="MobileAdmin.dc.html">已發布 96</a><a href="MobileAdmin.dc.html">草稿 27</a><a href="MobileAdmin.dc.html">待審核 3</a></nav></div>
-  <main style="flex: 1; overflow: hidden; padding: 0 16px">
-    <div class="row"><input type="checkbox" aria-label="選取" style="width: 18px; height: 18px; accent-color: #E8285B"><div class="t"><b>為什麼我們決定用 Go 重寫一個 CMS</b><small>小榛 · 10/22</small></div><span class="chip ok">已發布</span><a class="btn t i" href="Editor.dc.html" aria-label="編輯"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16zM13 6l3 3"/></svg></a></div>
-    <div class="row"><input type="checkbox" aria-label="選取" style="width: 18px; height: 18px; accent-color: #E8285B"><div class="t"><b>果凍丁與裝飾線：預設主題的設計筆記</b><small>小榛 · 10/19</small></div><span class="chip ok">已發布</span><a class="btn t i" href="Editor.dc.html" aria-label="編輯"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16zM13 6l3 3"/></svg></a></div>
-    <div class="row"><input type="checkbox" aria-label="選取" style="width: 18px; height: 18px; accent-color: #E8285B"><div class="t"><b>外掛失敗了，主程式不該跟著死</b><small>阿榛 · 10/19</small></div><span class="chip warn">草稿</span><a class="btn t i" href="Editor.dc.html" aria-label="編輯"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16zM13 6l3 3"/></svg></a></div>
-    <div class="row"><input type="checkbox" aria-label="選取" style="width: 18px; height: 18px; accent-color: #E8285B"><div class="t"><b>從 WordPress 搬家：內容匯入實錄</b><small>小榛 · 10/16</small></div><span class="chip info">待審核</span><a class="btn t i" href="Editor.dc.html" aria-label="編輯"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16zM13 6l3 3"/></svg></a></div>
-    <div class="row"><input type="checkbox" aria-label="選取" style="width: 18px; height: 18px; accent-color: #E8285B"><div class="t"><b>一個安裝頁面要考慮的二十件事</b><small>阿榛 · 10/13</small></div><span class="chip ok">已發布</span><a class="btn t i" href="Editor.dc.html" aria-label="編輯"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16zM13 6l3 3"/></svg></a></div>
-    <div class="row"><input type="checkbox" aria-label="選取" style="width: 18px; height: 18px; accent-color: #E8285B"><div class="t"><b>五分鐘架好部落格</b><small>小榛 · 10/10</small></div><span class="chip ok">已發布</span><a class="btn t i" href="Editor.dc.html" aria-label="編輯"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16zM13 6l3 3"/></svg></a></div>
-    <div class="row"><input type="checkbox" aria-label="選取" style="width: 18px; height: 18px; accent-color: #E8285B"><div class="t"><b>主題客製化：顏色、版面與自訂欄位</b><small>小榛 · 10/07</small></div><span class="chip warn">草稿</span><a class="btn t i" href="Editor.dc.html" aria-label="編輯"><svg class="ic" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16zM13 6l3 3"/></svg></a></div>
+  <main style="flex: 1; min-height: 0; overflow: hidden; padding: 0 16px">
+    <div class="table-wrap" tabindex="0" aria-label="文章列表，可左右捲動">
+      <table>
+        <thead><tr><th>標題</th><th>狀態</th><th>日期</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr><td class="cell-title">為什麼我們決定用 Go 重寫一個 CMS</td><td><span class="chip ok">已發布</span></td><td class="date">10/22</td><td class="actions"><a class="btn t" href="Editor.dc.html" aria-label="編輯：為什麼我們決定用 Go 重寫一個 CMS">編輯</a><a class="btn t" href="MobileAdmin.dc.html" aria-label="檢視：為什麼我們決定用 Go 重寫一個 CMS">檢視</a></td></tr>
+          <tr><td class="cell-title">果凍丁與裝飾線：預設主題的設計筆記</td><td><span class="chip ok">已發布</span></td><td class="date">10/19</td><td class="actions"><a class="btn t" href="Editor.dc.html" aria-label="編輯：果凍丁與裝飾線">編輯</a><a class="btn t" href="MobileAdmin.dc.html" aria-label="檢視：果凍丁與裝飾線">檢視</a></td></tr>
+          <tr><td class="cell-title">外掛失敗了，主程式不該跟著死</td><td><span class="chip warn">草稿</span></td><td class="date">10/19</td><td class="actions"><a class="btn t" href="Editor.dc.html" aria-label="編輯：外掛失敗了">編輯</a><a class="btn t" href="MobileAdmin.dc.html" aria-label="檢視：外掛失敗了">檢視</a></td></tr>
+          <tr><td class="cell-title">從 WordPress 搬家：內容匯入實錄</td><td><span class="chip info">待審核</span></td><td class="date">10/16</td><td class="actions"><a class="btn t" href="Editor.dc.html" aria-label="編輯：從 WordPress 搬家">編輯</a><a class="btn t" href="MobileAdmin.dc.html" aria-label="檢視：從 WordPress 搬家">檢視</a></td></tr>
+          <tr><td class="cell-title">一個安裝頁面要考慮的二十件事</td><td><span class="chip ok">已發布</span></td><td class="date">10/13</td><td class="actions"><a class="btn t" href="Editor.dc.html" aria-label="編輯：一個安裝頁面要考慮的二十件事">編輯</a><a class="btn t" href="MobileAdmin.dc.html" aria-label="檢視：一個安裝頁面要考慮的二十件事">檢視</a></td></tr>
+        </tbody>
+      </table>
+    </div>
   </main>
   <!-- 底部分頁列：手機版主要導覽 -->
   <nav style="display: flex; background: #15161A; padding: 0 8px 8px" aria-label="後台">

@@ -20,6 +20,10 @@ WordPress 對照來源：https://wordpress.org/about/features/ 。內容遷移�
 
 主題選擇沿用 `options.active_theme`。切換流程為驗證並建立候選快照 → 在同一 Manager 鎖內持久化 → 發布主題與快照，儲存失敗保留目前可用狀態。啟動流程為讀取保存值 → 啟用該主題，無保存值使用 default；保存值無法載入時記錄警告並嘗試 default，不覆寫原紀錄。CLI 預覽與 runtime 使用相同的編輯器模板依賴，靜態預覽不模擬後台 API。驗收與例外見 `docs/tickets/16-theme-startup-preview.md`。
 
+主題設定重載以同一讀鎖捕捉啟用名稱及不可變資源快照指標，準備後只有原狀態仍相同才發布；過期成功與錯誤均丟棄，目前重載失敗保留原快照。模板函式註冊的 generation 不代表啟用身分。詳見 `docs/tickets/17-theme-reload-race.md`。
+
+公開主題的選單函式依每次請求綁定已驗證登入狀態與 path，不保存 HTTP context。模板快取只保留未執行的解析結果，每次 Clone 後才套用請求函式。文章／頁面型選單沿用公開內容條件，登入不放寬內容可見性；登入者 HTML 使用 private, no-store。所有公開、商店、錯誤及維護頁共用相同入口，無資料庫時傳入真正 nil 介面。詳見 `docs/tickets/18-request-menus.md`。
+
 ## 驗收里程碑
 
 1. 安裝與啟動：輸入驗證、測試連線隔離、設定原子儲存、重複安裝防護、失敗可恢復、服務即時初始化。

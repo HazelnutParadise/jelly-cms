@@ -43,17 +43,21 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .cube{position:absolute;border-radius:0 26% 0 26%}
 .kbd{display:inline-block;font:700 11px "Bricolage Grotesque",sans-serif;padding:2px 6px;border-radius:0 5px 0 5px;background:#EDEEF1;color:#5F6470}
 
+:root{--primary:#E8285B;--primary-solid:#D92153}
 body{font-size:14px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font-weight:700;font-size:13px;border:0;border-radius:0 9px 0 9px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
-.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}.btn.s{min-height:30px;font-size:12px;padding:0 10px}.btn.s.i{width:30px}.btn.danger{background:#FBE1DE;color:#9C2318}
+.btn.p{background:var(--primary-solid)}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}.btn.s{min-height:30px;font-size:12px;padding:0 10px}.btn.s.i{width:30px}.btn.danger{background:#FBE1DE;color:#9C2318}
 .rail{background:#15161A;color:#fff;display:flex;flex-direction:column;padding:14px 10px;gap:2px}
 .ns{font-size:11px;letter-spacing:.08em;color:#7E838F;padding:14px 12px 4px;text-transform:uppercase;font-weight:700}
 .nl{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 12px;border-radius:0 10px 0 10px;color:#C9CBD3;font-weight:600;font-size:13.5px}
-.nl:hover{background:#2A2B31;color:#fff}.nl.on{background:#E8285B;color:#fff}
-.nl .n{margin-left:auto;font-size:11px;background:#2A2B31;padding:1px 7px;border-radius:0 6px 0 6px;color:#C9CBD3}.nl.on .n{background:#fff;color:#E8285B}
+.nl:hover{background:#2A2B31;color:#fff}.nl.on{background:var(--primary-solid);color:#fff}
+.nl .n{margin-left:auto;font-size:11px;background:#2A2B31;padding:1px 7px;border-radius:0 6px 0 6px;color:#C9CBD3}.nl.on .n{background:#fff;color:var(--primary-solid)}
 .nl.new:after{content:"新";margin-left:auto;font-size:10px;padding:1px 6px;border-radius:0 5px 0 5px;background:#13C2A3;color:#0B3A31}
 .nl.new .n{display:none}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
+.cell-title{font-weight:700}
+input::placeholder,textarea::placeholder{color:#5F6470;opacity:1}
+@media(max-width:640px){.cell-title{min-width:12rem}}
 th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#5F6470;padding:8px 10px;border-bottom:1px solid #E2E3E8;font-weight:700;white-space:nowrap}
 td{padding:10px;border-bottom:1px solid #EEEFF2;vertical-align:middle}
 tr:hover td{background:#F8F8FA}
@@ -129,7 +133,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
     <a class="nl new" href="Import.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M14 6a4 4 0 0 0 4 4l3-3-4-4-3 3zM14 6L4 16l4 4 10-10"/></svg>工具</a>
     <a class="nl new" href="Logs.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM7 9l3 3-3 3M12 15h5"/></svg>日誌</a>
     <a class="nl" href="Settings.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9L7 7M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>設定</a>
-    <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 0 10px 0 10px; background: #2A2B31"><span style="width: 30px; height: 30px; display: grid; place-items: center; background: #E8285B; font-weight: 800; border-radius: 0 9px 0 9px">A</span><div><div style="font-weight: 700; font-size: 13px">管理員</div><a href="Profile.dc.html" style="color: #9A9FAB; font-size: 12px">個人帳號</a></div></div>
+    <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 0 10px 0 10px; background: #2A2B31"><span style="width: 30px; height: 30px; display: grid; place-items: center; background: var(--primary-solid); font-weight: 800; border-radius: 0 9px 0 9px">A</span><div><div style="font-weight: 700; font-size: 13px">管理員</div><a href="Profile.dc.html" style="color: #9A9FAB; font-size: 12px">個人帳號</a></div></div>
   </aside>
   <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
     <div class="topline"></div>

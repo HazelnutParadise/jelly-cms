@@ -102,22 +102,26 @@ type menuRefs struct {
 // menuForLocation resolves the menu assigned to location into nodes. It must
 // never panic and returns an empty slice without a database.
 func menuForLocation(location string) []core.MenuNode {
-	if data.DB == nil || location == "" {
+	return menuForLocationForRequest(data.DB, location, false, "")
+}
+
+func menuForLocationForRequest(db *gorm.DB, location string, signedIn bool, path string) []core.MenuNode {
+	if db == nil || location == "" {
 		return []core.MenuNode{}
 	}
 	var menus []core.Menu
-	if err := data.DB.Where("location = ?", location).Order("id ASC").Limit(1).Find(&menus).Error; err != nil || len(menus) == 0 {
+	if err := db.Where("location = ?", location).Order("id ASC").Limit(1).Find(&menus).Error; err != nil || len(menus) == 0 {
 		return []core.MenuNode{}
 	}
 	var rows []core.MenuItem
-	if err := data.DB.Where("menu_id = ?", menus[0].ID).Order("position ASC, id ASC").Find(&rows).Error; err != nil {
+	if err := db.Where("menu_id = ?", menus[0].ID).Order("position ASC, id ASC").Find(&rows).Error; err != nil {
 		return []core.MenuNode{}
 	}
-	refs, err := loadMenuRefs(rows)
+	refs, err := loadMenuRefsWithDB(db, rows)
 	if err != nil {
 		return []core.MenuNode{}
 	}
-	return menuNodesFrom(buildMenuTree(rows), refs)
+	return resolveMenuNodes(buildMenuTree(rows), refs, signedIn, path)
 }
 
 func listMenus(c echo.Context) error {
@@ -548,6 +552,10 @@ func insertMenuItems(tx *gorm.DB, menuID uint, parentID *uint, nodes []menuItemI
 // loadMenuRefs loads the published pages and posts, categories and tags that the
 // typed items point at. Unknown or unpublished targets are simply absent from the maps.
 func loadMenuRefs(rows []core.MenuItem) (menuRefs, error) {
+	return loadMenuRefsWithDB(data.DB, rows)
+}
+
+func loadMenuRefsWithDB(db *gorm.DB, rows []core.MenuItem) (menuRefs, error) {
 	refs := menuRefs{
 		posts:      make(map[uint]core.Post),
 		categories: make(map[uint]core.Category),
@@ -566,8 +574,8 @@ func loadMenuRefs(rows []core.MenuItem) (menuRefs, error) {
 	}
 	if len(postIDs) > 0 {
 		var posts []core.Post
-		if err := data.DB.Select("id", "type", "slug").
-			Where("id IN ? AND status = ?", postIDs, "published").Find(&posts).Error; err != nil {
+		if err := publicPostVisibility(db).Select("posts.id", "posts.type", "posts.slug").
+			Where("posts.id IN ?", postIDs).Find(&posts).Error; err != nil {
 			return refs, err
 		}
 		for _, p := range posts {
@@ -576,7 +584,7 @@ func loadMenuRefs(rows []core.MenuItem) (menuRefs, error) {
 	}
 	if len(categoryIDs) > 0 {
 		var categories []core.Category
-		if err := data.DB.Select("id", "slug").Where("id IN ?", categoryIDs).Find(&categories).Error; err != nil {
+		if err := db.Select("id", "slug").Where("id IN ?", categoryIDs).Find(&categories).Error; err != nil {
 			return refs, err
 		}
 		for _, cat := range categories {
@@ -585,7 +593,7 @@ func loadMenuRefs(rows []core.MenuItem) (menuRefs, error) {
 	}
 	if len(tagIDs) > 0 {
 		var tags []core.Tag
-		if err := data.DB.Select("id", "slug").Where("id IN ?", tagIDs).Find(&tags).Error; err != nil {
+		if err := db.Select("id", "slug").Where("id IN ?", tagIDs).Find(&tags).Error; err != nil {
 			return refs, err
 		}
 		for _, tag := range tags {
@@ -635,23 +643,29 @@ func menuItemURL(item core.MenuItem, refs menuRefs) (string, bool) {
 // menuNodesFrom converts the item tree into theme nodes. An item that is skipped takes its children with it.
 // login_only items are always skipped because menuForLocation has no signed-in user.
 func menuNodesFrom(items []core.MenuItem, refs menuRefs) []core.MenuNode {
+	return resolveMenuNodes(items, refs, false, "")
+}
+
+func resolveMenuNodes(items []core.MenuItem, refs menuRefs, signedIn bool, path string) []core.MenuNode {
 	nodes := []core.MenuNode{}
 	for _, item := range items {
-		if item.LoginOnly {
+		if item.LoginOnly && !signedIn {
 			continue
 		}
 		url, ok := menuItemURL(item, refs)
 		if !ok {
 			continue
 		}
-		nodes = append(nodes, core.MenuNode{
+		node := core.MenuNode{
 			Label:    item.Label,
 			URL:      url,
 			Icon:     item.Icon,
 			NewTab:   item.NewTab,
 			CSSClass: item.CSSClass,
-			Children: menuNodesFrom(item.Children, refs),
-		})
+			Active:   url != "" && path == url,
+			Children: resolveMenuNodes(item.Children, refs, signedIn, path),
+		}
+		nodes = append(nodes, node)
 	}
 	return nodes
 }

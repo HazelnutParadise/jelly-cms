@@ -100,7 +100,7 @@ func publicRenderStatus(c echo.Context, tm *theme.Manager, db *gorm.DB, file, ti
 	values["CurrentPath"] = c.Request().URL.Path
 	applyPublicSEO(c, db, file, values)
 
-	body, err := tm.RenderWithDB(file, values, db)
+	body, err := renderPublicTheme(c, tm, db, file, values)
 	if err != nil {
 		return err
 	}

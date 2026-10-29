@@ -72,6 +72,30 @@ func (m *Manager) Activate(name string) error {
 	return nil
 }
 
+// ReloadActive rebuilds the active theme's asset snapshot without allowing a
+// stale reload to overwrite a concurrent activation or reload.
+func (m *Manager) ReloadActive() error {
+	m.mu.RLock()
+	name, previousSnapshot := m.activeTheme, m.assetSnapshot
+	m.mu.RUnlock()
+	if name == "" {
+		return fmt.Errorf("no active theme to reload")
+	}
+
+	snapshot, prepareErr := m.prepareActivation(name)
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.activeTheme != name || m.assetSnapshot != previousSnapshot {
+		return nil
+	}
+	if prepareErr != nil {
+		return prepareErr
+	}
+	m.publishActivation(name, snapshot)
+	return nil
+}
+
 // ActivateAndPersist publishes a theme only after its selection is durably saved.
 func (m *Manager) ActivateAndPersist(name string, db *gorm.DB) error {
 	if db == nil {
@@ -264,24 +288,38 @@ func (m *Manager) Render(templateName string, data interface{}) ([]byte, error) 
 func (m *Manager) RenderWithDB(templateName string, data interface{}, db interface {
 	First(dest interface{}, conds ...interface{}) *gorm.DB
 }) ([]byte, error) {
-	return m.renderTemplate(templateName, data, db, true)
+	return m.renderTemplate(templateName, data, db, true, nil)
+}
+
+// RenderWithDBAndFuncs renders a request with additional isolated template functions.
+func (m *Manager) RenderWithDBAndFuncs(templateName string, data interface{}, db interface {
+	First(dest interface{}, conds ...interface{}) *gorm.DB
+}, funcs template.FuncMap) ([]byte, error) {
+	return m.renderTemplate(templateName, data, db, true, funcs)
 }
 
 // RenderPage renders one standalone theme template and its partials without layout.html.
 func (m *Manager) RenderPage(templateName string, data interface{}) ([]byte, error) {
-	return m.renderTemplate(templateName, data, nil, false)
+	return m.renderTemplate(templateName, data, nil, false, nil)
 }
 
 // RenderPageWithDB renders a standalone theme template with theme settings loaded from the database.
 func (m *Manager) RenderPageWithDB(templateName string, data interface{}, db interface {
 	First(dest interface{}, conds ...interface{}) *gorm.DB
 }) ([]byte, error) {
-	return m.renderTemplate(templateName, data, db, false)
+	return m.renderTemplate(templateName, data, db, false, nil)
+}
+
+// RenderPageWithDBAndFuncs renders a standalone request with isolated template functions.
+func (m *Manager) RenderPageWithDBAndFuncs(templateName string, data interface{}, db interface {
+	First(dest interface{}, conds ...interface{}) *gorm.DB
+}, funcs template.FuncMap) ([]byte, error) {
+	return m.renderTemplate(templateName, data, db, false, funcs)
 }
 
 func (m *Manager) renderTemplate(templateName string, data interface{}, db interface {
 	First(dest interface{}, conds ...interface{}) *gorm.DB
-}, withLayout bool) ([]byte, error) {
+}, withLayout bool, requestFuncs template.FuncMap) ([]byte, error) {
 	m.mu.RLock()
 	active, generation, snapshot := m.activeTheme, m.generation, m.assetSnapshot
 	m.mu.RUnlock()
@@ -343,12 +381,19 @@ func (m *Manager) renderTemplate(templateName string, data interface{}, db inter
 		m.mu.Unlock()
 	}
 
+	perRender, err := tmpl.Clone()
+	if err != nil {
+		return nil, err
+	}
+	if len(requestFuncs) > 0 {
+		perRender.Funcs(requestFuncs)
+	}
 	var buf bytes.Buffer
 	executeName := filepath.Base(templateName)
 	if withLayout {
 		executeName = "layout"
 	}
-	if err := tmpl.ExecuteTemplate(&buf, executeName, data); err != nil {
+	if err := perRender.ExecuteTemplate(&buf, executeName, data); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil

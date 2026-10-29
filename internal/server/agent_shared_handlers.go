@@ -116,8 +116,7 @@ func saveThemeSettings(c echo.Context, tm *theme.Manager) error {
 	if err := tm.SaveSettings(v, data.DB); err != nil {
 		return c.JSON(500, map[string]string{"error": err.Error()})
 	}
-	active := tm.GetActive()
-	if err := tm.Activate(active); err != nil {
+	if err := tm.ReloadActive(); err != nil {
 		return c.JSON(500, map[string]string{"error": "settings were saved but theme reload failed"})
 	}
 	return c.JSON(200, map[string]string{"message": "Settings saved"})

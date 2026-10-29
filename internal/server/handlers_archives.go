@@ -139,7 +139,7 @@ func archiveRender(c echo.Context, tm *theme.Manager, tpl, title string, data ma
 	data["Title"] = title
 	data["CurrentPath"] = c.Request().URL.Path
 	applyPublicSEO(c, datapkg.DB, tpl, data)
-	html, err := tm.RenderWithDB(tpl, data, datapkg.DB)
+	html, err := renderPublicTheme(c, tm, datapkg.DB, tpl, data)
 	if err != nil {
 		return err
 	}

@@ -7,8 +7,8 @@
     </div>
     <div class="page-actions">
         <a href="/admin/posts/new" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>{{.T.createPost}}</a>
-        <a href="/admin/pages/new" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#i-layout"/></svg>{{.T.createPage}}</a>
-        <a href="/admin/products/new" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#i-box"/></svg>{{.T.createProduct}}</a>
+        {{if or (eq .Viewer.Role "admin") (eq .Viewer.Role "editor")}}<a href="/admin/pages/new" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#i-layout"/></svg>{{.T.createPage}}</a>{{end}}
+        {{if .Viewer.IsAdmin}}<a href="/admin/products/new" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#i-box"/></svg>{{.T.createProduct}}</a>{{end}}
         <a href="/admin/media" class="btn btn-text"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>{{.T.mediaLibrary}}</a>
     </div>
 </div>
@@ -19,7 +19,7 @@
         <div class="tile-value" id="postsCount">–</div>
         <div class="tile-note">{{.T.totalPostsDesc}}</div>
     </a>
-    <a class="tile" href="/admin/products">
+    {{if .Viewer.IsAdmin}}<a class="tile" href="/admin/products">
         <div class="tile-label">{{.T.totalProducts}}</div>
         <div class="tile-value" id="productsCount">–</div>
         <div class="tile-note">{{.T.totalProductsDesc}}</div>
@@ -33,7 +33,7 @@
         <div class="tile-label">{{.T.activeTheme}}</div>
         <div class="tile-value" id="activeTheme" style="font-size: 1.5rem; padding: .35rem 0;">–</div>
         <div class="tile-note">{{.T.activeThemeDesc}}</div>
-    </a>
+    </a>{{end}}
 </div>
 
 <section class="section">
@@ -65,7 +65,8 @@
         published: "{{.T.published}}",
         draft: "{{.T.draft}}",
         pending: "{{.T.pending}}",
-        edit: "{{.T.edit}}"
+        edit: "{{.T.edit}}",
+        loadFailed: "{{.T.sys_loadFailed}}"
     };
 
     function escapeHtml(text) {
@@ -74,11 +75,32 @@
         return div.innerHTML;
     }
 
+    function showLoadFailure(id) {
+        const value = document.getElementById(id);
+        value.textContent = '–';
+        const note = value.closest('.tile').querySelector('.tile-note');
+        note.textContent = T.loadFailed;
+    }
+
+    function showRecentPostsFailure() {
+        const tbody = document.getElementById('recentPosts');
+        tbody.innerHTML = '';
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 4;
+        cell.className = 'table-empty';
+        cell.textContent = T.loadFailed;
+        row.appendChild(cell);
+        tbody.appendChild(row);
+    }
+
     async function loadStats() {
         // Load posts count
         try {
             const postsRes = await fetch('/api/admin/posts');
+            if (!postsRes.ok) throw new Error('Posts request failed');
             const posts = await postsRes.json();
+            if (!Array.isArray(posts)) throw new Error('Invalid posts response');
             document.getElementById('postsCount').textContent = posts.length;
 
             // Load recent posts
@@ -107,69 +129,73 @@
             }
         } catch (e) {
             console.error('Failed to load posts:', e);
-            document.getElementById('postsCount').textContent = '0';
+            showLoadFailure('postsCount');
+            showRecentPostsFailure();
         }
 
-        // Load products count
+        {{if .Viewer.IsAdmin}}
         try {
             const productsRes = await fetch('/api/admin/products');
+            if (!productsRes.ok) throw new Error('Products request failed');
             const products = await productsRes.json();
-            document.getElementById('productsCount').textContent = products.length;
+            if (!products || !Array.isArray(products.items) || !Number.isSafeInteger(products.total) || products.total < 0) {
+                throw new Error('Invalid products response');
+            }
+            document.getElementById('productsCount').textContent = String(products.total);
         } catch (e) {
             console.error('Failed to load products:', e);
-            document.getElementById('productsCount').textContent = '0';
+            showLoadFailure('productsCount');
         }
 
-        // Load orders count
         try {
             const ordersRes = await fetch('/api/admin/orders');
+            if (!ordersRes.ok) throw new Error('Orders request failed');
             const orders = await ordersRes.json();
-            document.getElementById('ordersCount').textContent = orders.length;
+            if (!orders || !Array.isArray(orders.items) || !Number.isSafeInteger(orders.total) || orders.total < 0 ||
+                !orders.counts || !Number.isSafeInteger(orders.counts.pending) || orders.counts.pending < 0) {
+                throw new Error('Invalid orders response');
+            }
+            document.getElementById('ordersCount').textContent = String(orders.counts.pending);
         } catch (e) {
             console.error('Failed to load orders:', e);
-            document.getElementById('ordersCount').textContent = '0';
+            showLoadFailure('ordersCount');
         }
 
-        // Load active theme - fetch from settings and get theme name from theme.json
         try {
             const settingsRes = await fetch('/api/admin/settings');
+            if (!settingsRes.ok) throw new Error('Settings request failed');
             const settings = await settingsRes.json();
+            if (!Array.isArray(settings)) throw new Error('Invalid settings response');
             const activeThemeSetting = settings.find(s => s.key === 'active_theme');
+            let activeTheme = activeThemeSetting && typeof activeThemeSetting.value === 'string' && activeThemeSetting.value.trim()
+                ? activeThemeSetting.value.trim()
+                : '';
 
-            if (activeThemeSetting && activeThemeSetting.value) {
-                // Get theme config to display the theme name from theme.json
-                try {
-                    const themeRes = await fetch(`/api/admin/themes/${activeThemeSetting.value}/config`);
-                    if (themeRes.ok) {
-                        const themeConfig = await themeRes.json();
-                        // Use the name from theme.json
-                        document.getElementById('activeTheme').textContent = themeConfig.name || activeThemeSetting.value;
-                    } else {
-                        document.getElementById('activeTheme').textContent = activeThemeSetting.value;
-                    }
-                } catch (err) {
-                    document.getElementById('activeTheme').textContent = activeThemeSetting.value;
-                }
-            } else {
-                // No active_theme setting, try to get first theme
+            if (!activeTheme) {
                 const themesRes = await fetch('/api/admin/themes');
+                if (!themesRes.ok) throw new Error('Themes request failed');
                 const themes = await themesRes.json();
-                if (themes && themes.length > 0) {
-                    const themeRes = await fetch(`/api/admin/themes/${themes[0]}/config`);
-                    if (themeRes.ok) {
-                        const themeConfig = await themeRes.json();
-                        document.getElementById('activeTheme').textContent = themeConfig.name || themes[0];
-                    } else {
-                        document.getElementById('activeTheme').textContent = themes[0];
-                    }
-                } else {
-                    document.getElementById('activeTheme').textContent = 'Jelly';
+                if (!Array.isArray(themes)) throw new Error('Invalid themes response');
+                activeTheme = typeof themes[0] === 'string' ? themes[0] : '';
+            }
+
+            if (!activeTheme) {
+                document.getElementById('activeTheme').textContent = '–';
+            } else {
+                const themeRes = await fetch(`/api/admin/themes/${encodeURIComponent(activeTheme)}/config`);
+                if (!themeRes.ok) throw new Error('Theme config request failed');
+                const themeConfig = await themeRes.json();
+                if (!themeConfig || typeof themeConfig !== 'object' || Array.isArray(themeConfig) ||
+                    typeof themeConfig.name !== 'string' || !themeConfig.name.trim()) {
+                    throw new Error('Invalid theme config response');
                 }
+                document.getElementById('activeTheme').textContent = themeConfig.name.trim();
             }
         } catch (e) {
             console.error('Failed to load active theme:', e);
-            document.getElementById('activeTheme').textContent = 'Jelly';
+            showLoadFailure('activeTheme');
         }
+        {{end}}
     }
 
     loadStats();

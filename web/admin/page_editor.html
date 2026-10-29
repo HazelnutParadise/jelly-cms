@@ -1,4 +1,4 @@
-{{define "title"}}Edit Page{{end}}
+{{define "title"}}{{.T.edPageEditor}}{{end}}
 {{define "styles"}}
 <style>
     [hidden] { display: none !important; }
@@ -58,8 +58,8 @@
 <form id="pageForm" class="doc-layout">
     <input type="hidden" name="type" value="page">
     <div class="doc">
-        <label for="pageTitle" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Title</label>
-        <input type="text" id="pageTitle" name="title" class="doc-title" placeholder="頁面標題" required autocomplete="off">
+        <label for="pageTitle" class="visually-hidden">{{.T.title}}</label>
+        <input type="text" id="pageTitle" name="title" class="doc-title" placeholder="{{.T.edPageTitlePlaceholder}}" required autocomplete="off">
         {{template "editor" .}}
     </div>
     <aside class="props" aria-label="{{.T.edProperties}}">
@@ -123,6 +123,7 @@
 (function () {
     'use strict';
     const T = {{json (dict
+        "newPage" .T.newPage "editPage" .T.editPage
         "on" .T.edOn "off" .T.edOff "public" .T.edPublic "private" .T.edPrivate
         "requestFailed" .T.requestFailed "saved" .T.saved "saveFailed" .T.saveFailed "seoUnknown" .T.ed2SeoUnknown
         
@@ -133,6 +134,7 @@
     const form = document.getElementById('pageForm');
     let id = window.location.pathname.split('/').pop();
     let isNew = id === 'new';
+    document.title = (isNew ? T.newPage : T.editPage) + ' · Jelly CMS';
     const editor = window.JellyEditor;
     let existingMeta = {};
 

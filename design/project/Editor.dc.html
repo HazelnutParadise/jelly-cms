@@ -10,11 +10,13 @@
 <helmet>
 <link rel="stylesheet" href="./fonts.css">
 <style>
+:root{--primary:#E8285B;--primary-solid:#D92153}
 body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;color:#15161A;background:#fff;font-size:14px;-webkit-font-smoothing:antialiased}
 a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .d{font-family:"Bricolage Grotesque","Noto Sans TC",sans-serif;font-weight:800;letter-spacing:-.02em;line-height:1.1;margin:0}
+.d::placeholder{color:#5F6470;opacity:1}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font-weight:700;font-size:13px;border:0;border-radius:0 9px 0 9px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
-.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}
+.btn.p{background:var(--primary-solid)}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}
 .chip{display:inline-flex;align-items:center;gap:5px;min-height:22px;padding:0 8px;font-size:11px;font-weight:700;border-radius:0 7px 0 7px;background:#EDEEF1;color:#15161A;white-space:nowrap}
 .ok{background:#DCF3E9;color:#0F6A45}.warn{background:#FCF0C8;color:#7A5200}
 .topline{height:3px;background:linear-gradient(90deg,#E8285B 0 64%,#2F6BFF 64% 86%,#13C2A3 86% 100%)}
@@ -67,7 +69,7 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
   <main style="flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; padding: 20px 24px 40px; align-items: start">
     <section style="display: flex; flex-direction: column; gap: 12px; min-width: 0">
       <label for="t" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">標題</label>
-      <input id="t" class="d" type="text" value="為什麼我們決定用 Go 重寫一個 CMS" style="width: 100%; box-sizing: border-box; border: 0; background: transparent; font-size: 40px; padding: 4px 0; color: #15161A">
+      <input id="t" class="d" type="text" value="為什麼我們決定用 Go 重寫一個 CMS" placeholder="標題" style="width: 100%; box-sizing: border-box; border: 0; background: transparent; font-size: 40px; padding: 4px 0; color: #15161A">
       <div class="ed">
         <div class="edbar" role="toolbar" aria-label="Markdown">
           <button class="tool" type="button" aria-label="標題"><svg class="ic" viewBox="0 0 24 24"><path d="M5 4v16M19 4v16M5 12h14"/></svg></button>

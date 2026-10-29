@@ -79,7 +79,9 @@ def I(name, size=None, extra=""):
 SETTINGS_TABS = [("globe","網站","Settings.dc.html"),("list","閱讀與網址","SettingsRoutes.dc.html"),("search","搜尋引擎與 AI 爬蟲","SettingsCrawlers.dc.html"),("key","登入與 OAuth","Settings.dc.html"),("comment","留言","Settings.dc.html"),("card","金流","Settings.dc.html"),("truck","運送","Settings.dc.html"),("mail","郵件與通知","Settings.dc.html"),("db","快取與佇列","Infra.dc.html"),("download","更新","Update.dc.html")]
 SETTINGS_LINKS = [("upload","備份與匯入","Backup.dc.html"),("users","使用者","Users.dc.html"),("terminal","系統日誌","Logs.dc.html")]
 def settings_nav(on=None):
-    tab = lambda ic,l,h: f'<a href="{h}"{" class=\"on\"" if l==on else ""}>{I(ic,14)}{l}</a>'
+    def tab(ic, l, h):
+        selected = ' class="on" aria-current="page"' if l == on else ""
+        return f'<a href="{h}"{selected}>{I(ic,14)}{l}</a>'
     return '<nav class="sub" style="display:flex;flex-direction:column;gap:2px;position:sticky;top:16px" aria-label="設定分類">'+"".join(tab(*t) for t in SETTINGS_TABS)+'<div style="height:1px;background:#EEEFF2;margin:6px 10px" role="separator"></div>'+"".join(tab(*t) for t in SETTINGS_LINKS)+'</nav>'
 
 BASE_CSS = '''
@@ -141,17 +143,21 @@ body{font-size:15px}
 .cm .av{width:44px;height:44px;display:grid;place-items:center;color:#fff;font-weight:800;border-radius:0 12px 0 12px}
 '''
 ADMIN_CSS = BASE_CSS + '''
+:root{--primary:#E8285B;--primary-solid:#D92153}
 body{font-size:14px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font-weight:700;font-size:13px;border:0;border-radius:0 9px 0 9px;cursor:pointer;background:#15161A;color:#fff;font-family:inherit;white-space:nowrap}
-.btn.p{background:#E8285B}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}.btn.s{min-height:30px;font-size:12px;padding:0 10px}.btn.s.i{width:30px}.btn.danger{background:#FBE1DE;color:#9C2318}
+.btn.p{background:var(--primary-solid)}.btn.t{background:#EDEEF1;color:#15161A}.btn.x{background:transparent;color:#15161A}.btn.i{width:36px;padding:0}.btn.s{min-height:30px;font-size:12px;padding:0 10px}.btn.s.i{width:30px}.btn.danger{background:#FBE1DE;color:#9C2318}
 .rail{background:#15161A;color:#fff;display:flex;flex-direction:column;padding:14px 10px;gap:2px}
 .ns{font-size:11px;letter-spacing:.08em;color:#7E838F;padding:14px 12px 4px;text-transform:uppercase;font-weight:700}
 .nl{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 12px;border-radius:0 10px 0 10px;color:#C9CBD3;font-weight:600;font-size:13.5px}
-.nl:hover{background:#2A2B31;color:#fff}.nl.on{background:#E8285B;color:#fff}
-.nl .n{margin-left:auto;font-size:11px;background:#2A2B31;padding:1px 7px;border-radius:0 6px 0 6px;color:#C9CBD3}.nl.on .n{background:#fff;color:#E8285B}
+.nl:hover{background:#2A2B31;color:#fff}.nl.on{background:var(--primary-solid);color:#fff}
+.nl .n{margin-left:auto;font-size:11px;background:#2A2B31;padding:1px 7px;border-radius:0 6px 0 6px;color:#C9CBD3}.nl.on .n{background:#fff;color:var(--primary-solid)}
 .nl.new:after{content:"新";margin-left:auto;font-size:10px;padding:1px 6px;border-radius:0 5px 0 5px;background:#13C2A3;color:#0B3A31}
 .nl.new .n{display:none}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
+.cell-title{font-weight:700}
+input::placeholder,textarea::placeholder{color:#5F6470;opacity:1}
+@media(max-width:640px){.cell-title{min-width:12rem}}
 th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#5F6470;padding:8px 10px;border-bottom:1px solid #E2E3E8;font-weight:700;white-space:nowrap}
 td{padding:10px;border-bottom:1px solid #EEEFF2;vertical-align:middle}
 tr:hover td{background:#F8F8FA}
@@ -262,7 +268,7 @@ def admin(active, crumbs, actions, main, extra="", search=True):
   <aside class="rail" style="flex: 0 0 224px">
     <a href="Dashboard.dc.html" style="display: flex; align-items: center; gap: 10px; padding: 6px 12px 10px; color: #fff; font-size: 17px" class="d">{MARK.format(ink="#fff")}Jelly CMS</a>
     {rail(active)}
-    <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 0 10px 0 10px; background: #2A2B31"><span style="width: 30px; height: 30px; display: grid; place-items: center; background: #E8285B; font-weight: 800; border-radius: 0 9px 0 9px">A</span><div><div style="font-weight: 700; font-size: 13px">管理員</div><a href="Profile.dc.html" style="color: #9A9FAB; font-size: 12px">個人帳號</a></div></div>
+    <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 0 10px 0 10px; background: #2A2B31"><span style="width: 30px; height: 30px; display: grid; place-items: center; background: var(--primary-solid); font-weight: 800; border-radius: 0 9px 0 9px">A</span><div><div style="font-weight: 700; font-size: 13px">管理員</div><a href="Profile.dc.html" style="color: #9A9FAB; font-size: 12px">個人帳號</a></div></div>
   </aside>
   <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
     <div class="topline"></div>

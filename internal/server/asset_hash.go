@@ -2,6 +2,7 @@ package server
 
 import (
 	"log"
+	"net/http"
 	"strings"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/assets"
@@ -25,6 +26,21 @@ func requestAssetSnapshot(c echo.Context) *assets.Snapshot {
 }
 
 func registerAssetHashRoutes(e *echo.Echo, tm *theme.Manager) {
+	favicon := func(c echo.Context) error {
+		snapshot := requestAssetSnapshot(c)
+		if snapshot == nil {
+			return echo.ErrNotFound
+		}
+		url := snapshot.URL("/admin/assets/jelly-mark.svg")
+		if url == "/admin/assets/jelly-mark.svg" || !strings.HasPrefix(url, "/admin/assets/jelly-mark.svg?v=") {
+			return echo.ErrNotFound
+		}
+		c.Response().Header().Set(echo.HeaderCacheControl, "no-cache")
+		return c.Redirect(http.StatusTemporaryRedirect, url)
+	}
+	e.GET("/favicon.ico", favicon)
+	e.HEAD("/favicon.ico", favicon)
+
 	handler := func(c echo.Context) error {
 		snapshot := requestAssetSnapshot(c)
 		if snapshot == nil {

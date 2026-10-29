@@ -1,4 +1,4 @@
-{{define "title"}}Edit Post{{end}}
+{{define "title"}}{{.T.edPostEditor}}{{end}}
 {{define "styles"}}
 <style>
     [hidden] { display: none !important; }
@@ -57,8 +57,8 @@
 {{define "content"}}
 <form id="postForm" class="doc-layout">
     <div class="doc">
-        <label for="postTitle" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);">Title</label>
-        <input type="text" id="postTitle" name="title" class="doc-title" placeholder="標題" required autocomplete="off">
+        <label for="postTitle" class="visually-hidden">{{.T.title}}</label>
+        <input type="text" id="postTitle" name="title" class="doc-title" placeholder="{{.T.title}}" required autocomplete="off">
         {{template "editor" .}}
     </div>
     <aside class="props" aria-label="{{.T.edProperties}}">
@@ -138,6 +138,7 @@
 (function () {
     'use strict';
     const T = {{json (dict
+        "newPost" .T.newPost "editPost" .T.editPost
         "on" .T.edOn "off" .T.edOff "public" .T.edPublic "private" .T.edPrivate
         "requestFailed" .T.requestFailed "saved" .T.saved "saveFailed" .T.saveFailed "seoUnknown" .T.ed2SeoUnknown
         "categoriesFailed" .T.edCategoriesFailed "categoriesEmpty" .T.edCategoriesEmpty "categoriesManage" .T.edCategoriesManage "retry" .T.retry
@@ -149,6 +150,7 @@
     const form = document.getElementById('postForm');
     let id = window.location.pathname.split('/').pop();
     let isNew = id === 'new';
+    document.title = (isNew ? T.newPost : T.editPost) + ' · Jelly CMS';
     const editor = window.JellyEditor;
     let existingMeta = {};
 
