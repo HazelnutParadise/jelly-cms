@@ -3,7 +3,7 @@
 Epic：既有待修缺陷
 User Story：登入者看得到標記 login_only 的項目，匿名訪客看不到；文章／頁面型選單項目只連結公開內容。
 Blocked by：04、05、16 已合併；實作修改同一 Manager 檔案時須等待工作單 17 的實作代理結束。
-Status：測試先行，實作與驗收中。
+Status：實作、局部競態回歸與登入／登出瀏覽器驗收完成；完整測試及交付最終結果見 [PR #36](https://github.com/HazelnutParadise/jelly-cms/pull/36)。
 
 ## 契約與相容性
 

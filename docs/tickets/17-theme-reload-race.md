@@ -3,7 +3,7 @@
 Epic：既有待修缺陷
 User Story：站長儲存外觀設定時，另一個已完成的主題切換不會被舊重載覆蓋。
 Blocked by：15、16 已合併。
-Status：測試先行，實作與驗收中。
+Status：實作與局部競態回歸完成；完整測試及交付最終結果見 [PR #36](https://github.com/HazelnutParadise/jelly-cms/pull/36)。
 
 ## 行為與錯誤
 

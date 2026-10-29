@@ -3,7 +3,7 @@
 Epic：既有待修缺陷
 User Story：設定讀取時版面保持穩定，停用付款方式的說明仍可閱讀，導覽及操作名稱符合目前語言。
 Blocked by：12、15、16 已合併。
-Status：已重現來源與瀏覽器問題，測試先行。
+Status：實作、局部 HTTP 回歸與瀏覽器驗收完成；完整測試及交付最終結果見 [PR #36](https://github.com/HazelnutParadise/jelly-cms/pull/36)。
 
 ## 已確認範圍
 

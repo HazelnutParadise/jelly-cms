@@ -3,7 +3,7 @@
 Epic：既有待修缺陷
 User Story：作者與編輯者開啟儀表板時，只看到可使用的操作，不因讀取管理員設定而發生錯誤。
 Blocked by：06、12 已合併；修改 Dashboard 設計板須等待工作單 19 的設計修改結束。
-Status：作者隔離站已重現 settings.find 例外及無權操作入口，測試先行。
+Status：實作、局部 HTTP 回歸與三角色瀏覽器驗收完成；完整測試及交付最終結果見 [PR #36](https://github.com/HazelnutParadise/jelly-cms/pull/36)。
 
 ## 契約與範圍
 
