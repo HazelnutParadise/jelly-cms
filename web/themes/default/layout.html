@@ -139,7 +139,9 @@
         .skip-link:focus { top: 1rem; color: var(--surface); }
 
         /* ---------- 果凍丁：品牌記號 ---------- */
+        /* Decorative jelly cubes remain for hero and empty-state artwork. */
         .cubes { position: relative; display: block; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; }
+        .brand .mark { display: block; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; object-fit: contain; }
         .cubes i { position: absolute; display: block; width: 62%; height: 62%; border-radius: 0 28% 0 28%; }
         .cubes i:nth-child(1) { left: 0; top: 0; background: var(--secondary); opacity: .75; }
         .cubes i:nth-child(2) { left: 19%; top: 19%; background: var(--accent); opacity: .8; }
@@ -541,7 +543,7 @@
     <header class="masthead">
         <div class="masthead-inner">
             <a href="/" class="brand">
-                <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
+                <img class="mark" src="{{assetURL "/admin/assets/jelly-mark.svg"}}" alt="" aria-hidden="true">
                 <span>{{.SiteTitle}}</span>
             </a>
             <div class="masthead-controls">
@@ -579,7 +581,7 @@
         <div class="colophon-inner">
             <div>
                 <a href="/" class="brand">
-                    <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <img class="mark" src="{{assetURL "/admin/assets/jelly-mark.svg"}}" alt="" aria-hidden="true">
                     <span>{{.SiteTitle}}</span>
                 </a>
                 <p>{{$tagline}}</p>

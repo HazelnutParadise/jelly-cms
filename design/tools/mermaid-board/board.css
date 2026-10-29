@@ -6,7 +6,7 @@ body{margin:0;font-family:"Noto Sans TC","PingFang TC",system-ui,sans-serif;colo
 .chip{display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;font-size:12px;font-weight:700;border-radius:0 8px 0 8px;background:#EDEEF1;color:#15161A;white-space:nowrap}
 .chip.dk{background:#15161A;color:#fff}.chip.warn{background:#FBE1DE;color:#9C2318}
 .ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:square;stroke-linejoin:miter;flex:0 0 auto}
-.mark{display:inline-block;width:26px;height:30px}
+.mark{display:inline-block;width:26px;height:30px;object-fit:contain}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 22px;font-weight:700;font-size:15px;border:0;border-radius:0 10px 0 10px;background:var(--surface-mid);color:var(--ink);white-space:nowrap}
 .btn.i{width:46px;padding:0}.btn.sm{min-height:38px}.btn.i.sm{width:38px}
 .board{width:2680px;box-sizing:border-box;padding:56px 40px 80px;display:flex;flex-direction:column;gap:56px}

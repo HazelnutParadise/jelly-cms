@@ -473,7 +473,7 @@ HANDOFF_CSS = CSS + """
 .hp.dark{background:#141519;color:#ECEDF1;box-shadow:0 0 0 1px #2A2B31}
 .hp-card{width:100%;max-width:440px;display:flex;flex-direction:column;gap:16px}
 .hp-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px}
-.hp-brand .mark{width:26px;height:30px}
+.hp-brand .mark{width:26px;height:30px;object-fit:contain}
 .hp h1{margin:0;font-size:32px;line-height:1.1;letter-spacing:-.03em;font-weight:800}
 .hp p{margin:0;line-height:1.7;font-size:15px}
 .hp .muted{color:#5F6470}.hp.dark .muted{color:#9A9FAB}
