@@ -1,8 +1,18 @@
 {{define "title"}}{{.T.settings}}{{end}}
 {{define "styles"}}
 <style>
-    .gateway-card { transition: opacity .12s ease; }
-    .gateway-card.disabled .setting-row:not(.toggle-row) { opacity: .45; }
+    #shopSaveBar { box-sizing: border-box; height: 3rem; min-height: 3rem; padding: 0; }
+    #shopSaveBar[aria-hidden="true"] { visibility: hidden; }
+    #shopLoad { position: relative; min-height: 3rem; }
+    #shopLoad .state { position: static; width: min(100%, 42rem); min-height: 0; margin: 0; padding: .75rem 1rem; align-items: flex-start; justify-content: flex-start; text-align: left; border-radius: var(--r-md); overflow: visible; }
+    #shopLoad .state-loading { position: absolute; inset: 0 0 auto; box-sizing: border-box; height: 3rem; min-height: 3rem; display: flex; flex-direction: row; align-items: center; gap: .5rem; padding: .5rem 0; background: transparent; box-shadow: none; }
+    #shopLoad .state-loading .skeleton { display: none; }
+    #shopLoad .state-loading-row .spinner { width: 1.25rem; height: 1.25rem; }
+    #shopLoad .state-error { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+    #shopLoad .state-error h2 { margin: 0; font-size: .9375rem; line-height: 1.4; }
+    #shopLoad .state-error .state-text { flex: 1 1 22rem; max-width: none; margin: 0; font-size: .8125rem; overflow-wrap: anywhere; }
+    #shopLoad .state-error .state-actions { flex: 0 0 auto; margin: 0; }
+    [data-shop-form].initial-pending { visibility: hidden; }
     .tabs > a.tab { text-decoration: none; }
 </style>
 <link rel="stylesheet" href="{{assetURL "/admin/assets/shop-admin.css"}}">
@@ -15,8 +25,8 @@
     </div>
 </div>
 
-<nav class="tabs" role="tablist" aria-label="{{.T.settings}}">
-    {{range .Tabs}}<a class="tab{{if .Active}} active{{end}}" role="tab" aria-selected="{{if .Active}}true{{else}}false{{end}}" href="{{.Href}}">{{with index $.T .Label}}{{.}}{{else}}{{.Label}}{{end}}</a>{{end}}
+<nav class="tabs" aria-label="{{.T.settings}}">
+    {{range .Tabs}}<a class="tab{{if .Active}} active{{end}}"{{if .Active}} aria-current="page"{{end}} href="{{.Href}}">{{with index $.T .Label}}{{.}}{{else}}{{.Label}}{{end}}</a>{{end}}
     <a class="tab" href="/admin/tools/backup">{{.T.tools}}</a>
     <a class="tab" href="/admin/logs">{{.T.logs}}</a>
 </nav>
@@ -76,7 +86,7 @@
 
 <!-- Shop, shipping and payment settings (GET/PUT /api/admin/shop/settings; GET never writes) -->
 <div id="shopSettings" data-lang="{{.Lang}}">
-    <div class="sa-savebar" id="shopSaveBar" hidden>
+    <div class="sa-savebar" id="shopSaveBar" aria-hidden="true">
         <span class="badge badge-warning" id="shopDirty" hidden></span>
         <button type="button" class="btn btn-secondary btn-sm" id="shopRevert" disabled><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span data-t="revert"></span></button>
         <button type="button" class="btn btn-primary btn-sm" id="shopSave" disabled><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg><span data-t="saveAll"></span></button>
@@ -85,7 +95,7 @@
 </div>
 
 <div id="shopTab" class="tab-content{{if eq .ActiveTab "shop"}} active{{end}}">
-    <form class="settings-group" id="shopForm" novalidate data-shop-form>
+    <form class="settings-group initial-pending" id="shopForm" novalidate data-shop-form inert aria-busy="true">
         <div class="settings-group-head"><div><h2 data-t="gShop"></h2><p data-t="gShopHint"></p></div></div>
         <div class="setting-row">
             <div><label for="sCurrency" data-t="currency"></label><small class="hint" data-t="currencyHint"></small></div>
@@ -123,7 +133,7 @@
             <div class="control" data-field><input type="text" id="sRefundDays" data-key="shop_refund_window_days" inputmode="numeric" data-int></div>
         </div>
     </form>
-    <form class="settings-group" novalidate data-shop-form>
+    <form class="settings-group initial-pending" novalidate data-shop-form inert aria-busy="true">
         <div class="settings-group-head"><div><h2 data-t="gHold"></h2><p data-t="gHoldHint"></p></div></div>
         <div class="setting-row">
             <div><label for="sHoldCard" data-t="holdCard"></label></div>
@@ -141,7 +151,7 @@
 </div>
 
 <div id="shippingTab" class="tab-content{{if eq .ActiveTab "shipping"}} active{{end}}">
-    <form class="settings-group" novalidate data-shop-form>
+    <form class="settings-group initial-pending" novalidate data-shop-form inert aria-busy="true">
         <div class="settings-group-head">
             <div><h2 data-t="gShipping"></h2><p data-t="gShippingHint"></p></div>
             <button type="button" class="btn btn-secondary btn-sm" id="addShip"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span data-t="addMethod"></span></button>
@@ -159,7 +169,7 @@
 </div>
 
 <div id="paymentTab" class="tab-content{{if eq .ActiveTab "payment"}} active{{end}}">
-    <form class="settings-group gateway-card" novalidate data-shop-form data-gw="ecpay">
+    <form class="settings-group gateway-card initial-pending" novalidate data-shop-form data-gw="ecpay" inert aria-busy="true">
         <div class="settings-group-head">
             <div><h2 data-t="ecpayTitle"></h2><p data-t="ecpayHint"></p></div>
             <jelly-switch id="ecpayEnabled" name="ecpay_enabled" label="{{if eq .Lang "en"}}ECPay{{else}}綠界 ECPay{{end}}" data-key="payment_ecpay_enabled" data-bool></jelly-switch>
@@ -172,7 +182,7 @@
         <div class="setting-row"><div><span class="label" data-t="notifyUrl"></span><small class="hint" data-t="notifyHintEcpay"></small></div><div class="control sa-codebox"><code data-notify="ecpay"></code><button type="button" class="btn btn-secondary btn-sm" data-copy-notify="ecpay"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span data-t="copy"></span></button></div></div>
         <div class="setting-row"><div><span class="label" data-t="testConn"></span><small class="sa-test-result" data-test-result="ecpay" role="status" aria-live="polite"></small></div><div class="control sa-codebox"><span data-test-badge="ecpay"></span><button type="button" class="btn btn-secondary btn-sm" data-test="ecpay"><svg class="icon" aria-hidden="true"><use href="#i-plug"/></svg><span data-t="testConn"></span></button></div></div>
     </form>
-    <form class="settings-group gateway-card" novalidate data-shop-form data-gw="newebpay">
+    <form class="settings-group gateway-card initial-pending" novalidate data-shop-form data-gw="newebpay" inert aria-busy="true">
         <div class="settings-group-head">
             <div><h2 data-t="newebpayTitle"></h2><p data-t="newebpayHint"></p></div>
             <jelly-switch id="newebpayEnabled" name="newebpay_enabled" label="{{if eq .Lang "en"}}NewebPay{{else}}藍新 NeWebPay{{end}}" data-key="payment_newebpay_enabled" data-bool></jelly-switch>
@@ -185,7 +195,7 @@
         <div class="setting-row"><div><span class="label" data-t="notifyUrl"></span></div><div class="control sa-codebox"><code data-notify="newebpay"></code><button type="button" class="btn btn-secondary btn-sm" data-copy-notify="newebpay"><svg class="icon" aria-hidden="true"><use href="#i-copy"/></svg><span data-t="copy"></span></button></div></div>
         <div class="setting-row"><div><span class="label" data-t="testConn"></span><small class="sa-test-result" data-test-result="newebpay" role="status" aria-live="polite"></small></div><div class="control sa-codebox"><span data-test-badge="newebpay"></span><button type="button" class="btn btn-secondary btn-sm" data-test="newebpay"><svg class="icon" aria-hidden="true"><use href="#i-plug"/></svg><span data-t="testConn"></span></button></div></div>
     </form>
-    <form class="settings-group" novalidate data-shop-form>
+    <form class="settings-group initial-pending" novalidate data-shop-form inert aria-busy="true">
         <div class="settings-group-head">
             <div><h2 data-t="transferTitle"></h2><p data-t="transferHint"></p></div>
             <jelly-switch id="transferOn" label="{{if eq .Lang "en"}}Bank transfer{{else}}銀行轉帳{{end}}"></jelly-switch>
@@ -193,13 +203,13 @@
         <div class="setting-row"><div><label for="sTransferNote" data-t="transferNote"></label><small class="hint" data-t="transferNoteHint"></small></div><div class="control wide"><textarea id="sTransferNote" data-key="shop_manual_transfer_note" rows="4"></textarea></div></div>
         <div class="setting-row"><div><span class="label" data-t="holdTime"></span><small class="hint" data-t="holdTimeHint"></small></div><div class="control"><span class="badge" id="transferHold"></span></div></div>
     </form>
-    <form class="settings-group" novalidate data-shop-form>
+    <form class="settings-group initial-pending" novalidate data-shop-form inert aria-busy="true">
         <div class="settings-group-head">
             <div><h2 data-t="methodsTitle"></h2><p data-t="methodsHint"></p></div>
         </div>
         <div id="methodRows"></div>
     </form>
-    <form class="settings-group" novalidate data-shop-form>
+    <form class="settings-group initial-pending" novalidate data-shop-form inert aria-busy="true">
         <div class="settings-group-head">
             <div><h2 data-t="sandboxTitle"></h2><p data-t="sandboxHint"></p></div>
             <jelly-switch id="sandboxOn" name="sandbox_enabled" label="{{if eq .Lang "en"}}Sandbox{{else}}沙盒{{end}}" data-key="payment_sandbox_enabled" data-bool></jelly-switch>
@@ -462,6 +472,7 @@
     let ship = [];
     let pm = {};
     let tests = {};
+    let initialShopLoad = true;
 
     document.querySelectorAll('#shopSettings [data-t], #shopTab [data-t], #shippingTab [data-t], #paymentTab [data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
     ['ecpayTestMode', 'newebpayTestMode'].forEach(id => $(id).setAttribute('label', t('env')));
@@ -469,7 +480,7 @@
     document.querySelectorAll('[data-copy-notify]').forEach(b => b.addEventListener('click', () => SA.copy(location.origin + '/api/payment/' + b.dataset.copyNotify + '/notify')));
     /* ---------- tabs ---------- */
     const shopTabActive = () => TABS.some(n => $(n + 'Tab').classList.contains('active'));
-    function syncBar() { $('shopSettings').hidden = !shopTabActive(); $('shopSaveBar').hidden = !orig; }
+    function syncBar() { $('shopSettings').hidden = !shopTabActive(); $('shopSaveBar').setAttribute('aria-hidden', String(!orig)); }
     function beginShopOperation(kind) {
         if (shopOperationPending) return false;
         shopOperationPending = true;
@@ -482,7 +493,10 @@
         return true;
     }
     function endShopOperation(preserveStatus) {
-        (shopInertBeforeOperation || []).forEach(([el, inert]) => { el.inert = inert; });
+        (shopInertBeforeOperation || []).forEach(([el, inert]) => {
+            if (initialShopLoad && forms().length && Array.from(forms()).includes(el)) return;
+            el.inert = inert;
+        });
         shopInertBeforeOperation = null;
         shopOperationPending = false;
         $('shopSettings').removeAttribute('aria-busy');
@@ -491,7 +505,6 @@
     }
     function activate(name) {
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-        document.querySelectorAll('.tabs .tab').forEach(b => b.classList.toggle('active', (b.getAttribute('onclick') || '').indexOf("'" + name + "'") >= 0));
         const tab = $(name + 'Tab');
         if (tab) tab.classList.add('active');
         syncBar();
@@ -688,6 +701,44 @@
 
     /* ---------- fill ---------- */
     function parseJSON(s, fallback) { try { const v = JSON.parse(s); return v == null ? fallback : v; } catch (e) { return fallback; } }
+    function captureDirtyEdits() {
+        const current = collect(), dirty = {};
+        Object.keys(current).forEach(k => { if (current[k] !== base[k]) dirty[k] = current[k]; });
+        const secretIntents = {};
+        SECRETS.forEach(key => {
+            const state = secrets[key];
+            if (!state || state.mode === 'keep') return;
+            const box = document.querySelector('[data-secret="' + key + '"]');
+            const input = box && $(box.dataset.for);
+            secretIntents[key] = { mode: state.mode, masked: state.masked, value: input && !input.readOnly ? input.value : '' };
+        });
+        return { dirty, secretIntents };
+    }
+    function restoreDirtyEdits(snapshot) {
+        Object.keys(snapshot.dirty).forEach(key => {
+            const value = snapshot.dirty[key];
+            if (key === 'shop_shipping_methods') {
+                ship = parseJSON(value, []).map(r => Object.assign({}, r));
+                renderShip();
+            } else if (key === 'payment_methods') {
+                const map = parseJSON(value, {});
+                METHODS.forEach(method => { pm[method] = map && PROVIDERS.includes(map[method]) ? map[method] : ''; });
+                setOn('transferOn', !!(map && map.bank_transfer === 'manual_transfer'));
+                renderMethods();
+            } else {
+                const el = document.querySelector('[data-key="' + key + '"]');
+                if (el) writeKey(el, value);
+            }
+        });
+        Object.keys(snapshot.secretIntents).forEach(key => {
+            secrets[key] = Object.assign({}, snapshot.secretIntents[key]);
+            renderSecret(key);
+            const box = document.querySelector('[data-secret="' + key + '"]');
+            const input = box && $(box.dataset.for);
+            if (input && secrets[key].mode === 'replace') input.value = secrets[key].value;
+        });
+        syncDirty();
+    }
     function fill(values) {
         orig = {};
         Object.keys(values || {}).forEach(k => { const v = values[k]; orig[k] = v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v)); });
@@ -798,18 +849,28 @@
     }
 
     async function loadSettings(quiet) {
+        const preserve = quiet && orig ? captureDirtyEdits() : null;
         if (!quiet) {
             SA.state($('shopLoad'), 'loading');
-            if (!orig) forms().forEach(f => { f.hidden = true; });
         }
         try {
             const data = await SA.api('GET', '/api/admin/shop/settings');
             const values = data && (data.settings || data.options || data);
             if (!values || typeof values !== 'object' || Array.isArray(values)) throw new Error('Invalid shop settings response');
             fill(values);
+            if (preserve) restoreDirtyEdits(preserve);
             readTests(data);
             $('shopLoad').innerHTML = '';
-            forms().forEach(f => { f.hidden = false; });
+            if (initialShopLoad) {
+                initialShopLoad = false;
+                forms().forEach(f => {
+                    f.classList.remove('initial-pending'); f.inert = false; f.removeAttribute('aria-busy');
+                    if (shopInertBeforeOperation) {
+                        const saved = shopInertBeforeOperation.find(entry => entry[0] === f);
+                        if (saved) saved[1] = false;
+                    }
+                });
+            }
             await loadPages();
             syncDirty();
             syncBar();

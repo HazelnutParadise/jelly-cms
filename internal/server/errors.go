@@ -111,13 +111,7 @@ func newHTTPErrorHandler(tm *theme.Manager) echo.HTTPErrorHandler {
 				"CurrentPath": path,
 				"Error":       page,
 			}
-			var html []byte
-			var rerr error
-			if data.DB == nil {
-				html, rerr = tm.Render("error.html", values)
-			} else {
-				html, rerr = tm.RenderWithDB("error.html", values, data.DB)
-			}
+			html, rerr := renderPublicTheme(c, tm, data.DB, "error.html", values)
 			if rerr == nil {
 				_ = renderedPublicHTML(c, code, html)
 				return

@@ -99,14 +99,14 @@ func maintenanceMiddleware(tm *theme.Manager) echo.MiddlewareFunc {
 			if tm == nil {
 				return c.String(http.StatusServiceUnavailable, "Service unavailable")
 			}
-			body, err := tm.RenderPageWithDB("maintenance.html", map[string]interface{}{
+			body, err := renderPublicThemePage(c, tm, db, "maintenance.html", map[string]interface{}{
 				"SiteTitle":      siteTitle,
 				"CurrentPath":    path,
 				"Message":        values[maintenanceMessageKey],
 				"StartedAt":      startedAt,
 				"ElapsedMinutes": elapsed,
 				"RetryAfter":     retryAfter,
-			}, db)
+			})
 			if err != nil {
 				log.Printf("render maintenance page: %v", err)
 				return c.String(http.StatusServiceUnavailable, "Service unavailable")

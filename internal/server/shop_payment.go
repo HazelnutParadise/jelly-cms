@@ -370,11 +370,11 @@ func shopSandboxPage(c echo.Context, tm *theme.Manager) error {
 	if language == "en" {
 		pageTitle = "Sandbox payment"
 	}
-	page, err := tm.RenderWithDB("sandbox_pay.html", map[string]interface{}{
+	page, err := renderPublicTheme(c, tm, data.DB, "sandbox_pay.html", map[string]interface{}{
 		"SiteTitle": getSiteTitle(), "Title": pageTitle, "CurrentPath": c.Path(),
 		"Lang": language, "TradeNo": tradeNo, "OrderNumber": order.Number,
 		"Amount": attempt.Amount, "Currency": attempt.Currency,
-	}, data.DB)
+	})
 	if err != nil {
 		return c.NoContent(http.StatusInternalServerError)
 	}
