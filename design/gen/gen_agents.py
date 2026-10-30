@@ -269,9 +269,9 @@ detail_main = f'''<main style="padding:16px 24px 32px;display:flex;flex-directio
 </main>'''
 
 B = {
-    "Agents": ("後台 · AI agent", 1440, 1100, admin("agents", ["系統", "AI agent"],
+    "Agents": ("後台 · AI agent", 1440, 1200, admin("agents", ["系統", "AI agent"],
         f'<a class="btn t" href="#">{I("external")}API 說明</a><button class="btn p" type="button">{I("plus")}建立 agent</button>', agents_main)),
-    "AgentDetail": ("後台 · AI agent 詳情與輪替", 1440, 2500, admin("agents", ["系統", "AI agent", "內容小幫手"],
+    "AgentDetail": ("後台 · AI agent 詳情與輪替", 1440, 2850, admin("agents", ["系統", "AI agent", "內容小幫手"],
         f'<button class="btn t" type="button">{I("pause")}停用</button><button class="btn p" type="button">{I("refresh")}輪替金鑰</button>', detail_main)),
 }
 

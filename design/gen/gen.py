@@ -439,7 +439,7 @@ def prow(name, slug, n, lv=0, color=None, sel=False):
     bg = ' style="background:#F8F9FF"' if sel else ""
     return f'<tr{bg}><td style="width:36px"><span class="cb{" on" if sel else ""}"></span></td><td{pad}>{arrow}{dot}<b>{name}</b></td><td style="color:#5F6470">/shop/c/{slug}</td><td class="mono" style="font-size:15px">{n}</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="看前台">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>'
 
-pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS + "\n@media(max-width:700px){.seg{flex-wrap:wrap;max-width:100%;box-sizing:border-box}}\n", 1440, 1300, admin("taxonomy", ["內容","分類與標籤"],
+pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS + "\n@media(max-width:700px){.seg{flex-wrap:wrap;max-width:100%;box-sizing:border-box}}\n", 1440, 1340, admin("taxonomy", ["內容","分類與標籤"],
   f'<button class="btn t" type="button">{I("upload")}從 WordPress 匯入</button><button class="btn p" type="button">{I("plus")}新增分類</button>',
   f'''<main style="padding: 16px 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start">
     <section>
@@ -794,7 +794,7 @@ pages["Revisions"] = ("後台版本比較", ADMIN_CSS, 1440, 1000, admin("posts"
   </main>'''))
 
 # ======================= ADMIN: Import (WordPress) =======================
-pages["Import"] = ("後台 WordPress 匯入", ADMIN_CSS, 1440, 1000, admin("tools", ["系統","工具","從 WordPress 匯入"],
+pages["Import"] = ("後台 WordPress 匯入", ADMIN_CSS, 1440, 1380, admin("tools", ["系統","工具","從 WordPress 匯入"],
   f'<button class="btn t" type="button">{I("x")}取消匯入</button>',
   f'''<main style="padding: 16px 24px 32px; display:grid; grid-template-columns: 220px minmax(0,1fr); gap:32px; align-items:start">
     <nav class="sub tree" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:2px"><a class="on" href="Import.dc.html">{I("wp",14)}從 WordPress 匯入</a><a href="Backup.dc.html">{I("db",14)}備份與匯出</a><a href="Redirects.dc.html">{I("redirect",14)}轉址</a><a href="Logs.dc.html">{I("terminal",14)}系統日誌</a><a href="Import.dc.html">{I("refresh",14)}重建索引與快取</a><a href="Import.dc.html">{I("alert",14)}站台健康檢查</a></nav>

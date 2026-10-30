@@ -112,4 +112,4 @@ TDM-Policy: https://example.com/tdm-policy.json</div>
     </aside>
   </main>'''
 html = admin("settings", ["系統","設定","搜尋引擎與 AI 爬蟲"], f'<button class="btn t" type="button">{I("undo")}還原</button><button class="btn p" type="button">{I("save")}儲存並重新產生</button>', main)
-open(os.path.join(OUT, "SettingsCrawlers.dc.html"),"w",encoding="utf-8").write(doc("後台 · 設定 · 搜尋引擎與 AI 爬蟲", CSS, html, 1440, 1900)); print("wrote SettingsCrawlers")
+open(os.path.join(OUT, "SettingsCrawlers.dc.html"),"w",encoding="utf-8").write(doc("後台 · 設定 · 搜尋引擎與 AI 爬蟲", CSS, html, 1440, 2030)); print("wrote SettingsCrawlers")

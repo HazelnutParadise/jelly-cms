@@ -157,7 +157,7 @@ B["Tokens"] = ("後台 · 個人帳號 · API 權杖", CSS, 1440, 1000, admin(""
   </div>'''))
 
 # ---------- 附件 › 儲存策略與分組 ----------
-B["MediaPolicies"] = ("後台 · 附件 · 儲存策略與分組", CSS, 1440, 1000, admin("media", ["內容","附件","儲存策略"],
+B["MediaPolicies"] = ("後台 · 附件 · 儲存策略與分組", CSS, 1440, 1040, admin("media", ["內容","附件","儲存策略"],
   f'<a class="btn t" href="Media.dc.html">{I("arrow-l")}回附件庫</a><button class="btn p" type="button">{I("plus")}新增策略</button>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start">
     <section style="display:flex;flex-direction:column;gap:24px">
@@ -209,7 +209,7 @@ B["MediaPolicies"] = ("後台 · 附件 · 儲存策略與分組", CSS, 1440, 10
 # ---------- 應用市場 ----------
 def app(color, ic, name, by, desc, meta, btn):
     return f'<div class="app"><div style="display:flex;gap:10px;align-items:center"><span class="ico" style="background:{color}">{I(ic,20)}</span><div><h3>{name}</h3><div style="font-size:11.5px;color:#5F6470">{by}</div></div></div><p>{desc}</p><div style="display:flex;align-items:center;gap:8px;margin-top:auto"><span style="font-size:11.5px;color:#5F6470">{meta}</span><span style="margin-left:auto">{btn}</span></div></div>'
-B["AppStore"] = ("後台 · 應用市場", CSS, 1440, 1000, admin("plugins", ["外觀","應用市場"],
+B["AppStore"] = ("後台 · 應用市場", CSS, 1440, 1030, admin("plugins", ["外觀","應用市場"],
   f'<button class="btn t" type="button">{I("upload")}上傳 .zip</button><button class="btn t" type="button">{I("link")}從網址安裝</button>',
   f'''<main style="padding:16px 24px 32px;display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
@@ -290,7 +290,7 @@ B["PluginDetail"] = ("後台 · 外掛詳情", CSS, 1440, 1000, admin("plugins",
   </main>'''))
 
 # ---------- 設定 › 閱讀與網址 + 程式碼注入 ----------
-B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", CSS, 1440, 1300, admin("settings", ["系統","設定","閱讀與網址"],
+B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", CSS, 1440, 1510, admin("settings", ["系統","設定","閱讀與網址"],
   f'<button class="btn t" type="button">{I("undo")}還原</button><button class="btn p" type="button">{I("save")}儲存</button>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start">
     {settings_nav("閱讀與網址")}

@@ -116,7 +116,7 @@ pages["ArchiveIndex"] = ("前台彙整索引", 1400, front("posts", f'''
 # ---------- 商品分類頁 ----------
 def pcard(bg, fg, name, price, extra=""):
     return f'<article class="pc"><div class="img" style="background:{bg};color:{fg}">{name}</div><div class="b"><h3><a href="Product.dc.html">{name}</a></h3><div style="display:flex;align-items:center;justify-content:space-between"><span class="price">{price}{extra}</span><button class="btn sm" type="button">{I("plus")}加入</button></div></div></article>'
-pages["ShopCategory"] = ("前台商品分類頁", 1500, front("shop", f'''
+pages["ShopCategory"] = ("前台商品分類頁", 1650, front("shop", f'''
   <section class="hero" style="background:#2F6BFF;color:#fff;padding-bottom:0">
     {cubes(1.6, 1080, -10, .9)}
     <div class="in">
@@ -441,7 +441,7 @@ pages["AccountInvoices"] = ("前台會員發票設定", 1000, front("shop", acct
 # ---------- 會員中心：帳號與密碼 ----------
 def card(title, inner):
     return f'<div style="box-shadow:inset 0 0 0 1px #E2E3E8;border-radius:0 16px 0 16px;padding:22px;display:flex;flex-direction:column;gap:14px"><b class="d" style="font-size:20px">{title}</b>{inner}</div>'
-pages["AccountSecurity"] = ("前台會員帳號與密碼", 1500, front("shop", acct_page("security", f'''
+pages["AccountSecurity"] = ("前台會員帳號與密碼", 1750, front("shop", acct_page("security", f'''
       <div style="display:flex;flex-direction:column;gap:12px"><span class="stripe"></span><h1 class="d" style="font-size:44px;letter-spacing:-.035em">帳號與密碼</h1></div>
       {card("基本資料", '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px"><div><label class="flbl" for="s1">顯示名稱</label><input id="s1" class="field" type="text" value="Ting"></div><div><label class="flbl" for="s2">語言</label><select id="s2" class="field"><option>繁體中文</option><option>English</option></select></div></div><div><button class="btn t sm" type="button">儲存</button></div>')}
       {card("Email", '<div style="font-size:14px">目前：<b>ting@example.com</b></div><span class="chip warn" style="align-self:flex-start">等待確認：ting@new.example</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px"><div><label class="flbl" for="s3">新的 Email</label><input id="s3" class="field" type="email"></div><div><label class="flbl" for="s4">目前密碼</label><input id="s4" class="field" type="password"></div></div><div style="font-size:12px;color:#5F6470">我們會寄確認連結到新信箱，打開後才會更換。</div><div><button class="btn t sm" type="button">更換 Email</button></div>')}
@@ -510,7 +510,7 @@ def handoff(dark, en, w, h, state="go"):
         <a class="hp-link" href="OrderDone.dc.html">{t("回到訂單換付款方式","Back to your order to change method")}</a>"""
     return f'<div class="hp{" dark" if dark else ""}" style="width:{w}px;min-height:{h}px"><div class="hp-card">{head}{body}</div></div>'
 
-pages["ECPayHandoff"] = ("前台綠界付款中繼頁", 1150, f"""<div class="hp-row">
+pages["ECPayHandoff"] = ("前台綠界付款中繼頁", 1500, f"""<div class="hp-row">
   <div class="hp-col"><span class="hp-cap">1280 · 淺色 · 繁中</span>{handoff(False, False, 640, 640)}</div>
   <div class="hp-col"><span class="hp-cap">390 · 深色 · English</span>{handoff(True, True, 390, 640)}</div>
   <div class="hp-col"><span class="hp-cap">390 · 淺色 · 連線失敗</span>{handoff(False, False, 390, 640, "fail")}</div>
