@@ -116,4 +116,4 @@ boards = [
 for name,title,html in boards:
     if os.environ.get("JELLY_DESIGN_ONLY") and name not in os.environ["JELLY_DESIGN_ONLY"].split(","):
         continue
-    open(os.path.join(OUT, f"{name}.dc.html"),"w",encoding="utf-8").write(doc(title, CSS, html, 1440, 1000)); print("wrote",name)
+    open(os.path.join(OUT, f"{name}.dc.html"),"w",encoding="utf-8").write(doc(title, CSS, html, 1440, {"UpdateContainer": 1130}.get(name, 1000))); print("wrote",name)
