@@ -432,7 +432,7 @@ mobile_board = f'''<div class="mb" style="width:390px;height:844px;box-sizing:bo
   <div class="status" style="padding:7px 16px;gap:10px;background:#FAFAFB"><span><b>1,284</b> 字</span><span>·</span><span style="display:inline-flex;align-items:center;gap:5px">已自動儲存 12:03 {I("check",12)}</span><span style="margin-left:auto">第 <b>{M_CUR}</b> 行</span></div>
 </div>'''
 
-for name, title, html, css, w, h in [("EditorFull","後台 Markdown 編輯器 · 滿版", full, SLASH_CSS, 1440, 1000), ("EditorFocus","後台 Markdown 編輯器 · 專心模式", focus_html(True), CSS, 1440, 1000), ("EditorFocus2","後台 Markdown 編輯器 · 專心模式（小抄收起）", focus_html(False), CSS, 1440, 1000),
+for name, title, html, css, w, h in [("EditorFull","後台 Markdown 編輯器 · 滿版", full, SLASH_CSS, 1440, 1520), ("EditorFocus","後台 Markdown 編輯器 · 專心模式", focus_html(True), CSS, 1440, 1000), ("EditorFocus2","後台 Markdown 編輯器 · 專心模式（小抄收起）", focus_html(False), CSS, 1440, 1000),
     ("EditorSlash","後台 Markdown 編輯器 · 斜線選單與診斷", slash_board, SLASH_CSS + SLASH_X, 1440, 1000), ("EditorMobile","手機 後台編輯器", mobile_board, MB_CSS, 390, 844)]:
     open(os.path.join(OUT, f"{name}.dc.html"),"w",encoding="utf-8").write(doc(title, css, html, w, h))
     print("wrote", name)

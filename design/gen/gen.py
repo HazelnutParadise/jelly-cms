@@ -358,7 +358,7 @@ pages["Checkout"] = ("前台結帳", FRONT_CSS, 1440, 1400, front("shop", f'''
   </main>'''))
 
 # ======================= FRONT: OrderDone =======================
-pages["OrderDone"] = ("前台付款完成", FRONT_CSS, 1440, 1000, front("shop", f'''
+pages["OrderDone"] = ("前台付款完成", FRONT_CSS, 1440, 1040, front("shop", f'''
   <main style="max-width: 1360px; margin: 0 auto; width: 100%; box-sizing: border-box; padding: 32px 40px 96px; display: flex; flex-direction: column; gap: 32px">
     <div style="display: flex; gap: 20px; justify-content: flex-end"><span class="step done"><i>{I("check",14)}</i>購物車</span><span class="step done"><i>{I("check",14)}</i>結帳</span><span class="step done"><i>{I("check",14)}</i>付款</span><span class="step on"><i>4</i>完成</span></div>
     <div style="display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 48px; align-items: start">
@@ -389,7 +389,7 @@ pages["OrderDone"] = ("前台付款完成", FRONT_CSS, 1440, 1000, front("shop",
   </main>'''))
 
 # ======================= FRONT: Archive (category + comments) =======================
-pages["Archive"] = ("前台分類頁與留言區", FRONT_CSS, 1440, 1700, front("posts", f'''
+pages["Archive"] = ("前台分類頁與留言區", FRONT_CSS, 1440, 1860, front("posts", f'''
   <section style="background:#2F6BFF;color:#fff;padding:56px 40px 40px;position:relative;overflow:hidden">
     {cubes(1.6, 1080, -10, .9)}
     <div style="max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:12px;position:relative">
