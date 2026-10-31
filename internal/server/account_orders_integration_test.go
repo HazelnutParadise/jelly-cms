@@ -299,8 +299,10 @@ func TestCustomerCannotReachAdmin(t *testing.T) {
 	h := newAccessHarness(t)
 	shopSetup(t, h)
 	customer := h.user("customer", "shopper")
+	// Ticket 23: the admin API takes only the browser login, so the customer logs in with the jwt_token
+	// cookie. A Bearer header would now stop at the 401 gate before the role check this test is about.
 	cb := newShopBrowser(h)
-	cb.token = h.token(customer)
+	cb.jar["jwt_token"] = &http.Cookie{Name: "jwt_token", Value: h.token(customer), Path: "/"}
 
 	for _, path := range []string{"/admin", "/admin/orders", "/admin/orders/1", "/admin/coupons"} {
 		r := cb.get(path)

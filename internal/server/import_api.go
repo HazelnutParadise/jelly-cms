@@ -33,7 +33,7 @@ func registerImportRoutes(e *echo.Echo) {
 	e.GET("/api/admin/import/:id", handleImportGet, admin)
 	e.PUT("/api/admin/import/:id/mapping", handleImportMapping, admin)
 	e.POST("/api/admin/import/:id/dry-run", handleImportDryRun, admin)
-	e.POST("/api/admin/import/:id/run", handleImportRun, browserSessionOnly, admin)
+	e.POST("/api/admin/import/:id/run", handleImportRun, auth.RequireInteractive(), admin)
 	e.POST("/api/admin/import/:id/cancel", handleImportCancel, admin)
 }
 

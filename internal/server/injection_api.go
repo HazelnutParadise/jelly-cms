@@ -23,11 +23,11 @@ const (
 )
 
 // registerInjectionRoutes mounts the injection admin API. GET is admin only;
-// PUT is admin only and interactive only (see handleInjectionPut).
+// PUT is admin only and interactive only (auth.RequireInteractive runs first).
 func registerInjectionRoutes(e *echo.Echo) {
 	adminOnly := auth.RequireRole("admin")
 	e.GET("/api/admin/settings/injection", handleInjectionGet, adminOnly)
-	e.PUT("/api/admin/settings/injection", handleInjectionPut, adminOnly)
+	e.PUT("/api/admin/settings/injection", handleInjectionPut, auth.RequireInteractive(), adminOnly)
 }
 
 // injectionMaxBytes caps each slot at 64 KiB.
@@ -55,26 +55,10 @@ func handleInjectionGet(c echo.Context) error {
 	})
 }
 
-// isInteractiveRequest reports whether the request comes from a signed-in
-// browser session: the jwt_token cookie and the CSRF header are present, and
-// no Authorization header is sent.
-func isInteractiveRequest(c echo.Context) bool {
-	if c.Request().Header.Get(echo.HeaderAuthorization) != "" {
-		return false
-	}
-	if cookie, err := c.Cookie("jwt_token"); err != nil || cookie.Value == "" {
-		return false
-	}
-	return c.Request().Header.Get("X-Jelly-CSRF") != ""
-}
-
 // handleInjectionPut stores the slots. It is interactive only, admin only, and
 // needs the admin's current password. The audit row keeps the length and the
 // sha256 of each slot written, never the content.
 func handleInjectionPut(c echo.Context) error {
-	if !isInteractiveRequest(c) {
-		return c.JSON(http.StatusForbidden, map[string]string{"error": "Interactive browser session required"})
-	}
 	actor, ok := auth.GetUserFromContext(c)
 	if !ok || actor == nil || actor.Role != "admin" {
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "Forbidden"})

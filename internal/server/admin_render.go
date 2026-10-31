@@ -235,6 +235,11 @@ func enforceStaffAdminAPIs(next echo.HandlerFunc) echo.HandlerFunc {
 		if path != "/api/admin" && !strings.HasPrefix(path, "/api/admin/") {
 			return next(c)
 		}
+		// The admin API serves the browser only (ticket 23). Any Authorization
+		// header is refused before authentication is tried.
+		if _, sent := c.Request().Header[echo.HeaderAuthorization]; sent {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Browser login required"})
+		}
 		principal, err := auth.GetCurrentPrincipal(c)
 		if err != nil || principal == nil || principal.User == nil {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})

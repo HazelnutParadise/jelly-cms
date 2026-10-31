@@ -46,6 +46,8 @@ Status：implemented（本機實作、PostgreSQL 競態測試與 357 項瀏覽�
 
 ### 自助 API（`auth.RequireAuth`，所有角色；標 I 的為互動限定，拒絕 API 權杖）
 
+已由工單 23 取代：互動限定統一由 `auth.RequireInteractive()` 判斷，Bearer 登入也會被拒絕（403）（見 [工單 23](23-admin-api-browser-only.md)）。
+
 | # | 方法與路徑 | 請求 | 回應與規則 |
 |---|---|---|---|
 | S1 | GET `/api/account/profile` | | `{id, username, display_name, email, email_verified, pending_email, avatar_url, bio, locale, ui_theme, role, created_at, post_count, author_url}` |

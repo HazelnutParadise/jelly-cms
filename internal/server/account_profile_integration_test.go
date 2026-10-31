@@ -108,7 +108,7 @@ func acctCallReader(t *testing.T, h *accessHarness, remote, method, path string,
 	}
 	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 	if token != "" {
-		req.Header.Set(echo.HeaderAuthorization, "Bearer "+token)
+		setAccessToken(req, token)
 	}
 	for name, value := range headers {
 		req.Header.Set(name, value)
@@ -581,7 +581,8 @@ func profilePauseBeforeVerifiedUserLock(t *testing.T, h *accessHarness, token, p
 		req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 		req.Header.Set(echo.HeaderOrigin, browserWriteOrigin)
 		req.Header.Set("X-Jelly-CSRF", "1")
-		req.Header.Set(echo.HeaderAuthorization, "Bearer "+token)
+		// The paused paths are interactive account writes, so setAccessToken sends the login as a cookie.
+		setAccessToken(req, token)
 		rec := httptest.NewRecorder()
 		h.echo.ServeHTTP(rec, req)
 		done <- rec
@@ -720,7 +721,12 @@ func TestProfileEndpointsRejectAPITokenPrincipal(t *testing.T) {
 			{http.MethodPost, "/api/account/password", `{"new_password":"token-password-1"}`},
 			{http.MethodPost, "/api/account/email", `{"new_email":"token@example.test","current_password":"x"}`},
 		} {
-			res := acctJSON(t, h, probe.method, probe.path, probe.body, bearer)
+			// This test is about the Bearer behavior itself, so the key goes in the Authorization header,
+			// not in the browser login cookie that interactive account paths use.
+			res := acctCall(t, h, acctRemote(), probe.method, probe.path, probe.body, "", map[string]string{
+				echo.HeaderAuthorization: "Bearer " + bearer,
+				echo.HeaderContentType:   echo.MIMEApplicationJSON,
+			})
 			h.mustNoPanic(res, probe.method+" "+probe.path)
 			if res.code != http.StatusUnauthorized {
 				t.Errorf("%s %s with Bearer %q returned %d, want 401; body=%q", probe.method, probe.path, bearer[:4], res.code, res.body)

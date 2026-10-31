@@ -22,7 +22,7 @@ import (
 )
 
 // Update API (ticket 08, 「更新」). Every route is admin only. Apply and rollback
-// are interactive only (see browserSessionOnly in backup_api.go). A container,
+// are interactive only (see auth.RequireInteractive). A container,
 // Kubernetes or package-managed runtime answers 409 with its kind and shows the
 // upgrade commands instead.
 
@@ -40,9 +40,9 @@ func registerUpdateRoutes(e *echo.Echo) {
 	admin := auth.RequireRole("admin")
 	e.GET("/api/admin/update", handleUpdateStatus, admin)
 	e.POST("/api/admin/update/check", handleUpdateCheck, admin)
-	e.POST("/api/admin/update/apply", handleUpdateApply, browserSessionOnly, admin)
+	e.POST("/api/admin/update/apply", handleUpdateApply, auth.RequireInteractive(), admin)
 	e.POST("/api/admin/update/cancel", handleUpdateCancel, admin)
-	e.POST("/api/admin/update/rollback", handleUpdateRollback, browserSessionOnly, admin)
+	e.POST("/api/admin/update/rollback", handleUpdateRollback, auth.RequireInteractive(), admin)
 	e.PUT("/api/admin/update/settings", handleUpdateSettings, admin)
 }
 

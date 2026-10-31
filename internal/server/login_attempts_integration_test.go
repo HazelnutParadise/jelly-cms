@@ -202,8 +202,8 @@ func TestLoginAttemptLimitDoesNotAffectPublicOrAuthenticatedReads(t *testing.T) 
 	user := loginAttemptUser(t, h, "throttle-read-isolation")
 	themeToken := h.token(user)
 	activateTheme := loginAttemptHTTP(h, http.MethodPost, "/api/admin/themes/activate", "192.0.2.36:44001", `{"name":"default"}`, map[string]string{
-		"Authorization": "Bearer " + themeToken,
-		"X-Jelly-CSRF":  "1",
+		"Cookie":       "jwt_token=" + themeToken,
+		"X-Jelly-CSRF": "1",
 	})
 	if activateTheme.code != http.StatusOK {
 		t.Fatalf("activate default theme returned %d, want 200", activateTheme.code)

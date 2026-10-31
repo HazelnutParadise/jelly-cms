@@ -187,7 +187,7 @@ func TestAgentRegressionRotationEmptyChunkedBodyDefaultsToImmediate(t *testing.T
 			request.ContentLength = -1
 			request.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-			request.Header.Set(echo.HeaderAuthorization, "Bearer "+adminToken)
+			setAccessToken(request, adminToken)
 			recorder := httptest.NewRecorder()
 			h.echo.ServeHTTP(recorder, request)
 			if recorder.Code != http.StatusOK {

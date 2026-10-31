@@ -66,8 +66,11 @@ func RequireRole(roles ...string) echo.MiddlewareFunc {
 	}
 }
 
-// RequireInteractive authenticates a browser session or JWT. Access keys never
-// reach it because resolvePrincipal rejects jla_ and jly_ (ticket 22).
+// RequireInteractive is the only interactive-login rule (ticket 23). It answers
+// 401 when no login can be resolved and 403 when the login came from an
+// Authorization Bearer token. Access keys never reach it because resolvePrincipal
+// rejects jla_ and jly_ (ticket 22). Writes also need a non-empty X-Jelly-CSRF
+// header, which a plain cross-site form cannot send.
 func RequireInteractive() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -75,11 +78,25 @@ func RequireInteractive() echo.MiddlewareFunc {
 			if err != nil {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
 			}
+			if p.Source == principalBearer {
+				return interactiveLoginRequired(c)
+			}
+			if !isSafeMethod(c.Request().Method) && c.Request().Header.Get("X-Jelly-CSRF") == "" {
+				return interactiveLoginRequired(c)
+			}
 			c.Set("user", p.User)
 			c.Set("auth.principal", p)
 			return next(c)
 		}
 	}
+}
+
+func interactiveLoginRequired(c echo.Context) error {
+	return c.JSON(http.StatusForbidden, map[string]string{"error": "Interactive login required"})
+}
+
+func isSafeMethod(method string) bool {
+	return method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
 }
 
 // RequirePermission allows a request when its principal holds every listed

@@ -109,7 +109,7 @@ func commentsDo(t *testing.T, h *accessHarness, method, path, body, token, ip st
 	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	if token != "" {
-		req.Header.Set(echo.HeaderAuthorization, "Bearer "+token)
+		setAccessToken(req, token)
 	}
 	rec := httptest.NewRecorder()
 	var panicked any

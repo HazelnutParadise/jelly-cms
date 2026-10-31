@@ -74,14 +74,20 @@ func (b *shopBrowser) do(method, path, body, contentType string, headers map[str
 	}
 	req := httptest.NewRequest(method, path, reader)
 	req.RemoteAddr = b.remote
+	// A token for /api/admin or an interactive /api/account call travels as the
+	// jwt_token cookie (ticket 23), so a jar cookie of that name must not compete with it.
+	tokenAsCookie := b.token != "" && usesBrowserLogin(req)
 	for _, cookie := range b.jar {
+		if tokenAsCookie && cookie.Name == "jwt_token" {
+			continue
+		}
 		req.AddCookie(cookie)
 	}
 	if contentType != "" {
 		req.Header.Set(echo.HeaderContentType, contentType)
 	}
 	if b.token != "" {
-		req.Header.Set(echo.HeaderAuthorization, "Bearer "+b.token)
+		setAccessToken(req, b.token)
 	}
 	for key, value := range headers {
 		req.Header.Set(key, value)

@@ -657,7 +657,7 @@ func TestPluginReloadCanceledRequestKeepsTheOldVersion(t *testing.T) {
 	defer cancel()
 
 	request := httptest.NewRequest(http.MethodPost, "/api/admin/plugins/"+targetID+"/reload", nil)
-	request.Header.Set(echo.HeaderAuthorization, "Bearer "+h.token(admin))
+	setAccessToken(request, h.token(admin))
 	request.Header.Set("X-Jelly-CSRF", "1")
 	request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	request = request.WithContext(ctx)

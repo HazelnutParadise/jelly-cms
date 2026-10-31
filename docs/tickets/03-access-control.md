@@ -114,6 +114,8 @@ Session 另保存 `login_expires_at`（int64 Unix 秒），簽發時固定為七
 | 目標來源 | TLS、非預設連接埠、IPv6、APP_URL、偽造轉送標頭 | 正確比較來源，設定無效時 503 | 獨立 HTTP fixture |
 | Bearer API | 合法／不合法 token，沒有登入 Cookie | 保留原有成功／401，偽字首不能授權 | 不加來源證據的 HTTP 請求 |
 | 混合登入 | Bearer 加 Cookie | 仍須來源檢查，不能藉 Bearer 豁免 Cookie 操作 | 登出與受保護寫入 |
+
+已由工單 23 取代：`/api/admin/*` 不再接受任何 Authorization 標頭，互動限定統一由 `auth.RequireInteractive()` 判斷（見 [工單 23](23-admin-api-browser-only.md)）。
 | 無 Cookie 登出 | 外站來源，或完全無憑證／來源 | 外站回 403；完全無憑證冪等 200 且不送清除 Cookie | 原始 HTTP 與跨站頂層表單 |
 | 登入與安裝 | 無 Cookie 的外站表單 | 403，不簽發登入、不測試 DB、不寫入安裝 | 完整註冊路由與暫存資料夾 |
 | 付款通知 | 外部 POST callback | 不套 Cookie 保護，保留獨立驗簽；不能豁免 create | 失敗通知無訂單變更 |
