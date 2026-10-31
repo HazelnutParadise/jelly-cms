@@ -16,7 +16,6 @@ import (
 	"net/mail"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -531,11 +530,6 @@ func accountBadRequest(c echo.Context, message string) error {
 
 func accountServerError(c echo.Context, message string) error {
 	return c.JSON(http.StatusInternalServerError, map[string]string{"error": message})
-}
-
-func accountAPIID(c echo.Context, key string) (uint, bool) {
-	id, err := strconv.ParseUint(c.Param(key), 10, 64)
-	return uint(id), err == nil && id > 0 && uint64(uint(id)) == id
 }
 
 func isUniqueViolation(err error) bool {

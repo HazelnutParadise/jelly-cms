@@ -311,7 +311,8 @@ func handleLogsStream(c echo.Context) error {
 }
 
 // handleLogsExport streams the last hours of logs as NDJSON (default 24, at
-// most 720). It is interactive only; API tokens are refused by middleware.
+// most 720). It is interactive only: a login cookie or bearer JWT is accepted,
+// and access keys (jly_, jla_) are refused by RequireInteractive.
 func handleLogsExport(c echo.Context) error {
 	if data.DB == nil {
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})

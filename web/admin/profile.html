@@ -730,6 +730,9 @@
     switch (activeTab) {
         case 'profile': loadProfile(); break;
         case 'notifications': loadPreferences(); break;
+        case 'tokens':
+            // Static notice (ticket 22): nothing to load.
+            $('profileLoading').hidden = true; root.removeAttribute('aria-busy'); break;
         case 'security':
             $('profileLoading').hidden = true; $('tab-security').hidden = false; loadTotp(); break;
         case 'devices': loadSessions(); break;

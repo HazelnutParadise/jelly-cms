@@ -118,43 +118,30 @@ B["Notifications"] = ("後台 · 通知中心", CSS, 1440, 1000, admin("", ["通
   </main>'''))
 
 # ---------- 個人帳號 › API 權杖 ----------
+# 個人權杖已由工單 22 下線，此分頁只剩說明：管理員附連結到存取金鑰管理，其他角色請管理員建立。
+# 對應 web/admin/profile.html 的 #tab-tokens 與 web/locales/zh-TW.json 的 accountTokens* 鍵。
 B["Tokens"] = ("後台 · 個人帳號 · API 權杖", CSS, 1440, 1000, admin("", ["個人帳號","API 權杖"],
-  f'<button class="btn p" type="button">{I("plus")}建立權杖</button>',
+  '',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start">
     {profile_nav("API 權杖")}
-    <section style="display:flex;flex-direction:column;gap:20px;max-width:980px">
-      <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;line-height:1.5">{I("key",18)}<span>個人 API 權杖以 <code>jly_</code> 開頭，以你的身分呼叫 REST API，權限受目前角色限制，到期自動失效。API 文件在 <a href="#">/api/docs</a>（OpenAPI）。AI agent 使用獨立的 <code>jla_</code> 金鑰，由管理員在「<a href="Agents.dc.html">系統 › AI agent</a>」建立與管理。</span></div>
-      <table>
-        <thead><tr><th>名稱</th><th>權限</th><th>到期</th><th>最後使用</th><th>狀態</th><th></th></tr></thead>
-        <tbody>
-          <tr><td><b>Obsidian 發文</b><div style="font-size:12px;color:#5F6470">jly_••••••••••••a9f2 · 從 Obsidian 外掛發草稿</div></td><td><span class="chip info">作者</span></td><td>2027-04-01</td><td>今天 14:20 · 1.160.x.x</td><td><span class="chip ok">有效</span></td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="撤銷">{I("pause")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
-          <tr><td><b>n8n 自動化</b><div style="font-size:12px;color:#5F6470">jly_••••••••••••7c10 · 新訂單同步到試算表</div></td><td><span class="chip info">訂單唯讀</span> <span class="chip info">Webhook</span></td><td>永不</td><td>16:03</td><td><span class="chip ok">有效</span></td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="撤銷">{I("pause")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
-          <tr><td><b>舊的 CI</b><div style="font-size:12px;color:#5F6470">jly_••••••••••••02be</div></td><td><span class="chip bad">管理員</span></td><td style="color:#9C2318">已過期 · 10/01</td><td>3 個月前</td><td><span class="chip">已撤銷</span></td><td class="act"><button class="btn x s" type="button">{I("undo",12)}恢復</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
-        </tbody>
-      </table>
-    </section>
-  </main>''',
-  extra=f'''<div class="sheet" style="width:460px">
-    <div style="display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid #EEEFF2"><span class="stripe" style="width:40px"></span><b style="font-size:15px">建立權杖</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto">{I("x")}</button></div>
-    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;flex:1;overflow:auto">
-      <div><span class="lbl">名稱</span><input class="ul" type="text" value="Raycast 快速發文"></div>
-      <div><span class="lbl">用途（可選）</span><input class="ul" type="text" placeholder="給未來的你看的"></div>
-      <div><span class="lbl">到期</span><div class="seg" style="margin-top:6px"><span>7 天</span><span>30 天</span><span class="on">90 天</span><span>1 年</span><span>永不</span></div></div>
-      <div><span class="lbl">權限（可多選，取聯集）</span>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
-          <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:0 10px 0 10px;box-shadow:inset 0 0 0 2px #15161A;background:#F8F8FA"><span class="cb on" style="margin-top:2px"></span><span><b>作者</b><div style="font-size:12px;color:#5F6470">建立與編輯自己的文章、上傳附件。</div></span></label>
-          <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:0 10px 0 10px;box-shadow:inset 0 0 0 1px #E2E3E8"><span class="cb" style="margin-top:2px"></span><span><b>內容唯讀</b><div style="font-size:12px;color:#5F6470">讀文章、頁面、分類，含草稿。</div></span></label>
-          <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:0 10px 0 10px;box-shadow:inset 0 0 0 1px #E2E3E8"><span class="cb" style="margin-top:2px"></span><span><b>訂單唯讀</b></span></label>
-          <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:0 10px 0 10px;box-shadow:inset 0 0 0 1px #E2E3E8"><span class="cb" style="margin-top:2px"></span><span><b>管理員</b><div style="font-size:12px;color:#9C2318">跟你本人一樣大。外洩等於交出整站。</div></span></label>
-        </div></div>
-      <div style="background:#15161A;color:#fff;border-radius:0 12px 0 12px;padding:14px;display:flex;flex-direction:column;gap:8px">
-        <span class="lbl" style="color:#9A9FAB">建立後只會顯示這一次</span>
-        <div style="display:flex;align-items:center;gap:8px"><code style="font:12.5px ui-monospace,Menlo,monospace;flex:1;word-break:break-all">jly_8Kq2vN…（建立後出現）</code><button class="btn t s i" type="button" aria-label="複製" disabled style="opacity:.5">{I("copy",14)}</button></div>
-        <div style="font-size:12px;color:#C9CBD3">請求時放在 <span class="kbd" style="background:#2A2B31;color:#C9CBD3">Authorization: Bearer …</span></div>
+    <section style="display:flex;flex-direction:column;gap:24px;max-width:980px">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span class="lbl">管理員看到的畫面</span>
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <h2 style="margin:0;font-size:18px">API 權杖</h2>
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#3A3D45">程式與 AI agent 請在存取金鑰管理頁建立金鑰。</p>
+          <div><a class="btn t" href="Agents.dc.html">{I("key")}前往存取金鑰管理</a></div>
+        </div>
       </div>
-    </div>
-    <div style="padding:12px 20px;border-top:1px solid #EEEFF2;display:flex;gap:8px"><button class="btn p" type="button">{I("key")}建立</button><button class="btn t" type="button">{I("x")}取消</button></div>
-  </div>'''))
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span class="lbl">一般角色看到的畫面</span>
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <h2 style="margin:0;font-size:18px">API 權杖</h2>
+          <p style="margin:0;font-size:13px;line-height:1.6;color:#3A3D45">請洽管理員建立存取金鑰。</p>
+        </div>
+      </div>
+    </section>
+  </main>'''))
 
 # ---------- 附件 › 儲存策略與分組 ----------
 B["MediaPolicies"] = ("後台 · 附件 · 儲存策略與分組", CSS, 1440, 1040, admin("media", ["內容","附件","儲存策略"],

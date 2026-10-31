@@ -208,9 +208,6 @@ type PrincipalInfo struct {
 	User    *core.User
 	Source  string
 	LoginID string
-	// Scopes is always empty since personal API tokens were removed (ticket 22).
-	// It stays only because handlers_posts.go still reads it.
-	Scopes []string
 }
 
 // GetCurrentPrincipal resolves the current request's authentication source.

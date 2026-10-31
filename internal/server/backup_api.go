@@ -21,8 +21,9 @@ import (
 
 // Backup, restore and export API (ticket 08, 「備份與匯入」). Every route is
 // admin only. Routes marked interactive accept only a signed-in browser
-// session (see browserSessionOnly), so neither an API token nor a bearer JWT
-// can download or restore a backup.
+// session (see browserSessionOnly), so a bearer JWT cannot download or restore
+// a backup. Access keys (jly_, jla_) work only on /api/agent/v1 and are refused
+// here.
 
 // restoreMaintenanceMessage is what visitors see while a restore runs.
 const restoreMaintenanceMessage = "網站正在從備份還原，請稍後再試。"
