@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -22,8 +20,6 @@ const (
 	principalBearer    principalSource = "bearer"
 	principalJWTCookie principalSource = "jwt_cookie"
 	principalSession   principalSource = "session"
-	// principalAPIToken marks a "jly_" personal API token (ticket 06).
-	principalAPIToken principalSource = "api_token"
 )
 
 type principal struct {
@@ -31,41 +27,6 @@ type principal struct {
 	LoginID   string
 	ExpiresAt time.Time
 	Source    principalSource
-	// Scopes are the role templates of an API token principal. Empty for
-	// browser and JWT principals, which use the owner's role directly.
-	Scopes []string
-	// TokenID is the api_tokens row of an API token principal.
-	TokenID uint
-}
-
-// resolveTokenPrincipal resolves a personal API token without retaining its
-// raw value. The token's owner role is reloaded on every request so role
-// changes immediately change its effective authority.
-func resolveTokenPrincipal(db *gorm.DB, raw, remote string) (*principal, error) {
-	if db == nil || !strings.HasPrefix(raw, "jly_") || len(raw) < len("jly_")+32 {
-		return nil, fmt.Errorf("invalid API token")
-	}
-	sum := sha256.Sum256([]byte(raw))
-	hash := hex.EncodeToString(sum[:])
-	var token core.APIToken
-	if err := db.Where("token_hash = ?", hash).First(&token).Error; err != nil {
-		return nil, err
-	}
-	now := time.Now()
-	if token.RevokedAt != nil || (token.ExpiresAt != nil && !token.ExpiresAt.After(now)) {
-		return nil, fmt.Errorf("API token revoked or expired")
-	}
-	var user core.User
-	if err := db.First(&user, token.UserID).Error; err != nil {
-		return nil, err
-	}
-	if user.Status != "active" {
-		return nil, fmt.Errorf("account is not active")
-	}
-	if err := touchTokenUse(db, token.ID, remote); err != nil {
-		return nil, err
-	}
-	return &principal{User: &user, Source: principalAPIToken, Scopes: append([]string(nil), token.Scopes...), TokenID: token.ID}, nil
 }
 
 func resolvePrincipal(c echo.Context, db *gorm.DB, allowSession bool) (*principal, error) {
@@ -83,11 +44,10 @@ func resolvePrincipal(c echo.Context, db *gorm.DB, allowSession bool) (*principa
 			return nil, fmt.Errorf("invalid authorization header")
 		}
 		bearer := token[len("Bearer "):]
-		if strings.HasPrefix(bearer, "jla_") {
-			return nil, fmt.Errorf("agent keys are not user authentication tokens")
-		}
-		if strings.HasPrefix(bearer, "jly_") {
-			return resolveTokenPrincipal(db, bearer, request.RemoteAddr)
+		// Access keys (jla_, jly_) call /api/agent/v1 only. They are never user
+		// authentication credentials (ticket 22).
+		if strings.HasPrefix(bearer, "jla_") || strings.HasPrefix(bearer, "jly_") {
+			return nil, fmt.Errorf("access keys are not user authentication tokens")
 		}
 		return resolveJWTPrincipal(db, bearer, principalBearer)
 	}
@@ -242,14 +202,15 @@ func principalMatchesIntent(actual *principal, intent oauthLinkIntent) bool {
 		actual.Source == intent.Source && actual.ExpiresAt.Unix() == intent.ExpiresAt
 }
 
-// PrincipalInfo describes the authenticated request without exposing the raw
-// personal API token. LoginID is present only for cookie/JWT logins.
+// PrincipalInfo describes the authenticated request. LoginID is present only
+// for cookie/JWT logins.
 type PrincipalInfo struct {
 	User    *core.User
 	Source  string
 	LoginID string
-	TokenID uint
-	Scopes  []string
+	// Scopes is always empty since personal API tokens were removed (ticket 22).
+	// It stays only because handlers_posts.go still reads it.
+	Scopes []string
 }
 
 // GetCurrentPrincipal resolves the current request's authentication source.
@@ -268,36 +229,25 @@ func GetCurrentPrincipal(c echo.Context) (*PrincipalInfo, error) {
 }
 
 func principalInfo(p *principal) *PrincipalInfo {
-	return &PrincipalInfo{User: projectedUser(p), Source: string(p.Source), LoginID: p.LoginID, TokenID: p.TokenID, Scopes: append([]string(nil), p.Scopes...)}
+	return &PrincipalInfo{User: projectedUser(p), Source: string(p.Source), LoginID: p.LoginID}
 }
 
 // CurrentLoginHash returns the hashed session identifier needed for except-current
 // revocation without exposing a raw login ID to server handlers.
 func CurrentLoginHash(c echo.Context) (string, bool) {
 	p, err := GetCurrentPrincipal(c)
-	if err != nil || p.Source == string(principalAPIToken) || !validLoginID(p.LoginID) {
+	if err != nil || !validLoginID(p.LoginID) {
 		return "", false
 	}
 	return hashLoginID(p.LoginID), true
 }
 
-// IsInteractivePrincipal reports whether this request uses a browser login or
-// ordinary JWT rather than a personal API token.
-func IsInteractivePrincipal(c echo.Context) bool {
-	p, err := GetCurrentPrincipal(c)
-	return err == nil && p.Source != string(principalAPIToken)
-}
-
-// AllowedAPITokenScopes lists the ticket-defined scopes that do not exceed role.
-func AllowedAPITokenScopes(role string) []string {
-	switch role {
-	case "admin":
-		return []string{"admin", "editor", "author", "content_read", "orders_read"}
-	case "editor":
-		return []string{"editor", "author", "content_read"}
-	case "author":
-		return []string{"author", "content_read"}
-	default:
-		return []string{}
+// projectedUser returns a copy of the principal's user. service.go still calls
+// this name. The role projection for personal tokens was removed (ticket 22).
+func projectedUser(p *principal) *core.User {
+	if p == nil || p.User == nil {
+		return nil
 	}
+	user := *p.User
+	return &user
 }

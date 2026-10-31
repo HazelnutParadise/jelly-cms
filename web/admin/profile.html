@@ -18,7 +18,7 @@
 .account-profile .profile-item-actions{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:flex-end}
 .account-profile .avatar-preview{width:4.5rem;height:4.5rem;overflow:hidden}
 .account-profile .avatar-preview img{width:100%;height:100%;object-fit:cover}
-.account-profile .token-secret,.account-profile .recovery-codes{padding:1rem;background:var(--rail);color:#fff;border-radius:var(--r-sm);overflow-wrap:anywhere}
+.account-profile .recovery-codes{padding:1rem;background:var(--rail);color:#fff;border-radius:var(--r-sm);overflow-wrap:anywhere}
 .account-profile .recovery-codes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .75rem;font-family:var(--mono)}
 .account-profile .qr{width:9rem;height:9rem;object-fit:contain;background:#fff;border:1px solid var(--outline);padding:.4rem}
 .account-profile .profile-inline{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
@@ -106,12 +106,13 @@
     </section>
 
     <section class="profile-card" id="tab-tokens" data-panel="tokens" hidden>
-        <div class="section-head"><div><h2>{{if eq .Lang "en"}}API tokens{{else}}API 權杖{{end}}</h2><p class="muted">{{if eq .Lang "en"}}A new token is shown only once.{{else}}新權杖只會顯示一次。{{end}}</p></div><button class="btn btn-primary" type="button" id="newToken">{{if eq .Lang "en"}}Create token{{else}}建立權杖{{end}}</button></div>
-        <div id="newTokenBox" class="token-secret" hidden><p>{{if eq .Lang "en"}}Copy this token now. It will not be shown again.{{else}}請立即複製權杖，離開此頁後將無法再次查看。{{end}}</p><code id="newTokenValue"></code><div class="form-actions"><button class="btn btn-secondary btn-sm" id="copyToken" type="button">{{if eq .Lang "en"}}Copy token{{else}}複製權杖{{end}}</button><button class="btn btn-text btn-sm" id="ackToken" type="button">{{if eq .Lang "en"}}I saved it{{else}}我已安全保存{{end}}</button></div></div>
-        <p class="profile-feedback" data-panel-status></p>
-        <div class="table-wrapper"><table><thead><tr><th>{{if eq .Lang "en"}}Name{{else}}名稱{{end}}</th><th>{{if eq .Lang "en"}}Scopes{{else}}權限{{end}}</th><th>{{if eq .Lang "en"}}Expires{{else}}到期{{end}}</th><th>{{if eq .Lang "en"}}Last used{{else}}最後使用{{end}}</th><th>{{if eq .Lang "en"}}Status{{else}}狀態{{end}}</th><th class="actions">{{if eq .Lang "en"}}Actions{{else}}操作{{end}}</th></tr></thead><tbody id="tokenRows"></tbody></table></div>
-        <div id="tokenEmpty" class="empty-state" hidden><span class="empty-title">{{if eq .Lang "en"}}No API tokens{{else}}尚無 API 權杖{{end}}</span></div>
-        <div id="tokenError" class="alert alert-danger" hidden></div><button class="btn btn-secondary" type="button" id="retryTokens" hidden>{{if eq .Lang "en"}}Retry{{else}}重試{{end}}</button>
+        <h2>{{.T.accountTokensHeading}}</h2>
+        {{if eq .Viewer.Role "admin"}}
+        <p class="hint">{{.T.accountTokensAdminNotice}}</p>
+        <p><a class="btn btn-secondary" href="/admin/agents">{{.T.accountTokensOpenKeys}}</a></p>
+        {{else}}
+        <p class="hint">{{.T.accountTokensAskAdmin}}</p>
+        {{end}}
     </section>
 
     <section class="profile-columns" id="tab-security" data-panel="security" hidden>
@@ -168,24 +169,6 @@
     </section>
 </div>
 
-<div class="modal-overlay" id="tokenDialog" hidden>
-    <section class="modal-content" role="dialog" aria-modal="true" aria-labelledby="tokenDialogTitle">
-        <div class="modal-header"><h2 id="tokenDialogTitle">{{if eq .Lang "en"}}Create API token{{else}}建立 API 權杖{{end}}</h2></div>
-        <form id="tokenForm">
-            <div class="form-group"><label for="tokenName">{{if eq .Lang "en"}}Name{{else}}名稱{{end}}</label><input id="tokenName" name="name" maxlength="80" required></div>
-            <div class="form-group"><label for="tokenNote">{{if eq .Lang "en"}}Purpose (optional){{else}}用途（可選）{{end}}</label><input id="tokenNote" name="note" maxlength="500"></div>
-            <div class="form-group"><label for="tokenExpiry">{{if eq .Lang "en"}}Expires{{else}}到期{{end}}</label><select id="tokenExpiry" name="expires_in_days"><option value="7">{{if eq .Lang "en"}}7 days{{else}}7 天{{end}}</option><option value="30">{{if eq .Lang "en"}}30 days{{else}}30 天{{end}}</option><option value="90">{{if eq .Lang "en"}}90 days{{else}}90 天{{end}}</option><option value="365">{{if eq .Lang "en"}}1 year{{else}}1 年{{end}}</option><option value="null">{{if eq .Lang "en"}}Never{{else}}永不{{end}}</option></select></div>
-            <fieldset class="form-group"><legend class="label">{{if eq .Lang "en"}}Role templates (select any){{else}}角色範本（可多選）{{end}}</legend>
-                <label class="inline"><input type="checkbox" name="scopes" value="author"> {{if eq .Lang "en"}}Author{{else}}作者{{end}}</label>
-                <label class="inline"><input type="checkbox" name="scopes" value="content_read"> {{if eq .Lang "en"}}Content read-only{{else}}內容唯讀{{end}}</label>
-                <label class="inline"><input type="checkbox" name="scopes" value="orders_read"> {{if eq .Lang "en"}}Orders read-only{{else}}訂單唯讀{{end}}</label>
-                <label class="inline"><input type="checkbox" name="scopes" value="admin"> {{if eq .Lang "en"}}Administrator{{else}}管理員{{end}}</label>
-            </fieldset>
-            <p class="profile-feedback" id="tokenFormStatus" role="status"></p>
-            <div class="form-actions"><button class="btn btn-primary" type="submit">{{if eq .Lang "en"}}Create token{{else}}建立權杖{{end}}</button><button class="btn btn-text" type="button" id="cancelToken">{{if eq .Lang "en"}}Cancel{{else}}取消{{end}}</button></div>
-        </form>
-    </section>
-</div>
 <div class="modal-overlay" id="identityConfirm" hidden><section class="modal-content" role="dialog" aria-modal="true" aria-labelledby="identityConfirmTitle"><div class="modal-header"><h2 id="identityConfirmTitle">{{if eq .Lang "en"}}Disconnect account?{{else}}解除第三方帳號？{{end}}</h2></div><p id="identityConfirmText"></p><div class="form-actions"><button class="btn btn-danger" id="confirmUnlink" type="button">{{if eq .Lang "en"}}Disconnect{{else}}解除連結{{end}}</button><button class="btn btn-secondary" id="cancelUnlink" type="button">{{if eq .Lang "en"}}Cancel{{else}}取消{{end}}</button></div></section></div>
 {{end}}
 {{define "scripts"}}
@@ -202,13 +185,6 @@
         auth: en ? 'Your session expired. Sign in again.' : '登入已逾期，請重新登入。',
         forbidden: en ? 'You do not have permission to do this.' : '你沒有權限執行這項操作。',
         copy: en ? 'Copy' : '複製',
-        active: en ? 'Active' : '有效',
-        expired: en ? 'Expired' : '已過期',
-        revoked: en ? 'Revoked' : '已撤銷',
-        revoke: en ? 'Revoke' : '撤銷',
-        restore: en ? 'Restore' : '恢復',
-        remove: en ? 'Delete' : '刪除',
-        edit: en ? 'Edit' : '編輯',
         cancel: en ? 'Cancel' : '取消',
         save: en ? 'Save' : '儲存',
         retry: en ? 'Retry' : '重試',
@@ -225,8 +201,7 @@
     });
     const panel = root.querySelector('[data-panel="' + activeTab + '"]');
     if (panel) panel.hidden = false;
-    const state = { profile: null, prefs: null, twoFA: null, sessions: [], tokens: [], identities: null, newToken: '', recoveryCodes: [], unlinkProvider: '', unlinkTrigger: null, tokenDialogTrigger: null, busy: false, emailConfirmationURL: '' };
-    const scopeNames = { author: en ? 'Author' : '作者', content_read: en ? 'Content read-only' : '內容唯讀', orders_read: en ? 'Orders read-only' : '訂單唯讀', admin: en ? 'Administrator' : '管理員' };
+    const state = { profile: null, prefs: null, twoFA: null, sessions: [], identities: null, recoveryCodes: [], unlinkProvider: '', unlinkTrigger: null, busy: false, emailConfirmationURL: '' };
     const eventNames = {
         'comment.pending': en ? 'New comment pending review' : '新留言待審',
         'comment.reply': en ? 'Reply to my comment' : '有人回覆我的留言',
@@ -508,104 +483,6 @@
         finally { setBusy(false, form); }
     });
 
-    function tokenStatus(token) {
-        if (token.status === 'revoked') return copy.revoked;
-        if (token.status === 'expired') return copy.expired;
-        return copy.active;
-    }
-    function tokenAction(label, action, id, className) {
-        const button = el('button', 'btn btn-secondary btn-sm', label);
-        button.type = 'button'; button.dataset.tokenAction = action; button.dataset.id = String(id);
-        if (className) button.classList.add(className);
-        return button;
-    }
-    function renderTokens(items) {
-        state.tokens = items;
-        const tbody = $('tokenRows'); tbody.replaceChildren();
-        items.forEach((token) => {
-            const row = document.createElement('tr');
-            const nameCell = el('td');
-            nameCell.append(el('strong', '', token.name || '—'));
-            if (token.note) nameCell.append(el('div', 'hint', token.note));
-            nameCell.append(el('div', 'cell-mono cell-muted', 'jly_••••' + (token.last4 || '')));
-            row.append(nameCell);
-            row.append(el('td', '', (Array.isArray(token.scopes) ? token.scopes : []).map((scope) => scopeNames[scope] || scope).join(', ') || '—'));
-            row.append(el('td', '', token.expires_at ? formatDate(token.expires_at) : (en ? 'Never' : '永不')));
-            const used = token.last_used_at ? formatDate(token.last_used_at) + (token.last_used_ip_masked ? ' · ' + token.last_used_ip_masked : '') : (en ? 'Never' : '從未使用');
-            row.append(el('td', '', used));
-            row.append(el('td', '', tokenStatus(token)));
-            const actions = el('td', 'actions');
-            if (token.status === 'revoked') {
-                actions.append(tokenAction(copy.restore, 'restore', token.id), tokenAction(copy.remove, 'delete', token.id, 'btn-danger'));
-            } else {
-                actions.append(tokenAction(copy.edit, 'edit', token.id), tokenAction(copy.revoke, 'revoke', token.id));
-            }
-            row.append(actions); tbody.append(row);
-        });
-        $('tokenEmpty').hidden = items.length > 0;
-    }
-    async function loadTokens() {
-        $('tokenError').hidden = true; $('retryTokens').hidden = true;
-        try {
-            const result = await checked('/api/account/tokens');
-            if (!Array.isArray(result)) throw new Error(copy.invalidResponse);
-            renderTokens(result); activeStatus($('tab-tokens'), '');
-        } catch (error) {
-            $('tokenError').textContent = error.message; $('tokenError').hidden = false; $('retryTokens').hidden = false; activeStatus($('tab-tokens'), error.message);
-        }
-    }
-    $('newToken').addEventListener('click', () => { state.tokenDialogTrigger = document.activeElement; openOverlay($('tokenDialog'), $('tokenName')); });
-    function closeTokenDialog() {
-        closeOverlay($('tokenDialog'), state.tokenDialogTrigger || $('newToken'));
-        state.tokenDialogTrigger = null;
-        $('tokenForm').reset();
-    }
-    $('cancelToken').addEventListener('click', closeTokenDialog);
-    $('tokenDialog').addEventListener('click', (event) => { if (event.target === $('tokenDialog')) closeTokenDialog(); });
-    $('tokenForm').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        if (!form.reportValidity() || state.busy) return;
-        const expiresValue = form.elements.expires_in_days.value;
-        const body = { name: form.elements.name.value.trim(), note: form.elements.note.value.trim(), expires_in_days: expiresValue === 'null' ? null : Number(expiresValue), scopes: Array.from(form.querySelectorAll('[name=scopes]:checked')).map((input) => input.value) };
-        setBusy(true, form); message($('tokenFormStatus'), '', '');
-        try {
-            const created = await checked('/api/account/tokens', jsonOptions('POST', body));
-            if (!created || typeof created.token !== 'string' || !created.token) throw new Error(copy.invalidResponse);
-            state.newToken = created.token; $('newTokenValue').textContent = state.newToken; $('newTokenBox').hidden = false;
-            closeTokenDialog(); await loadTokens();
-        } catch (error) { message($('tokenFormStatus'), error.message, 'error'); }
-        finally { setBusy(false, form); }
-    });
-    $('copyToken').addEventListener('click', async () => {
-        if (!state.newToken) return;
-        try { await navigator.clipboard.writeText(state.newToken); message(panel.querySelector('[data-panel-status]'), en ? 'Token copied.' : '權杖已複製。', 'success'); }
-        catch (_) { message(panel.querySelector('[data-panel-status]'), en ? 'Clipboard unavailable. Select and copy the token.' : '無法使用剪貼簿，請選取權杖複製。', 'error'); }
-    });
-    $('ackToken').addEventListener('click', () => { state.newToken = ''; $('newTokenValue').textContent = ''; $('newTokenBox').hidden = true; });
-    $('tokenRows').addEventListener('click', async (event) => {
-        const button = event.target.closest('[data-token-action]');
-        if (!button || state.busy) return;
-        const item = state.tokens.find((token) => String(token.id) === button.dataset.id);
-        if (!item) return;
-        const action = button.dataset.tokenAction;
-        try {
-            if (action === 'edit') {
-                const name = window.prompt(en ? 'Token name' : '權杖名稱', item.name || '');
-                if (name === null) return;
-                const note = window.prompt(en ? 'Purpose (optional)' : '用途（可選）', item.note || '');
-                if (note === null) return;
-                await checked('/api/account/tokens/' + encodeURIComponent(item.id), jsonOptions('PATCH', { name: name.trim(), note: note.trim() }));
-            } else if (action === 'revoke' || action === 'restore') {
-                await checked('/api/account/tokens/' + encodeURIComponent(item.id) + '/' + action, jsonOptions('POST'));
-            } else if (action === 'delete') {
-                if (!await Jelly.confirm({title:en ? 'Delete this revoked token?' : '確定刪除此已撤銷權杖？', confirmLabel:en ? 'Delete' : '刪除', cancelLabel:en ? 'Cancel' : '取消', tone:'danger'})) return;
-                await checked('/api/account/tokens/' + encodeURIComponent(item.id), { method: 'DELETE' });
-            }
-            await loadTokens();
-        } catch (error) { message(panel.querySelector('[data-panel-status]'), error.message, 'error'); }
-    });
-    $('retryTokens').addEventListener('click', loadTokens);
 
     async function loadTotp() {
         try {
@@ -853,16 +730,13 @@
     switch (activeTab) {
         case 'profile': loadProfile(); break;
         case 'notifications': loadPreferences(); break;
-        case 'tokens': loadTokens(); break;
         case 'security':
             $('profileLoading').hidden = true; $('tab-security').hidden = false; loadTotp(); break;
         case 'devices': loadSessions(); break;
         case 'identities': loadIdentities(); break;
     }
     $('retrySessions').hidden = true;
-    $('retryTokens').hidden = true;
     $('retryIdentities').hidden = true;
-    $('tokenDialog').addEventListener('keydown', (event) => { if (event.key === 'Escape') closeTokenDialog(); });
     $('identityConfirm').addEventListener('keydown', (event) => { if (event.key === 'Escape') closeIdentityConfirm(); });
 })();
 </script>

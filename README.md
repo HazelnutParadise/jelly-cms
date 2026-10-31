@@ -789,48 +789,7 @@ go build -o recover-oauth ./cmd/recover-oauth
    - **Hash IV**: 金流服務商提供的 Hash IV
    - **測試模式**: 是否啟用測試模式（開發時建議開啟）
 
-### API 設定
-
-也可以透過 API 設定金流服務：
-
-#### 取得金流設定
-
-```http
-GET /api/admin/payment/gateways
-Authorization: Bearer <your-jwt-token>
-```
-
-#### 設定綠界 ECPay
-
-```http
-POST /api/admin/payment/gateways/ecpay
-Authorization: Bearer <your-jwt-token>
-Content-Type: application/json
-
-{
-  "enabled": true,
-  "merchant_id": "your-merchant-id",
-  "hash_key": "your-hash-key",
-  "hash_iv": "your-hash-iv",
-  "test_mode": true
-}
-```
-
-#### 設定藍新 NewebPay
-
-```http
-POST /api/admin/payment/gateways/newebpay
-Authorization: Bearer <your-jwt-token>
-Content-Type: application/json
-
-{
-  "enabled": true,
-  "merchant_id": "your-merchant-id",
-  "hash_key": "your-hash-key",
-  "hash_iv": "your-hash-iv",
-  "test_mode": true
-}
-```
+金流設定目前只能在管理後台的「設定」頁面進行，機器 API（`/api/agent/v1`）尚未提供金流端點。
 
 **注意**：設定完成後，系統會自動重新載入金流配置，無需重啟服務。
 
@@ -848,13 +807,15 @@ Content-Type: application/json
 
 ### 管理後台 API
 
-所有管理後台 API 都需要認證，請在請求頭中包含 JWT Token：
+程式與 AI agent 請在管理後台建立存取金鑰，並用 `Authorization: Bearer jly_…` 呼叫機器 API `/api/agent/v1`：
 
-```
-Authorization: Bearer <your-jwt-token>
+```bash
+curl -H "Authorization: Bearer jly_xxxxxxxx" https://your-site.example/api/agent/v1/posts
 ```
 
-或使用 Session Cookie（網頁端）。
+可用的主要路徑與各路徑需要的權限清單，請見 `GET /api/agent/v1`；`GET /api/agent/v1/me` 會回傳此金鑰目前的有效權限。
+
+`/api/admin/*` 是給管理後台網頁用的，網頁使用 Session Cookie 登入。目前仍接受登入 JWT 的 Bearer 用法，將在後續版本移除；程式請改用存取金鑰。
 
 匿名要求回應 JSON `401`，不依賴 `Accept` 標頭；已登入但角色不符回應 `403`。商品、訂單、系統設定、金流、主題與外掛 API 僅允許管理員。內容與媒體 API 接受管理員、編輯者、作者，未知角色會被拒絕。作者的媒體所有權限制仍待完成，整體驗收狀態見 [STATUS.md](STATUS.md)。
 
