@@ -17,9 +17,11 @@ Blocked by：06（帳號、權杖）、14（agent API）。
 
 `0026_tokens_into_keys.sql`，冪等，同一筆交易：
 
+0. 新增 `agents.role_cap VARCHAR(16)`，可為空，只允許 `admin`、`editor`、`author`。語意：這個身分執行時的角色不得高於 `role_cap`（取擁有者角色與 `role_cap` 中較低者）。空值代表不限制。
 1. 放寬 `agent_keys_prefix_check`：接受 `^jla_[A-Za-z0-9_-]{8}$` 或 `^jly_[A-Za-z0-9_-]{4,8}$`。
 2. 對每筆 `api_tokens`（無論已撤銷或過期）建立一個 `agents` 列與一個 `agent_keys` 列。已存在相同 `key_hash` 於 `agent_keys` 的 token 跳過（重跑不重複）。
 3. `agents` 欄位：`name` = token 的 `name`；若與目前未刪除的 agent 名稱（不分大小寫）衝突，改為 `name || ' (' || username || ')'`，仍衝突再加 ` #2`、` #3`…；截斷到 80 字元且保持唯一。`description` = token 的 `note`。`owner_id`、`created_by` = token 的 `user_id`。`status` = `active`。`permissions` 依下表對應（去重、只含 0025 允許的值）。
+3a. `role_cap`：token 的 scopes 含 `admin`、`editor`、`author` 時取其中最高者；只有 `content_read`／`orders_read` 時為空。這保住舊行為：舊個人權杖用 `author` 範圍時，登入身分會被降成作者（`projectedUser`），例如管理員擁有的 `author` 權杖仍不能改別人的文章；機器 API 執行時用擁有者的真實角色，若不加上限，併入後權限會被悄悄放大。
 4. `agent_keys` 欄位：`key_hash` = `token_hash`；`prefix` = `'jly_' || last4`；`created_at`、`expires_at`、`revoked_at`、`last_used_at`、`last_used_ip_masked` 照抄；`created_by` = `user_id`；撤銷者 `revoked_by` 為空。已撤銷的 token 其金鑰同樣帶 `revoked_at`，agent 本身保持 `active`。
 5. 不刪除 `api_tokens`（程式停止讀取，之後的遷移再移除）。
 
@@ -39,6 +41,7 @@ scope 對應：
 ## 程式
 
 1. `agentCredential`（`internal/server/agents_auth.go`）：接受長度 47 且前綴 `jla_` 或 `jly_`。
+1a. 角色上限：`agentKeyMiddleware` 設定 `c.Set("user")` 前，若 `agents.role_cap` 非空且比擁有者角色低，使用者副本的 `Role` 改為 `role_cap`；`agentPermissionMiddleware` 的 `owner_role_insufficient` 判斷與 `agentMe` 的 `effective_permissions` 都以這個『有效角色』計算。`agentMe` 回應新增 `role_cap`（可為 null）與 `effective_role`。
 2. 建立與輪替金鑰（`internal/agent/agent.go` 的 `KeyPrefix` 與產生函式、`agents_admin.go`）：新金鑰前綴 `jly_`，顯示前綴 `jly_` 加 8 個字元；`jla_` 仍可驗證。
 3. 後台 API 不再解析 `jly_`：`internal/auth/principal.go` 的 `jly_` 分支（`resolveTokenPrincipal`）改為拒絕（等同無效憑證，回 401）；移除 `middleware.go` 中 `content_read`／`orders_read` 的 GET 特例與 `RequirePermission` 內的權杖分支；`admin_render.go` 的 `enforceStaffAdminAPIs` 移除 api_token 分支；`handlers_ecommerce.go`、`handlers_admin.go` 中僅為權杖而設的讀取群組併回一般角色群組。登入 JWT（Bearer 與 cookie）行為不變。
 4. 移除個人權杖功能：`/api/account/tokens*`（`account_routes.go`、`account_tokens.go`）端點下線（路由不存在，回 404）；個人資料頁的「API 權杖」分頁改為說明文字：管理員附連結到存取金鑰管理頁（`/admin/agents`），其他角色說明「請洽管理員建立存取金鑰」。`web/locales` 同步，兩個語系。
@@ -51,6 +54,7 @@ scope 對應：
 
 - 遷移：多筆 token（含重名、含已撤銷、含已過期、含不同擁有者）對應出正確的 agents／agent_keys；名稱唯一且 ≤ 80；prefix 為 `jly_` 加 last4；權限依對應表；重跑冪等（列數不變）。
 - 認證：遷移後以原本的明文權杖打 `GET /api/agent/v1/me` 回 200，`effective_permissions` 依擁有者角色裁剪；已撤銷回 401 `key_revoked`、已過期回 401 `key_expired`。
+- 角色上限：管理員擁有、scope 為 `author` 的舊權杖，遷移後打 `/api/agent/v1/posts/:id`（PUT、DELETE）操作『別的作者的文章』回 403 或 404 且內容不變；操作自己的文章成功；`/me` 的 `effective_role` 為 `author`、`role_cap` 為 `author`；只有 `content_read` 的權杖 `role_cap` 為 null。原 `accounts_security_regression_test.go` 的權杖越權測試改寫成此行為，不得放寬斷言。
 - 範圍：以遷移後的 `jly_` 權杖打 `/api/admin/posts`、`/api/admin/orders` 回 401（不再被當成後台憑證）。
 - 新金鑰：建立 agent 後顯示的金鑰以 `jly_` 開頭、長度 47、顯示前綴 `jly_` 加 8 字元；`jla_` 舊金鑰仍可驗證。
 - 下線：`GET|POST /api/account/tokens` 回 404；個人資料頁不再渲染權杖分頁的建立表單。
