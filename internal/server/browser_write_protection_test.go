@@ -302,18 +302,20 @@ func TestBrowserWriteProtection(t *testing.T) {
 		}
 	})
 
+	// Ticket 23: /api/admin refuses any Authorization header with 401 "Browser login required" before
+	// authentication or the source check runs. These cases post to /api/admin, so they expect that gate.
 	t.Run("bearer_and_mixed_credentials", func(t *testing.T) {
 		good := request(http.MethodPost, "/api/admin/posts", `{"title":"bearer only","content":"ok","type":"post"}`, http.Header{}, nil, login.token, "", false)
-		if good.code != http.StatusOK {
-			t.Errorf("valid bearer write returned %d", good.code)
+		if good.code != http.StatusUnauthorized || !strings.Contains(good.body, "Browser login required") {
+			t.Errorf("valid bearer write returned %d body=%q, want 401 Browser login required", good.code, good.body)
 		}
 		bad := request(http.MethodPost, "/api/admin/posts", postBody, http.Header{}, nil, "not.a.jwt", "", false)
 		if bad.code != http.StatusUnauthorized {
 			t.Errorf("invalid bearer write returned %d, want 401", bad.code)
 		}
 		mixed := request(http.MethodPost, "/api/admin/posts", postBody, http.Header{"Origin": {"https://evil.test"}}, cookieAuth, login.token, "", false)
-		if mixed.code != http.StatusForbidden {
-			t.Errorf("bearer plus cookie external write returned %d, want 403", mixed.code)
+		if mixed.code != http.StatusUnauthorized || !strings.Contains(mixed.body, "Browser login required") {
+			t.Errorf("bearer plus cookie external write returned %d body=%q, want 401 Browser login required", mixed.code, mixed.body)
 		}
 	})
 
@@ -381,9 +383,10 @@ func TestBrowserWriteProtection(t *testing.T) {
 
 	t.Run("valid_bearer_with_empty_login_cookie_still_requires_provenance", func(t *testing.T) {
 		before := browserWriteSnapshot(t, h)
+		// Ticket 23: any Authorization header on /api/admin is refused with 401 before the source check.
 		got := request(http.MethodPost, "/api/admin/posts", `{"title":"empty-cookie-bearer","content":"blocked","type":"post"}`, http.Header{"Cookie": {"jwt_token="}}, nil, login.token, "", false)
-		if got.code != http.StatusForbidden {
-			t.Errorf("valid bearer with empty JWT cookie returned %d, want 403", got.code)
+		if got.code != http.StatusUnauthorized || !strings.Contains(got.body, "Browser login required") {
+			t.Errorf("valid bearer with empty JWT cookie returned %d body=%q, want 401 Browser login required", got.code, got.body)
 		}
 		if after := browserWriteSnapshot(t, h); after != before {
 			t.Error("empty-cookie mixed-auth write changed database snapshot")

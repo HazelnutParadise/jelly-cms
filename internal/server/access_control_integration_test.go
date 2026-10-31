@@ -187,11 +187,33 @@ func isAdminAPIPath(path string) bool {
 	return path == "/api/admin" || strings.HasPrefix(path, "/api/admin/")
 }
 
+// isInteractiveAccountCall reports whether method and path name an interactive
+// /api/account endpoint (ticket 23, rule B). Those accept only the browser login,
+// so reads and the non-interactive account routes keep their Bearer behavior.
+func isInteractiveAccountCall(method, path string) bool {
+	if method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions {
+		return false
+	}
+	for _, prefix := range []string{"/api/account/avatar", "/api/account/email", "/api/account/password", "/api/account/2fa/", "/api/account/sessions/"} {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// usesBrowserLogin reports whether req must authenticate with the jwt_token cookie
+// instead of a Bearer header: every /api/admin call and every interactive account call.
+func usesBrowserLogin(req *http.Request) bool {
+	return isAdminAPIPath(req.URL.Path) || isInteractiveAccountCall(req.Method, req.URL.Path)
+}
+
 // setAccessToken authenticates req with a login JWT (or any token string). Admin
-// API paths get the browser login, the jwt_token cookie, plus the same-origin
-// proof every cookie write needs. All other paths keep the Bearer header.
+// API paths and interactive account paths get the browser login, the jwt_token
+// cookie, plus the same-origin proof every cookie write needs. All other paths
+// keep the Bearer header.
 func setAccessToken(req *http.Request, token string) {
-	if !isAdminAPIPath(req.URL.Path) {
+	if !usesBrowserLogin(req) {
 		req.Header.Set(echo.HeaderAuthorization, "Bearer "+token)
 		return
 	}

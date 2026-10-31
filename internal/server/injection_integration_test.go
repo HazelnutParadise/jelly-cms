@@ -149,8 +149,9 @@ func TestInjectionWriteNeedsAdminInteractiveAndPassword(t *testing.T) {
 	bearerReq.Header.Set(echo.HeaderAuthorization, "Bearer "+adminJWT)
 	bearer := s08bDo(h, bearerReq)
 	h.mustNoPanic(bearer, "PUT injection with Authorization header")
-	if bearer.code != http.StatusForbidden {
-		t.Errorf("PUT injection with a Bearer header returned %d, want 403", bearer.code)
+	// Ticket 23: /api/admin refuses any Authorization header before authentication, so this is 401, not the old 403.
+	if bearer.code != http.StatusUnauthorized || !strings.Contains(bearer.body, "Browser login required") {
+		t.Errorf("PUT injection with a Bearer header returned %d body=%q, want 401 Browser login required", bearer.code, bearer.body)
 	}
 
 	t.Run("API token principal", func(t *testing.T) {
