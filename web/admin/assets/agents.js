@@ -221,7 +221,7 @@
   function showSecret(result) {
     const value = result.api_key;
     result.api_key = "";
-    if (typeof value !== "string" || !value.startsWith("jla_"))
+    if (typeof value !== "string" || !(value.startsWith("jly_") || value.startsWith("jla_")))
       throw new Error(
         tr(
           "金鑰回應不完整，請確認清單後輪替金鑰。",
@@ -259,7 +259,7 @@
         );
       }
     });
-    box.append(copy, copied, node("p", "Authorization: Bearer jla_…"));
+    box.append(copy, copied, node("p", "Authorization: Bearer jly_…"));
     if (result.previous_key)
       box.append(
         node(
@@ -564,7 +564,7 @@
     [
       "GET /api/agent/v1",
       "GET /api/agent/v1/openapi.json",
-      "Authorization: Bearer jla_…",
+      "Authorization: Bearer jly_…",
       "skills/jelly-cms/SKILL.md",
     ].forEach((x) => card.append(node("p", x, "agent-muted")));
     card.append(
@@ -575,7 +575,7 @@
               location.origin +
               "/api/agent/v1\nOpenAPI: " +
               location.origin +
-              "/api/agent/v1/openapi.json\nAuthorization: Bearer jla_…\nSkill: skills/jelly-cms/SKILL.md",
+              "/api/agent/v1/openapi.json\nAuthorization: Bearer jly_…\nSkill: skills/jelly-cms/SKILL.md",
           );
           message(
             status,
