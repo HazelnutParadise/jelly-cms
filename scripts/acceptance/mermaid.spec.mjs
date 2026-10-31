@@ -115,15 +115,16 @@ async function login() {
     body: JSON.stringify({ username: user, password }),
   });
   if (!res.ok) throw new Error(`POST /auth/login answered ${res.status}: ${await res.text()}`);
-  const body = await res.json();
-  if (!body.token) throw new Error('POST /auth/login returned no token');
-  return body.token;
+  // The admin API accepts the browser login only (ticket 23), so keep the jwt_token cookie, not a Bearer token.
+  const cookie = (res.headers.getSetCookie?.() ?? []).map(c => c.split(';')[0]).find(c => c.startsWith('jwt_token='));
+  if (!cookie) throw new Error('POST /auth/login set no jwt_token cookie');
+  return cookie;
 }
 
-async function api(token, method, path, payload) {
+async function api(session, method, path, payload) {
   const res = await fetch(`${base}${path}`, {
     method,
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json', 'X-Jelly-CSRF': '1' },
+    headers: { Cookie: session, Origin: origin, 'Content-Type': 'application/json', Accept: 'application/json', 'X-Jelly-CSRF': '1' },
     body: payload === undefined ? undefined : JSON.stringify(payload),
   });
   const text = await res.text();
@@ -131,13 +132,13 @@ async function api(token, method, path, payload) {
   return text ? JSON.parse(text) : null;
 }
 
-async function createFixtures(token) {
+async function createFixtures(session) {
   const created = {};
   for (const [key, f] of Object.entries(FIXTURES)) {
     const slug = `mermaid-acceptance-${key}-${run}`;
     const html = f.parts.map(p => (p.startsWith('<') ? p : block(p))).join('');
     const markdown = f.parts.map(p => (p.startsWith('<') ? p.replace(/<\/?p>/g, '') + '\n' : fence(p))).join('\n');
-    const post = await api(token, 'POST', '/api/admin/posts', {
+    const post = await api(session, 'POST', '/api/admin/posts', {
       title: f.title, slug, type: f.type, status: 'published', visibility: 'public', content: html, meta: { markdown },
     });
     created[key] = { id: post.id, markdown, path: f.type === 'page' ? `/${slug}` : `/post/${slug}` };
@@ -202,8 +203,8 @@ const blocksOf = page => page.evaluate(() => [...document.querySelectorAll('pre 
 
 // ---- checks ----------------------------------------------------------------------------------------------
 
-const token = await login();
-const fx = await createFixtures(token);
+const session = await login();
+const fx = await createFixtures(session);
 const browser = await chromium.launch();
 
 try {
@@ -403,7 +404,7 @@ try {
 
   await check('儲存後重新開啟：原文不遺失', async () => {
     for (const key of ['three', 'page']) {
-      const post = await api(token, 'GET', `/api/admin/posts/${fx[key].id}`);
+      const post = await api(session, 'GET', `/api/admin/posts/${fx[key].id}`);
       assert(post.meta && post.meta.markdown === fx[key].markdown, `${key}: meta.markdown changed after save`);
       assert(!/<svg/i.test(post.content), `${key}: content must never store SVG`);
     }
@@ -415,7 +416,7 @@ try {
 } finally {
   await browser.close();
   for (const f of Object.values(fx)) {
-    await api(token, 'DELETE', `/api/admin/posts/${f.id}`).catch(err => console.error(`cleanup: ${err.message}`));
+    await api(session, 'DELETE', `/api/admin/posts/${f.id}`).catch(err => console.error(`cleanup: ${err.message}`));
   }
 }
 

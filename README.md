@@ -815,7 +815,7 @@ curl -H "Authorization: Bearer jly_xxxxxxxx" https://your-site.example/api/agent
 
 可用的主要路徑與各路徑需要的權限清單，請見 `GET /api/agent/v1`；`GET /api/agent/v1/me` 會回傳此金鑰目前的有效權限。
 
-`/api/admin/*` 是給管理後台網頁用的，網頁使用 Session Cookie 登入。目前仍接受登入 JWT 的 Bearer 用法，將在後續版本移除；程式請改用存取金鑰。
+`/api/admin/*` 只給管理後台網頁使用，只接受網頁的登入 Cookie（`jwt_token` 或 Session）。帶有任何 `Authorization` 標頭的請求一律回 `401`，寫入還要帶 `X-Jelly-CSRF` 標頭；程式與 AI agent 請用上方的存取金鑰呼叫 `/api/agent/v1`。
 
 匿名要求回應 JSON `401`，不依賴 `Accept` 標頭；已登入但角色不符回應 `403`。商品、訂單、系統設定、金流、主題與外掛 API 僅允許管理員。內容與媒體 API 接受管理員、編輯者、作者，未知角色會被拒絕。作者的媒體所有權限制仍待完成，整體驗收狀態見 [STATUS.md](STATUS.md)。
 
