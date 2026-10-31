@@ -239,14 +239,6 @@ func enforceStaffAdminAPIs(next echo.HandlerFunc) echo.HandlerFunc {
 		if err != nil || principal == nil || principal.User == nil {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
 		}
-		if principal.Source == "api_token" {
-			for _, scope := range principal.Scopes {
-				switch scope {
-				case "admin", "editor", "author", "content_read", "orders_read":
-					return next(c)
-				}
-			}
-		}
 		switch principal.User.Role {
 		case "admin", "editor", "author":
 			return next(c)

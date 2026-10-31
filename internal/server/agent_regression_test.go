@@ -213,21 +213,12 @@ func TestAgentRegressionOwnerAvailabilityAndPersonalTokenCannotManage(t *testing
 			t.Fatalf("restore active owner: %v", err)
 		}
 	}
-	// Create a real jly_ personal token via the account API. Unknown bearer strings
-	// would only prove authentication failure, not the agent-management boundary.
+	// A real jly_ personal token, seeded as it was before ticket 22 and migrated
+	// by 0026. Unknown bearer strings would only prove authentication failure,
+	// not the agent-management boundary.
 	personalOwner := tokTestUser(t, h, "agent-regression-personal-admin", "admin")
-	personalJWT := tokTestLogin(t, h, personalOwner.Username)
-	createdToken := tokTestCall(t, h, http.MethodPost, "/api/account/tokens", `{"name":"agent regression","scopes":["admin"]}`, personalJWT)
-	if createdToken.code != http.StatusCreated {
-		t.Fatalf("create personal token returned %d: %s", createdToken.code, createdToken.body)
-	}
-	var tokenBody struct {
-		Token string `json:"token"`
-	}
-	if err := json.Unmarshal([]byte(createdToken.body), &tokenBody); err != nil || !strings.HasPrefix(tokenBody.Token, "jly_") {
-		t.Fatalf("invalid personal token response: %s (err=%v)", createdToken.body, err)
-	}
-	personalToken := tokenBody.Token
+	personalToken := apiKeysSeedToken(t, h, personalOwner, "agent regression", []string{"admin"}, nil, nil)
+	apiKeysRunMigration(t, h)
 	for _, tc := range []struct{ method, path, body string }{
 		{http.MethodPost, "/api/admin/agents", agtCreateBody("personal token attempt", "posts.read")},
 		{http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/rotate", created.Agent.ID), `{"mode":"immediate"}`},

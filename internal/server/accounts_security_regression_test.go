@@ -21,12 +21,18 @@ import (
 
 // Security regressions for account API tokens. These tests run against the
 // isolated PostgreSQL acceptance harness and never use production data.
+
+// TestAccountsSecurityAuthorScopedAdminTokenCannotReadOrChangeAnotherAuthorsPost
+// was rewritten for ticket 22: personal tokens now live as access keys, so the
+// author-scoped token is seeded as a legacy api_tokens row, moved by migration
+// 0026, and then used against the agent API. The owner is an admin, so the
+// role cap (agents.role_cap = author) is what keeps it at author level.
 func TestAccountsSecurityAuthorScopedAdminTokenCannotReadOrChangeAnotherAuthorsPost(t *testing.T) {
 	h := newAccessHarness(t)
 	admin := tokTestUser(t, h, "accounts-scope-admin", "admin")
 	other := tokTestUser(t, h, "accounts-scope-other", "author")
-	adminJWT := tokTestLogin(t, h, admin.Username)
-	_, authorScopeToken := tokTestCreate(t, h, adminJWT, admin, "limited author token", nil, []string{"author"})
+	authorScopeToken := apiKeysSeedToken(t, h, admin, "limited author token", []string{"author"}, nil, nil)
+	apiKeysRunMigration(t, h)
 
 	foreign := core.Post{
 		Title: "Private other-author draft", Slug: "accounts-scope-foreign",
@@ -41,11 +47,17 @@ func TestAccountsSecurityAuthorScopedAdminTokenCannotReadOrChangeAnotherAuthorsP
 		if err := h.db.First(&before, foreign.ID).Error; err != nil {
 			t.Fatalf("reload fixture before %s: %v", method, err)
 		}
-		body := `{"title":"attempted takeover","content":"changed","type":"post","status":"published"}`
-		res := h.request(method, fmt.Sprintf("/api/admin/posts/%d", foreign.ID), body, authorScopeToken, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
-		h.mustNoPanic(res, "author-scoped token "+method+" foreign post")
+		body := ""
+		if method == http.MethodPut {
+			body = fmt.Sprintf(`{"title":"attempted takeover","content":"changed","type":"post","status":"published","base_updated_at":%q}`,
+				before.UpdatedAt.Format(time.RFC3339Nano))
+		}
+		res := agtDo(h, method, fmt.Sprintf("/api/agent/v1/posts/%d", foreign.ID), body, authorScopeToken, "")
+		if res.panicked != nil {
+			t.Fatalf("migrated author-scoped token %s foreign post panicked: %v", method, res.panicked)
+		}
 		if res.code != http.StatusNotFound && res.code != http.StatusForbidden {
-			t.Errorf("author-scoped admin token %s foreign post returned %d, want 403 or 404; body=%q", method, res.code, res.body)
+			t.Errorf("migrated author-scoped token %s foreign post returned %d, want 403 or 404; body=%q", method, res.code, res.body)
 		}
 		after := core.Post{}
 		if err := h.db.First(&after, foreign.ID).Error; err != nil {
@@ -53,7 +65,7 @@ func TestAccountsSecurityAuthorScopedAdminTokenCannotReadOrChangeAnotherAuthorsP
 			continue
 		}
 		if after.Title != before.Title || after.Content != before.Content || after.Type != before.Type || after.Status != before.Status || after.AuthorID != before.AuthorID {
-			t.Errorf("author-scoped token %s changed foreign post: before=%+v after=%+v", method, before, after)
+			t.Errorf("migrated author-scoped token %s changed foreign post: before=%+v after=%+v", method, before, after)
 		}
 	}
 
@@ -61,17 +73,22 @@ func TestAccountsSecurityAuthorScopedAdminTokenCannotReadOrChangeAnotherAuthorsP
 	if err := h.db.Create(&own).Error; err != nil {
 		t.Fatalf("create own post fixture: %v", err)
 	}
-	getOwn := h.request(http.MethodGet, fmt.Sprintf("/api/admin/posts/%d", own.ID), "", authorScopeToken, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
-	if getOwn.code != http.StatusOK {
-		t.Fatalf("author-scoped admin token GET own post returned %d, want 200; body=%q", getOwn.code, getOwn.body)
+	if err := h.db.First(&own, own.ID).Error; err != nil {
+		t.Fatalf("reload own post fixture: %v", err)
 	}
-	updateOwn := h.request(http.MethodPut, fmt.Sprintf("/api/admin/posts/%d", own.ID), `{"title":"updated own","content":"after","type":"post","status":"draft"}`, authorScopeToken, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
+	getOwn := agtDo(h, http.MethodGet, fmt.Sprintf("/api/agent/v1/posts/%d", own.ID), "", authorScopeToken, "")
+	agtExpectOK(t, getOwn, "migrated author-scoped token GET own post")
+	updateBody := fmt.Sprintf(`{"title":"updated own","content":"after","type":"post","status":"draft","base_updated_at":%q}`, own.UpdatedAt.Format(time.RFC3339Nano))
+	updateOwn := agtDo(h, http.MethodPut, fmt.Sprintf("/api/agent/v1/posts/%d", own.ID), updateBody, authorScopeToken, "")
+	if updateOwn.panicked != nil {
+		t.Fatalf("migrated author-scoped token PUT own post panicked: %v", updateOwn.panicked)
+	}
 	if updateOwn.code < 200 || updateOwn.code >= 300 {
-		t.Fatalf("author-scoped admin token PUT own post returned %d, want 2xx; body=%q", updateOwn.code, updateOwn.body)
+		t.Fatalf("migrated author-scoped token PUT own post returned %d, want 2xx; body=%q", updateOwn.code, updateOwn.body)
 	}
 	afterOwn := core.Post{}
 	if err := h.db.First(&afterOwn, own.ID).Error; err != nil || afterOwn.Title != "updated own" || afterOwn.Content != "after" || afterOwn.AuthorID != admin.ID {
-		t.Errorf("author-scoped token did not update own post correctly: post=%+v err=%v", afterOwn, err)
+		t.Errorf("migrated author-scoped token did not update own post correctly: post=%+v err=%v", afterOwn, err)
 	}
 }
 

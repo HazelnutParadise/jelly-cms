@@ -281,7 +281,7 @@ func accountDocumentationOperations() []authDocumentedOperation {
 	}
 	items := []operationSpec{
 		{"GET", "/api/account/profile", "讀取本人資料", "self", "所有登入角色可讀本人欄位。", false, "200", []string{"401", "500"}},
-		{"PATCH", "/api/account/profile", "更新本人資料", "self", "所有登入角色與本人 API 權杖皆可更新本人資料；只接受顯示名稱、簡介、語言與主題，id、role、status、email、password 欄位會忽略。Cookie 寫入須通過同來源保護。", true, "200", []string{"400", "401", "403", "500"}},
+		{"PATCH", "/api/account/profile", "更新本人資料", "self", "所有登入角色皆可更新本人資料；只接受顯示名稱、簡介、語言與主題，id、role、status、email、password 欄位會忽略。Cookie 寫入須通過同來源保護。", true, "200", []string{"400", "401", "403", "500"}},
 		{"POST", "/api/account/avatar", "上傳本人頭像", "interactive", "互動式登入限定；multipart 欄位 avatar，PNG/JPEG/WebP，最多 2 MiB。", true, "200", []string{"400", "401", "403", "413", "500"}},
 		{"DELETE", "/api/account/avatar", "刪除本人頭像", "interactive", "互動式登入限定。", false, "200", []string{"401", "403", "500"}},
 		{"POST", "/api/account/email", "申請變更電子郵件", "interactive", "互動式登入限定；確認連結有效 24 小時，成功只回一次。", true, "202", []string{"400", "401", "403", "409", "500", "503"}},
@@ -295,17 +295,11 @@ func accountDocumentationOperations() []authDocumentedOperation {
 		{"GET", "/api/account/sessions", "列出本人登入裝置", "self", "只列有效登入；id 為登入雜湊前 16 個字元。", false, "200", []string{"401", "500"}},
 		{"DELETE", "/api/account/sessions/{id}", "撤銷一個登入裝置", "interactive", "互動式登入限定；id 不屬於本人時回 404。", false, "200", []string{"401", "403", "404", "500"}},
 		{"POST", "/api/account/sessions/revoke-others", "撤銷其他登入裝置", "interactive", "互動式登入限定；保留目前登入並撤銷其他登入。", false, "200", []string{"401", "403", "500"}},
-		{"GET", "/api/account/tokens", "列出本人 API 權杖", "self", "所有登入 principal 可讀本人權杖 metadata；明文權杖不會再次回傳。", false, "200", []string{"401", "500"}},
-		{"POST", "/api/account/tokens", "建立 API 權杖", "interactive", "互動式登入限定；scopes 不得超過擁有者角色，明文權杖只在建立時回傳一次。", true, "201", []string{"400", "401", "403", "500"}},
-		{"PATCH", "/api/account/tokens/{id}", "更新 API 權杖名稱", "interactive", "互動式登入限定；只可改 name 與 note，無欄位可更新時回 400。", true, "200", []string{"400", "401", "403", "404", "500"}},
-		{"POST", "/api/account/tokens/{id}/revoke", "撤銷 API 權杖", "interactive", "互動式登入限定；只改本人權杖，已撤銷時回 409。", false, "200", []string{"401", "403", "404", "409", "500"}},
-		{"POST", "/api/account/tokens/{id}/restore", "恢復 API 權杖", "interactive", "互動式登入限定；清除撤銷狀態，不延長已過期期限；未撤銷時回 409。", false, "200", []string{"401", "403", "404", "409", "500"}},
-		{"DELETE", "/api/account/tokens/{id}", "刪除已撤銷 API 權杖", "interactive", "互動式登入限定；僅能刪除已撤銷權杖，否則回 409。", false, "200", []string{"401", "403", "404", "409", "500"}},
 		{"GET", "/api/account/notifications", "列出本人通知", "self", "category 可為 comments、orders、system、security、all；unread 為 0/1；before 為 ID 或 RFC3339；limit 預設 20、上限 50。", false, "200", []string{"400", "401", "500"}},
-		{"POST", "/api/account/notifications/{id}/read", "標示通知已讀", "self", "所有登入角色與本人 API 權杖皆可標示本人的有效通知；不存在或非本人資料回 404。Cookie 寫入須通過同來源保護。", false, "200", []string{"400", "401", "403", "404", "500"}},
-		{"POST", "/api/account/notifications/read-all", "標示通知全部已讀", "self", "所有登入角色與本人 API 權杖皆可標示本人的通知；可用 category 選擇分類，all 或未提供代表全部。Cookie 寫入須通過同來源保護。", false, "200", []string{"400", "401", "403", "500"}},
+		{"POST", "/api/account/notifications/{id}/read", "標示通知已讀", "self", "所有登入角色皆可標示本人的有效通知；不存在或非本人資料回 404。Cookie 寫入須通過同來源保護。", false, "200", []string{"400", "401", "403", "404", "500"}},
+		{"POST", "/api/account/notifications/read-all", "標示通知全部已讀", "self", "所有登入角色皆可標示本人的通知；可用 category 選擇分類，all 或未提供代表全部。Cookie 寫入須通過同來源保護。", false, "200", []string{"400", "401", "403", "500"}},
 		{"GET", "/api/account/notification-preferences", "讀取通知偏好", "self", "回傳八種事件偏好、Webhook 網址及勿擾時段。", false, "200", []string{"401", "500"}},
-		{"PUT", "/api/account/notification-preferences", "更新通知偏好", "self", "所有登入角色與本人 API 權杖皆可更新本人的偏好；事件只接受已知項目；Webhook 必須 HTTPS 且解析至公開 IP；勿擾時段需 HH:MM 與有效時區。Cookie 寫入須通過同來源保護。", true, "200", []string{"400", "401", "403", "500"}},
+		{"PUT", "/api/account/notification-preferences", "更新通知偏好", "self", "所有登入角色皆可更新本人的偏好；事件只接受已知項目；Webhook 必須 HTTPS 且解析至公開 IP；勿擾時段需 HH:MM 與有效時區。Cookie 寫入須通過同來源保護。", true, "200", []string{"400", "401", "403", "500"}},
 		{"POST", "/auth/login/2fa", "完成登入兩步驟驗證", "public", "公開端點，受登入限流與瀏覽器來源保護；成功建立登入 Cookie 與 JWT，五次錯誤後鎖定 15 分鐘。", true, "200", []string{"400", "401", "403", "429", "500"}},
 		{"GET", "/api/admin/users", "搜尋與分頁列出使用者", "admin", "管理員限定；q 搜尋 username/display_name/email；per_page 預設 20、上限 100。", false, "200", []string{"400", "401", "403", "500"}},
 		{"POST", "/api/admin/users/invite", "邀請使用者", "admin-interactive", "管理員且互動式登入限定；建立 invited 帳號，邀請連結回傳一次。", true, "201", []string{"400", "401", "403", "409", "500"}},
@@ -336,15 +330,12 @@ func accountDocumentationOperations() []authDocumentedOperation {
 		doc := map[string]any{"summary": item.summary, "description": item.detail, "responses": responses}
 		if item.access == "self" || item.access == "interactive" || item.access == "admin" || item.access == "admin-interactive" {
 			doc["security"] = []any{map[string]any{"BearerAuth": []any{}}, map[string]any{"JWTTokenCookie": []any{}}, map[string]any{"SessionCookie": []any{}}}
-			if item.access == "self" || item.access == "admin" {
-				doc["security"] = append(doc["security"].([]any), map[string]any{"ApiTokenAuth": []any{}})
-			}
 		}
 		if strings.HasPrefix(item.access, "admin") {
 			doc["description"] = "僅限管理員。" + item.detail
 		}
 		if strings.HasSuffix(item.access, "interactive") {
-			doc["description"] = doc["description"].(string) + " API 權杖不允許此操作。Cookie 寫入須通過同來源保護。"
+			doc["description"] = doc["description"].(string) + " Cookie 寫入須通過同來源保護。"
 		}
 		if item.body {
 			doc["requestBody"] = accountRequestBody(item.method, item.path)
@@ -399,11 +390,6 @@ func accountRequestSchema(path string) map[string]any {
 		required = []string{"current_password"}
 		props = map[string]any{"current_password": password, "code": map[string]any{"type": "string", "minLength": 6, "maxLength": 6, "pattern": "^[0-9]{6}$"}, "recovery_code": map[string]any{"type": "string", "description": "十六位一次性備用碼，可含連字號。"}}
 		needsFactor = true
-	case "/api/account/tokens":
-		required = []string{"name", "scopes"}
-		props = map[string]any{"name": map[string]any{"type": "string", "minLength": 1, "maxLength": 80}, "note": str("權杖用途備註。"), "expires_in_days": map[string]any{"type": "integer", "nullable": true, "enum": []any{7, 30, 90, 365, nil}}, "scopes": map[string]any{"type": "array", "minItems": 1, "uniqueItems": true, "items": map[string]any{"type": "string", "enum": []string{"admin", "editor", "author", "content_read", "orders_read"}}}}
-	case "/api/account/tokens/{id}":
-		props = map[string]any{"name": map[string]any{"type": "string", "minLength": 1, "maxLength": 80}, "note": str("權杖用途備註。")}
 	case "/api/account/notifications/read-all":
 		props = map[string]any{"category": map[string]any{"type": "string", "enum": []string{"comments", "orders", "security", "system"}}}
 	case "/api/account/notification-preferences":
@@ -460,12 +446,6 @@ func accountResponseSchema(method, path string) any {
 		return authObjectSchema([]string{"recovery_codes"}, map[string]any{"recovery_codes": map[string]any{"type": "array", "minItems": 10, "maxItems": 10, "items": str("只能使用一次的備用碼。")}})
 	case path == "/api/account/sessions":
 		return map[string]any{"type": "array", "items": authObjectSchema([]string{"id", "device_label", "ip_masked", "created_at", "last_seen_at", "current", "new_device"}, map[string]any{"id": str("登入識別雜湊前 16 個字元。"), "device_label": str("瀏覽器與作業系統摘要。"), "ip_masked": str("遮罩 IP。"), "created_at": map[string]any{"type": "string", "format": "date-time"}, "last_seen_at": map[string]any{"type": "string", "format": "date-time"}, "current": map[string]any{"type": "boolean", "description": "是否為目前這次登入。"}, "new_device": map[string]any{"type": "boolean", "description": "最近 90 天內此 User-Agent hash 僅出現於一筆登入時為 true。"}})}
-	case path == "/api/account/tokens" && method == "GET":
-		return map[string]any{"type": "array", "items": accountTokenSchema()}
-	case path == "/api/account/tokens" && method == "POST":
-		return accountTokenCreatedSchema()
-	case strings.HasPrefix(path, "/api/account/tokens/") && method == "PATCH":
-		return accountTokenSchema()
 	case path == "/api/account/notifications":
 		return authObjectSchema([]string{"items", "unread_count", "counts"}, map[string]any{"items": map[string]any{"type": "array", "items": map[string]any{"$ref": "#/components/schemas/Notification"}}, "unread_count": integer, "counts": map[string]any{"$ref": "#/components/schemas/NotificationCounts"}})
 	case path == "/api/account/notification-preferences":
@@ -486,7 +466,7 @@ func accountResponseSchema(method, path string) any {
 	case path == "/api/account/email/confirm", path == "/api/account/password", path == "/api/account/sessions/revoke-others",
 		path == "/api/invites/accept", path == "/api/password-reset", path == "/api/account/avatar" && method == "DELETE",
 		path == "/api/account/sessions/{id}" && method == "DELETE",
-		strings.HasSuffix(path, "/invite/revoke"), strings.HasSuffix(path, "/tokens/{id}/revoke"), strings.HasSuffix(path, "/tokens/{id}/restore"),
+		strings.HasSuffix(path, "/invite/revoke"),
 		path == "/api/admin/users/{id}" && method == "DELETE":
 		return message
 	case path == "/api/admin/users/{id}" && method == "PATCH":
@@ -502,23 +482,6 @@ func accountResponseSchema(method, path string) any {
 	default:
 		return message
 	}
-}
-
-func accountTokenSchema() map[string]any {
-	str := func(description string) map[string]any { return authStringSchema(description) }
-	properties := map[string]any{"id": map[string]any{"type": "integer"}, "name": str("權杖名稱。"), "note": str("用途備註。"), "last4": str("權杖末四碼。"), "scopes": map[string]any{"type": "array", "items": map[string]any{"type": "string"}}, "expires_at": map[string]any{"type": "string", "format": "date-time", "nullable": true}, "last_used_at": map[string]any{"type": "string", "format": "date-time", "nullable": true}, "last_used_ip_masked": str("遮罩後的最後使用 IP。"), "status": map[string]any{"type": "string", "enum": []string{"active", "expired", "revoked"}}}
-	required := []string{"id", "name", "note", "last4", "scopes", "expires_at", "last_used_at", "last_used_ip_masked", "status"}
-	return authObjectSchema(required, properties)
-}
-
-func accountTokenCreatedSchema() map[string]any {
-	str := func(description string) map[string]any { return authStringSchema(description) }
-	return authObjectSchema([]string{"id", "name", "note", "last4", "scopes", "expires_at", "token"}, map[string]any{
-		"id": map[string]any{"type": "integer", "format": "int64"}, "name": str("權杖名稱。"), "note": str("用途備註。"),
-		"last4": str("權杖末四碼。"), "scopes": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
-		"expires_at": map[string]any{"type": "string", "format": "date-time", "nullable": true},
-		"token":      str("只在建立權杖時回傳一次的明文權杖。"),
-	})
 }
 
 func notificationPreferenceEventsSchema(response bool) map[string]any {
@@ -616,7 +579,7 @@ func accountErrorDescription(status, path string) string {
 	case "404":
 		return "資源不存在或不屬於目前使用者。"
 	case "409":
-		return "資源狀態衝突，例如電子郵件已使用、最後管理員保護或權杖尚未撤銷。"
+		return "資源狀態衝突，例如電子郵件已使用或最後管理員保護。"
 	case "410":
 		return "一次性連結無效、過期或已使用。"
 	case "413":
@@ -637,7 +600,6 @@ func authAPIComponents() map[string]any {
 	return map[string]any{
 		"securitySchemes": map[string]any{
 			"BearerAuth":     map[string]any{"type": "http", "scheme": "bearer", "bearerFormat": "JWT"},
-			"ApiTokenAuth":   map[string]any{"type": "http", "scheme": "bearer", "bearerFormat": "jly_ personal API token"},
 			"JWTTokenCookie": map[string]any{"type": "apiKey", "in": "cookie", "name": "jwt_token"},
 			"SessionCookie":  map[string]any{"type": "apiKey", "in": "cookie", "name": "jelly-cms-session"},
 		},

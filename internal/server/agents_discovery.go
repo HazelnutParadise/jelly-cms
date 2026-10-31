@@ -44,7 +44,7 @@ func agentDiscovery(tm *theme.Manager, rt *plugin.Runtime) echo.HandlerFunc {
 			}
 			permissions = append(permissions, map[string]any{"name": string(p), "description": permissionDescription(string(p)), "required_roles": roles, "endpoints": permEndpoints[string(p)]})
 		}
-		return c.JSON(200, map[string]any{"name": "Jelly CMS Agent API", "version": "v1", "base_path": "/api/agent/v1", "openapi_url": "/api/agent/v1/openapi.json", "skill_path": "skills/jelly-cms/SKILL.md", "authentication": map[string]any{"type": "bearer", "header": "Authorization", "scheme": "Bearer", "key_prefix": "jla_", "how_to_get": "由管理員在 Jelly CMS 後台建立"}, "permissions": permissions, "endpoints": endpoints, "concurrency": agentConcurrency(rows), "errors": map[string]any{"format": map[string]any{"code": "…", "message": "…", "details": map[string]any{}, "correlation_id": "req_…"}, "codes": agentErrorCodes()}, "not_exposed": agentNotExposed(), "examples": []map[string]any{{"title": "確認金鑰與有效權限", "request": "GET /api/agent/v1/me", "response": map[string]any{"id": 1, "effective_permissions": []string{"posts.read"}}}, {"title": "以版本更新文章", "request": "PUT /api/agent/v1/posts/1 with base_updated_at", "response": map[string]any{"updated_at": "RFC3339 timestamp"}}}})
+		return c.JSON(200, map[string]any{"name": "Jelly CMS Agent API", "version": "v1", "base_path": "/api/agent/v1", "openapi_url": "/api/agent/v1/openapi.json", "skill_path": "skills/jelly-cms/SKILL.md", "authentication": map[string]any{"type": "bearer", "header": "Authorization", "scheme": "Bearer", "key_prefix": "jly_", "how_to_get": "由管理員在 Jelly CMS 後台建立"}, "permissions": permissions, "endpoints": endpoints, "concurrency": agentConcurrency(rows), "errors": map[string]any{"format": map[string]any{"code": "…", "message": "…", "details": map[string]any{}, "correlation_id": "req_…"}, "codes": agentErrorCodes()}, "not_exposed": agentNotExposed(), "examples": []map[string]any{{"title": "確認金鑰與有效權限", "request": "GET /api/agent/v1/me", "response": map[string]any{"id": 1, "effective_permissions": []string{"posts.read"}}}, {"title": "以版本更新文章", "request": "PUT /api/agent/v1/posts/1 with base_updated_at", "response": map[string]any{"updated_at": "RFC3339 timestamp"}}}})
 	}
 }
 func permissionDescription(p string) string {
@@ -124,7 +124,7 @@ func agentOpenAPI(tm *theme.Manager, rt *plugin.Runtime) echo.HandlerFunc {
 			"paths":    paths,
 			"security": []any{map[string]any{"AgentKey": []string{}}},
 			"components": map[string]any{
-				"securitySchemes": map[string]any{"AgentKey": map[string]any{"type": "http", "scheme": "bearer", "description": "Jelly CMS agent key (jla_…)"}},
+				"securitySchemes": map[string]any{"AgentKey": map[string]any{"type": "http", "scheme": "bearer", "description": "Jelly CMS agent key (jly_…)"}},
 				"schemas":         map[string]any{"Error": errorSchema},
 			},
 		}

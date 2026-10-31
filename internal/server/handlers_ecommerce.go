@@ -7,7 +7,6 @@ import (
 
 func RegisterEcommerceRoutes(e *echo.Echo) {
 	api := e.Group("/api/admin", auth.RequireRole(adminRoles...))
-	orderReaders := e.Group("/api/admin", auth.RequirePermission("orders_read"))
 
 	// Products are owned by the typed catalog handlers. Orders remain below.
 	api.GET("/products", adminProductsList)
@@ -17,5 +16,5 @@ func RegisterEcommerceRoutes(e *echo.Echo) {
 	api.DELETE("/products/:id", adminProductsDelete)
 
 	// Orders (Basic View)
-	orderReaders.GET("/orders", adminOrdersList)
+	api.GET("/orders", adminOrdersList)
 }

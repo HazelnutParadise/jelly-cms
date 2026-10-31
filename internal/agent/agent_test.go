@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-var agentKeyPattern = regexp.MustCompile(`^jla_[A-Za-z0-9_-]{43}$`)
+var agentKeyPattern = regexp.MustCompile(`^jly_[A-Za-z0-9_-]{43}$`)
 
 func TestAgentGenerateKeyFormatAndUniqueness(t *testing.T) {
 	seen := map[string]bool{}
@@ -23,7 +23,7 @@ func TestAgentGenerateKeyFormatAndUniqueness(t *testing.T) {
 			t.Fatalf("GenerateKey() error = %v", err)
 		}
 		if !agentKeyPattern.MatchString(key) {
-			t.Fatalf("GenerateKey() = %q, want jla_ followed by 43 base64url characters (32 random bytes, no padding)", key)
+			t.Fatalf("GenerateKey() = %q, want jly_ followed by 43 base64url characters (32 random bytes, no padding)", key)
 		}
 		if seen[key] {
 			t.Fatalf("GenerateKey() returned %q twice in 64 calls", key)
@@ -51,6 +51,14 @@ func TestAgentPrefixOfKeepsTwelveCharacters(t *testing.T) {
 	}
 	if got := PrefixOf("jla_short"); got != "" {
 		t.Errorf("PrefixOf(short key) = %q, want empty", got)
+	}
+	// Keys issued from ticket 22 on use jly_; both prefixes keep 12 characters.
+	jlyKey := "jly_Qm3d8sKeRESTOFTHEKEYxxxxxxxxxxxxxxxxxxxxx"
+	if got := PrefixOf(jlyKey); got != "jly_Qm3d8sKe" {
+		t.Errorf("PrefixOf(%q) = %q, want jly_Qm3d8sKe (jly_ plus 8 characters)", jlyKey, got)
+	}
+	if got := PrefixOf("jly_short"); got != "" {
+		t.Errorf("PrefixOf(short jly_ key) = %q, want empty", got)
 	}
 	if DisplayPrefixLength != 12 {
 		t.Errorf("DisplayPrefixLength = %d, want 12", DisplayPrefixLength)

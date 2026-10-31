@@ -6,11 +6,8 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/agent"
-	"github.com/HazelnutParadise/jelly-cms/internal/core"
-	"gorm.io/gorm"
 )
 
 type loginDevice struct {
@@ -72,17 +69,4 @@ func maskClientIP(remote string) string {
 		host = strings.Trim(remote, "[]")
 	}
 	return agent.MaskIP(host)
-}
-
-// touchTokenUse records only coarse activity. The principal loader calls this
-// helper after resolving a token; repeated API traffic writes at most once per
-// minute per token.
-func touchTokenUse(db *gorm.DB, tokenID uint, remote string) error {
-	if db == nil || tokenID == 0 {
-		return nil
-	}
-	now := time.Now()
-	return db.Model(&core.APIToken{}).
-		Where("id = ? AND (last_used_at IS NULL OR last_used_at < ?)", tokenID, now.Add(-time.Minute)).
-		Updates(map[string]any{"last_used_at": now, "last_used_ip_masked": maskClientIP(remote)}).Error
 }

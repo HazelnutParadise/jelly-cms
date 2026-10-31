@@ -11,10 +11,11 @@ import (
 	"net"
 )
 
-// KeyPrefix starts every agent key. A key is KeyPrefix followed by the
-// unpadded base64url encoding (RFC 4648 §5) of 32 random bytes, 47 characters
-// in total.
-const KeyPrefix = "jla_"
+// KeyPrefix starts every agent key issued from ticket 22 on. A key is
+// KeyPrefix followed by the unpadded base64url encoding (RFC 4648 §5) of 32
+// random bytes, 47 characters in total. Keys issued earlier use "jla_" and
+// still authenticate.
+const KeyPrefix = "jly_"
 
 // DisplayPrefixLength is how many leading characters of a key are stored and
 // shown: KeyPrefix plus 8 characters.

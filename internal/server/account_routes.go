@@ -16,7 +16,7 @@ import (
 // (docs/tickets/06-accounts.md).
 //
 // Self-service API, auth.RequireAuth, every role. "I" marks interactive-only
-// endpoints: an API token principal gets 403 (auth.RequireInteractive).
+// endpoints (auth.RequireInteractive).
 //
 //	S1   GET    /api/account/profile                     id, username, display_name, email, email_verified, pending_email, avatar_url, bio, locale, ui_theme, role, created_at, post_count, author_url
 //	S2   PATCH  /api/account/profile                     display_name 1-120, bio <= 500, locale zh-TW|en, ui_theme; id/role/status/email/password ignored
@@ -33,11 +33,8 @@ import (
 //	S11  GET    /api/account/sessions                    [{id (16 chars), device_label, ip_masked, created_at, last_seen_at, current, new_device}], live only
 //	S12  DELETE /api/account/sessions/:id           I    revoke one; another user's id 404
 //	S13  POST   /api/account/sessions/revoke-others I    revoke all except the current login
-//	S14  GET    /api/account/tokens                      [{id, name, note, last4, scopes, expires_at, last_used_at, last_used_ip_masked, status}]
-//	S15  POST   /api/account/tokens                 I    {name 1-80, note, expires_in_days 7|30|90|365|null, scopes[]} -> 201 with token once
-//	S16  PATCH  /api/account/tokens/:id             I    {name, note} only
-//	S17  POST   /api/account/tokens/:id/revoke      I    and /restore; restore clears revoked_at only
-//	S18  DELETE /api/account/tokens/:id             I    revoked tokens only, else 409
+//	S14-S18  personal API tokens (/api/account/tokens*) were removed by ticket 22;
+//	         access keys on /api/agent/v1 replace them.
 //	S19  GET    /api/account/notifications               category, unread=1, before, limit <= 50 -> {items, unread_count, counts}
 //	S20  POST   /api/account/notifications/:id/read      own rows only; /api/account/notifications/read-all?category=
 //	S21  GET|PUT /api/account/notification-preferences   {events, webhook_url (https, no private hosts), quiet}
@@ -68,13 +65,6 @@ func registerAccountRoutes(e *echo.Echo, renderAdmin func(c echo.Context, file, 
 	self.GET("/sessions", listAccountSessions)
 	self.DELETE("/sessions/:id", revokeAccountSession, interactive)
 	self.POST("/sessions/revoke-others", revokeOtherAccountSessions, interactive)
-
-	self.GET("/tokens", listAccountTokens)
-	self.POST("/tokens", createAccountToken, interactive)
-	self.PATCH("/tokens/:id", patchAccountToken, interactive)
-	self.POST("/tokens/:id/revoke", func(c echo.Context) error { return changeAccountTokenRevocation(c, true) }, interactive)
-	self.POST("/tokens/:id/restore", func(c echo.Context) error { return changeAccountTokenRevocation(c, false) }, interactive)
-	self.DELETE("/tokens/:id", deleteAccountToken, interactive)
 
 	self.GET("/notifications", AccountNotifications)
 	self.POST("/notifications/read-all", AccountNotificationReadAll)

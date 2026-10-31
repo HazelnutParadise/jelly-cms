@@ -10,17 +10,20 @@ import (
 // Agent is an AI agent identity with a bounded set of permissions.
 // Its table is created by migration 0025_agents.sql, not AutoMigrate.
 type Agent struct {
-	ID          uint           `json:"id" gorm:"primaryKey"`
-	Name        string         `json:"name" gorm:"size:80;not null"`
-	Description string         `json:"description" gorm:"type:text;not null;default:''"`
-	Permissions StringArray    `json:"permissions" gorm:"type:text[];not null;default:'{}'"`
-	OwnerID     *uint          `json:"owner_id" gorm:"index"`
-	CreatedBy   *uint          `json:"created_by" gorm:"index"`
-	Status      string         `json:"status" gorm:"size:16;not null;default:'active'"`
-	DisabledAt  *time.Time     `json:"disabled_at"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
-	DeletedAt   gorm.DeletedAt `json:"-" gorm:"index"`
+	ID          uint        `json:"id" gorm:"primaryKey"`
+	Name        string      `json:"name" gorm:"size:80;not null"`
+	Description string      `json:"description" gorm:"type:text;not null;default:''"`
+	Permissions StringArray `json:"permissions" gorm:"type:text[];not null;default:'{}'"`
+	OwnerID     *uint       `json:"owner_id" gorm:"index"`
+	CreatedBy   *uint       `json:"created_by" gorm:"index"`
+	Status      string      `json:"status" gorm:"size:16;not null;default:'active'"`
+	// RoleCap, when set, caps the role the agent runs with at admin, editor or
+	// author, whichever is lower than the owner's role. Nil means no cap.
+	RoleCap    *string        `json:"role_cap" gorm:"column:role_cap;size:16"`
+	DisabledAt *time.Time     `json:"disabled_at"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	DeletedAt  gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 func (Agent) TableName() string { return "agents" }

@@ -10,7 +10,6 @@ import (
 type shopAPIDocOperation struct {
 	method, path, summary, description string
 	security                           bool
-	permission                         string
 	params                             []any
 	body                               any
 	contentType                        string
@@ -135,13 +134,10 @@ func shopAdminDoc(method, path, summary, request, response, description string) 
 		op.body = shopDocRef(request)
 		op.contentType = "application/json"
 	}
-	if method == http.MethodGet && path == "/api/admin/orders" {
-		op.permission = "orders_read"
-	}
 	if code := shopAdminSuccessStatus(method, path); code != "" {
 		op.responses = shopDocResponses(response, description, code)
 	}
-	op.responses["401"] = shopDocError("需要有效的管理員登入或 API 權杖。")
+	op.responses["401"] = shopDocError("需要有效的管理員登入。")
 	op.responses["403"] = shopDocError("目前帳號沒有執行此管理操作的權限。")
 	op.responses["default"] = shopDocError("其他驗證或伺服器錯誤；回應本文使用 Error schema。")
 	if method == http.MethodGet && path == "/api/admin/products" {
@@ -311,11 +307,7 @@ func shopAPISchemas() map[string]any {
 func shopDocOperationOpenAPI(op shopAPIDocOperation) map[string]any {
 	result := map[string]any{"summary": op.summary, "description": op.description, "responses": op.responses}
 	if op.security {
-		bearer := map[string]any{"BearerAuth": []any{}}
-		if op.permission != "" {
-			bearer["BearerAuth"] = []any{op.permission}
-		}
-		result["security"] = []any{bearer, map[string]any{"JWTTokenCookie": []any{}}, map[string]any{"SessionCookie": []any{}}}
+		result["security"] = []any{map[string]any{"BearerAuth": []any{}}, map[string]any{"JWTTokenCookie": []any{}}, map[string]any{"SessionCookie": []any{}}}
 	}
 	if len(op.params) > 0 {
 		result["parameters"] = op.params
@@ -339,7 +331,7 @@ func shopDocOpenAPI() map[string]any {
 		}
 		item[strings.ToLower(op.method)] = shopDocOperationOpenAPI(op)
 	}
-	return map[string]any{"openapi": "3.0.3", "info": map[string]any{"title": "Jelly CMS Shop API", "version": "1.0.0", "description": "商店、購物車、結帳、訂單、會員與管理 API 契約。金額 API 欄位均為分；管理介面商品價格輸入為元字串，讀取商品 price 則是分。瀏覽器 Cookie 寫入須符合同來源／CSRF 保護；金流 callback 需驗證簽章。文件不包含任何金鑰值。"}, "servers": []any{map[string]any{"url": "/", "description": "目前站台"}}, "paths": paths, "components": map[string]any{"securitySchemes": map[string]any{"BearerAuth": map[string]any{"type": "http", "scheme": "bearer", "bearerFormat": "JWT 或個人 API 權杖"}, "JWTTokenCookie": map[string]any{"type": "apiKey", "in": "cookie", "name": "jwt_token"}, "SessionCookie": map[string]any{"type": "apiKey", "in": "cookie", "name": "jelly-cms-session"}}, "schemas": shopAPISchemas()}}
+	return map[string]any{"openapi": "3.0.3", "info": map[string]any{"title": "Jelly CMS Shop API", "version": "1.0.0", "description": "商店、購物車、結帳、訂單、會員與管理 API 契約。金額 API 欄位均為分；管理介面商品價格輸入為元字串，讀取商品 price 則是分。瀏覽器 Cookie 寫入須符合同來源／CSRF 保護；金流 callback 需驗證簽章。文件不包含任何金鑰值。"}, "servers": []any{map[string]any{"url": "/", "description": "目前站台"}}, "paths": paths, "components": map[string]any{"securitySchemes": map[string]any{"BearerAuth": map[string]any{"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}, "JWTTokenCookie": map[string]any{"type": "apiKey", "in": "cookie", "name": "jwt_token"}, "SessionCookie": map[string]any{"type": "apiKey", "in": "cookie", "name": "jelly-cms-session"}}, "schemas": shopAPISchemas()}}
 }
 
 func shopAPIOperationURL(method, path string) string {

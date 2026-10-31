@@ -107,8 +107,8 @@ func TestAgentDiscoveryIndexNeedsNoKey(t *testing.T) {
 	if index.OpenAPIURL != "/api/agent/v1/openapi.json" || index.BasePath != "/api/agent/v1" {
 		t.Errorf("openapi_url=%q base_path=%q, want /api/agent/v1/openapi.json and /api/agent/v1", index.OpenAPIURL, index.BasePath)
 	}
-	if index.Authentication.KeyPrefix != "jla_" || !strings.EqualFold(index.Authentication.Type, "bearer") || index.Authentication.Header != "Authorization" {
-		t.Errorf("authentication=%+v, want bearer in Authorization with key_prefix jla_", index.Authentication)
+	if index.Authentication.KeyPrefix != "jly_" || !strings.EqualFold(index.Authentication.Type, "bearer") || index.Authentication.Header != "Authorization" {
+		t.Errorf("authentication=%+v, want bearer in Authorization with key_prefix jly_", index.Authentication)
 	}
 	if len(index.Examples) == 0 {
 		t.Error("discovery index has no examples")

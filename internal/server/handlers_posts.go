@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -45,27 +44,7 @@ func requirePostReadPermission(next echo.HandlerFunc) echo.HandlerFunc {
 		if err != nil || principal == nil || principal.User == nil {
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Unauthorized"})
 		}
-		if principal.Source == "api_token" {
-			for _, scope := range principal.Scopes {
-				switch scope {
-				case "admin", "editor", "author":
-					return auth.RequireRole(contentRoles...)(next)(c)
-				}
-			}
-		}
-		return auth.RequirePermission("content_read")(func(c echo.Context) error {
-			if principal.Source == "api_token" {
-				user := *principal.User
-				var owner core.User
-				if err := data.DB.WithContext(c.Request().Context()).Select("id", "role").First(&owner, user.ID).Error; err != nil {
-					log.Printf("load owner role for content-read token user %d: %v", user.ID, err)
-					return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to authorize post read"})
-				}
-				user.Role = owner.Role
-				c.Set("user", &user)
-			}
-			return next(c)
-		})(c)
+		return auth.RequirePermission("content_read")(next)(c)
 	}
 }
 

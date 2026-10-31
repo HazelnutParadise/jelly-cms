@@ -469,7 +469,7 @@ func shopPaymentAuthorized(c echo.Context, order core.Order, rawToken string) bo
 		}
 	}
 	principal, err := auth.GetCurrentPrincipal(c)
-	return err == nil && principal != nil && principal.User != nil && principal.Source != "api_token" && order.UserID != nil && *order.UserID == principal.User.ID
+	return err == nil && principal != nil && principal.User != nil && order.UserID != nil && *order.UserID == principal.User.ID
 }
 
 func shopCheckoutAccessTokenMatches(order core.Order, rawToken string) bool {
