@@ -28,10 +28,24 @@ func agentCredential(c echo.Context) (string, string) {
 		return "", "key_invalid"
 	}
 	token := strings.TrimPrefix(header, "Bearer ")
-	if len(token) != 47 || !strings.HasPrefix(token, "jla_") {
+	if len(token) != 47 || !(strings.HasPrefix(token, "jla_") || strings.HasPrefix(token, "jly_")) {
 		return "", "key_invalid"
 	}
 	return token, ""
+}
+
+// agentRoleRank orders the roles an agent can be capped to. Roles outside
+// admin, editor and author rank 0.
+func agentRoleRank(role string) int {
+	switch role {
+	case "admin":
+		return 3
+	case "editor":
+		return 2
+	case "author":
+		return 1
+	}
+	return 0
 }
 
 func agentKeyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -64,6 +78,13 @@ func agentKeyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		var owner core.User
 		if a.OwnerID == nil || data.DB.WithContext(c.Request().Context()).First(&owner, *a.OwnerID).Error != nil || owner.Status != "active" {
 			return deniedAgentKey(c, a, key, "owner_unavailable")
+		}
+		// The role cap lowers the role the agent runs with, never raises it.
+		// The user copy carries the effective role, so every later check
+		// (permissions, author scope) uses it; the owner's own role is kept for /me.
+		c.Set("agent.owner_role", owner.Role)
+		if a.RoleCap != nil && agentRoleRank(*a.RoleCap) < agentRoleRank(owner.Role) {
+			owner.Role = *a.RoleCap
 		}
 		c.Set("agent.identity", &a)
 		c.Set("agent.key", &key)
@@ -112,13 +133,14 @@ func agentMe(c echo.Context) error {
 	a := c.Get("agent.identity").(*core.Agent)
 	k := c.Get("agent.key").(*core.AgentKey)
 	owner := c.Get("user").(*core.User)
+	ownerRole, _ := c.Get("agent.owner_role").(string)
 	perms := []string{}
 	for _, p := range a.Permissions {
 		if roleListContains(owner.Role, permissionRoles(p)) {
 			perms = append(perms, p)
 		}
 	}
-	return c.JSON(200, map[string]any{"id": a.ID, "name": a.Name, "description": a.Description, "permissions": a.Permissions, "effective_permissions": perms, "owner_role": owner.Role, "key": map[string]any{"id": k.ID, "prefix": k.Prefix, "expires_at": k.ExpiresAt}})
+	return c.JSON(200, map[string]any{"id": a.ID, "name": a.Name, "description": a.Description, "permissions": a.Permissions, "effective_permissions": perms, "owner_role": ownerRole, "role_cap": a.RoleCap, "effective_role": owner.Role, "key": map[string]any{"id": k.ID, "prefix": k.Prefix, "expires_at": k.ExpiresAt}})
 }
 
 func agentTouchKey(c echo.Context) {
