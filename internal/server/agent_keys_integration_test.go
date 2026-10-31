@@ -31,7 +31,7 @@ import (
 )
 
 var (
-	agtKeyPattern       = regexp.MustCompile(`^jla_[A-Za-z0-9_-]{43}$`)
+	agtKeyPattern       = regexp.MustCompile(`^jly_[A-Za-z0-9_-]{43}$`)
 	agtRequestIDPattern = regexp.MustCompile(`^req_[0-9A-Za-z_-]{8,64}$`)
 )
 
@@ -222,7 +222,7 @@ func agtCreate(t *testing.T, h *accessHarness, adminToken, name string, permissi
 	var created agtCreated
 	agtDecode(t, r, &created, "create agent")
 	if !agtKeyPattern.MatchString(created.APIKey) {
-		t.Fatalf("api_key=%q, want jla_ followed by 43 base64url characters", created.APIKey)
+		t.Fatalf("api_key=%q, want jly_ followed by 43 base64url characters", created.APIKey)
 	}
 	if created.Agent.ID == 0 {
 		t.Fatalf("created agent has no id; body=%q", r.body)
@@ -239,7 +239,7 @@ func agtRotate(t *testing.T, h *accessHarness, adminToken string, agentID uint, 
 	var rotated agtRotated
 	agtDecode(t, r, &rotated, "rotate agent")
 	if !agtKeyPattern.MatchString(rotated.APIKey) {
-		t.Fatalf("rotated api_key=%q, want a jla_ key", rotated.APIKey)
+		t.Fatalf("rotated api_key=%q, want a jly_ key", rotated.APIKey)
 	}
 	return rotated
 }
