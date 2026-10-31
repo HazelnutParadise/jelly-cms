@@ -27,7 +27,8 @@ import (
 // bindings) lives in the tables created by migration 0021.
 //
 // Interactive-only rule: uninstall is interactive only. It uses the same rule
-// as injection_api.go (isInteractiveRequest), so a Bearer token never passes.
+// as every other interactive route, auth.RequireInteractive, so a Bearer token
+// never passes.
 
 const (
 	pluginDirRoot         = "data/plugins"
@@ -78,7 +79,7 @@ func registerPluginDetailRoutes(e *echo.Echo, runtime *plugin.Runtime) {
 	e.GET("/api/admin/plugins/:id", api.detail, admin)
 	e.POST("/api/admin/plugins/:id/enable", api.enable, admin)
 	e.POST("/api/admin/plugins/:id/disable", api.disable, admin)
-	e.DELETE("/api/admin/plugins/:id", api.uninstall, interactiveOnly, admin)
+	e.DELETE("/api/admin/plugins/:id", api.uninstall, auth.RequireInteractive(), admin)
 	e.GET("/api/admin/plugins/:id/settings", api.getSettings, admin)
 	e.PUT("/api/admin/plugins/:id/settings", api.putSettings, admin)
 	e.POST("/api/admin/plugins/:id/settings/reset", api.resetSettings, admin)
@@ -87,17 +88,6 @@ func registerPluginDetailRoutes(e *echo.Echo, runtime *plugin.Runtime) {
 	e.GET("/api/admin/plugins/:id/logs", api.logs, admin)
 	e.GET("/api/admin/extensions", api.listExtensions, admin)
 	e.PUT("/api/admin/extensions/:point", api.putExtension, admin)
-}
-
-// interactiveOnly answers 403 unless the request comes from a browser session.
-func interactiveOnly(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		if !isInteractiveRequest(c) {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "Interactive browser session required"})
-		}
-
-		return next(c)
-	}
 }
 
 // PluginEnabledFilter decides which plugin directories load at start-up. A

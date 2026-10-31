@@ -112,6 +112,8 @@ func Switch(ctx, from, to Queue) error
 
 ### 端點（全部 `/api/admin/*` 限 admin；`[I]` 為互動限定）
 
+已由工單 23 取代：`[I]` 的互動限定統一由 `auth.RequireInteractive()` 判斷，Bearer 登入會被拒絕（見 [工單 23](23-admin-api-browser-only.md)）。
+
 - 設定：`GET|PUT /api/admin/settings`（GET 遮罩；PUT 未登記鍵 400、稽核）、`GET|PUT[I] /api/admin/settings/injection {head_all, head_content, footer, current_password}`、`GET|PUT /api/admin/maintenance {enabled, message, retry_after}`。
 - 公開：`/robots.txt`、`/sitemap.xml`、`/sitemap-{posts|pages|categories|products}-{n}.xml`、`/llms.txt`、`/.well-known/tdmrep.json`、`/feed.xml`、`/c/:slug/feed.xml`、`/author/:u/feed.xml`、`/<indexnow_key>.txt`、`/healthz`。
 - SEO：`GET /api/admin/seo/robots-preview`、`GET /api/admin/seo/crawler-stats?days=7`、`GET /api/admin/seo/overrides`。

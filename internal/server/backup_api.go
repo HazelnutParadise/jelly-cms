@@ -21,9 +21,9 @@ import (
 
 // Backup, restore and export API (ticket 08, 「備份與匯入」). Every route is
 // admin only. Routes marked interactive accept only a signed-in browser
-// session (see browserSessionOnly), so a bearer JWT cannot download or restore
-// a backup. Access keys (jly_, jla_) work only on /api/agent/v1 and are refused
-// here.
+// session (see auth.RequireInteractive), so a bearer JWT cannot download or
+// restore a backup. Access keys (jly_, jla_) work only on /api/agent/v1 and are
+// refused here.
 
 // restoreMaintenanceMessage is what visitors see while a restore runs.
 const restoreMaintenanceMessage = "網站正在從備份還原，請稍後再試。"
@@ -31,34 +31,10 @@ const restoreMaintenanceMessage = "網站正在從備份還原，請稍後再試
 // backupTimePattern matches the daily schedule time as HH:MM.
 var backupTimePattern = regexp.MustCompile(`^([01]\d|2[0-3]):[0-5]\d$`)
 
-// browserSessionOnly admits a request only when it comes from a browser
-// session: the jwt_token cookie and no Authorization header. Writes also need
-// the CSRF header, which isInteractiveRequest checks. Reads are GET downloads
-// and carry no CSRF header.
-func browserSessionOnly(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		if !isBrowserSession(c) {
-			return c.JSON(http.StatusForbidden, map[string]string{"error": "Interactive browser session required"})
-		}
-		return next(c)
-	}
-}
-
-func isBrowserSession(c echo.Context) bool {
-	if c.Request().Method == http.MethodGet || c.Request().Method == http.MethodHead {
-		if c.Request().Header.Get(echo.HeaderAuthorization) != "" {
-			return false
-		}
-		cookie, err := c.Cookie("jwt_token")
-		return err == nil && cookie.Value != ""
-	}
-	return isInteractiveRequest(c)
-}
-
 // registerBackupRoutes mounts the backup and export routes.
 func registerBackupRoutes(e *echo.Echo) {
 	admin := auth.RequireRole("admin")
-	interactive := browserSessionOnly
+	interactive := auth.RequireInteractive()
 	e.GET("/api/admin/backups", handleBackupsList, admin)
 	e.POST("/api/admin/backups", handleBackupCreate, interactive, admin)
 	e.POST("/api/admin/backups/:id/retry", handleBackupRetry, admin)

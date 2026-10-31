@@ -35,7 +35,7 @@ import (
 // Official items must carry a minisign signature over the archive. Other items
 // install only when the admin accepts exactly the permissions the catalog
 // lists, identified by PermissionNamesHash. Installs are interactive only, the
-// same rule as injection_api.go (isInteractiveRequest).
+// same rule as every other interactive route (auth.RequireInteractive).
 
 const (
 	storeListPageSize      = 20
@@ -99,9 +99,9 @@ func registerStoreRoutes(e *echo.Echo, runtime *plugin.Runtime) {
 	admin := auth.RequireRole("admin")
 	e.GET("/api/admin/store", api.list, admin)
 	e.POST("/api/admin/store/refresh", api.refresh, admin)
-	e.POST("/api/admin/store/install", api.install, interactiveOnly, admin)
-	e.POST("/api/admin/store/update", api.update, interactiveOnly, admin)
-	e.POST("/api/admin/plugins/install-url", api.installURL, interactiveOnly, admin)
+	e.POST("/api/admin/store/install", api.install, auth.RequireInteractive(), admin)
+	e.POST("/api/admin/store/update", api.update, auth.RequireInteractive(), admin)
+	e.POST("/api/admin/plugins/install-url", api.installURL, auth.RequireInteractive(), admin)
 }
 
 // storeListItem is one entry of the store listing.
