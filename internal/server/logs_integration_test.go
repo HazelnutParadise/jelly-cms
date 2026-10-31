@@ -280,7 +280,7 @@ func TestLogsStreamIsAdminOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build stream request: %v", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+h.token(admin))
+	setAccessToken(req, h.token(admin))
 	req.Header.Set("Accept", "text/event-stream")
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
@@ -351,11 +351,11 @@ func TestLogsRetentionPrune(t *testing.T) {
 func TestLogsExportInteractiveOnly(t *testing.T) {
 	h := newAccessHarness(t)
 
-	// A bearer string that no principal recognises must be refused outright.
+	// A token string that no principal recognises must be refused outright.
 	unknown := h.request(http.MethodGet, "/api/admin/logs/export?hours=24", "", "jly_x", "application/json", "")
 	h.mustNoPanic(unknown, "GET /api/admin/logs/export with unknown token")
 	if unknown.code != http.StatusUnauthorized {
-		t.Errorf("GET /api/admin/logs/export with Bearer jly_x returned %d, want 401", unknown.code)
+		t.Errorf("GET /api/admin/logs/export with jwt_token cookie jly_x returned %d, want 401", unknown.code)
 	}
 
 	// The API-token principal comes from ticket 06, which is not in this tree.

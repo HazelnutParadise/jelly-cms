@@ -108,7 +108,7 @@ func acctCallReader(t *testing.T, h *accessHarness, remote, method, path string,
 	}
 	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 	if token != "" {
-		req.Header.Set(echo.HeaderAuthorization, "Bearer "+token)
+		setAccessToken(req, token)
 	}
 	for name, value := range headers {
 		req.Header.Set(name, value)

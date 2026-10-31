@@ -18,6 +18,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -141,7 +142,12 @@ func TestInjectionWriteNeedsAdminInteractiveAndPassword(t *testing.T) {
 		t.Errorf("admin with wrong current_password returned %d, want 403", r.code)
 	}
 	// The interactive path refuses an Authorization header, even with the JWT and the right password.
-	bearer := h.request(http.MethodPut, "/api/admin/settings/injection", s08bJSON(t, withPassword(s08bInjectionPassword)), adminJWT, echo.MIMEApplicationJSON, echo.MIMEApplicationJSON)
+	bearerReq := httptest.NewRequest(http.MethodPut, "/api/admin/settings/injection", strings.NewReader(s08bJSON(t, withPassword(s08bInjectionPassword))))
+	bearerReq.Header.Set("X-Jelly-CSRF", "1")
+	bearerReq.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
+	bearerReq.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	bearerReq.Header.Set(echo.HeaderAuthorization, "Bearer "+adminJWT)
+	bearer := s08bDo(h, bearerReq)
 	h.mustNoPanic(bearer, "PUT injection with Authorization header")
 	if bearer.code != http.StatusForbidden {
 		t.Errorf("PUT injection with a Bearer header returned %d, want 403", bearer.code)

@@ -181,6 +181,27 @@ func (h *accessHarness) request(method, path, body, token, accept, contentType s
 	return h.requestReader(method, path, r, token, accept, contentType)
 }
 
+// isAdminAPIPath reports whether path is /api/admin or below it. That tree is the
+// browser-only admin API: ticket 23 refuses any Authorization header there.
+func isAdminAPIPath(path string) bool {
+	return path == "/api/admin" || strings.HasPrefix(path, "/api/admin/")
+}
+
+// setAccessToken authenticates req with a login JWT (or any token string). Admin
+// API paths get the browser login, the jwt_token cookie, plus the same-origin
+// proof every cookie write needs. All other paths keep the Bearer header.
+func setAccessToken(req *http.Request, token string) {
+	if !isAdminAPIPath(req.URL.Path) {
+		req.Header.Set(echo.HeaderAuthorization, "Bearer "+token)
+		return
+	}
+	req.AddCookie(&http.Cookie{Name: "jwt_token", Value: token})
+	if req.Method != http.MethodGet && req.Method != http.MethodHead && req.Method != http.MethodOptions {
+		// This trusted in-process fixture supplies the request's source evidence.
+		req.Header.Set("X-Jelly-CSRF", "1")
+	}
+}
+
 func (h *accessHarness) requestReader(method, path string, r io.Reader, token, accept, contentType string) accessResult {
 	h.t.Helper()
 	req := httptest.NewRequest(method, path, r)
@@ -195,7 +216,7 @@ func (h *accessHarness) requestReader(method, path string, r io.Reader, token, a
 		req.Header.Set(echo.HeaderContentType, contentType)
 	}
 	if token != "" {
-		req.Header.Set(echo.HeaderAuthorization, "Bearer "+token)
+		setAccessToken(req, token)
 	}
 	rec := httptest.NewRecorder()
 	var panicked any
