@@ -1,6 +1,6 @@
-package agent
+package integration
 
-// Unit tests for ticket 14 slot A1 (docs/tickets/14-agent-api.md, `internal/agent` 套件 and 名詞).
+// Unit tests for ticket 14 slot A1 (docs/tickets/14-integration-api.md, `internal/integration` 套件 and 名詞).
 // They pin the key format, hashing, display prefix, IP masking, the permission catalogue and the
 // rotation grace bounds. Introduced against the draft skeleton, they now define the regression
 // contract for these helpers. They run without a database.
@@ -13,16 +13,16 @@ import (
 	"testing"
 )
 
-var agentKeyPattern = regexp.MustCompile(`^jly_[A-Za-z0-9_-]{43}$`)
+var integrationKeyPattern = regexp.MustCompile(`^jly_[A-Za-z0-9_-]{43}$`)
 
-func TestAgentGenerateKeyFormatAndUniqueness(t *testing.T) {
+func TestIntegrationGenerateKeyFormatAndUniqueness(t *testing.T) {
 	seen := map[string]bool{}
 	for i := 0; i < 64; i++ {
 		key, err := GenerateKey()
 		if err != nil {
 			t.Fatalf("GenerateKey() error = %v", err)
 		}
-		if !agentKeyPattern.MatchString(key) {
+		if !integrationKeyPattern.MatchString(key) {
 			t.Fatalf("GenerateKey() = %q, want jly_ followed by 43 base64url characters (32 random bytes, no padding)", key)
 		}
 		if seen[key] {
@@ -32,7 +32,7 @@ func TestAgentGenerateKeyFormatAndUniqueness(t *testing.T) {
 	}
 }
 
-func TestAgentHashKeyIsSHA256HexOfWholeKey(t *testing.T) {
+func TestIntegrationHashKeyIsSHA256HexOfWholeKey(t *testing.T) {
 	key := "jla_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 	sum := sha256.Sum256([]byte(key))
 	want := hex.EncodeToString(sum[:])
@@ -44,7 +44,7 @@ func TestAgentHashKeyIsSHA256HexOfWholeKey(t *testing.T) {
 	}
 }
 
-func TestAgentPrefixOfKeepsTwelveCharacters(t *testing.T) {
+func TestIntegrationPrefixOfKeepsTwelveCharacters(t *testing.T) {
 	key := "jla_Qm3d8sKeRESTOFTHEKEYxxxxxxxxxxxxxxxxxxxxx"
 	if got := PrefixOf(key); got != "jla_Qm3d8sKe" {
 		t.Errorf("PrefixOf(%q) = %q, want jla_Qm3d8sKe (jla_ plus 8 characters)", key, got)
@@ -65,7 +65,7 @@ func TestAgentPrefixOfKeepsTwelveCharacters(t *testing.T) {
 	}
 }
 
-func TestAgentMaskIP(t *testing.T) {
+func TestIntegrationMaskIP(t *testing.T) {
 	cases := map[string]string{
 		"198.51.100.77":              "198.51.100.0",
 		"203.0.113.5":                "203.0.113.0",
@@ -82,7 +82,7 @@ func TestAgentMaskIP(t *testing.T) {
 	}
 }
 
-func TestAgentPermissionCatalogue(t *testing.T) {
+func TestIntegrationPermissionCatalogue(t *testing.T) {
 	want := []Permission{
 		"posts.read", "posts.write", "pages.read", "pages.write", "media.read", "media.write",
 		"products.read", "products.write", "orders.read", "themes.read", "themes.write",
@@ -109,7 +109,7 @@ func TestAgentPermissionCatalogue(t *testing.T) {
 	}
 }
 
-func TestAgentGraceMinutesBounds(t *testing.T) {
+func TestIntegrationGraceMinutesBounds(t *testing.T) {
 	if MinGraceMinutes != 1 || MaxGraceMinutes != 1440 {
 		t.Fatalf("grace bounds = %d..%d, want 1..1440", MinGraceMinutes, MaxGraceMinutes)
 	}

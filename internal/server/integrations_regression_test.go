@@ -27,7 +27,7 @@ import (
 // original acceptance cases. They intentionally assert only HTTP-visible behavior
 // except where the invariant is that a rejected write leaves persisted rows alone.
 
-func TestAgentRegressionConcurrentGraceRotationsKeepAtMostTwoUsableKeys(t *testing.T) {
+func TestIntegrationRegressionConcurrentGraceRotationsKeepAtMostTwoUsableKeys(t *testing.T) {
 	h := newAccessHarness(t)
 	_, adminToken, created := agtSetup(t, h, "Concurrent rotation", "posts.read")
 	const racers = 8
@@ -91,7 +91,7 @@ func TestAgentRegressionConcurrentGraceRotationsKeepAtMostTwoUsableKeys(t *testi
 			KeyHash string
 			Prefix  string
 		}
-		if err := h.db.Raw("SELECT id, key_hash, prefix FROM agent_keys WHERE id = ? AND agent_id = ?", rotated.Key.ID, created.Agent.ID).Scan(&persisted).Error; err != nil {
+		if err := h.db.Raw("SELECT id, key_hash, prefix FROM integration_keys WHERE id = ? AND integration_id = ?", rotated.Key.ID, created.Agent.ID).Scan(&persisted).Error; err != nil {
 			t.Fatalf("read persisted key for rotation %d: %v", i, err)
 		}
 		if persisted.ID != rotated.Key.ID || persisted.KeyHash != hex.EncodeToString(sum[:]) || persisted.Prefix != rotated.APIKey[:12] || rotated.Key.Prefix != persisted.Prefix {
@@ -116,7 +116,7 @@ func TestAgentRegressionConcurrentGraceRotationsKeepAtMostTwoUsableKeys(t *testi
 	}
 }
 
-func TestAgentRegressionRotationResponseKeepsItsOwnKeyIdentity(t *testing.T) {
+func TestIntegrationRegressionRotationResponseKeepsItsOwnKeyIdentity(t *testing.T) {
 	h := newAccessHarness(t)
 	_, adminToken, created := agtSetup(t, h, "Deterministic rotation identity", "posts.read")
 	entered := make(chan struct{})
@@ -124,7 +124,7 @@ func TestAgentRegressionRotationResponseKeepsItsOwnKeyIdentity(t *testing.T) {
 	var claimed atomic.Bool
 	const callbackName = "agent_regression_pause_first_rotation_view_key_read"
 	if err := h.db.Callback().Query().Before("gorm:query").Register(callbackName, func(tx *gorm.DB) {
-		if tx.Statement.Table != "agent_keys" {
+		if tx.Statement.Table != "integration_keys" {
 			return
 		}
 		if _, inTransaction := tx.Statement.ConnPool.(*sql.Tx); inTransaction {
@@ -161,7 +161,7 @@ func TestAgentRegressionRotationResponseKeepsItsOwnKeyIdentity(t *testing.T) {
 		var rotated agtRotated
 		agtDecode(t, result, &rotated, fmt.Sprintf("deterministic rotation %d", i))
 		sum := sha256.Sum256([]byte(rotated.APIKey))
-		var persisted core.AgentKey
+		var persisted core.IntegrationKey
 		if err := h.db.First(&persisted, rotated.Key.ID).Error; err != nil {
 			t.Fatalf("read response key %d: %v", rotated.Key.ID, err)
 		}
@@ -171,7 +171,7 @@ func TestAgentRegressionRotationResponseKeepsItsOwnKeyIdentity(t *testing.T) {
 	}
 }
 
-func TestAgentRegressionRotationEmptyChunkedBodyDefaultsToImmediate(t *testing.T) {
+func TestIntegrationRegressionRotationEmptyChunkedBodyDefaultsToImmediate(t *testing.T) {
 	h := newAccessHarness(t)
 	_, adminToken, created := agtSetup(t, h, "Empty chunked rotation body", "posts.read")
 	for _, tc := range []struct {
@@ -197,7 +197,7 @@ func TestAgentRegressionRotationEmptyChunkedBodyDefaultsToImmediate(t *testing.T
 	}
 }
 
-func TestAgentRegressionOwnerAvailabilityAndPersonalTokenCannotManage(t *testing.T) {
+func TestIntegrationRegressionOwnerAvailabilityAndPersonalTokenCannotManage(t *testing.T) {
 	h := newAccessHarness(t)
 	owner, _, created := agtSetup(t, h, "Owner state", "posts.read")
 	for _, status := range []string{"invited", "disabled"} {
@@ -215,7 +215,7 @@ func TestAgentRegressionOwnerAvailabilityAndPersonalTokenCannotManage(t *testing
 	}
 	// A real jly_ personal token, seeded as it was before ticket 22 and migrated
 	// by 0026. Unknown bearer strings would only prove authentication failure,
-	// not the agent-management boundary.
+	// not the integration-management boundary.
 	personalOwner := tokTestUser(t, h, "agent-regression-personal-admin", "admin")
 	personalToken := apiKeysSeedToken(t, h, personalOwner, "agent regression", []string{"admin"}, nil, nil)
 	apiKeysRunMigration(t, h)
@@ -231,9 +231,9 @@ func TestAgentRegressionOwnerAvailabilityAndPersonalTokenCannotManage(t *testing
 	}
 }
 
-func TestAgentRegressionCrossTypeWritesAndDeletesAreNonMutating(t *testing.T) {
+func TestIntegrationRegressionCrossTypeWritesAndDeletesAreNonMutating(t *testing.T) {
 	h := newAccessHarness(t)
-	admin, _, agent := agtSetup(t, h, "Cross type", "posts.write", "pages.write")
+	admin, _, integration := agtSetup(t, h, "Cross type", "posts.write", "pages.write")
 	article := core.Post{Title: "post snapshot", Slug: "agent-regression-post", Content: "unchanged", Type: "post", Status: "draft", AuthorID: admin.ID}
 	page := core.Post{Title: "page snapshot", Slug: "agent-regression-page", Content: "unchanged", Type: "page", Status: "draft", AuthorID: admin.ID}
 	for _, p := range []*core.Post{&article, &page} {
@@ -251,7 +251,7 @@ func TestAgentRegressionCrossTypeWritesAndDeletesAreNonMutating(t *testing.T) {
 		{http.MethodPut, "/pages", article.ID, `{"title":"must not become page","content":"mutated","base_updated_at":"2026-01-01T00:00:00Z"}`},
 		{http.MethodDelete, "/pages", article.ID, ""},
 	} {
-		r := agtDo(h, tc.method, fmt.Sprintf("/api/v1%s/%d", tc.route, tc.id), tc.body, agent.APIKey, "")
+		r := agtDo(h, tc.method, fmt.Sprintf("/api/v1%s/%d", tc.route, tc.id), tc.body, integration.APIKey, "")
 		if r.code != http.StatusNotFound {
 			t.Errorf("%s %s/%d returned %d, want 404; body=%q", tc.method, tc.route, tc.id, r.code, r.body)
 		}
@@ -268,9 +268,9 @@ func TestAgentRegressionCrossTypeWritesAndDeletesAreNonMutating(t *testing.T) {
 	}
 }
 
-func TestAgentRegressionProductCASHasSingleWinnerAndNoPartialCatalogWrites(t *testing.T) {
+func TestIntegrationRegressionProductCASHasSingleWinnerAndNoPartialCatalogWrites(t *testing.T) {
 	h := newAccessHarness(t)
-	_, _, agent := agtSetup(t, h, "Product CAS", "products.read", "products.write")
+	_, _, integration := agtSetup(t, h, "Product CAS", "products.read", "products.write")
 	product := core.Product{Title: "CAS baseline", Slug: "agent-regression-cas-product", Price: 12000, Stock: 5, Status: "active"}
 	if err := h.db.Create(&product).Error; err != nil {
 		t.Fatalf("seed product: %v", err)
@@ -287,7 +287,7 @@ func TestAgentRegressionProductCASHasSingleWinnerAndNoPartialCatalogWrites(t *te
 		}
 	}
 	path := fmt.Sprintf("/api/v1/products/%d", product.ID)
-	base := agtUpdatedAt(t, agtDo(h, http.MethodGet, path, "", agent.APIKey, ""), "GET product before concurrent update")
+	base := agtUpdatedAt(t, agtDo(h, http.MethodGet, path, "", integration.APIKey, ""), "GET product before concurrent update")
 	const racers = 6
 	results := make([]agtResult, racers)
 	start := make(chan struct{})
@@ -299,7 +299,7 @@ func TestAgentRegressionProductCASHasSingleWinnerAndNoPartialCatalogWrites(t *te
 			<-start
 			body := fmt.Sprintf(`{"title":"CAS winner %d","status":"active","base_updated_at":%q,"variants":[{"id":%d,"name":"variant winner %d","sku":"REG-CAS-%d","price":"%d","stock":%d,"status":"active"}],"categories":[%d]}`,
 				i, base, variant.ID, i, i, 120+i, i+2, categories[i].ID)
-			results[i] = agtDo(h, http.MethodPut, path, body, agent.APIKey, "")
+			results[i] = agtDo(h, http.MethodPut, path, body, integration.APIKey, "")
 		}(i)
 	}
 	close(start)
@@ -353,17 +353,17 @@ func TestAgentRegressionProductCASHasSingleWinnerAndNoPartialCatalogWrites(t *te
 	// The response timestamp must round-trip as the next optimistic base.
 	winningResponse := results[winner]
 	baseAfter := agtUpdatedAt(t, winningResponse, "winning product update response")
-	next := agtDo(h, http.MethodPut, path, fmt.Sprintf(`{"title":"CAS timestamp reusable","base_updated_at":%q}`, baseAfter), agent.APIKey, "")
+	next := agtDo(h, http.MethodPut, path, fmt.Sprintf(`{"title":"CAS timestamp reusable","base_updated_at":%q}`, baseAfter), integration.APIKey, "")
 	if next.code != http.StatusOK {
 		t.Errorf("returned product updated_at was not reusable as base_updated_at: status=%d body=%q", next.code, next.body)
 	}
 }
 
-func TestAgentRegressionKeyIDLogFilterPreservesTotalCursorAndIsolation(t *testing.T) {
+func TestIntegrationRegressionKeyIDLogFilterPreservesTotalCursorAndIsolation(t *testing.T) {
 	h := newAccessHarness(t)
 	_, adminToken, a := agtSetup(t, h, "Key filter A", "posts.read", "logs.read")
 	b := agtCreate(t, h, adminToken, "Key filter B", "posts.read", "logs.read")
-	// Produce events with two key IDs for A, plus events belonging to a separate agent.
+	// Produce events with two key IDs for A, plus events belonging to a separate integration.
 	rotated := agtRotate(t, h, adminToken, a.Agent.ID, `{"mode":"grace","grace_minutes":30}`)
 	for i := 0; i < 3; i++ {
 		agtDo(h, http.MethodGet, "/api/v1/posts", "", a.APIKey, "")
@@ -398,15 +398,15 @@ func TestAgentRegressionKeyIDLogFilterPreservesTotalCursorAndIsolation(t *testin
 		t.Fatalf("second filtered page=%+v, want total=3, 1 item and no cursor", second)
 	}
 	for _, event := range append(first.Items, second.Items...) {
-		if event.AgentID != a.Agent.ID || event.KeyID == nil || *event.KeyID != keyID {
+		if event.IntegrationID != a.Agent.ID || event.KeyID == nil || *event.KeyID != keyID {
 			t.Errorf("key_id filtered event escaped agent/key scope: %+v", event)
 		}
 	}
 }
 
-func TestAgentRegressionUnknownRouteAndWrongMethodKeepErrorEnvelopeAndAudit(t *testing.T) {
+func TestIntegrationRegressionUnknownRouteAndWrongMethodKeepErrorEnvelopeAndAudit(t *testing.T) {
 	h := newAccessHarness(t)
-	_, _, agent := agtSetup(t, h, "Matched failure audit", "posts.read")
+	_, _, integration := agtSetup(t, h, "Matched failure audit", "posts.read")
 	var unknownRoute agtResult
 	for _, tc := range []struct {
 		method, path string
@@ -418,14 +418,14 @@ func TestAgentRegressionUnknownRouteAndWrongMethodKeepErrorEnvelopeAndAudit(t *t
 		{http.MethodPost, "/api/v1/me", http.StatusMethodNotAllowed, "method_not_allowed"},
 		{http.MethodPost, "/api/v1", http.StatusMethodNotAllowed, "method_not_allowed"},
 	} {
-		r := agtDo(h, tc.method, tc.path, "", agent.APIKey, "")
+		r := agtDo(h, tc.method, tc.path, "", integration.APIKey, "")
 		agtExpectError(t, r, tc.code, tc.expected, tc.method+" "+tc.path)
 		if tc.path == "/api/v1/not-a-route/extra" {
 			unknownRoute = r
 		}
 	}
-	var unknownEvent core.AgentEvent
-	if err := h.db.Where("request_id = ? AND actor_type = 'agent'", unknownRoute.header.Get(echo.HeaderXRequestID)).First(&unknownEvent).Error; err != nil {
+	var unknownEvent core.IntegrationEvent
+	if err := h.db.Where("request_id = ? AND actor_type = 'integration'", unknownRoute.header.Get(echo.HeaderXRequestID)).First(&unknownEvent).Error; err != nil {
 		t.Fatalf("read unknown-route audit: %v", err)
 	}
 	var unknownSummary map[string]any
@@ -437,7 +437,7 @@ func TestAgentRegressionUnknownRouteAndWrongMethodKeepErrorEnvelopeAndAudit(t *t
 		t.Errorf("unknown route recorded wildcard params=%v, want empty object", params)
 	}
 	var events []agtEvent
-	if err := h.db.Raw(`SELECT id, agent_id, key_id, key_prefix, method, route, status, request_id AS correlation_id FROM agent_events WHERE agent_id = ? ORDER BY id`, agent.Agent.ID).Scan(&events).Error; err != nil {
+	if err := h.db.Raw(`SELECT id, integration_id, key_id, key_prefix, method, route, status, request_id AS correlation_id FROM integration_events WHERE integration_id = ? ORDER BY id`, integration.Agent.ID).Scan(&events).Error; err != nil {
 		t.Fatalf("read matched-key audit events: %v", err)
 	}
 	if len(events) < 4 {
@@ -446,7 +446,7 @@ func TestAgentRegressionUnknownRouteAndWrongMethodKeepErrorEnvelopeAndAudit(t *t
 	statuses := map[int]bool{}
 	for _, event := range events {
 		statuses[event.Status] = true
-		if event.AgentID != agent.Agent.ID || event.KeyID == nil || *event.KeyID != agent.Key.ID || event.KeyPrefix != agent.Key.Prefix {
+		if event.IntegrationID != integration.Agent.ID || event.KeyID == nil || *event.KeyID != integration.Key.ID || event.KeyPrefix != integration.Key.Prefix {
 			t.Errorf("matched-key failure audit envelope lost agent/key identity: %+v", event)
 		}
 	}
@@ -455,16 +455,16 @@ func TestAgentRegressionUnknownRouteAndWrongMethodKeepErrorEnvelopeAndAudit(t *t
 	}
 }
 
-func TestAgentRegressionSettingsURLValidationMatchesAdminAndDoesNotWrite(t *testing.T) {
+func TestIntegrationRegressionSettingsURLValidationMatchesAdminAndDoesNotWrite(t *testing.T) {
 	h := newAccessHarness(t)
-	_, adminToken, agent := agtSetup(t, h, "Settings URL validation", "settings.write")
+	_, adminToken, integration := agtSetup(t, h, "Settings URL validation", "settings.write")
 	before := core.Option{Key: "permalink_post", Value: "/post/{slug}"}
 	if err := h.db.Save(&before).Error; err != nil {
 		t.Fatalf("seed permalink option: %v", err)
 	}
 	bad := `{"permalink_post":"/archive/{unknown}"}`
 	for _, tc := range []struct{ label, method, path, bearer string }{
-		{"agent", http.MethodPut, "/api/v1/settings", agent.APIKey},
+		{"agent", http.MethodPut, "/api/v1/settings", integration.APIKey},
 		{"admin", http.MethodPost, "/api/admin/settings", adminToken},
 	} {
 		var r agtResult
@@ -493,7 +493,7 @@ func TestAgentRegressionSettingsURLValidationMatchesAdminAndDoesNotWrite(t *test
 		t.Fatalf("seed tag prefix: %v", err)
 	}
 	collision := `{"permalink_category_prefix":"/topics","permalink_tag_prefix":"/topics"}`
-	r := agtDo(h, http.MethodPut, "/api/v1/settings", collision, agent.APIKey, "")
+	r := agtDo(h, http.MethodPut, "/api/v1/settings", collision, integration.APIKey, "")
 	if r.code != http.StatusBadRequest {
 		t.Errorf("agent prefix collision returned %d, want 400; body=%q", r.code, r.body)
 	}
@@ -509,21 +509,21 @@ func TestAgentRegressionSettingsURLValidationMatchesAdminAndDoesNotWrite(t *test
 	}
 }
 
-func TestAgentRegressionAdminEventsFilterMultipleActionsAcrossHistory(t *testing.T) {
+func TestIntegrationRegressionAdminEventsFilterMultipleActionsAcrossHistory(t *testing.T) {
 	h := newAccessHarness(t)
 	owner, adminToken, a := agtSetup(t, h, "Action history A", "posts.read")
 	b := agtCreate(t, h, adminToken, "Action history B", "posts.read")
 	ownerID := owner.ID
-	seedEvent := func(agentID uint, name, action string, at time.Time) {
+	seedEvent := func(integrationID uint, name, action string, at time.Time) {
 		t.Helper()
-		event := core.AgentEvent{
+		event := core.IntegrationEvent{
 			At: at, ActorType: "user", ActorUserID: &ownerID,
-			AgentID: agentID, AgentName: name, Action: action, Module: "agents",
+			IntegrationID: integrationID, IntegrationName: name, Action: action, Module: "integrations",
 			Method: http.MethodPost, Route: "/api/admin/agents/:id", Status: http.StatusOK,
 			Summary: json.RawMessage(`{"fixture":"action-filter-regression"}`),
 		}
 		if err := h.db.Create(&event).Error; err != nil {
-			t.Fatalf("seed %s event for agent %d: %v", action, agentID, err)
+			t.Fatalf("seed %s event for agent %d: %v", action, integrationID, err)
 		}
 	}
 	baseTime := time.Now().UTC().Add(-time.Hour)
@@ -531,10 +531,10 @@ func TestAgentRegressionAdminEventsFilterMultipleActionsAcrossHistory(t *testing
 	for i, action := range olderActions {
 		seedEvent(a.Agent.ID, a.Agent.Name, action, baseTime.Add(time.Duration(i)*time.Second))
 	}
-	// More than the default 50 newest rows are irrelevant agent.update events.
+	// More than the default 50 newest rows are irrelevant integration.update events.
 	// Correct filtering must find the older rotation history before applying limit.
 	for i := 0; i < 55; i++ {
-		seedEvent(a.Agent.ID, a.Agent.Name, "agent.update", baseTime.Add(time.Hour+time.Duration(i)*time.Second))
+		seedEvent(a.Agent.ID, a.Agent.Name, "integration.update", baseTime.Add(time.Hour+time.Duration(i)*time.Second))
 	}
 	seedEvent(b.Agent.ID, b.Agent.Name, "key.rotate", baseTime.Add(2*time.Hour))
 
@@ -549,7 +549,7 @@ func TestAgentRegressionAdminEventsFilterMultipleActionsAcrossHistory(t *testing
 	seen := make(map[int64]bool)
 	for _, event := range first.Items {
 		seen[event.ID] = true
-		if event.AgentID != a.Agent.ID || (event.Action != "key.rotate" && event.Action != "key.revoke") {
+		if event.IntegrationID != a.Agent.ID || (event.Action != "key.rotate" && event.Action != "key.revoke") {
 			t.Errorf("multi-action history returned unrelated event: %+v", event)
 		}
 	}
@@ -572,7 +572,7 @@ func TestAgentRegressionAdminEventsFilterMultipleActionsAcrossHistory(t *testing
 				t.Errorf("event %d repeated across action-filtered pages", event.ID)
 			}
 			seen[event.ID] = true
-			if event.AgentID != a.Agent.ID || (event.Action != "key.rotate" && event.Action != "key.revoke") {
+			if event.IntegrationID != a.Agent.ID || (event.Action != "key.rotate" && event.Action != "key.revoke") {
 				t.Errorf("multi-action history returned unrelated event: %+v", event)
 			}
 		}
@@ -613,7 +613,7 @@ func TestAgentRegressionAdminEventsFilterMultipleActionsAcrossHistory(t *testing
 	agtExpectError(t, agtResult{code: invalid.code, body: invalid.body, header: invalid.header, panicked: invalid.panicked}, http.StatusBadRequest, "logs_filter_invalid", "agent event action filter over 32 characters")
 
 	var allCount int64
-	if err := h.db.Model(&core.AgentEvent{}).Where("agent_id = ?", a.Agent.ID).Count(&allCount).Error; err != nil {
+	if err := h.db.Model(&core.IntegrationEvent{}).Where("integration_id = ?", a.Agent.ID).Count(&allCount).Error; err != nil {
 		t.Fatalf("count all agent events: %v", err)
 	}
 	emptyQuery := url.Values{"agent_id": {fmt.Sprint(a.Agent.ID)}, "action": {""}, "limit": {"100"}}
@@ -623,9 +623,9 @@ func TestAgentRegressionAdminEventsFilterMultipleActionsAcrossHistory(t *testing
 	}
 }
 
-// agentRegressionInstallTrigger confines deliberate persistence faults to the fresh
+// integrationRegressionInstallTrigger confines deliberate persistence faults to the fresh
 // database owned by newAccessHarness. The trigger is removed before that database closes.
-func agentRegressionInstallTrigger(t *testing.T, h *accessHarness, name, table, operation, condition string) {
+func integrationRegressionInstallTrigger(t *testing.T, h *accessHarness, name, table, operation, condition string) {
 	t.Helper()
 	if operation != "INSERT" && operation != "UPDATE" {
 		t.Fatalf("unsupported isolated trigger operation %q", operation)
@@ -652,10 +652,10 @@ END; $$`, function, condition)
 	})
 }
 
-func TestAgentRegressionAuditEventInsertFailurePreventsBusinessWrite(t *testing.T) {
+func TestIntegrationRegressionAuditEventInsertFailurePreventsBusinessWrite(t *testing.T) {
 	h := newAccessHarness(t)
 	_, _, writer := agtSetup(t, h, "Audit event insert fault", "posts.read", "posts.write")
-	agentRegressionInstallTrigger(t, h, "agent_regression_reject_agent_event", "agent_events", "INSERT", "NEW.actor_type = 'agent'")
+	integrationRegressionInstallTrigger(t, h, "agent_regression_reject_agent_event", "integration_events", "INSERT", "NEW.actor_type = 'integration'")
 	const title = "audit-event-fault-post-must-not-exist"
 	r := agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"audit-event-fault-post-must-not-exist","content":"fault fixture","status":"draft"}`, writer.APIKey, "")
 	if r.code != http.StatusInternalServerError {
@@ -670,7 +670,7 @@ func TestAgentRegressionAuditEventInsertFailurePreventsBusinessWrite(t *testing.
 	}
 	requestID := r.header.Get(echo.HeaderXRequestID)
 	var eventRows, auditRows int64
-	if err := h.db.Model(&core.AgentEvent{}).Where("request_id = ? AND actor_type = 'agent'", requestID).Count(&eventRows).Error; err != nil {
+	if err := h.db.Model(&core.IntegrationEvent{}).Where("request_id = ? AND actor_type = 'integration'", requestID).Count(&eventRows).Error; err != nil {
 		t.Fatalf("count agent event rows after failed insert: %v", err)
 	}
 	if err := h.db.Table("system_logs").Where("request_id = ? AND source = 'audit'", requestID).Count(&auditRows).Error; err != nil {
@@ -681,10 +681,10 @@ func TestAgentRegressionAuditEventInsertFailurePreventsBusinessWrite(t *testing.
 	}
 }
 
-func TestAgentRegressionAuditSystemLogInsertFailurePreventsBusinessWrite(t *testing.T) {
+func TestIntegrationRegressionAuditSystemLogInsertFailurePreventsBusinessWrite(t *testing.T) {
 	h := newAccessHarness(t)
 	_, _, writer := agtSetup(t, h, "Audit syslog insert fault", "posts.read", "posts.write")
-	agentRegressionInstallTrigger(t, h, "agent_regression_reject_request_syslog", "system_logs", "INSERT", "NEW.source = 'audit' AND NEW.fields->>'action' = 'request'")
+	integrationRegressionInstallTrigger(t, h, "agent_regression_reject_request_syslog", "system_logs", "INSERT", "NEW.source = 'audit' AND NEW.fields->>'action' = 'request'")
 	const title = "audit-syslog-fault-post-must-not-exist"
 	r := agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"audit-syslog-fault-post-must-not-exist","content":"fault fixture","status":"draft"}`, writer.APIKey, "")
 	if r.code != http.StatusInternalServerError {
@@ -694,7 +694,7 @@ func TestAgentRegressionAuditSystemLogInsertFailurePreventsBusinessWrite(t *test
 	if err := h.db.Model(&core.Post{}).Where("title = ?", title).Count(&posts).Error; err != nil {
 		t.Fatalf("count business posts after audit system log fault: %v", err)
 	}
-	if err := h.db.Model(&core.AgentEvent{}).Where("request_id = ? AND actor_type = 'agent'", r.header.Get(echo.HeaderXRequestID)).Count(&eventRows).Error; err != nil {
+	if err := h.db.Model(&core.IntegrationEvent{}).Where("request_id = ? AND actor_type = 'integration'", r.header.Get(echo.HeaderXRequestID)).Count(&eventRows).Error; err != nil {
 		t.Fatalf("count agent events after system log fault: %v", err)
 	}
 	if err := h.db.Table("system_logs").Where("request_id = ? AND source = 'audit' AND fields->>'action' = 'request'", r.header.Get(echo.HeaderXRequestID)).Count(&auditRows).Error; err != nil {
@@ -705,10 +705,10 @@ func TestAgentRegressionAuditSystemLogInsertFailurePreventsBusinessWrite(t *test
 	}
 }
 
-func TestAgentRegressionAuditFinalizeFailureRetainsPendingRecord(t *testing.T) {
+func TestIntegrationRegressionAuditFinalizeFailureRetainsPendingRecord(t *testing.T) {
 	h := newAccessHarness(t)
 	_, _, writer := agtSetup(t, h, "Audit finalize fault", "posts.read", "posts.write")
-	agentRegressionInstallTrigger(t, h, "agent_regression_reject_event_finalize", "agent_events", "UPDATE", "OLD.actor_type = 'agent' AND OLD.status = 0")
+	integrationRegressionInstallTrigger(t, h, "agent_regression_reject_event_finalize", "integration_events", "UPDATE", "OLD.actor_type = 'integration' AND OLD.status = 0")
 	const title = "audit-finalize-fault-post-succeeds"
 	r := agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"audit-finalize-fault-post-succeeds","content":"fault fixture","status":"draft"}`, writer.APIKey, "")
 	if r.code < 200 || r.code >= 300 {
@@ -722,8 +722,8 @@ func TestAgentRegressionAuditFinalizeFailureRetainsPendingRecord(t *testing.T) {
 		t.Errorf("successful POST left %d posts, want 1", posts)
 	}
 	requestID := r.header.Get(echo.HeaderXRequestID)
-	var events []core.AgentEvent
-	if err := h.db.Where("request_id = ? AND actor_type = 'agent' AND action = 'request'", requestID).Find(&events).Error; err != nil {
+	var events []core.IntegrationEvent
+	if err := h.db.Where("request_id = ? AND actor_type = 'integration' AND action = 'request'", requestID).Find(&events).Error; err != nil {
 		t.Fatalf("read pending agent request event: %v", err)
 	}
 	if len(events) != 1 || events[0].Status != 0 {
@@ -747,7 +747,7 @@ func TestAgentRegressionAuditFinalizeFailureRetainsPendingRecord(t *testing.T) {
 	}
 }
 
-func TestAgentRegressionSettingsMixedTypesRejectAndSecretMasksMatchAdmin(t *testing.T) {
+func TestIntegrationRegressionSettingsMixedTypesRejectAndSecretMasksMatchAdmin(t *testing.T) {
 	h := newAccessHarness(t)
 	_, adminToken, reader := agtSetup(t, h, "Settings regression", "settings.read", "settings.write")
 	before := core.Option{Key: "site_title", Value: "before"}
@@ -776,13 +776,13 @@ func TestAgentRegressionSettingsMixedTypesRejectAndSecretMasksMatchAdmin(t *test
 		if err := h.db.Save(&core.Option{Key: "oauth_google_client_secret", Value: secret}).Error; err != nil {
 			t.Fatalf("seed secret %q: %v", secret, err)
 		}
-		readAgent := agtDo(h, http.MethodGet, "/api/v1/settings", "", reader.APIKey, "")
+		readIntegration := agtDo(h, http.MethodGet, "/api/v1/settings", "", reader.APIKey, "")
 		readAdmin := agtAdmin(h, adminToken, http.MethodGet, "/api/admin/settings", "")
-		if readAgent.code != http.StatusOK || readAdmin.code != http.StatusOK {
-			t.Fatalf("read settings for secret %q returned agent=%d admin=%d", secret, readAgent.code, readAdmin.code)
+		if readIntegration.code != http.StatusOK || readAdmin.code != http.StatusOK {
+			t.Fatalf("read settings for secret %q returned agent=%d admin=%d", secret, readIntegration.code, readAdmin.code)
 		}
-		var agentOptions, adminOptions []core.Option
-		agtDecode(t, readAgent, &agentOptions, "agent secret settings")
+		var integrationOptions, adminOptions []core.Option
+		agtDecode(t, readIntegration, &integrationOptions, "agent secret settings")
 		agtDecode(t, readAdmin, &adminOptions, "admin secret settings")
 		value := func(options []core.Option) string {
 			for _, o := range options {
@@ -792,13 +792,13 @@ func TestAgentRegressionSettingsMixedTypesRejectAndSecretMasksMatchAdmin(t *test
 			}
 			return "<missing>"
 		}
-		if got, want := value(agentOptions), value(adminOptions); got != want {
+		if got, want := value(integrationOptions), value(adminOptions); got != want {
 			t.Errorf("secret %q displays differently between agent (%q) and admin (%q)", secret, got, want)
 		}
 	}
 }
 
-func TestAgentRegressionConcurrentDuplicateNamesReturnConflict(t *testing.T) {
+func TestIntegrationRegressionConcurrentDuplicateNamesReturnConflict(t *testing.T) {
 	h := newAccessHarness(t)
 	_, adminToken, first := agtSetup(t, h, "Initial rename A", "posts.read")
 	second := agtCreate(t, h, adminToken, "Initial rename B", "posts.read")
@@ -853,14 +853,14 @@ func TestAgentRegressionConcurrentDuplicateNamesReturnConflict(t *testing.T) {
 	assertSingleConflict("concurrent rename", renameResults, http.StatusOK)
 }
 
-func TestAgentRegressionConcurrentAgentPatchesDoNotResurrectPermissions(t *testing.T) {
+func TestIntegrationRegressionConcurrentIntegrationPatchesDoNotResurrectPermissions(t *testing.T) {
 	h := newAccessHarness(t)
 	_, adminToken, created := agtSetup(t, h, "Patch lock sequencing", "posts.read", "media.read")
 	locker := h.db.Begin()
 	if locker.Error != nil {
 		t.Fatalf("begin patch lock transaction: %v", locker.Error)
 	}
-	var locked core.Agent
+	var locked core.Integration
 	if err := locker.Clauses(clause.Locking{Strength: "UPDATE"}).First(&locked, created.Agent.ID).Error; err != nil {
 		_ = locker.Rollback().Error
 		t.Fatalf("lock agent row: %v", err)
@@ -870,12 +870,12 @@ func TestAgentRegressionConcurrentAgentPatchesDoNotResurrectPermissions(t *testi
 	go func() {
 		permissionDone <- agtAdmin(h, adminToken, http.MethodPatch, fmt.Sprintf("/api/admin/agents/%d", created.Agent.ID), `{"permissions":["media.read"]}`)
 	}()
-	waitForAgentRegressionLockWaiters(t, h.db, 1)
+	waitForIntegrationRegressionLockWaiters(t, h.db, 1)
 	nameDone := make(chan agtResult, 1)
 	go func() {
 		nameDone <- agtAdmin(h, adminToken, http.MethodPatch, fmt.Sprintf("/api/admin/agents/%d", created.Agent.ID), `{"name":"Patch lock winner"}`)
 	}()
-	waitForAgentRegressionLockWaiters(t, h.db, 2)
+	waitForIntegrationRegressionLockWaiters(t, h.db, 2)
 	if err := locker.Commit().Error; err != nil {
 		t.Fatalf("release patch lock: %v", err)
 	}
@@ -889,9 +889,9 @@ func TestAgentRegressionConcurrentAgentPatchesDoNotResurrectPermissions(t *testi
 	}
 }
 
-func TestAgentRegressionConcurrentPostTypeSwitchCannotDeleteWrongContent(t *testing.T) {
+func TestIntegrationRegressionConcurrentPostTypeSwitchCannotDeleteWrongContent(t *testing.T) {
 	h := newAccessHarness(t)
-	admin, _, agent := agtSetup(t, h, "Delete type lock sequencing", "posts.write", "pages.write")
+	admin, _, integration := agtSetup(t, h, "Delete type lock sequencing", "posts.write", "pages.write")
 	post := core.Post{Title: "post type race", Slug: "agent-regression-delete-type-post", Content: "keep", Type: "post", Status: "draft", AuthorID: admin.ID}
 	page := core.Post{Title: "page type race", Slug: "agent-regression-delete-type-page", Content: "keep", Type: "page", Status: "draft", AuthorID: admin.ID}
 	for _, item := range []*core.Post{&post, &page} {
@@ -918,9 +918,9 @@ func TestAgentRegressionConcurrentPostTypeSwitchCannotDeleteWrongContent(t *test
 		}
 		deleteDone := make(chan agtResult, 1)
 		go func(path string, id uint) {
-			deleteDone <- agtDo(h, http.MethodDelete, fmt.Sprintf("/api/v1/%s/%d", path, id), "", agent.APIKey, "")
+			deleteDone <- agtDo(h, http.MethodDelete, fmt.Sprintf("/api/v1/%s/%d", path, id), "", integration.APIKey, "")
 		}(tc.route, tc.item.ID)
-		waitForAgentRegressionLockWaiters(t, h.db, 1)
+		waitForIntegrationRegressionLockWaiters(t, h.db, 1)
 		if err := locker.Model(&core.Post{}).Where("id = ?", tc.item.ID).Update("type", tc.afterType).Error; err != nil {
 			_ = locker.Rollback().Error
 			t.Fatalf("switch %s type to %s: %v", tc.label, tc.afterType, err)
@@ -940,7 +940,7 @@ func TestAgentRegressionConcurrentPostTypeSwitchCannotDeleteWrongContent(t *test
 	}
 }
 
-func waitForAgentRegressionLockWaiters(t *testing.T, db *gorm.DB, want int64) {
+func waitForIntegrationRegressionLockWaiters(t *testing.T, db *gorm.DB, want int64) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
@@ -956,15 +956,15 @@ func waitForAgentRegressionLockWaiters(t *testing.T, db *gorm.DB, want int64) {
 	t.Fatalf("timed out waiting for %d PostgreSQL lock waiter(s)", want)
 }
 
-func TestAgentRegressionChunkedBodyAuditCountsBytesAndOversizeIsAudited(t *testing.T) {
+func TestIntegrationRegressionChunkedBodyAuditCountsBytesAndOversizeIsAudited(t *testing.T) {
 	h := newAccessHarness(t)
-	owner, _, agent := agtSetup(t, h, "Body accounting", "posts.read", "posts.write", "products.write")
+	owner, _, integration := agtSetup(t, h, "Body accounting", "posts.read", "posts.write", "products.write")
 	body := `{"title":"chunked-audit-body","content":"x","status":"draft"}`
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/posts", io.NopCloser(bytes.NewBufferString(body)))
 	request.ContentLength = -1
 	request.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 	request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	request.Header.Set(echo.HeaderAuthorization, "Bearer "+agent.APIKey)
+	request.Header.Set(echo.HeaderAuthorization, "Bearer "+integration.APIKey)
 	recorder := httptest.NewRecorder()
 	h.echo.ServeHTTP(recorder, request)
 	var response struct {
@@ -977,8 +977,8 @@ func TestAgentRegressionChunkedBodyAuditCountsBytesAndOversizeIsAudited(t *testi
 		t.Fatalf("chunked POST response=%q err=%v", recorder.Body.String(), err)
 	}
 	var summary map[string]any
-	var event core.AgentEvent
-	if err := h.db.Where("request_id = ? AND actor_type = 'agent'", recorder.Header().Get(echo.HeaderXRequestID)).First(&event).Error; err != nil {
+	var event core.IntegrationEvent
+	if err := h.db.Where("request_id = ? AND actor_type = 'integration'", recorder.Header().Get(echo.HeaderXRequestID)).First(&event).Error; err != nil {
 		t.Fatalf("read chunked request event: %v", err)
 	}
 	if err := json.Unmarshal(event.Summary, &summary); err != nil {
@@ -989,13 +989,13 @@ func TestAgentRegressionChunkedBodyAuditCountsBytesAndOversizeIsAudited(t *testi
 	}
 
 	large := strings.Repeat("x", 2*1024*1024+1)
-	over := agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"`+large+`"}`, agent.APIKey, "")
+	over := agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"`+large+`"}`, integration.APIKey, "")
 	agtExpectError(t, over, http.StatusRequestEntityTooLarge, "payload_too_large", "matched-key oversized request")
-	var rows []core.AgentEvent
-	if err := h.db.Where("agent_id = ? AND request_id = ? AND actor_type = 'agent'", agent.Agent.ID, over.header.Get(echo.HeaderXRequestID)).Find(&rows).Error; err != nil {
+	var rows []core.IntegrationEvent
+	if err := h.db.Where("integration_id = ? AND request_id = ? AND actor_type = 'integration'", integration.Agent.ID, over.header.Get(echo.HeaderXRequestID)).Find(&rows).Error; err != nil {
 		t.Fatalf("read oversized request audit: %v", err)
 	}
-	if len(rows) != 1 || rows[0].Status != http.StatusRequestEntityTooLarge || rows[0].KeyID == nil || *rows[0].KeyID != agent.Key.ID {
+	if len(rows) != 1 || rows[0].Status != http.StatusRequestEntityTooLarge || rows[0].KeyID == nil || *rows[0].KeyID != integration.Key.ID {
 		t.Errorf("oversized request audit rows=%+v, want one matched-key 413 event", rows)
 	}
 
@@ -1020,17 +1020,17 @@ func TestAgentRegressionChunkedBodyAuditCountsBytesAndOversizeIsAudited(t *testi
 		request.ContentLength = -1
 		request.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 		request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-		request.Header.Set(echo.HeaderAuthorization, "Bearer "+agent.APIKey)
+		request.Header.Set(echo.HeaderAuthorization, "Bearer "+integration.APIKey)
 		recorder := httptest.NewRecorder()
 		h.echo.ServeHTTP(recorder, request)
 		result := agtResult{code: recorder.Code, body: recorder.Body.String(), header: recorder.Header().Clone()}
 		agtExpectError(t, result, http.StatusRequestEntityTooLarge, "payload_too_large", tc.label+" chunked oversized request")
-		var audit core.AgentEvent
-		if err := h.db.Where("agent_id = ? AND request_id = ? AND actor_type = 'agent'", agent.Agent.ID, result.header.Get(echo.HeaderXRequestID)).First(&audit).Error; err != nil {
+		var audit core.IntegrationEvent
+		if err := h.db.Where("integration_id = ? AND request_id = ? AND actor_type = 'integration'", integration.Agent.ID, result.header.Get(echo.HeaderXRequestID)).First(&audit).Error; err != nil {
 			t.Errorf("%s: read chunked oversized request audit: %v", tc.label, err)
 			continue
 		}
-		if audit.Status != http.StatusRequestEntityTooLarge || audit.KeyID == nil || *audit.KeyID != agent.Key.ID {
+		if audit.Status != http.StatusRequestEntityTooLarge || audit.KeyID == nil || *audit.KeyID != integration.Key.ID {
 			t.Errorf("%s chunked oversized audit=%+v, want matched-key status 413", tc.label, audit)
 		}
 	}
@@ -1064,12 +1064,12 @@ func TestAgentRegressionChunkedBodyAuditCountsBytesAndOversizeIsAudited(t *testi
 	for i := 0; i < 90; i++ {
 		query.Set(fmt.Sprintf("query_key_%03d_with_long_name", i), "sensitive-query-value")
 	}
-	largeSummary := agtDo(h, http.MethodGet, "/api/v1/me?"+query.Encode(), "", agent.APIKey, "")
+	largeSummary := agtDo(h, http.MethodGet, "/api/v1/me?"+query.Encode(), "", integration.APIKey, "")
 	if largeSummary.code != http.StatusOK {
 		t.Errorf("GET /me with many query keys returned %d: %s", largeSummary.code, largeSummary.body)
 	}
-	var summaryEvent core.AgentEvent
-	if err := h.db.Where("request_id = ? AND actor_type = 'agent'", largeSummary.header.Get(echo.HeaderXRequestID)).First(&summaryEvent).Error; err != nil {
+	var summaryEvent core.IntegrationEvent
+	if err := h.db.Where("request_id = ? AND actor_type = 'integration'", largeSummary.header.Get(echo.HeaderXRequestID)).First(&summaryEvent).Error; err != nil {
 		t.Fatalf("read bounded summary event: %v", err)
 	}
 	var bounded map[string]any
@@ -1084,7 +1084,7 @@ func TestAgentRegressionChunkedBodyAuditCountsBytesAndOversizeIsAudited(t *testi
 	}
 }
 
-func TestAgentRegressionDiscoveryAndOpenAPISchemasMatchHandlers(t *testing.T) {
+func TestIntegrationRegressionDiscoveryAndOpenAPISchemasMatchHandlers(t *testing.T) {
 	h := newAccessHarness(t)
 	indexResult := agtDo(h, http.MethodGet, "/api/v1", "", "", "")
 	var index map[string]any

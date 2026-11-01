@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/HazelnutParadise/jelly-cms/internal/agent"
+	"github.com/HazelnutParadise/jelly-cms/internal/integration"
 )
 
 type loginDevice struct {
@@ -68,5 +68,5 @@ func maskClientIP(remote string) string {
 	if err != nil {
 		host = strings.Trim(remote, "[]")
 	}
-	return agent.MaskIP(host)
+	return integration.MaskIP(host)
 }

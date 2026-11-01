@@ -1,7 +1,7 @@
-// Package agent holds the pure parts of the AI agent API (docs/tickets/14-agent-api.md):
+// Package integration holds the pure parts of the AI integration API (docs/tickets/14-integration-api.md):
 // the permission catalogue, key generation and hashing, IP masking and the
 // rotation grace bounds. It has no database or HTTP dependencies.
-package agent
+package integration
 
 import (
 	"crypto/rand"
@@ -11,7 +11,7 @@ import (
 	"net"
 )
 
-// KeyPrefix starts every agent key issued from ticket 22 on. A key is
+// KeyPrefix starts every integration key issued from ticket 22 on. A key is
 // KeyPrefix followed by the unpadded base64url encoding (RFC 4648 §5) of 32
 // random bytes, 47 characters in total. Keys issued earlier use "jla_" and
 // still authenticate.
@@ -30,8 +30,8 @@ const (
 // Permission is one "resource.read" or "resource.write" grant.
 type Permission string
 
-// The 16 permissions an agent can hold, in catalogue order. There is
-// deliberately no agents.* permission: an agent can never manage agents.
+// The 16 permissions an integration can hold, in catalogue order. There is
+// deliberately no integrations.* permission: an integration can never manage integrations.
 const (
 	PostsRead     Permission = "posts.read"
 	PostsWrite    Permission = "posts.write"
@@ -87,7 +87,7 @@ func ValidPermission(name string) bool {
 }
 
 // Resource returns the part before the dot: "posts.write" → "posts". It is
-// also the module name written to agent_events.
+// also the module name written to integration_events.
 func (p Permission) Resource() string {
 	for i, char := range p {
 		if char == '.' {

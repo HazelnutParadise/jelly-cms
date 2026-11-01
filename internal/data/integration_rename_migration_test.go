@@ -108,8 +108,9 @@ func TestIntegrationRenameMigrationRenamesEveryAgentObject(t *testing.T) {
 	tokenHash := irnSHA256Hex("jly_fixture_token_0002")
 
 	var integrationID int64
-	if err := db.Raw(`INSERT INTO agents (name, description, permissions, owner_id, created_by, status, role_cap, created_at, updated_at)
-		VALUES (?, ?, '{posts.read,posts.write}'::text[], ?, ?, 'active', 'editor', ?, ?) RETURNING id`,
+	// role_cap arrives with 0026, so it is set after that migration below.
+	if err := db.Raw(`INSERT INTO agents (name, description, permissions, owner_id, created_by, status, created_at, updated_at)
+		VALUES (?, ?, '{posts.read,posts.write}'::text[], ?, ?, 'active', ?, ?) RETURNING id`,
 		integrationName, integrationDesc, owner.ID, owner.ID, t0, t0).Row().Scan(&integrationID); err != nil {
 		t.Fatalf("seed agent: %v", err)
 	}
@@ -153,6 +154,9 @@ func TestIntegrationRenameMigrationRenamesEveryAgentObject(t *testing.T) {
 
 	if err := migrateDBThrough(db, 26); err != nil {
 		t.Fatalf("migrateDBThrough(db, 26): %v", err)
+	}
+	if err := db.Exec(`UPDATE agents SET role_cap = ? WHERE id = ?`, integrationRoleCap, integrationID).Error; err != nil {
+		t.Fatalf("set role_cap after 0026: %v", err)
 	}
 	if err := migrateDBThrough(db, 27); err != nil {
 		t.Fatalf("migrateDBThrough(db, 27): %v", err)

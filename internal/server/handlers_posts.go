@@ -54,7 +54,7 @@ func listPosts(c echo.Context) error {
 		return err
 	}
 	postType := c.QueryParam("type")
-	if scopedType, ok := c.Get("agent.content_type").(string); ok && scopedType != "" {
+	if scopedType, ok := c.Get("integration.content_type").(string); ok && scopedType != "" {
 		postType = scopedType
 	}
 	if postType == "" {
@@ -165,7 +165,7 @@ func getPost(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
 	}
 	query := data.DB.Where("id = ?", id).Preload("Categories").Preload("Tags")
-	if contentType, ok := c.Get("agent.content_type").(string); ok && contentType != "" {
+	if contentType, ok := c.Get("integration.content_type").(string); ok && contentType != "" {
 		query = query.Where("type = ?", contentType)
 	}
 	if user.Role == "author" {
@@ -201,7 +201,7 @@ func updatePost(c echo.Context) error {
 	}
 	var existing core.Post
 	visible := data.DB.Where("id = ?", id)
-	if contentType, ok := c.Get("agent.content_type").(string); ok && contentType != "" {
+	if contentType, ok := c.Get("integration.content_type").(string); ok && contentType != "" {
 		visible = visible.Where("type = ?", contentType)
 	}
 	if user.Role == "author" {
@@ -233,7 +233,7 @@ func updatePost(c echo.Context) error {
 		}
 		baseUpdatedAt = &base
 		if !base.Equal(existing.UpdatedAt) {
-			if c.Get("agent.identity") != nil {
+			if c.Get("integration.identity") != nil {
 				return writeAPIError(c, http.StatusConflict, "version_conflict", "Post changed since it was read", map[string]any{"current_updated_at": existing.UpdatedAt.Format(time.RFC3339Nano)})
 			}
 			return c.JSON(http.StatusConflict, map[string]any{"error": "Post changed", "updated_at": existing.UpdatedAt})
@@ -279,7 +279,7 @@ func updatePost(c echo.Context) error {
 	slugRedirectSkipped := ""
 	err = data.DB.Transaction(func(tx *gorm.DB) error {
 		write := tx.Model(&core.Post{}).Where("id = ?", id)
-		if contentType, ok := c.Get("agent.content_type").(string); ok && contentType != "" {
+		if contentType, ok := c.Get("integration.content_type").(string); ok && contentType != "" {
 			write = write.Where("type = ?", contentType)
 		}
 		if user.Role == "author" {
@@ -331,7 +331,7 @@ func updatePost(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Post not found"})
 	}
 	if errors.Is(err, errPostConflict) {
-		if c.Get("agent.identity") != nil {
+		if c.Get("integration.identity") != nil {
 			var current core.Post
 			if readErr := data.DB.Select("updated_at").First(&current, id).Error; readErr == nil {
 				return writeAPIError(c, http.StatusConflict, "version_conflict", "Post changed since it was read", map[string]any{"current_updated_at": current.UpdatedAt.Format(time.RFC3339Nano)})
@@ -503,8 +503,8 @@ func deletePost(c echo.Context) error {
 	var post core.Post
 	err = data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
 		query := visiblePostQuery(tx, user, id).Clauses(clause.Locking{Strength: "UPDATE"})
-		contentType, isAgent := c.Get("agent.content_type").(string)
-		if isAgent && contentType != "" {
+		contentType, isIntegration := c.Get("integration.content_type").(string)
+		if isIntegration && contentType != "" {
 			query = query.Where("type = ?", contentType)
 		}
 		if err := query.First(&post).Error; err != nil {
@@ -512,7 +512,7 @@ func deletePost(c echo.Context) error {
 		}
 		write := tx.Model(&core.Post{}).Where("id = ? AND deleted_at IS NULL", post.ID)
 		delete := tx.Where("id = ? AND deleted_at IS NULL", post.ID)
-		if isAgent && contentType != "" {
+		if isIntegration && contentType != "" {
 			write = write.Where("type = ?", contentType)
 			delete = delete.Where("type = ?", contentType)
 		}

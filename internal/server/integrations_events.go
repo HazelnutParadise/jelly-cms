@@ -14,39 +14,39 @@ import (
 	"strings"
 	"time"
 
-	"github.com/HazelnutParadise/jelly-cms/internal/agent"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/integration"
 	"github.com/HazelnutParadise/jelly-cms/internal/syslog"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
 
-type agentEventResponse struct {
-	ID            uint            `json:"id"`
-	At            time.Time       `json:"at"`
-	ActorType     string          `json:"actor_type"`
-	ActorUserID   *uint           `json:"actor_user_id"`
-	AgentID       uint            `json:"agent_id"`
-	AgentName     string          `json:"agent_name"`
-	KeyID         *uint           `json:"key_id"`
-	KeyPrefix     string          `json:"key_prefix"`
-	Action        string          `json:"action"`
-	Module        string          `json:"module"`
-	Method        string          `json:"method"`
-	Route         string          `json:"route"`
-	Status        int             `json:"status"`
-	IPMasked      string          `json:"ip_masked"`
-	Summary       json.RawMessage `json:"summary"`
-	CorrelationID string          `json:"correlation_id"`
+type integrationEventResponse struct {
+	ID              uint            `json:"id"`
+	At              time.Time       `json:"at"`
+	ActorType       string          `json:"actor_type"`
+	ActorUserID     *uint           `json:"actor_user_id"`
+	IntegrationID   uint            `json:"agent_id"`
+	IntegrationName string          `json:"agent_name"`
+	KeyID           *uint           `json:"key_id"`
+	KeyPrefix       string          `json:"key_prefix"`
+	Action          string          `json:"action"`
+	Module          string          `json:"module"`
+	Method          string          `json:"method"`
+	Route           string          `json:"route"`
+	Status          int             `json:"status"`
+	IPMasked        string          `json:"ip_masked"`
+	Summary         json.RawMessage `json:"summary"`
+	CorrelationID   string          `json:"correlation_id"`
 }
 
-func eventResponse(e core.AgentEvent) agentEventResponse {
+func eventResponse(e core.IntegrationEvent) integrationEventResponse {
 	summary := e.Summary
 	if len(summary) == 0 {
 		summary = json.RawMessage(`{}`)
 	}
-	return agentEventResponse{e.ID, e.At, e.ActorType, e.ActorUserID, e.AgentID, e.AgentName, e.KeyID, e.KeyPrefix, e.Action, e.Module, e.Method, e.Route, e.Status, e.IPMasked, summary, e.RequestID}
+	return integrationEventResponse{e.ID, e.At, e.ActorType, e.ActorUserID, e.IntegrationID, e.IntegrationName, e.KeyID, e.KeyPrefix, e.Action, e.Module, e.Method, e.Route, e.Status, e.IPMasked, summary, e.RequestID}
 }
 
 func eventCursor(id uint) string {
@@ -70,16 +70,16 @@ func maskedRealIP(c echo.Context) string {
 	if err == nil {
 		raw = host
 	}
-	return agent.MaskIP(raw)
+	return integration.MaskIP(raw)
 }
 
-func newAgentRequestEvent(c echo.Context, a *core.Agent, key *core.AgentKey) core.AgentEvent {
+func newIntegrationRequestEvent(c echo.Context, a *core.Integration, key *core.IntegrationKey) core.IntegrationEvent {
 	path := c.Path()
 	if strings.HasSuffix(path, "/*") {
 		path = ""
 	}
 	module := "unknown"
-	permission, _ := c.Get("agent.permission").(string)
+	permission, _ := c.Get("integration.permission").(string)
 	if permission != "" {
 		module = strings.SplitN(permission, ".", 2)[0]
 	} else if strings.HasSuffix(c.Path(), "/me") {
@@ -140,11 +140,11 @@ func newAgentRequestEvent(c echo.Context, a *core.Agent, key *core.AgentKey) cor
 	if c.Request().ContentLength >= 0 {
 		bodyBytes = c.Request().ContentLength
 	}
-	summary := marshalAgentRequestSummary(params, keys, bodyBytes, truncated, queryTotal)
-	return core.AgentEvent{At: time.Now().UTC(), ActorType: "agent", AgentID: a.ID, AgentName: a.Name, KeyID: &key.ID, KeyPrefix: key.Prefix, Action: "request", Module: module, Method: c.Request().Method, Route: path, Status: 0, IPMasked: maskedRealIP(c), Summary: summary, RequestID: requestIDFor(c)}
+	summary := marshalIntegrationRequestSummary(params, keys, bodyBytes, truncated, queryTotal)
+	return core.IntegrationEvent{At: time.Now().UTC(), ActorType: "integration", IntegrationID: a.ID, IntegrationName: a.Name, KeyID: &key.ID, KeyPrefix: key.Prefix, Action: "request", Module: module, Method: c.Request().Method, Route: path, Status: 0, IPMasked: maskedRealIP(c), Summary: summary, RequestID: requestIDFor(c)}
 }
 
-func marshalAgentRequestSummary(params map[string]string, keys []string, bodyBytes int64, truncated bool, queryTotal int) json.RawMessage {
+func marshalIntegrationRequestSummary(params map[string]string, keys []string, bodyBytes int64, truncated bool, queryTotal int) json.RawMessage {
 	makeSummary := func() []byte {
 		v := map[string]any{"params": params, "query_keys": keys, "body_bytes": bodyBytes}
 		if truncated {
@@ -175,18 +175,18 @@ func marshalAgentRequestSummary(params map[string]string, keys []string, bodyByt
 	return makeSummary()
 }
 
-func writeAgentEvent(tx *gorm.DB, ev core.AgentEvent) error {
-	_, err := writeAgentEventWithSystemLog(tx, ev)
+func writeIntegrationEvent(tx *gorm.DB, ev core.IntegrationEvent) error {
+	_, err := writeIntegrationEventWithSystemLog(tx, ev)
 	return err
 }
 
-type agentAuditRecord struct {
+type integrationAuditRecord struct {
 	eventID uint
 	logID   uint
 }
 
-func writeAgentEventWithSystemLog(tx *gorm.DB, ev core.AgentEvent) (agentAuditRecord, error) {
-	var record agentAuditRecord
+func writeIntegrationEventWithSystemLog(tx *gorm.DB, ev core.IntegrationEvent) (integrationAuditRecord, error) {
+	var record integrationAuditRecord
 	if len(ev.Summary) == 0 {
 		ev.Summary = json.RawMessage(`{}`)
 	}
@@ -197,7 +197,7 @@ func writeAgentEventWithSystemLog(tx *gorm.DB, ev core.AgentEvent) (agentAuditRe
 		return record, err
 	}
 	record.eventID = ev.ID
-	fields := map[string]any{"agent_id": ev.AgentID, "key_prefix": ev.KeyPrefix, "action": ev.Action, "module": ev.Module, "route": ev.Route, "status": ev.Status}
+	fields := map[string]any{"integration_id": ev.IntegrationID, "key_prefix": ev.KeyPrefix, "action": ev.Action, "module": ev.Module, "route": ev.Route, "status": ev.Status}
 	blob, err := json.Marshal(fields)
 	if err != nil {
 		return record, err
@@ -206,37 +206,37 @@ func writeAgentEventWithSystemLog(tx *gorm.DB, ev core.AgentEvent) (agentAuditRe
 	if ev.ActorUserID != nil {
 		actor = *ev.ActorUserID
 	}
-	err = tx.Raw(`INSERT INTO system_logs (at,level,source,message,fields,request_id,actor_user_id,ip_masked) VALUES (?, ?, ?, ?, CAST(? AS JSONB), ?, ?, ?) RETURNING id`, ev.At, syslog.LevelInfo, syslog.SourceAudit, ev.Action, string(blob), nullableAgentString(ev.RequestID), actor, nullableAgentString(ev.IPMasked)).Scan(&record.logID).Error
+	err = tx.Raw(`INSERT INTO system_logs (at,level,source,message,fields,request_id,actor_user_id,ip_masked) VALUES (?, ?, ?, ?, CAST(? AS JSONB), ?, ?, ?) RETURNING id`, ev.At, syslog.LevelInfo, syslog.SourceAudit, ev.Action, string(blob), nullableIntegrationString(ev.RequestID), actor, nullableIntegrationString(ev.IPMasked)).Scan(&record.logID).Error
 	return record, err
 }
 
-func createPendingAgentRequest(ev core.AgentEvent) (agentAuditRecord, error) {
-	var record agentAuditRecord
+func createPendingIntegrationRequest(ev core.IntegrationEvent) (integrationAuditRecord, error) {
+	var record integrationAuditRecord
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	err := data.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
-		record, err = writeAgentEventWithSystemLog(tx, ev)
+		record, err = writeIntegrationEventWithSystemLog(tx, ev)
 		return err
 	})
 	return record, err
 }
 
-func logAgentAuditFailure(ev core.AgentEvent, eventID, logID uint, phase string) {
+func logIntegrationAuditFailure(ev core.IntegrationEvent, eventID, logID uint, phase string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	var keyID uint
 	if ev.KeyID != nil {
 		keyID = *ev.KeyID
 	}
-	syslog.Emit(ctx, syslog.Entry{Level: syslog.LevelError, Source: syslog.SourceApp, Message: "agent request audit persistence failed", RequestID: ev.RequestID, IPMasked: ev.IPMasked, Fields: map[string]any{"phase": phase, "event_id": eventID, "system_log_id": logID, "agent_id": ev.AgentID, "key_id": keyID}})
+	syslog.Emit(ctx, syslog.Entry{Level: syslog.LevelError, Source: syslog.SourceApp, Message: "agent request audit persistence failed", RequestID: ev.RequestID, IPMasked: ev.IPMasked, Fields: map[string]any{"phase": phase, "event_id": eventID, "system_log_id": logID, "integration_id": ev.IntegrationID, "key_id": keyID}})
 }
 
-func finalizePendingAgentRequest(record agentAuditRecord, status int, summary json.RawMessage, requestID string, agentID, keyID uint, ip string) {
+func finalizePendingIntegrationRequest(record integrationAuditRecord, status int, summary json.RawMessage, requestID string, integrationID, keyID uint, ip string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	err := data.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(&core.AgentEvent{}).Where("id = ? AND status = 0", record.eventID).Updates(map[string]any{"status": status, "summary": summary})
+		result := tx.Model(&core.IntegrationEvent{}).Where("id = ? AND status = 0", record.eventID).Updates(map[string]any{"status": status, "summary": summary})
 		if result.Error != nil {
 			return result.Error
 		}
@@ -253,36 +253,36 @@ func finalizePendingAgentRequest(record agentAuditRecord, status int, summary js
 		return nil
 	})
 	if err != nil {
-		syslog.Emit(ctx, syslog.Entry{Level: syslog.LevelError, Source: syslog.SourceApp, Message: "agent request audit finalization failed", RequestID: requestID, IPMasked: ip, Fields: map[string]any{"phase": "finalize", "event_id": record.eventID, "system_log_id": record.logID, "agent_id": agentID, "key_id": keyID}})
+		syslog.Emit(ctx, syslog.Entry{Level: syslog.LevelError, Source: syslog.SourceApp, Message: "agent request audit finalization failed", RequestID: requestID, IPMasked: ip, Fields: map[string]any{"phase": "finalize", "event_id": record.eventID, "system_log_id": record.logID, "integration_id": integrationID, "key_id": keyID}})
 	}
 }
 
-func nullableAgentString(v string) any {
+func nullableIntegrationString(v string) any {
 	if v == "" {
 		return nil
 	}
 	return v
 }
 
-func agentRequestAudit(next echo.HandlerFunc) echo.HandlerFunc {
+func integrationRequestAudit(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		key, ok := c.Get("agent.key").(*core.AgentKey)
+		key, ok := c.Get("integration.key").(*core.IntegrationKey)
 		if !ok || key == nil {
 			return next(c)
 		}
-		a, ok := c.Get("agent.identity").(*core.Agent)
+		a, ok := c.Get("integration.identity").(*core.Integration)
 		if !ok || a == nil {
 			return next(c)
 		}
-		ev := newAgentRequestEvent(c, a, key)
+		ev := newIntegrationRequestEvent(c, a, key)
 		declaredLength := c.Request().ContentLength
-		counter := &agentBodyCounter{ReadCloser: c.Request().Body}
+		counter := &integrationBodyCounter{ReadCloser: c.Request().Body}
 		if c.Request().Body != nil {
 			c.Request().Body = counter
 		}
-		record, err := createPendingAgentRequest(ev)
+		record, err := createPendingIntegrationRequest(ev)
 		if err != nil {
-			logAgentAuditFailure(ev, 0, 0, "insert")
+			logIntegrationAuditFailure(ev, 0, 0, "insert")
 			return writeAPIError(c, http.StatusInternalServerError, "internal_error", "Internal server error", nil)
 		}
 		err = next(c)
@@ -300,18 +300,18 @@ func agentRequestAudit(next echo.HandlerFunc) echo.HandlerFunc {
 		if declaredLength < 0 {
 			bodyBytes = counter.n
 		}
-		ev.Summary = replaceAgentSummaryBodyBytes(ev.Summary, bodyBytes)
-		finalizePendingAgentRequest(record, status, ev.Summary, ev.RequestID, a.ID, key.ID, ev.IPMasked)
+		ev.Summary = replaceIntegrationSummaryBodyBytes(ev.Summary, bodyBytes)
+		finalizePendingIntegrationRequest(record, status, ev.Summary, ev.RequestID, a.ID, key.ID, ev.IPMasked)
 		return err
 	}
 }
 
-type agentBodyCounter struct {
+type integrationBodyCounter struct {
 	io.ReadCloser
 	n int64
 }
 
-func (r *agentBodyCounter) Read(p []byte) (int, error) {
+func (r *integrationBodyCounter) Read(p []byte) (int, error) {
 	n, err := r.ReadCloser.Read(p)
 	r.n += int64(n)
 	return n, err
@@ -323,7 +323,7 @@ func evSummaryBodyBytes(raw json.RawMessage) int64 {
 	_ = json.Unmarshal(raw, &s)
 	return s.BodyBytes
 }
-func replaceAgentSummaryBodyBytes(raw json.RawMessage, n int64) json.RawMessage {
+func replaceIntegrationSummaryBodyBytes(raw json.RawMessage, n int64) json.RawMessage {
 	var s map[string]any
 	if json.Unmarshal(raw, &s) != nil {
 		return raw
@@ -333,7 +333,7 @@ func replaceAgentSummaryBodyBytes(raw json.RawMessage, n int64) json.RawMessage 
 	return b
 }
 
-func listAgentEvents(c echo.Context, own *uint) error {
+func listIntegrationEvents(c echo.Context, own *uint) error {
 	q := c.QueryParams()
 	for k := range q {
 		switch k {
@@ -354,20 +354,26 @@ func listAgentEvents(c echo.Context, own *uint) error {
 	if !ok {
 		return writeAPIError(c, 400, "logs_filter_invalid", "Invalid cursor", nil)
 	}
-	query := data.DB.WithContext(c.Request().Context()).Model(&core.AgentEvent{})
+	query := data.DB.WithContext(c.Request().Context()).Model(&core.IntegrationEvent{})
 	if own != nil {
-		query = query.Where("agent_id = ? AND actor_type = ?", *own, "agent")
+		query = query.Where("integration_id = ? AND actor_type = ?", *own, "integration")
 	} else if raw := c.QueryParam("agent_id"); raw != "" {
 		n, e := strconv.ParseUint(raw, 10, 64)
 		if e != nil || n == 0 {
 			return writeAPIError(c, 400, "logs_filter_invalid", "Invalid agent_id", nil)
 		}
-		query = query.Where("agent_id = ?", n)
+		query = query.Where("integration_id = ?", n)
 	}
 	for k, col := range map[string]string{"actor_type": "actor_type", "module": "module"} {
 		if v := c.QueryParam(k); v != "" {
-			if (k == "actor_type" && v != "agent" && v != "user") || len(v) > 32 {
+			if (k == "actor_type" && v != "agent" && v != "integration" && v != "user") || len(v) > 32 {
 				return writeAPIError(c, 400, "logs_filter_invalid", "Invalid filter", nil)
+			}
+			if k == "actor_type" && v == "agent" {
+				v = "integration"
+			}
+			if k == "module" && v == "agents" {
+				v = "integrations"
 			}
 			query = query.Where(col+" = ?", v)
 		}
@@ -428,7 +434,7 @@ func listAgentEvents(c echo.Context, own *uint) error {
 	if cursor > 0 {
 		query = query.Where("id < ?", cursor)
 	}
-	var rows []core.AgentEvent
+	var rows []core.IntegrationEvent
 	if err := query.Order("id DESC").Limit(limit + 1).Find(&rows).Error; err != nil {
 		return writeAPIError(c, 500, "internal_error", "Unable to read events", nil)
 	}
@@ -437,15 +443,15 @@ func listAgentEvents(c echo.Context, own *uint) error {
 		rows = rows[:limit]
 		next = eventCursor(rows[len(rows)-1].ID)
 	}
-	items := make([]agentEventResponse, 0, len(rows))
+	items := make([]integrationEventResponse, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, eventResponse(row))
 	}
 	return c.JSON(http.StatusOK, map[string]any{"items": items, "next_cursor": next, "total": total})
 }
 
-func listAgentAdminEvents(c echo.Context) error { return listAgentEvents(c, nil) }
-func listAgentOwnEvents(c echo.Context) error {
-	id := c.Get("agent.identity").(*core.Agent).ID
-	return listAgentEvents(c, &id)
+func listIntegrationAdminEvents(c echo.Context) error { return listIntegrationEvents(c, nil) }
+func listIntegrationOwnEvents(c echo.Context) error {
+	id := c.Get("integration.identity").(*core.Integration).ID
+	return listIntegrationEvents(c, &id)
 }
