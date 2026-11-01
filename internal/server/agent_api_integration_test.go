@@ -1,7 +1,7 @@
 package server
 
 // Acceptance tests for ticket 14 (docs/tickets/14-agent-api.md): the agent-facing API under
-// /api/agent/v1. Slots: A3 (key and permission middleware, reused /api/admin handlers, type scoping,
+// /api/v1. Slots: A3 (key and permission middleware, reused /api/admin handlers, type scoping,
 // base_updated_at version guard, error envelope and request id, settings masking, maintenance bypass),
 // A4 (discovery index and OpenAPI 3.1 document from one route table), A5 (GET /logs) and A7 (the Agent
 // Skill file). The contract is the 契約 section of the ticket plus its 「測試另外釘下的約定」; helpers
@@ -93,19 +93,19 @@ type agtIndex struct {
 func TestAgentDiscoveryIndexNeedsNoKey(t *testing.T) {
 	h := newAccessHarness(t)
 	for _, bearer := range []string{"", "jla_not-a-real-key"} {
-		r := agtDo(h, http.MethodGet, "/api/agent/v1", "", bearer, "")
+		r := agtDo(h, http.MethodGet, "/api/v1", "", bearer, "")
 		if r.code != http.StatusOK {
-			t.Fatalf("GET /api/agent/v1 with bearer %q returned %d, want 200 without a key; body=%q", bearer, r.code, r.body)
+			t.Fatalf("GET /api/v1 with bearer %q returned %d, want 200 without a key; body=%q", bearer, r.code, r.body)
 		}
 		if !strings.Contains(r.header.Get(echo.HeaderContentType), "application/json") {
-			t.Errorf("GET /api/agent/v1 content type=%q, want JSON", r.header.Get(echo.HeaderContentType))
+			t.Errorf("GET /api/v1 content type=%q, want JSON", r.header.Get(echo.HeaderContentType))
 		}
 	}
 	var index agtIndex
-	agtDecode(t, agtDo(h, http.MethodGet, "/api/agent/v1", "", "", ""), &index, "discovery index")
+	agtDecode(t, agtDo(h, http.MethodGet, "/api/v1", "", "", ""), &index, "discovery index")
 
-	if index.OpenAPIURL != "/api/agent/v1/openapi.json" || index.BasePath != "/api/agent/v1" {
-		t.Errorf("openapi_url=%q base_path=%q, want /api/agent/v1/openapi.json and /api/agent/v1", index.OpenAPIURL, index.BasePath)
+	if index.OpenAPIURL != "/api/v1/openapi.json" || index.BasePath != "/api/v1" {
+		t.Errorf("openapi_url=%q base_path=%q, want /api/v1/openapi.json and /api/v1", index.OpenAPIURL, index.BasePath)
 	}
 	if index.Authentication.KeyPrefix != "jly_" || !strings.EqualFold(index.Authentication.Type, "bearer") || index.Authentication.Header != "Authorization" {
 		t.Errorf("authentication=%+v, want bearer in Authorization with key_prefix jly_", index.Authentication)
@@ -150,14 +150,14 @@ func TestAgentDiscoveryIndexNeedsNoKey(t *testing.T) {
 		}
 	}
 	mustList := map[string][]string{
-		"posts.read":     {"GET /api/agent/v1/posts", "GET /api/agent/v1/posts/{id}"},
-		"posts.write":    {"POST /api/agent/v1/posts", "PUT /api/agent/v1/posts/{id}", "DELETE /api/agent/v1/posts/{id}"},
-		"pages.read":     {"GET /api/agent/v1/pages"},
-		"pages.write":    {"PUT /api/agent/v1/pages/{id}"},
-		"products.write": {"PUT /api/agent/v1/products/{id}"},
-		"orders.read":    {"GET /api/agent/v1/orders"},
-		"settings.read":  {"GET /api/agent/v1/settings"},
-		"logs.read":      {"GET /api/agent/v1/logs"},
+		"posts.read":     {"GET /api/v1/posts", "GET /api/v1/posts/{id}"},
+		"posts.write":    {"POST /api/v1/posts", "PUT /api/v1/posts/{id}", "DELETE /api/v1/posts/{id}"},
+		"pages.read":     {"GET /api/v1/pages"},
+		"pages.write":    {"PUT /api/v1/pages/{id}"},
+		"products.write": {"PUT /api/v1/products/{id}"},
+		"orders.read":    {"GET /api/v1/orders"},
+		"settings.read":  {"GET /api/v1/settings"},
+		"logs.read":      {"GET /api/v1/logs"},
 	}
 	for perm, wants := range mustList {
 		have := map[string]bool{}
@@ -170,7 +170,7 @@ func TestAgentDiscoveryIndexNeedsNoKey(t *testing.T) {
 			}
 		}
 	}
-	for _, guarded := range []string{"PUT /api/agent/v1/posts/{id}", "PUT /api/agent/v1/pages/{id}", "PUT /api/agent/v1/products/{id}"} {
+	for _, guarded := range []string{"PUT /api/v1/posts/{id}", "PUT /api/v1/pages/{id}", "PUT /api/v1/products/{id}"} {
 		found := false
 		for _, ep := range index.Endpoints {
 			if ep.Method+" "+ep.Path == guarded {
@@ -189,8 +189,8 @@ func TestAgentDiscoveryIndexNeedsNoKey(t *testing.T) {
 	for _, ep := range index.Endpoints {
 		key := ep.Method + " " + ep.Path
 		listed[key] = ep
-		if !strings.HasPrefix(ep.Path, "/api/agent/v1") {
-			t.Errorf("endpoint %s is outside /api/agent/v1", key)
+		if !strings.HasPrefix(ep.Path, "/api/v1") {
+			t.Errorf("endpoint %s is outside /api/v1", key)
 		}
 		if strings.Contains(ep.Path, "/agents") || strings.Contains(ep.Path, "rotate") {
 			t.Errorf("endpoint %s manages agents or keys; agents must not manage agents", key)
@@ -209,7 +209,7 @@ func TestAgentDiscoveryIndexNeedsNoKey(t *testing.T) {
 			}
 		}
 	}
-	for key, auth := range map[string]string{"GET /api/agent/v1": "public", "GET /api/agent/v1/openapi.json": "public", "GET /api/agent/v1/me": "key"} {
+	for key, auth := range map[string]string{"GET /api/v1": "public", "GET /api/v1/openapi.json": "public", "GET /api/v1/me": "key"} {
 		if ep, ok := listed[key]; !ok || ep.Auth != auth || ep.Permission != "" {
 			t.Errorf("endpoints entry %s = %+v, want auth %s and no permission", key, ep, auth)
 		}
@@ -288,9 +288,9 @@ var agtStatusKey = regexp.MustCompile(`^([1-5][0-9X]{2}|default)$`)
 
 func TestAgentOpenAPIDocumentIsValid31AndMatchesRoutes(t *testing.T) {
 	h := newAccessHarness(t)
-	r := agtDo(h, http.MethodGet, "/api/agent/v1/openapi.json", "", "", "")
+	r := agtDo(h, http.MethodGet, "/api/v1/openapi.json", "", "", "")
 	if r.code != http.StatusOK {
-		t.Fatalf("GET /api/agent/v1/openapi.json without a key returned %d, want 200; body=%q", r.code, r.body)
+		t.Fatalf("GET /api/v1/openapi.json without a key returned %d, want 200; body=%q", r.code, r.body)
 	}
 	var doc map[string]any
 	agtDecode(t, r, &doc, "openapi.json")
@@ -313,9 +313,9 @@ func TestAgentOpenAPIDocumentIsValid31AndMatchesRoutes(t *testing.T) {
 	}
 	components, _ := doc["components"].(map[string]any)
 	schemes, _ := components["securitySchemes"].(map[string]any)
-	scheme, _ := schemes["AgentKey"].(map[string]any)
+	scheme, _ := schemes["AccessKey"].(map[string]any)
 	if scheme["type"] != "http" || !strings.EqualFold(fmt.Sprint(scheme["scheme"]), "bearer") {
-		t.Errorf("components.securitySchemes.AgentKey=%v, want type http, scheme bearer", scheme)
+		t.Errorf("components.securitySchemes.AccessKey=%v, want type http, scheme bearer", scheme)
 	}
 	schemas, _ := components["schemas"].(map[string]any)
 	if _, ok := schemas["Error"]; !ok {
@@ -339,8 +339,8 @@ func TestAgentOpenAPIDocumentIsValid31AndMatchesRoutes(t *testing.T) {
 	operationIDs := map[string]bool{}
 	documented := map[string]string{}
 	for path, rawItem := range paths {
-		if !strings.HasPrefix(path, "/api/agent/v1") {
-			t.Errorf("path %q is outside /api/agent/v1", path)
+		if !strings.HasPrefix(path, "/api/v1") {
+			t.Errorf("path %q is outside /api/v1", path)
 		}
 		item, ok := rawItem.(map[string]any)
 		if !ok {
@@ -404,7 +404,7 @@ func TestAgentOpenAPIDocumentIsValid31AndMatchesRoutes(t *testing.T) {
 			perm, _ := op["x-jelly-permission"].(string)
 			documented[strings.ToUpper(key)+" "+path] = perm
 			switch path {
-			case "/api/agent/v1", "/api/agent/v1/openapi.json":
+			case "/api/v1", "/api/v1/openapi.json":
 				if !hasSecurity || len(security) != 0 {
 					t.Errorf("%s security=%v, want [] (public)", where, op["security"])
 				}
@@ -416,21 +416,21 @@ func TestAgentOpenAPIDocumentIsValid31AndMatchesRoutes(t *testing.T) {
 				usesKey := false
 				for _, req := range effective {
 					if m, ok := req.(map[string]any); ok {
-						if _, ok := m["AgentKey"]; ok {
+						if _, ok := m["AccessKey"]; ok {
 							usesKey = true
 						}
 					}
 				}
 				if !usesKey {
-					t.Errorf("%s does not require the AgentKey bearer scheme", where)
+					t.Errorf("%s does not require the AccessKey bearer scheme", where)
 				}
-				if path != "/api/agent/v1/me" && !agtContains(agtAllPermissions, perm) {
+				if path != "/api/v1/me" && !agtContains(agtAllPermissions, perm) {
 					t.Errorf("%s x-jelly-permission=%q, want one of the catalogue permissions", where, perm)
 				}
 			}
 		}
 	}
-	for _, guarded := range []string{"/api/agent/v1/posts/{id}", "/api/agent/v1/pages/{id}", "/api/agent/v1/products/{id}"} {
+	for _, guarded := range []string{"/api/v1/posts/{id}", "/api/v1/pages/{id}", "/api/v1/products/{id}"} {
 		item, _ := paths[guarded].(map[string]any)
 		put, _ := item["put"].(map[string]any)
 		body, _ := agtDeref(doc, put["requestBody"]).(map[string]any)
@@ -449,7 +449,7 @@ func TestAgentOpenAPIDocumentIsValid31AndMatchesRoutes(t *testing.T) {
 
 	// The index and the OpenAPI document come from the same table.
 	var index agtIndex
-	agtDecode(t, agtDo(h, http.MethodGet, "/api/agent/v1", "", "", ""), &index, "discovery index")
+	agtDecode(t, agtDo(h, http.MethodGet, "/api/v1", "", "", ""), &index, "discovery index")
 	fromIndex := map[string]string{}
 	for _, ep := range index.Endpoints {
 		fromIndex[ep.Method+" "+ep.Path] = ep.Permission
@@ -477,7 +477,7 @@ func TestAgentMeShape(t *testing.T) {
 	h := newAccessHarness(t)
 	_, _, created := agtSetup(t, h, "Me Shape", "posts.read", "logs.read")
 	r := agtMe(h, created.APIKey)
-	agtExpectOK(t, r, "GET /api/agent/v1/me")
+	agtExpectOK(t, r, "GET /api/v1/me")
 	var raw map[string]json.RawMessage
 	agtDecode(t, r, &raw, "/me")
 	for _, key := range []string{"id", "name", "description", "permissions", "effective_permissions", "owner_role", "key"} {
@@ -521,9 +521,9 @@ func TestAgentPostsWriteCreatesPostAndReadOnlyGets403(t *testing.T) {
 	admin, token, writer := agtSetup(t, h, "Writer", "posts.read", "posts.write")
 	reader := agtCreate(t, h, token, "Reader", "posts.read")
 
-	created := agtDo(h, http.MethodPost, "/api/agent/v1/posts", `{"title":"Agent 草稿","content":"<p>agent body</p>","status":"draft"}`, writer.APIKey, "")
+	created := agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"Agent 草稿","content":"<p>agent body</p>","status":"draft"}`, writer.APIKey, "")
 	if created.code < 200 || created.code > 299 {
-		t.Fatalf("posts.write POST /api/agent/v1/posts returned %d, want 2xx; body=%q", created.code, created.body)
+		t.Fatalf("posts.write POST /api/v1/posts returned %d, want 2xx; body=%q", created.code, created.body)
 	}
 	var post core.Post
 	agtDecode(t, created, &post, "created post")
@@ -531,7 +531,7 @@ func TestAgentPostsWriteCreatesPostAndReadOnlyGets403(t *testing.T) {
 		t.Errorf("created post = id %d type %q author %d title %q, want a post by the owner %d", post.ID, post.Type, post.AuthorID, post.Title, admin.ID)
 	}
 
-	denied := agtDo(h, http.MethodPost, "/api/agent/v1/posts", `{"title":"Reader 草稿","content":"x","status":"draft"}`, reader.APIKey, "")
+	denied := agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"Reader 草稿","content":"x","status":"draft"}`, reader.APIKey, "")
 	env := agtExpectError(t, denied, http.StatusForbidden, "permission_missing", "posts.read-only agent creating a post")
 	missing, _ := env.Details["missing_permissions"].([]any)
 	if len(missing) != 1 || missing[0] != "posts.write" {
@@ -543,14 +543,14 @@ func TestAgentPostsWriteCreatesPostAndReadOnlyGets403(t *testing.T) {
 		t.Errorf("a post was created by the read-only agent")
 	}
 
-	list := agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", reader.APIKey, "")
-	agtExpectOK(t, list, "posts.read GET /api/agent/v1/posts")
+	list := agtDo(h, http.MethodGet, "/api/v1/posts", "", reader.APIKey, "")
+	agtExpectOK(t, list, "posts.read GET /api/v1/posts")
 	if !strings.Contains(list.body, "Agent 草稿") {
 		t.Errorf("posts.read list does not include the writer's post; body=%q", list.body)
 	}
-	update := agtDo(h, http.MethodPut, fmt.Sprintf("/api/agent/v1/posts/%d", post.ID), fmt.Sprintf(`{"title":"改","base_updated_at":%q}`, post.UpdatedAt.Format(time.RFC3339Nano)), reader.APIKey, "")
+	update := agtDo(h, http.MethodPut, fmt.Sprintf("/api/v1/posts/%d", post.ID), fmt.Sprintf(`{"title":"改","base_updated_at":%q}`, post.UpdatedAt.Format(time.RFC3339Nano)), reader.APIKey, "")
 	agtExpectError(t, update, http.StatusForbidden, "permission_missing", "posts.read-only agent updating a post")
-	del := agtDo(h, http.MethodDelete, fmt.Sprintf("/api/agent/v1/posts/%d", post.ID), "", reader.APIKey, "")
+	del := agtDo(h, http.MethodDelete, fmt.Sprintf("/api/v1/posts/%d", post.ID), "", reader.APIKey, "")
 	agtExpectError(t, del, http.StatusForbidden, "permission_missing", "posts.read-only agent deleting a post")
 }
 
@@ -566,20 +566,20 @@ func TestAgentPostEndpointsAreTypeScoped(t *testing.T) {
 	}
 	key := agent.APIKey
 
-	posts := agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", key, "")
+	posts := agtDo(h, http.MethodGet, "/api/v1/posts", "", key, "")
 	agtExpectOK(t, posts, "GET /posts")
 	if strings.Contains(posts.body, "agt-about") || !strings.Contains(posts.body, "agt-article") {
 		t.Errorf("GET /posts must list posts only; body=%q", posts.body)
 	}
-	pages := agtDo(h, http.MethodGet, "/api/agent/v1/pages", "", key, "")
+	pages := agtDo(h, http.MethodGet, "/api/v1/pages", "", key, "")
 	agtExpectOK(t, pages, "GET /pages")
 	if !strings.Contains(pages.body, "agt-about") || strings.Contains(pages.body, "agt-article") {
 		t.Errorf("GET /pages must list pages only; body=%q", pages.body)
 	}
-	agtExpectError(t, agtDo(h, http.MethodGet, fmt.Sprintf("/api/agent/v1/posts/%d", page.ID), "", key, ""), http.StatusNotFound, "not_found", "GET /posts/:id of a page")
-	agtExpectError(t, agtDo(h, http.MethodGet, fmt.Sprintf("/api/agent/v1/pages/%d", article.ID), "", key, ""), http.StatusNotFound, "not_found", "GET /pages/:id of a post")
-	agtExpectError(t, agtDo(h, http.MethodPost, "/api/agent/v1/posts", `{"title":"偷渡頁面","content":"x","type":"page"}`, key, ""), http.StatusBadRequest, "type_mismatch", "POST /posts with type page")
-	agtExpectError(t, agtDo(h, http.MethodPost, "/api/agent/v1/pages", `{"title":"無權限頁面","content":"x"}`, key, ""), http.StatusForbidden, "permission_missing", "POST /pages without pages.write")
+	agtExpectError(t, agtDo(h, http.MethodGet, fmt.Sprintf("/api/v1/posts/%d", page.ID), "", key, ""), http.StatusNotFound, "not_found", "GET /posts/:id of a page")
+	agtExpectError(t, agtDo(h, http.MethodGet, fmt.Sprintf("/api/v1/pages/%d", article.ID), "", key, ""), http.StatusNotFound, "not_found", "GET /pages/:id of a post")
+	agtExpectError(t, agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"偷渡頁面","content":"x","type":"page"}`, key, ""), http.StatusBadRequest, "type_mismatch", "POST /posts with type page")
+	agtExpectError(t, agtDo(h, http.MethodPost, "/api/v1/pages", `{"title":"無權限頁面","content":"x"}`, key, ""), http.StatusForbidden, "permission_missing", "POST /pages without pages.write")
 }
 
 func agtUpdatedAt(t *testing.T, r agtResult, where string) string {
@@ -599,13 +599,13 @@ func TestAgentUpdateRequiresBaseUpdatedAt(t *testing.T) {
 	admin, token, agent := agtSetup(t, h, "Version Guard", "posts.read", "posts.write", "pages.write", "products.read", "products.write")
 	key := agent.APIKey
 
-	created := agtDo(h, http.MethodPost, "/api/agent/v1/posts", `{"title":"原始標題","content":"v0","status":"draft"}`, key, "")
+	created := agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"原始標題","content":"v0","status":"draft"}`, key, "")
 	if created.code < 200 || created.code > 299 {
 		t.Fatalf("create post returned %d; body=%q", created.code, created.body)
 	}
 	var post core.Post
 	agtDecode(t, created, &post, "created post")
-	path := fmt.Sprintf("/api/agent/v1/posts/%d", post.ID)
+	path := fmt.Sprintf("/api/v1/posts/%d", post.ID)
 	base0 := agtUpdatedAt(t, agtDo(h, http.MethodGet, path, "", key, ""), "GET post")
 
 	agtExpectError(t, agtDo(h, http.MethodPut, path, `{"title":"沒帶版本"}`, key, ""), http.StatusBadRequest, "version_required", "PUT without base_updated_at")
@@ -678,12 +678,12 @@ func TestAgentUpdateRequiresBaseUpdatedAt(t *testing.T) {
 	if err := h.db.Create(&page).Error; err != nil {
 		t.Fatalf("seed page: %v", err)
 	}
-	agtExpectError(t, agtDo(h, http.MethodPut, fmt.Sprintf("/api/agent/v1/pages/%d", page.ID), `{"title":"x"}`, key, ""), http.StatusBadRequest, "version_required", "PUT /pages/:id without base_updated_at")
+	agtExpectError(t, agtDo(h, http.MethodPut, fmt.Sprintf("/api/v1/pages/%d", page.ID), `{"title":"x"}`, key, ""), http.StatusBadRequest, "version_required", "PUT /pages/:id without base_updated_at")
 	product := core.Product{Title: "果凍禮盒", Slug: "agt-guard-product", Price: 880, Status: "active"}
 	if err := h.db.Create(&product).Error; err != nil {
 		t.Fatalf("seed product: %v", err)
 	}
-	productPath := fmt.Sprintf("/api/agent/v1/products/%d", product.ID)
+	productPath := fmt.Sprintf("/api/v1/products/%d", product.ID)
 	agtExpectError(t, agtDo(h, http.MethodPut, productPath, `{"title":"x","price":900}`, key, ""), http.StatusBadRequest, "version_required", "PUT /products/:id without base_updated_at")
 	pbase := agtUpdatedAt(t, agtDo(h, http.MethodGet, productPath, "", key, ""), "GET product")
 	agtExpectOK(t, agtDo(h, http.MethodPut, productPath, fmt.Sprintf(`{"title":"果凍禮盒 新版","price":900,"base_updated_at":%q}`, pbase), key, ""), "PUT product with the current base")
@@ -719,13 +719,13 @@ func TestAgentKeyCannotReachAdminAPI(t *testing.T) {
 	}
 
 	// Human credentials do not work on the agent API.
-	agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/me", "", h.token(admin), ""), http.StatusUnauthorized, "key_invalid", "admin JWT as bearer on /api/agent/v1/me")
-	req := httptest.NewRequest(http.MethodGet, "/api/agent/v1/posts", nil)
+	agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/me", "", h.token(admin), ""), http.StatusUnauthorized, "key_invalid", "admin JWT as bearer on /api/v1/me")
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/posts", nil)
 	req.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 	req.AddCookie(&http.Cookie{Name: "jwt_token", Value: h.token(admin)})
 	rec := httptest.NewRecorder()
 	h.echo.ServeHTTP(rec, req)
-	agtExpectError(t, agtResult{code: rec.Code, body: rec.Body.String(), header: rec.Header()}, http.StatusUnauthorized, "key_missing", "admin jwt_token cookie on /api/agent/v1/posts")
+	agtExpectError(t, agtResult{code: rec.Code, body: rec.Body.String(), header: rec.Header()}, http.StatusUnauthorized, "key_missing", "admin jwt_token cookie on /api/v1/posts")
 }
 
 func TestAgentErrorsUseEnvelopeWithCorrelationID(t *testing.T) {
@@ -733,17 +733,17 @@ func TestAgentErrorsUseEnvelopeWithCorrelationID(t *testing.T) {
 	_, _, agent := agtSetup(t, h, "Envelope", "posts.read")
 	key := agent.APIKey
 
-	agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/me", "", "", ""), http.StatusUnauthorized, "key_missing", "/me without a key")
-	basic := httptest.NewRequest(http.MethodGet, "/api/agent/v1/me", nil)
+	agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/me", "", "", ""), http.StatusUnauthorized, "key_missing", "/me without a key")
+	basic := httptest.NewRequest(http.MethodGet, "/api/v1/me", nil)
 	basic.Header.Set(echo.HeaderAuthorization, "Basic YWRtaW46YWRtaW4=")
 	rec := httptest.NewRecorder()
 	h.echo.ServeHTTP(rec, basic)
 	agtExpectError(t, agtResult{code: rec.Code, body: rec.Body.String(), header: rec.Header()}, http.StatusUnauthorized, "key_invalid", "/me with Basic auth")
-	agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/me", "", "jla_"+strings.Repeat("A", 43), ""), http.StatusUnauthorized, "key_invalid", "/me with an unknown key")
+	agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/me", "", "jla_"+strings.Repeat("A", 43), ""), http.StatusUnauthorized, "key_invalid", "/me with an unknown key")
 
-	agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/no-such-thing", "", key, ""), http.StatusNotFound, "not_found", "unknown agent route")
-	agtExpectError(t, agtDo(h, http.MethodDelete, "/api/agent/v1/me", "", key, ""), http.StatusMethodNotAllowed, "method_not_allowed", "DELETE /me")
-	missing := agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts/987654321", "", key, ""), http.StatusNotFound, "not_found", "reused handler 404 for a missing post")
+	agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/no-such-thing", "", key, ""), http.StatusNotFound, "not_found", "unknown agent route")
+	agtExpectError(t, agtDo(h, http.MethodDelete, "/api/v1/me", "", key, ""), http.StatusMethodNotAllowed, "method_not_allowed", "DELETE /me")
+	missing := agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/posts/987654321", "", key, ""), http.StatusNotFound, "not_found", "reused handler 404 for a missing post")
 	if missing.Message == "" {
 		t.Error("rewritten handler error lost its message")
 	}
@@ -754,7 +754,7 @@ func TestAgentErrorsUseEnvelopeWithCorrelationID(t *testing.T) {
 	if !agtRequestIDPattern.MatchString(a) || !agtRequestIDPattern.MatchString(b) || a == b {
 		t.Errorf("X-Request-ID on two successful requests = %q, %q; want two different req_ ids", a, b)
 	}
-	spoof := httptest.NewRequest(http.MethodGet, "/api/agent/v1/me", nil)
+	spoof := httptest.NewRequest(http.MethodGet, "/api/v1/me", nil)
 	spoof.Header.Set(echo.HeaderAuthorization, "Bearer "+key)
 	spoof.Header.Set(echo.HeaderXRequestID, "req_chosen_by_client")
 	rec = httptest.NewRecorder()
@@ -773,22 +773,22 @@ func TestAgentLogsListOwnEventsWithCursor(t *testing.T) {
 	const ip = "203.0.113.9:1000"
 
 	for i := 0; i < 3; i++ {
-		agtExpectOK(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", a.APIKey, ip), "A GET /posts")
+		agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", a.APIKey, ip), "A GET /posts")
 	}
-	marked := agtDo(h, http.MethodGet, "/api/agent/v1/posts?status=draft", "", a.APIKey, ip)
+	marked := agtDo(h, http.MethodGet, "/api/v1/posts?status=draft", "", a.APIKey, ip)
 	agtExpectOK(t, marked, "A GET /posts?status=draft")
 	markedID := marked.header.Get(echo.HeaderXRequestID)
 	for i := 0; i < 2; i++ {
-		agtDo(h, http.MethodGet, "/api/agent/v1/posts/987654321", "", a.APIKey, ip)
+		agtDo(h, http.MethodGet, "/api/v1/posts/987654321", "", a.APIKey, ip)
 	}
 	agtExpectOK(t, agtMe(h, a.APIKey), "A /me")
 	for i := 0; i < 2; i++ {
-		agtExpectOK(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", b.APIKey, "192.0.2.50:1"), "B GET /posts")
+		agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", b.APIKey, "192.0.2.50:1"), "B GET /posts")
 	}
 
 	fetch := func(query url.Values) (agtEventPage, agtResult) {
 		t.Helper()
-		r := agtDo(h, http.MethodGet, "/api/agent/v1/logs?"+query.Encode(), "", a.APIKey, ip)
+		r := agtDo(h, http.MethodGet, "/api/v1/logs?"+query.Encode(), "", a.APIKey, ip)
 		if r.code != http.StatusOK {
 			t.Fatalf("GET /logs?%s returned %d, want 200; body=%q", query.Encode(), r.code, r.body)
 		}
@@ -822,7 +822,7 @@ func TestAgentLogsListOwnEventsWithCursor(t *testing.T) {
 			if ev.AgentID != a.Agent.ID || ev.ActorType != "agent" || ev.Module != "posts" || ev.KeyPrefix != a.APIKey[:12] || ev.IPMasked != "203.0.113.0" || ev.Method != http.MethodGet {
 				t.Errorf("event %+v, want agent %d, actor agent, module posts, key_prefix %s, ip_masked 203.0.113.0", ev, a.Agent.ID, a.APIKey[:12])
 			}
-			if ev.Route != "/api/agent/v1/posts" && ev.Route != "/api/agent/v1/posts/:id" {
+			if ev.Route != "/api/v1/posts" && ev.Route != "/api/v1/posts/:id" {
 				t.Errorf("event route=%q, want the Echo route template", ev.Route)
 			}
 			if !agtRequestIDPattern.MatchString(ev.CorrelationID) {
@@ -898,9 +898,9 @@ func TestAgentLogsListOwnEventsWithCursor(t *testing.T) {
 		}
 	}
 	for _, bad := range []string{"limit=0", "limit=101", "status=abc", "since=yesterday", "cursor=%21%21not-a-cursor"} {
-		agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/logs?"+bad, "", a.APIKey, ip), http.StatusBadRequest, "logs_filter_invalid", "GET /logs?"+bad)
+		agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/logs?"+bad, "", a.APIKey, ip), http.StatusBadRequest, "logs_filter_invalid", "GET /logs?"+bad)
 	}
-	env := agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/logs", "", c.APIKey, ""), http.StatusForbidden, "permission_missing", "GET /logs without logs.read")
+	env := agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/logs", "", c.APIKey, ""), http.StatusForbidden, "permission_missing", "GET /logs without logs.read")
 	if missing, _ := env.Details["missing_permissions"].([]any); len(missing) != 1 || missing[0] != "logs.read" {
 		t.Errorf("details.missing_permissions=%v, want [logs.read]", env.Details["missing_permissions"])
 	}
@@ -921,7 +921,7 @@ func TestAgentSettingsReadMasksSecrets(t *testing.T) {
 	}
 	maintenanceSetOption(t, h, "site_title", "Agent 測試站")
 
-	r := agtDo(h, http.MethodGet, "/api/agent/v1/settings", "", reader.APIKey, "")
+	r := agtDo(h, http.MethodGet, "/api/v1/settings", "", reader.APIKey, "")
 	agtExpectOK(t, r, "settings.read GET /settings")
 	for k, v := range secrets {
 		if strings.Contains(r.body, v) {
@@ -945,7 +945,7 @@ func TestAgentSettingsReadMasksSecrets(t *testing.T) {
 			t.Errorf("settings[%s]=%q, want %q", k, values[k], want)
 		}
 	}
-	agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/settings", "", other.APIKey, ""), http.StatusForbidden, "permission_missing", "GET /settings without settings.read")
+	agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/settings", "", other.APIKey, ""), http.StatusForbidden, "permission_missing", "GET /settings without settings.read")
 }
 
 func TestAgentAPIOpenDuringMaintenance(t *testing.T) {
@@ -955,9 +955,9 @@ func TestAgentAPIOpenDuringMaintenance(t *testing.T) {
 	if r := agtDo(h, http.MethodGet, "/api/search?q=x", "", "", ""); r.code != http.StatusServiceUnavailable {
 		t.Fatalf("maintenance is not on: /api/search returned %d", r.code)
 	}
-	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/agent/v1", "", "", ""), "discovery index during maintenance")
+	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1", "", "", ""), "discovery index during maintenance")
 	agtExpectOK(t, agtMe(h, agent.APIKey), "/me during maintenance")
-	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", agent.APIKey, ""), "GET /posts during maintenance")
+	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", agent.APIKey, ""), "GET /posts during maintenance")
 }
 
 func TestAgentSkillFileDescribesDiscovery(t *testing.T) {
@@ -967,7 +967,7 @@ func TestAgentSkillFileDescribesDiscovery(t *testing.T) {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	text := string(content)
-	for _, want := range []string{"/api/agent/v1", "openapi.json"} {
+	for _, want := range []string{"/api/v1", "openapi.json"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("skills/jelly-cms/SKILL.md does not mention %s", want)
 		}

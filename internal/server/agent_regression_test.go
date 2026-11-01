@@ -102,7 +102,7 @@ func TestAgentRegressionConcurrentGraceRotationsKeepAtMostTwoUsableKeys(t *testi
 			t.Errorf("successful rotation %d returned key id %d absent from persisted detail", i, rotated.Key.ID)
 			continue
 		}
-		me := agtDo(h, http.MethodGet, "/api/agent/v1/me", "", rotated.APIKey, "")
+		me := agtDo(h, http.MethodGet, "/api/v1/me", "", rotated.APIKey, "")
 		switch status {
 		case "active", "grace":
 			if me.code != http.StatusOK {
@@ -251,7 +251,7 @@ func TestAgentRegressionCrossTypeWritesAndDeletesAreNonMutating(t *testing.T) {
 		{http.MethodPut, "/pages", article.ID, `{"title":"must not become page","content":"mutated","base_updated_at":"2026-01-01T00:00:00Z"}`},
 		{http.MethodDelete, "/pages", article.ID, ""},
 	} {
-		r := agtDo(h, tc.method, fmt.Sprintf("/api/agent/v1%s/%d", tc.route, tc.id), tc.body, agent.APIKey, "")
+		r := agtDo(h, tc.method, fmt.Sprintf("/api/v1%s/%d", tc.route, tc.id), tc.body, agent.APIKey, "")
 		if r.code != http.StatusNotFound {
 			t.Errorf("%s %s/%d returned %d, want 404; body=%q", tc.method, tc.route, tc.id, r.code, r.body)
 		}
@@ -286,7 +286,7 @@ func TestAgentRegressionProductCASHasSingleWinnerAndNoPartialCatalogWrites(t *te
 			t.Fatalf("seed product category %d: %v", i, err)
 		}
 	}
-	path := fmt.Sprintf("/api/agent/v1/products/%d", product.ID)
+	path := fmt.Sprintf("/api/v1/products/%d", product.ID)
 	base := agtUpdatedAt(t, agtDo(h, http.MethodGet, path, "", agent.APIKey, ""), "GET product before concurrent update")
 	const racers = 6
 	results := make([]agtResult, racers)
@@ -366,13 +366,13 @@ func TestAgentRegressionKeyIDLogFilterPreservesTotalCursorAndIsolation(t *testin
 	// Produce events with two key IDs for A, plus events belonging to a separate agent.
 	rotated := agtRotate(t, h, adminToken, a.Agent.ID, `{"mode":"grace","grace_minutes":30}`)
 	for i := 0; i < 3; i++ {
-		agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", a.APIKey, "")
+		agtDo(h, http.MethodGet, "/api/v1/posts", "", a.APIKey, "")
 	}
 	for i := 0; i < 2; i++ {
-		agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", rotated.APIKey, "")
+		agtDo(h, http.MethodGet, "/api/v1/posts", "", rotated.APIKey, "")
 	}
 	for i := 0; i < 2; i++ {
-		agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", b.APIKey, "")
+		agtDo(h, http.MethodGet, "/api/v1/posts", "", b.APIKey, "")
 	}
 	keyID := a.Key.ID
 	fetch := func(cursor string) agtEventPage {
@@ -381,7 +381,7 @@ func TestAgentRegressionKeyIDLogFilterPreservesTotalCursorAndIsolation(t *testin
 		if cursor != "" {
 			q.Set("cursor", cursor)
 		}
-		r := agtDo(h, http.MethodGet, "/api/agent/v1/logs?"+q.Encode(), "", a.APIKey, "")
+		r := agtDo(h, http.MethodGet, "/api/v1/logs?"+q.Encode(), "", a.APIKey, "")
 		if r.code != http.StatusOK {
 			t.Fatalf("key_id log filter returned %d: %s", r.code, r.body)
 		}
@@ -413,14 +413,14 @@ func TestAgentRegressionUnknownRouteAndWrongMethodKeepErrorEnvelopeAndAudit(t *t
 		code         int
 		expected     string
 	}{
-		{http.MethodGet, "/api/agent/v1/posts/987654321", http.StatusNotFound, "not_found"},
-		{http.MethodGet, "/api/agent/v1/not-a-route/extra", http.StatusNotFound, "not_found"},
-		{http.MethodPost, "/api/agent/v1/me", http.StatusMethodNotAllowed, "method_not_allowed"},
-		{http.MethodPost, "/api/agent/v1", http.StatusMethodNotAllowed, "method_not_allowed"},
+		{http.MethodGet, "/api/v1/posts/987654321", http.StatusNotFound, "not_found"},
+		{http.MethodGet, "/api/v1/not-a-route/extra", http.StatusNotFound, "not_found"},
+		{http.MethodPost, "/api/v1/me", http.StatusMethodNotAllowed, "method_not_allowed"},
+		{http.MethodPost, "/api/v1", http.StatusMethodNotAllowed, "method_not_allowed"},
 	} {
 		r := agtDo(h, tc.method, tc.path, "", agent.APIKey, "")
 		agtExpectError(t, r, tc.code, tc.expected, tc.method+" "+tc.path)
-		if tc.path == "/api/agent/v1/not-a-route/extra" {
+		if tc.path == "/api/v1/not-a-route/extra" {
 			unknownRoute = r
 		}
 	}
@@ -464,7 +464,7 @@ func TestAgentRegressionSettingsURLValidationMatchesAdminAndDoesNotWrite(t *test
 	}
 	bad := `{"permalink_post":"/archive/{unknown}"}`
 	for _, tc := range []struct{ label, method, path, bearer string }{
-		{"agent", http.MethodPut, "/api/agent/v1/settings", agent.APIKey},
+		{"agent", http.MethodPut, "/api/v1/settings", agent.APIKey},
 		{"admin", http.MethodPost, "/api/admin/settings", adminToken},
 	} {
 		var r agtResult
@@ -493,7 +493,7 @@ func TestAgentRegressionSettingsURLValidationMatchesAdminAndDoesNotWrite(t *test
 		t.Fatalf("seed tag prefix: %v", err)
 	}
 	collision := `{"permalink_category_prefix":"/topics","permalink_tag_prefix":"/topics"}`
-	r := agtDo(h, http.MethodPut, "/api/agent/v1/settings", collision, agent.APIKey, "")
+	r := agtDo(h, http.MethodPut, "/api/v1/settings", collision, agent.APIKey, "")
 	if r.code != http.StatusBadRequest {
 		t.Errorf("agent prefix collision returned %d, want 400; body=%q", r.code, r.body)
 	}
@@ -657,7 +657,7 @@ func TestAgentRegressionAuditEventInsertFailurePreventsBusinessWrite(t *testing.
 	_, _, writer := agtSetup(t, h, "Audit event insert fault", "posts.read", "posts.write")
 	agentRegressionInstallTrigger(t, h, "agent_regression_reject_agent_event", "agent_events", "INSERT", "NEW.actor_type = 'agent'")
 	const title = "audit-event-fault-post-must-not-exist"
-	r := agtDo(h, http.MethodPost, "/api/agent/v1/posts", `{"title":"audit-event-fault-post-must-not-exist","content":"fault fixture","status":"draft"}`, writer.APIKey, "")
+	r := agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"audit-event-fault-post-must-not-exist","content":"fault fixture","status":"draft"}`, writer.APIKey, "")
 	if r.code != http.StatusInternalServerError {
 		t.Errorf("POST with agent_events insert fault returned %d, want 500; body=%q", r.code, r.body)
 	}
@@ -686,7 +686,7 @@ func TestAgentRegressionAuditSystemLogInsertFailurePreventsBusinessWrite(t *test
 	_, _, writer := agtSetup(t, h, "Audit syslog insert fault", "posts.read", "posts.write")
 	agentRegressionInstallTrigger(t, h, "agent_regression_reject_request_syslog", "system_logs", "INSERT", "NEW.source = 'audit' AND NEW.fields->>'action' = 'request'")
 	const title = "audit-syslog-fault-post-must-not-exist"
-	r := agtDo(h, http.MethodPost, "/api/agent/v1/posts", `{"title":"audit-syslog-fault-post-must-not-exist","content":"fault fixture","status":"draft"}`, writer.APIKey, "")
+	r := agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"audit-syslog-fault-post-must-not-exist","content":"fault fixture","status":"draft"}`, writer.APIKey, "")
 	if r.code != http.StatusInternalServerError {
 		t.Errorf("POST with audit system_logs insert fault returned %d, want 500; body=%q", r.code, r.body)
 	}
@@ -710,7 +710,7 @@ func TestAgentRegressionAuditFinalizeFailureRetainsPendingRecord(t *testing.T) {
 	_, _, writer := agtSetup(t, h, "Audit finalize fault", "posts.read", "posts.write")
 	agentRegressionInstallTrigger(t, h, "agent_regression_reject_event_finalize", "agent_events", "UPDATE", "OLD.actor_type = 'agent' AND OLD.status = 0")
 	const title = "audit-finalize-fault-post-succeeds"
-	r := agtDo(h, http.MethodPost, "/api/agent/v1/posts", `{"title":"audit-finalize-fault-post-succeeds","content":"fault fixture","status":"draft"}`, writer.APIKey, "")
+	r := agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"audit-finalize-fault-post-succeeds","content":"fault fixture","status":"draft"}`, writer.APIKey, "")
 	if r.code < 200 || r.code >= 300 {
 		t.Fatalf("POST with audit finalize fault returned %d, want successful business write; body=%q", r.code, r.body)
 	}
@@ -757,7 +757,7 @@ func TestAgentRegressionSettingsMixedTypesRejectAndSecretMasksMatchAdmin(t *test
 	if err := h.db.Save(&core.Option{Key: "permalink_post", Value: "/post/{slug}"}).Error; err != nil {
 		t.Fatalf("seed post permalink: %v", err)
 	}
-	r := agtDo(h, http.MethodPut, "/api/agent/v1/settings", `{"site_title":"after","maintenance_enabled":true,"permalink_post":"/archive/{unknown}"}`, reader.APIKey, "")
+	r := agtDo(h, http.MethodPut, "/api/v1/settings", `{"site_title":"after","maintenance_enabled":true,"permalink_post":"/archive/{unknown}"}`, reader.APIKey, "")
 	if r.code != http.StatusBadRequest {
 		t.Errorf("mixed-type settings write with invalid permalink returned %d, want 400; body=%q", r.code, r.body)
 	}
@@ -776,7 +776,7 @@ func TestAgentRegressionSettingsMixedTypesRejectAndSecretMasksMatchAdmin(t *test
 		if err := h.db.Save(&core.Option{Key: "oauth_google_client_secret", Value: secret}).Error; err != nil {
 			t.Fatalf("seed secret %q: %v", secret, err)
 		}
-		readAgent := agtDo(h, http.MethodGet, "/api/agent/v1/settings", "", reader.APIKey, "")
+		readAgent := agtDo(h, http.MethodGet, "/api/v1/settings", "", reader.APIKey, "")
 		readAdmin := agtAdmin(h, adminToken, http.MethodGet, "/api/admin/settings", "")
 		if readAgent.code != http.StatusOK || readAdmin.code != http.StatusOK {
 			t.Fatalf("read settings for secret %q returned agent=%d admin=%d", secret, readAgent.code, readAdmin.code)
@@ -918,7 +918,7 @@ func TestAgentRegressionConcurrentPostTypeSwitchCannotDeleteWrongContent(t *test
 		}
 		deleteDone := make(chan agtResult, 1)
 		go func(path string, id uint) {
-			deleteDone <- agtDo(h, http.MethodDelete, fmt.Sprintf("/api/agent/v1/%s/%d", path, id), "", agent.APIKey, "")
+			deleteDone <- agtDo(h, http.MethodDelete, fmt.Sprintf("/api/v1/%s/%d", path, id), "", agent.APIKey, "")
 		}(tc.route, tc.item.ID)
 		waitForAgentRegressionLockWaiters(t, h.db, 1)
 		if err := locker.Model(&core.Post{}).Where("id = ?", tc.item.ID).Update("type", tc.afterType).Error; err != nil {
@@ -960,7 +960,7 @@ func TestAgentRegressionChunkedBodyAuditCountsBytesAndOversizeIsAudited(t *testi
 	h := newAccessHarness(t)
 	owner, _, agent := agtSetup(t, h, "Body accounting", "posts.read", "posts.write", "products.write")
 	body := `{"title":"chunked-audit-body","content":"x","status":"draft"}`
-	request := httptest.NewRequest(http.MethodPost, "/api/agent/v1/posts", io.NopCloser(bytes.NewBufferString(body)))
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/posts", io.NopCloser(bytes.NewBufferString(body)))
 	request.ContentLength = -1
 	request.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
 	request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -989,7 +989,7 @@ func TestAgentRegressionChunkedBodyAuditCountsBytesAndOversizeIsAudited(t *testi
 	}
 
 	large := strings.Repeat("x", 2*1024*1024+1)
-	over := agtDo(h, http.MethodPost, "/api/agent/v1/posts", `{"title":"`+large+`"}`, agent.APIKey, "")
+	over := agtDo(h, http.MethodPost, "/api/v1/posts", `{"title":"`+large+`"}`, agent.APIKey, "")
 	agtExpectError(t, over, http.StatusRequestEntityTooLarge, "payload_too_large", "matched-key oversized request")
 	var rows []core.AgentEvent
 	if err := h.db.Where("agent_id = ? AND request_id = ? AND actor_type = 'agent'", agent.Agent.ID, over.header.Get(echo.HeaderXRequestID)).Find(&rows).Error; err != nil {
@@ -1011,9 +1011,9 @@ func TestAgentRegressionChunkedBodyAuditCountsBytesAndOversizeIsAudited(t *testi
 	chunkedOversize := []struct {
 		label, method, path, body string
 	}{
-		{"POST posts", http.MethodPost, "/api/agent/v1/posts", `{"title":"chunked oversized post","content":"` + largeContent + `","status":"draft"}`},
-		{"PUT post", http.MethodPut, fmt.Sprintf("/api/agent/v1/posts/%d", post.ID), fmt.Sprintf(`{"base_updated_at":%q,"content":%q}`, post.UpdatedAt.Format(time.RFC3339Nano), largeContent)},
-		{"PUT product", http.MethodPut, fmt.Sprintf("/api/agent/v1/products/%d", product.ID), fmt.Sprintf(`{"base_updated_at":%q,"title":%q}`, product.UpdatedAt.Format(time.RFC3339Nano), largeContent)},
+		{"POST posts", http.MethodPost, "/api/v1/posts", `{"title":"chunked oversized post","content":"` + largeContent + `","status":"draft"}`},
+		{"PUT post", http.MethodPut, fmt.Sprintf("/api/v1/posts/%d", post.ID), fmt.Sprintf(`{"base_updated_at":%q,"content":%q}`, post.UpdatedAt.Format(time.RFC3339Nano), largeContent)},
+		{"PUT product", http.MethodPut, fmt.Sprintf("/api/v1/products/%d", product.ID), fmt.Sprintf(`{"base_updated_at":%q,"title":%q}`, product.UpdatedAt.Format(time.RFC3339Nano), largeContent)},
 	}
 	for _, tc := range chunkedOversize {
 		request := httptest.NewRequest(tc.method, tc.path, io.NopCloser(strings.NewReader(tc.body)))
@@ -1064,7 +1064,7 @@ func TestAgentRegressionChunkedBodyAuditCountsBytesAndOversizeIsAudited(t *testi
 	for i := 0; i < 90; i++ {
 		query.Set(fmt.Sprintf("query_key_%03d_with_long_name", i), "sensitive-query-value")
 	}
-	largeSummary := agtDo(h, http.MethodGet, "/api/agent/v1/me?"+query.Encode(), "", agent.APIKey, "")
+	largeSummary := agtDo(h, http.MethodGet, "/api/v1/me?"+query.Encode(), "", agent.APIKey, "")
 	if largeSummary.code != http.StatusOK {
 		t.Errorf("GET /me with many query keys returned %d: %s", largeSummary.code, largeSummary.body)
 	}
@@ -1086,7 +1086,7 @@ func TestAgentRegressionChunkedBodyAuditCountsBytesAndOversizeIsAudited(t *testi
 
 func TestAgentRegressionDiscoveryAndOpenAPISchemasMatchHandlers(t *testing.T) {
 	h := newAccessHarness(t)
-	indexResult := agtDo(h, http.MethodGet, "/api/agent/v1", "", "", "")
+	indexResult := agtDo(h, http.MethodGet, "/api/v1", "", "", "")
 	var index map[string]any
 	if indexResult.code != http.StatusOK {
 		t.Fatalf("discovery returned %d: %s", indexResult.code, indexResult.body)
@@ -1101,15 +1101,15 @@ func TestAgentRegressionDiscoveryAndOpenAPISchemasMatchHandlers(t *testing.T) {
 	foundGuard := false
 	for _, raw := range endpoints {
 		endpoint, _ := raw.(map[string]any)
-		if endpoint["path"] == "/api/agent/v1/posts/{id}" && endpoint["method"] == "PUT" && endpoint["version_guard"] == true {
+		if endpoint["path"] == "/api/v1/posts/{id}" && endpoint["method"] == "PUT" && endpoint["version_guard"] == true {
 			foundGuard = true
 		}
 	}
 	if !foundGuard {
-		t.Error("discovery endpoints omit guarded PUT /api/agent/v1/posts/{id}")
+		t.Error("discovery endpoints omit guarded PUT /api/v1/posts/{id}")
 	}
 
-	openapi := agtDo(h, http.MethodGet, "/api/agent/v1/openapi.json", "", "", "")
+	openapi := agtDo(h, http.MethodGet, "/api/v1/openapi.json", "", "", "")
 	var doc map[string]any
 	if openapi.code != http.StatusOK {
 		t.Fatalf("openapi returned %d: %s", openapi.code, openapi.body)
@@ -1136,14 +1136,14 @@ func TestAgentRegressionDiscoveryAndOpenAPISchemasMatchHandlers(t *testing.T) {
 		t.Helper()
 		return responseSchemaStatus(path, method, "200")
 	}
-	if got := responseSchema("/api/agent/v1/posts", "post")["type"]; got != "object" {
+	if got := responseSchema("/api/v1/posts", "post")["type"]; got != "object" {
 		t.Errorf("POST /posts success schema type=%v, want object", got)
 	}
-	if got := responseSchema("/api/agent/v1/pages", "post")["type"]; got != "object" {
+	if got := responseSchema("/api/v1/pages", "post")["type"]; got != "object" {
 		t.Errorf("POST /pages success schema type=%v, want object", got)
 	}
 	for _, collection := range []struct{ path, method string }{
-		{"/api/agent/v1/posts", "get"}, {"/api/agent/v1/pages", "get"},
+		{"/api/v1/posts", "get"}, {"/api/v1/pages", "get"},
 	} {
 		listSchema := responseSchema(collection.path, collection.method)
 		listItems, _ := listSchema["items"].(map[string]any)
@@ -1155,7 +1155,7 @@ func TestAgentRegressionDiscoveryAndOpenAPISchemasMatchHandlers(t *testing.T) {
 		}
 	}
 	for _, collection := range []string{"posts", "pages"} {
-		path := "/api/agent/v1/" + collection
+		path := "/api/v1/" + collection
 		post := operation(path, "post")
 		requestBody, _ := post["requestBody"].(map[string]any)
 		requestContent, _ := requestBody["content"].(map[string]any)
@@ -1174,7 +1174,7 @@ func TestAgentRegressionDiscoveryAndOpenAPISchemasMatchHandlers(t *testing.T) {
 			}
 		}
 	}
-	themes := responseSchema("/api/agent/v1/themes", "get")
+	themes := responseSchema("/api/v1/themes", "get")
 	items, _ := themes["items"].(map[string]any)
 	isArray := themes["type"] == "array"
 	if types, ok := themes["type"].([]any); ok {
@@ -1185,17 +1185,17 @@ func TestAgentRegressionDiscoveryAndOpenAPISchemasMatchHandlers(t *testing.T) {
 	if !isArray || items["type"] != "string" {
 		t.Errorf("GET /themes success schema=%v, want array or nullable array of strings", themes)
 	}
-	activation := responseSchema("/api/agent/v1/themes/activate", "post")
+	activation := responseSchema("/api/v1/themes/activate", "post")
 	properties, _ := activation["properties"].(map[string]any)
 	if activation["type"] != "object" || properties["message"] == nil {
 		t.Errorf("POST /themes/activate success schema=%v, want object with message", activation)
 	}
-	mediaFile := responseSchemaStatus("/api/agent/v1/media/files", "post", "201")
+	mediaFile := responseSchemaStatus("/api/v1/media/files", "post", "201")
 	mediaProps, _ := mediaFile["properties"].(map[string]any)
 	if mediaFile["type"] != "object" || mediaFile["items"] != nil || mediaProps["id"] == nil || mediaProps["url"] == nil {
 		t.Errorf("POST /media/files 201 schema=%v, want a single object with id and url", mediaFile)
 	}
-	put := operation("/api/agent/v1/posts/{id}", "put")
+	put := operation("/api/v1/posts/{id}", "put")
 	body, _ := put["requestBody"].(map[string]any)
 	bodyContent, _ := body["content"].(map[string]any)
 	jsonMedia, _ := bodyContent["application/json"].(map[string]any)

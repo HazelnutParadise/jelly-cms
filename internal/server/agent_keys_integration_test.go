@@ -4,7 +4,7 @@ package server
 // Slots: A1 (schema), A2 (management API M1–M9: create, rotate, revoke, disable, enable, delete and
 // their events), A5 (admin event log across rotations) and A6 (admin-only pages). The contract is the
 // 契約 section of the ticket plus its 「測試另外釘下的約定」. Several tests also call GET
-// /api/agent/v1/me from slot A3 to prove a key works or fails.
+// /api/v1/me from slot A3 to prove a key works or fails.
 //
 // These tests were introduced against the draft skeleton; they now define the regression contract.
 // The agent schema is migration 0025_agents.sql. They need JELLY_TEST_POSTGRES=1 and the dedicated
@@ -267,7 +267,7 @@ func agtEvents(t *testing.T, h *accessHarness, adminToken string, query url.Valu
 }
 
 func agtMe(h *accessHarness, key string) agtResult {
-	return agtDo(h, http.MethodGet, "/api/agent/v1/me", "", key, "")
+	return agtDo(h, http.MethodGet, "/api/v1/me", "", key, "")
 }
 
 func agtExpectOK(t *testing.T, r agtResult, where string) {
@@ -435,7 +435,7 @@ func TestAgentCreateShowsKeyOnceAndStoresOnlyHash(t *testing.T) {
 	}
 
 	// The one-time key works, and creation was recorded as a user action.
-	agtExpectOK(t, agtMe(h, key), "GET /api/agent/v1/me with the new key")
+	agtExpectOK(t, agtMe(h, key), "GET /api/v1/me with the new key")
 	page, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(a.ID)}, "action": {"agent.create"}})
 	if page.Total != 1 || len(page.Items) != 1 {
 		t.Fatalf("agent.create events = %+v, want exactly one", page)
@@ -529,11 +529,11 @@ func TestAgentManagementRequiresSignedInAdmin(t *testing.T) {
 
 	// The agent API has nowhere to manage agents or rotate keys.
 	for _, probe := range []struct{ method, path string }{
-		{http.MethodGet, "/api/agent/v1/agents"},
-		{http.MethodPost, "/api/agent/v1/agents"},
-		{http.MethodPost, fmt.Sprintf("/api/agent/v1/agents/%d/rotate", id)},
-		{http.MethodPost, "/api/agent/v1/me/rotate"},
-		{http.MethodPost, "/api/agent/v1/keys/rotate"},
+		{http.MethodGet, "/api/v1/agents"},
+		{http.MethodPost, "/api/v1/agents"},
+		{http.MethodPost, fmt.Sprintf("/api/v1/agents/%d/rotate", id)},
+		{http.MethodPost, "/api/v1/me/rotate"},
+		{http.MethodPost, "/api/v1/keys/rotate"},
 	} {
 		agtExpectError(t, agtDo(h, probe.method, probe.path, `{"mode":"immediate"}`, key, ""), http.StatusNotFound, "not_found", "agent "+probe.method+" "+probe.path)
 	}
@@ -546,7 +546,7 @@ func TestAgentRotateImmediateRevokesOldKeyAtOnce(t *testing.T) {
 	created := agtCreate(t, h, token, "立即輪替", "posts.read", "logs.read")
 	old := created.APIKey
 	agtExpectOK(t, agtMe(h, old), "old key before rotation")
-	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", old, ""), "old key GET /posts before rotation")
+	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", old, ""), "old key GET /posts before rotation")
 
 	rotated := agtRotate(t, h, token, created.Agent.ID, `{"mode":"immediate"}`)
 	fresh := rotated.APIKey
@@ -776,7 +776,7 @@ func TestAgentDisableBlocksEveryKeyIncludingGrace(t *testing.T) {
 	}
 	agtExpectError(t, agtMe(h, fresh), http.StatusUnauthorized, "agent_disabled", "active key of a disabled agent")
 	agtExpectError(t, agtMe(h, old), http.StatusUnauthorized, "agent_disabled", "grace key of a disabled agent")
-	agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", fresh, ""), http.StatusUnauthorized, "agent_disabled", "GET /posts as a disabled agent")
+	agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", fresh, ""), http.StatusUnauthorized, "agent_disabled", "GET /posts as a disabled agent")
 
 	r = agtAdmin(h, token, http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/enable", created.Agent.ID), "")
 	agtExpectOK(t, r, "enable")
@@ -802,18 +802,18 @@ func TestAgentOwnerDowngradeAndDeletionLimitAccess(t *testing.T) {
 	created := agtCreate(t, h, h.token(owner), "擁有者測試", "posts.read", "settings.read")
 	key := created.APIKey
 
-	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/agent/v1/settings", "", key, ""), "settings.read while the owner is admin")
-	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", key, ""), "posts.read while the owner is admin")
+	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/settings", "", key, ""), "settings.read while the owner is admin")
+	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", key, ""), "posts.read while the owner is admin")
 
 	if err := h.db.Model(&core.User{}).Where("id = ?", owner.ID).Update("role", "editor").Error; err != nil {
 		t.Fatalf("downgrade owner: %v", err)
 	}
-	env := agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/settings", "", key, ""), http.StatusForbidden, "owner_role_insufficient", "settings.read after the owner became an editor")
+	env := agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/settings", "", key, ""), http.StatusForbidden, "owner_role_insufficient", "settings.read after the owner became an editor")
 	roles, _ := env.Details["required_roles"].([]any)
 	if len(roles) != 1 || roles[0] != "admin" || env.Details["owner_role"] != "editor" || env.Details["permission"] != "settings.read" {
 		t.Errorf("owner_role_insufficient details = %v, want permission settings.read, required_roles [admin], owner_role editor", env.Details)
 	}
-	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", key, ""), "posts.read after the owner became an editor")
+	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", key, ""), "posts.read after the owner became an editor")
 	meRes := agtMe(h, key)
 	agtExpectOK(t, meRes, "/me after downgrade")
 	var me struct {
@@ -829,7 +829,7 @@ func TestAgentOwnerDowngradeAndDeletionLimitAccess(t *testing.T) {
 	if err := h.db.Model(&core.User{}).Where("id = ?", owner.ID).Update("role", "customer").Error; err != nil {
 		t.Fatalf("downgrade owner to customer: %v", err)
 	}
-	agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", key, ""), http.StatusForbidden, "owner_role_insufficient", "posts.read after the owner lost every staff role")
+	agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", key, ""), http.StatusForbidden, "owner_role_insufficient", "posts.read after the owner lost every staff role")
 	if d := agtDetail(t, h, watcher, created.Agent.ID); len(d.EffectivePermissions) != 0 || d.Owner == nil || d.Owner.Role != "customer" {
 		t.Errorf("detail after downgrade = %+v, want no effective permissions and owner role customer", d)
 	}
@@ -838,7 +838,7 @@ func TestAgentOwnerDowngradeAndDeletionLimitAccess(t *testing.T) {
 		t.Fatalf("delete the owner (agents, keys and events must not block it): %v", err)
 	}
 	agtExpectError(t, agtMe(h, key), http.StatusUnauthorized, "owner_unavailable", "/me after the owner was deleted")
-	agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", key, ""), http.StatusUnauthorized, "owner_unavailable", "GET /posts after the owner was deleted")
+	agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", key, ""), http.StatusUnauthorized, "owner_unavailable", "GET /posts after the owner was deleted")
 	if d := agtDetail(t, h, watcher, created.Agent.ID); d.Owner != nil {
 		t.Errorf("detail owner after deletion = %+v, want null", d.Owner)
 	}
@@ -850,7 +850,7 @@ func TestAgentDeleteKeepsEvents(t *testing.T) {
 	created := agtCreate(t, h, token, "要刪除的 agent", "posts.read")
 	key, id := created.APIKey, created.Agent.ID
 	agtExpectOK(t, agtMe(h, key), "/me before deletion")
-	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", key, ""), "GET /posts before deletion")
+	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", key, ""), "GET /posts before deletion")
 
 	r := agtAdmin(h, token, http.MethodDelete, fmt.Sprintf("/api/admin/agents/%d", id), "")
 	if r.code != http.StatusNoContent {
@@ -898,13 +898,13 @@ func TestAgentAdminEventsFollowAgentAcrossRotation(t *testing.T) {
 	b := agtCreate(t, h, token, "旁觀者", "posts.read")
 	k1 := a.APIKey
 	for i := 0; i < 2; i++ {
-		agtExpectOK(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", k1, "198.51.100.77:4321"), "first key GET /posts")
+		agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", k1, "198.51.100.77:4321"), "first key GET /posts")
 	}
-	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", b.APIKey, "192.0.2.10:1000"), "other agent GET /posts")
+	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", b.APIKey, "192.0.2.10:1000"), "other agent GET /posts")
 
 	k2 := agtRotate(t, h, token, a.Agent.ID, `{"mode":"immediate"}`).APIKey
-	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", k2, "[2001:db8:abcd:12::5]:5555"), "second key GET /posts")
-	agtExpectError(t, agtDo(h, http.MethodGet, "/api/agent/v1/posts", "", k1, "198.51.100.77:4321"), http.StatusUnauthorized, "key_revoked", "first key after rotation")
+	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", k2, "[2001:db8:abcd:12::5]:5555"), "second key GET /posts")
+	agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", k1, "198.51.100.77:4321"), http.StatusUnauthorized, "key_revoked", "first key after rotation")
 
 	page, raw := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(a.Agent.ID)}, "actor_type": {"agent"}})
 	if page.Total != 4 || len(page.Items) != 4 {
@@ -917,8 +917,8 @@ func TestAgentAdminEventsFollowAgentAcrossRotation(t *testing.T) {
 		if ev.AgentID != a.Agent.ID || ev.ActorType != "agent" || ev.Action != "request" || ev.Module != "posts" {
 			t.Errorf("event %+v, want agent %d request on module posts", ev, a.Agent.ID)
 		}
-		if ev.Method != http.MethodGet || ev.Route != "/api/agent/v1/posts" {
-			t.Errorf("event method/route = %s %s, want GET /api/agent/v1/posts", ev.Method, ev.Route)
+		if ev.Method != http.MethodGet || ev.Route != "/api/v1/posts" {
+			t.Errorf("event method/route = %s %s, want GET /api/v1/posts", ev.Method, ev.Route)
 		}
 		if !agtRequestIDPattern.MatchString(ev.CorrelationID) {
 			t.Errorf("event correlation_id=%q, want a req_ id", ev.CorrelationID)
@@ -964,13 +964,13 @@ func TestAgentAdminPagesAdminOnly(t *testing.T) {
 	editorToken := h.token(h.user("editor", "agt-page-editor"))
 	authorToken := h.token(h.user("author", "agt-page-author"))
 
-	for _, path := range []string{"/admin/agents", "/admin/agents/1"} {
+	for _, path := range []string{"/admin/integrations", "/admin/integrations/1"} {
 		r := h.request(http.MethodGet, path, "", adminToken, echo.MIMETextHTML, "")
 		if r.code != http.StatusOK {
 			t.Errorf("admin GET %s returned %d, want 200", path, r.code)
 		}
-		if !strings.Contains(r.body, `href="/admin/agents"`) {
-			t.Errorf("admin GET %s: rail has no AI agent entry", path)
+		if !strings.Contains(r.body, `href="/admin/integrations"`) {
+			t.Errorf("admin GET %s: rail has no API integration entry", path)
 		}
 		for role, token := range map[string]string{"editor": editorToken, "author": authorToken} {
 			if r := h.request(http.MethodGet, path, "", token, echo.MIMETextHTML, ""); r.code != http.StatusForbidden {
@@ -982,7 +982,7 @@ func TestAgentAdminPagesAdminOnly(t *testing.T) {
 		}
 	}
 	editorPage := h.request(http.MethodGet, "/admin", "", editorToken, echo.MIMETextHTML, "")
-	if strings.Contains(editorPage.body, `href="/admin/agents"`) {
-		t.Error("editor's rail shows the AI agent entry")
+	if strings.Contains(editorPage.body, `href="/admin/integrations"`) {
+		t.Error("editor's rail shows the API integration entry")
 	}
 }

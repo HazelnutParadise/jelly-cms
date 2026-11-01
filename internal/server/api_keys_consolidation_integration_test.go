@@ -15,7 +15,7 @@ import (
 
 // Acceptance tests for ticket 22 (docs/tickets/22-api-keys-consolidation.md):
 // personal API tokens (jly_, api_tokens) are merged into access keys (agent
-// keys on /api/agent/v1). The migration is 0026_tokens_into_keys.sql, which
+// keys on /api/v1). The migration is 0026_tokens_into_keys.sql, which
 // the tests run from the repository because the server package does not embed
 // the migrations.
 
@@ -57,7 +57,7 @@ func TestAPIKeysMigratedTokenAuthenticatesAgentAPIWithOwnerRole(t *testing.T) {
 	apiKeysRunMigration(t, h)
 
 	r := agtMe(h, raw)
-	agtExpectOK(t, r, "GET /api/agent/v1/me with the migrated jly_ token")
+	agtExpectOK(t, r, "GET /api/v1/me with the migrated jly_ token")
 	var me struct {
 		Permissions          []string `json:"permissions"`
 		EffectivePermissions []string `json:"effective_permissions"`
@@ -86,8 +86,8 @@ func TestAPIKeysMigratedRevokedAndExpiredTokensGetKeyErrors(t *testing.T) {
 	expiredRaw := apiKeysSeedToken(t, h, owner, "expired bot", []string{"content_read"}, &past, nil)
 	apiKeysRunMigration(t, h)
 
-	agtExpectError(t, agtMe(h, revokedRaw), http.StatusUnauthorized, "key_revoked", "GET /api/agent/v1/me with a migrated revoked token")
-	agtExpectError(t, agtMe(h, expiredRaw), http.StatusUnauthorized, "key_expired", "GET /api/agent/v1/me with a migrated expired token")
+	agtExpectError(t, agtMe(h, revokedRaw), http.StatusUnauthorized, "key_revoked", "GET /api/v1/me with a migrated revoked token")
+	agtExpectError(t, agtMe(h, expiredRaw), http.StatusUnauthorized, "key_expired", "GET /api/v1/me with a migrated expired token")
 }
 
 func TestAPIKeysMigratedTokenIsNoLongerABackendCredential(t *testing.T) {
@@ -123,7 +123,7 @@ func TestAPIKeysNewAgentKeyUsesJLYPrefixAndLegacyJLAKeysStillWork(t *testing.T) 
 	if want := key[:12]; created.Key.Prefix != want || !strings.HasPrefix(created.Key.Prefix, "jly_") {
 		t.Errorf("key.prefix=%q, want jly_ followed by 8 characters: %q", created.Key.Prefix, want)
 	}
-	agtExpectOK(t, agtMe(h, key), "GET /api/agent/v1/me with the new jly_ key")
+	agtExpectOK(t, agtMe(h, key), "GET /api/v1/me with the new jly_ key")
 
 	// A key issued before this ticket keeps working: jla_ with its own agent.
 	var legacyAgentID uint
@@ -140,7 +140,7 @@ func TestAPIKeysNewAgentKeyUsesJLYPrefixAndLegacyJLAKeysStillWork(t *testing.T) 
 		legacyAgentID, tokTestHash(legacyKey), legacyKey[:12], admin.ID).Error; err != nil {
 		t.Fatalf("seed legacy jla_ key: %v", err)
 	}
-	agtExpectOK(t, agtMe(h, legacyKey), "GET /api/agent/v1/me with a legacy jla_ key")
+	agtExpectOK(t, agtMe(h, legacyKey), "GET /api/v1/me with a legacy jla_ key")
 }
 
 func TestAPIKeysMigratedTokenWritesAgentEvent(t *testing.T) {
@@ -149,13 +149,13 @@ func TestAPIKeysMigratedTokenWritesAgentEvent(t *testing.T) {
 	raw := apiKeysSeedToken(t, h, owner, "event bot", []string{"content_read"}, nil, nil)
 	apiKeysRunMigration(t, h)
 
-	agtExpectOK(t, agtMe(h, raw), "GET /api/agent/v1/me with the migrated jly_ token")
+	agtExpectOK(t, agtMe(h, raw), "GET /api/v1/me with the migrated jly_ token")
 	var n int64
-	if err := h.db.Raw(`SELECT count(*) FROM agent_events WHERE key_prefix = ? AND route LIKE '%/api/agent/v1/me'`, "jly_"+raw[len(raw)-4:]).Row().Scan(&n); err != nil {
+	if err := h.db.Raw(`SELECT count(*) FROM agent_events WHERE key_prefix = ? AND route LIKE '%/api/v1/me'`, "jly_"+raw[len(raw)-4:]).Row().Scan(&n); err != nil {
 		t.Fatalf("count agent_events for the migrated key: %v", err)
 	}
 	if n < 1 {
-		t.Errorf("agent_events has %d rows for the migrated key on /api/agent/v1/me, want at least one", n)
+		t.Errorf("agent_events has %d rows for the migrated key on /api/v1/me, want at least one", n)
 	}
 }
 
