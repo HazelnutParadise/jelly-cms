@@ -52,15 +52,15 @@ func agentKeyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		raw, problem := agentCredential(c)
 		if problem != "" {
-			return writeAPIError(c, 401, problem, "A valid agent key is required", nil)
+			return writeAPIError(c, 401, problem, "A valid access key is required", nil)
 		}
 		var key core.AgentKey
 		if err := data.DB.WithContext(c.Request().Context()).Where("key_hash = ?", agent.HashKey(raw)).First(&key).Error; err != nil {
-			return writeAPIError(c, 401, "key_invalid", "Invalid agent key", nil)
+			return writeAPIError(c, 401, "key_invalid", "Invalid access key", nil)
 		}
 		var a core.Agent
 		if err := data.DB.WithContext(c.Request().Context()).Unscoped().First(&a, key.AgentID).Error; err != nil {
-			return writeAPIError(c, 401, "key_revoked", "Agent key is no longer valid", nil)
+			return writeAPIError(c, 401, "key_revoked", "Access key is no longer valid", nil)
 		}
 		if key.RevokedAt != nil {
 			return deniedAgentKey(c, a, key, "key_revoked")
@@ -102,7 +102,7 @@ func deniedAgentKey(c echo.Context, a core.Agent, key core.AgentKey, code string
 		return writeAPIError(c, http.StatusInternalServerError, "internal_error", "Internal server error", nil)
 	}
 	finalizePendingAgentRequest(record, http.StatusUnauthorized, ev.Summary, ev.RequestID, a.ID, key.ID, ev.IPMasked)
-	return writeAPIError(c, 401, code, "Agent key is not currently usable", nil)
+	return writeAPIError(c, 401, code, "Access key is not currently usable", nil)
 }
 
 func agentPermissionMiddleware(route agentRoute) echo.MiddlewareFunc {
@@ -119,7 +119,7 @@ func agentPermissionMiddleware(route agentRoute) echo.MiddlewareFunc {
 				}
 			}
 			if !allowed {
-				return writeAPIError(c, 403, "permission_missing", "Agent key lacks required permission", map[string]any{"missing_permissions": []string{want}, "required_permission": want})
+				return writeAPIError(c, 403, "permission_missing", "Access key lacks required permission", map[string]any{"missing_permissions": []string{want}, "required_permission": want})
 			}
 			if !roleListContains(owner.Role, route.RequiredRoles) {
 				return writeAPIError(c, 403, "owner_role_insufficient", "Owner role cannot use this permission", map[string]any{"permission": want, "required_roles": route.RequiredRoles, "owner_role": owner.Role})

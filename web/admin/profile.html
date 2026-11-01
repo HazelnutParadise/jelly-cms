@@ -109,7 +109,7 @@
         <h2>{{.T.accountTokensHeading}}</h2>
         {{if eq .Viewer.Role "admin"}}
         <p class="hint">{{.T.accountTokensAdminNotice}}</p>
-        <p><a class="btn btn-secondary" href="/admin/agents">{{.T.accountTokensOpenKeys}}</a></p>
+        <p><a class="btn btn-secondary" href="/admin/integrations">{{.T.accountTokensOpenKeys}}</a></p>
         {{else}}
         <p class="hint">{{.T.accountTokensAskAdmin}}</p>
         {{end}}

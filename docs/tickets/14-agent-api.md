@@ -1,3 +1,5 @@
+> 網址與名稱已由工單 [24](24-api-v1-rename.md) 取代：機器 API 改為 `/api/v1`，「AI agent」改稱「API 串接」，「agent 金鑰」改稱「存取金鑰」。
+
 # 14 — 站長可以發給 AI agent 專用金鑰：限定權限、可輪替與撤銷、agent 自己找得到 API 說明、每個動作都有紀錄
 
 Epic：帳號與存取

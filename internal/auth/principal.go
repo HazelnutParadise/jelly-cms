@@ -44,7 +44,7 @@ func resolvePrincipal(c echo.Context, db *gorm.DB, allowSession bool) (*principa
 			return nil, fmt.Errorf("invalid authorization header")
 		}
 		bearer := token[len("Bearer "):]
-		// Access keys (jla_, jly_) call /api/agent/v1 only. They are never user
+		// Access keys (jla_, jly_) call /api/v1 only. They are never user
 		// authentication credentials (ticket 22).
 		if strings.HasPrefix(bearer, "jla_") || strings.HasPrefix(bearer, "jly_") {
 			return nil, fmt.Errorf("access keys are not user authentication tokens")

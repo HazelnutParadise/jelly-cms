@@ -16,9 +16,9 @@ var agentPathParam = regexp.MustCompile(`:([A-Za-z0-9_]+)`)
 func openAPIPath(path string) string { return agentPathParam.ReplaceAllString(path, "{$1}") }
 func agentFullPath(path string) string {
 	if path == "" {
-		return "/api/agent/v1"
+		return machineAPIBasePath
 	}
-	return "/api/agent/v1" + path
+	return machineAPIBasePath + path
 }
 func agentDiscovery(tm *theme.Manager, rt *plugin.Runtime) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -44,11 +44,11 @@ func agentDiscovery(tm *theme.Manager, rt *plugin.Runtime) echo.HandlerFunc {
 			}
 			permissions = append(permissions, map[string]any{"name": string(p), "description": permissionDescription(string(p)), "required_roles": roles, "endpoints": permEndpoints[string(p)]})
 		}
-		return c.JSON(200, map[string]any{"name": "Jelly CMS Agent API", "version": "v1", "base_path": "/api/agent/v1", "openapi_url": "/api/agent/v1/openapi.json", "skill_path": "skills/jelly-cms/SKILL.md", "authentication": map[string]any{"type": "bearer", "header": "Authorization", "scheme": "Bearer", "key_prefix": "jly_", "how_to_get": "由管理員在 Jelly CMS 後台建立"}, "permissions": permissions, "endpoints": endpoints, "concurrency": agentConcurrency(rows), "errors": map[string]any{"format": map[string]any{"code": "…", "message": "…", "details": map[string]any{}, "correlation_id": "req_…"}, "codes": agentErrorCodes()}, "not_exposed": agentNotExposed(), "examples": []map[string]any{{"title": "確認金鑰與有效權限", "request": "GET /api/agent/v1/me", "response": map[string]any{"id": 1, "effective_permissions": []string{"posts.read"}}}, {"title": "以版本更新文章", "request": "PUT /api/agent/v1/posts/1 with base_updated_at", "response": map[string]any{"updated_at": "RFC3339 timestamp"}}}})
+		return c.JSON(200, map[string]any{"name": "Jelly CMS API", "version": "v1", "base_path": machineAPIBasePath, "openapi_url": machineAPIBasePath + "/openapi.json", "skill_path": "skills/jelly-cms/SKILL.md", "authentication": map[string]any{"type": "bearer", "header": "Authorization", "scheme": "Bearer", "key_prefix": "jly_", "how_to_get": "由管理員在 Jelly CMS 後台建立", "description": "Send the access key in the Authorization header as a Bearer token."}, "permissions": permissions, "endpoints": endpoints, "concurrency": agentConcurrency(rows), "errors": map[string]any{"format": map[string]any{"code": "…", "message": "…", "details": map[string]any{}, "correlation_id": "req_…"}, "codes": agentErrorCodes()}, "not_exposed": agentNotExposed(), "examples": []map[string]any{{"title": "確認金鑰與有效權限", "request": "GET " + machineAPIBasePath + "/me", "response": map[string]any{"id": 1, "effective_permissions": []string{"posts.read"}}}, {"title": "以版本更新文章", "request": "PUT " + machineAPIBasePath + "/posts/1 with base_updated_at", "response": map[string]any{"updated_at": "RFC3339 timestamp"}}}})
 	}
 }
 func permissionDescription(p string) string {
-	return map[string]string{"posts.read": "讀取文章與內容分類。", "posts.write": "建立、更新與刪除文章。", "pages.read": "讀取頁面。", "pages.write": "更新頁面。", "media.read": "列出媒體附件。", "media.write": "上傳、更新與刪除媒體。", "products.read": "讀取商品。", "products.write": "建立、更新與刪除商品。", "orders.read": "讀取訂單。", "themes.read": "檢視主題與設定。", "themes.write": "啟用主題及更新主題設定。", "plugins.read": "列出外掛。", "plugins.write": "重新載入外掛。", "settings.read": "讀取已遮罩的系統設定。", "settings.write": "更新系統設定。", "logs.read": "讀取此 agent 自己的活動紀錄。"}[p]
+	return map[string]string{"posts.read": "讀取文章與內容分類。", "posts.write": "建立、更新與刪除文章。", "pages.read": "讀取頁面。", "pages.write": "更新頁面。", "media.read": "列出媒體附件。", "media.write": "上傳、更新與刪除媒體。", "products.read": "讀取商品。", "products.write": "建立、更新與刪除商品。", "orders.read": "讀取訂單。", "themes.read": "檢視主題與設定。", "themes.write": "啟用主題及更新主題設定。", "plugins.read": "列出外掛。", "plugins.write": "重新載入外掛。", "settings.read": "讀取已遮罩的系統設定。", "settings.write": "更新系統設定。", "logs.read": "讀取此串接自己的活動紀錄。"}[p]
 }
 func agentErrorCodes() []map[string]any {
 	codes := []struct {
@@ -71,10 +71,10 @@ func agentConcurrency(rows []agentRoute) map[string]any {
 	return map[string]any{"field": "base_updated_at", "applies_to": paths, "conflict_code": "version_conflict"}
 }
 func agentErrorDescription(code string) string {
-	return map[string]string{"key_missing": "Bearer agent key is required", "key_invalid": "Agent key is invalid", "key_revoked": "Agent key was revoked", "key_expired": "Agent key expired", "agent_disabled": "Agent is disabled", "owner_unavailable": "Agent owner is unavailable", "permission_missing": "Agent key lacks a required permission", "owner_role_insufficient": "Owner role cannot use this permission", "forbidden": "Access is forbidden", "version_required": "base_updated_at is required", "version_invalid": "base_updated_at is invalid", "type_mismatch": "Resource type does not match this endpoint", "logs_filter_invalid": "Event filter is invalid", "bad_request": "Request is invalid", "name_invalid": "Agent name is invalid", "description_too_long": "Agent description is too long", "permissions_required": "At least one permission is required", "permission_unknown": "Permission is unknown", "rotation_mode_invalid": "Key rotation mode is invalid", "grace_out_of_range": "Grace period is out of range", "not_found": "Endpoint was not found", "agent_not_found": "Agent was not found", "key_not_found": "Agent key was not found", "method_not_allowed": "HTTP method is not allowed", "version_conflict": "Resource changed since it was read", "agent_name_taken": "Agent name is already in use", "conflict": "Request conflicts with current state", "payload_too_large": "Request body is too large", "internal_error": "Internal server error", "service_unavailable": "Service is unavailable"}[code]
+	return map[string]string{"key_missing": "Bearer access key is required", "key_invalid": "Access key is invalid", "key_revoked": "Access key was revoked", "key_expired": "Access key expired", "agent_disabled": "Integration is disabled", "owner_unavailable": "Integration owner is unavailable", "permission_missing": "Access key lacks a required permission", "owner_role_insufficient": "Owner role cannot use this permission", "forbidden": "Access is forbidden", "version_required": "base_updated_at is required", "version_invalid": "base_updated_at is invalid", "type_mismatch": "Resource type does not match this endpoint", "logs_filter_invalid": "Event filter is invalid", "bad_request": "Request is invalid", "name_invalid": "Integration name is invalid", "description_too_long": "Integration description is too long", "permissions_required": "At least one permission is required", "permission_unknown": "Permission is unknown", "rotation_mode_invalid": "Key rotation mode is invalid", "grace_out_of_range": "Grace period is out of range", "not_found": "Endpoint was not found", "agent_not_found": "Integration was not found", "key_not_found": "Access key was not found", "method_not_allowed": "HTTP method is not allowed", "version_conflict": "Resource changed since it was read", "agent_name_taken": "Integration name is already in use", "conflict": "Request conflicts with current state", "payload_too_large": "Request body is too large", "internal_error": "Internal server error", "service_unavailable": "Service is unavailable"}[code]
 }
 func agentNotExposed() []map[string]string {
-	return []map[string]string{{"path": "/api/admin/comments*", "reason": "留言沒有對應的 agent 權限"}, {"path": "/api/admin/menus*", "reason": "選單沒有對應的 agent 權限"}, {"path": "/api/admin/categories* write", "reason": "分類寫入沒有對應的 agent 權限"}, {"path": "/api/admin/tags* write", "reason": "標籤寫入沒有對應的 agent 權限"}, {"path": "/api/admin/trash*", "reason": "回收桶沒有對應的 agent 權限"}, {"path": "/api/admin/posts/:id/revisions*", "reason": "文章版本沒有對應的 agent 權限"}, {"path": "/api/admin/payment/gateways*", "reason": "金流憑證不開放給 agent"}, {"path": "/api/admin/oauth/providers*", "reason": "第三方憑證不開放給 agent"}, {"path": "/api/admin/plugins/upload", "reason": "安裝外掛等於執行程式碼"}, {"path": "/api/admin/agents*", "reason": "agent 不能管理 agent"}}
+	return []map[string]string{{"path": "/api/admin/comments*", "reason": "留言沒有對應的串接權限"}, {"path": "/api/admin/menus*", "reason": "選單沒有對應的串接權限"}, {"path": "/api/admin/categories* write", "reason": "分類寫入沒有對應的串接權限"}, {"path": "/api/admin/tags* write", "reason": "標籤寫入沒有對應的串接權限"}, {"path": "/api/admin/trash*", "reason": "回收桶沒有對應的串接權限"}, {"path": "/api/admin/posts/:id/revisions*", "reason": "文章版本沒有對應的串接權限"}, {"path": "/api/admin/payment/gateways*", "reason": "金流憑證不開放給串接"}, {"path": "/api/admin/oauth/providers*", "reason": "第三方憑證不開放給串接"}, {"path": "/api/admin/plugins/upload", "reason": "安裝外掛等於執行程式碼"}, {"path": "/api/admin/agents*", "reason": "串接不能管理串接"}}
 }
 func agentOpenAPI(tm *theme.Manager, rt *plugin.Runtime) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -102,9 +102,12 @@ func agentOpenAPI(tm *theme.Manager, rt *plugin.Runtime) echo.HandlerFunc {
 			}
 			if r.Auth == agentRoutePublic {
 				op["security"] = []any{}
-			} else if r.Permission != "" {
-				op["x-jelly-permission"] = string(r.Permission)
-				op["x-jelly-required-roles"] = r.RequiredRoles
+			} else {
+				op["security"] = []any{map[string]any{"AccessKey": []string{}}}
+				if r.Permission != "" {
+					op["x-jelly-permission"] = string(r.Permission)
+					op["x-jelly-required-roles"] = r.RequiredRoles
+				}
 			}
 			item[strings.ToLower(r.Method)] = op
 		}
@@ -120,11 +123,11 @@ func agentOpenAPI(tm *theme.Manager, rt *plugin.Runtime) echo.HandlerFunc {
 		}
 		doc := map[string]any{
 			"openapi":  "3.1.0",
-			"info":     map[string]any{"title": "Jelly CMS Agent API", "version": "1.0.0"},
+			"info":     map[string]any{"title": "Jelly CMS API", "version": "1.0.0"},
 			"paths":    paths,
-			"security": []any{map[string]any{"AgentKey": []string{}}},
+			"security": []any{map[string]any{"AccessKey": []string{}}},
 			"components": map[string]any{
-				"securitySchemes": map[string]any{"AgentKey": map[string]any{"type": "http", "scheme": "bearer", "description": "Jelly CMS agent key (jly_…)"}},
+				"securitySchemes": map[string]any{"AccessKey": map[string]any{"type": "http", "scheme": "bearer", "description": "Jelly CMS access key (jly_…)"}},
 				"schemas":         map[string]any{"Error": errorSchema},
 			},
 		}
@@ -328,7 +331,7 @@ func agentOperationResponses(r agentRoute) map[string]any {
 	}
 	responses := map[string]any{status: map[string]any{"description": description, "content": map[string]any{"application/json": map[string]any{"schema": agentSuccessSchema(r)}}}, "400": agentErrorResponse("Invalid request"), "404": agentErrorResponse("Not found"), "405": agentErrorResponse("Method not allowed"), "413": agentErrorResponse("Request body is too large"), "500": agentErrorResponse("Server error")}
 	if r.Auth == agentRouteKey {
-		responses["401"] = agentErrorResponse("Invalid or missing agent key")
+		responses["401"] = agentErrorResponse("Invalid or missing access key")
 	}
 	if r.Permission != "" {
 		responses["403"] = agentErrorResponse("Permission denied")
@@ -404,7 +407,7 @@ func agentQueryParameters(r agentRoute) []any {
 		add("actor_type", "Event actor type", agentStringSchema(), false)
 		add("action", "Event action; may be repeated", agentStringSchema(), true)
 		add("module", "Event module", agentStringSchema(), false)
-		add("key_id", "Agent key identifier", agentIntSchema(), false)
+		add("key_id", "Access key identifier", agentIntSchema(), false)
 		add("since", "Inclusive RFC3339 start time", map[string]any{"type": "string", "format": "date-time"}, false)
 		add("until", "Exclusive RFC3339 end time", map[string]any{"type": "string", "format": "date-time"}, false)
 	}

@@ -102,8 +102,8 @@
         "這個名稱已被使用，請換一個。",
         "This name is already in use.",
       ),
-      agent_not_found: tr("找不到這個 agent。", "Agent not found."),
-      forbidden: tr("你沒有管理 agent 的權限。", "You cannot manage agents."),
+      agent_not_found: tr("找不到這個串接。", "Integration not found."),
+      forbidden: tr("你沒有管理串接的權限。", "You cannot manage integrations."),
     };
     if (body && codes[body.code]) return codes[body.code];
     return (
@@ -225,7 +225,7 @@
       throw new Error(
         tr(
           "金鑰回應不完整，請確認清單後輪替金鑰。",
-          "The key response is incomplete. Check the list and rotate the key.",
+          "The access key response is incomplete. Check the list and rotate the access key.",
         ),
       );
     const box = node("div", undefined, "agent-keybox");
@@ -234,7 +234,7 @@
         "p",
         tr(
           "請立即保存金鑰。關閉或離開後，無法再次查看。",
-          "Save this key now. You cannot view it after closing or leaving.",
+          "Save this access key now. You cannot view it after closing or leaving.",
         ),
       ),
     );
@@ -243,7 +243,7 @@
     box.append(code);
     const copied = node("p", "");
     copied.setAttribute("role", "status");
-    const copy = button(tr("複製金鑰", "Copy key"), async () => {
+    const copy = button(tr("複製金鑰", "Copy access key"), async () => {
       try {
         await navigator.clipboard.writeText(secret);
         if (secret)
@@ -253,7 +253,7 @@
           copied,
           tr(
             "無法使用剪貼簿，請選取上方金鑰手動複製。",
-            "Clipboard unavailable. Select and copy the key above.",
+            "Clipboard unavailable. Select and copy the access key above.",
           ),
           true,
         );
@@ -265,15 +265,15 @@
         node(
           "p",
           result.previous_key.expires_at
-            ? tr("舊金鑰到期：", "Previous key expires: ") +
+            ? tr("舊金鑰到期：", "Previous access key expires: ") +
                 date(result.previous_key.expires_at)
             : tr(
                 "舊金鑰已立即撤銷。",
-                "The previous key was revoked immediately.",
+                "The previous access key was revoked immediately.",
               ),
         ),
       );
-    openDialog(tr("金鑰只會顯示這一次", "Your key is shown only once"), box, [
+    openDialog(tr("金鑰只會顯示這一次", "Your access key is shown only once"), box, [
       button(
         tr("我已複製，關閉", "I have copied it, close"),
         () => closeDialog(),
@@ -363,7 +363,7 @@
     feedback.setAttribute("role", "status");
     const save = mutationButton(
       creating
-        ? tr("建立並產生金鑰", "Create and generate key")
+        ? tr("建立並產生金鑰", "Create and generate access key")
         : tr("儲存變更", "Save changes"),
       () => form.requestSubmit(),
       "primary",
@@ -506,7 +506,7 @@
     $("agentListCount").textContent = tr("共 ", "Total ") + shown.length;
     shown.forEach((a) => {
       const meta = node("div"),
-        aLink = link(a.name, "/admin/agents/" + encodeURIComponent(a.id));
+        aLink = link(a.name, "/admin/integrations/" + encodeURIComponent(a.id));
       aLink.className = "agent-name";
       meta.append(
         aLink,
@@ -543,13 +543,13 @@
         ),
         link(
           tr("詳情", "Details"),
-          "/admin/agents/" + encodeURIComponent(a.id),
+          "/admin/integrations/" + encodeURIComponent(a.id),
         ),
       ]);
     });
     if (!shown.length)
       row(listTable, [
-        tr("沒有符合條件的 agent。", "No matching agents."),
+        tr("沒有符合條件的串接。", "No matching integrations."),
         "",
         "",
         "",
@@ -559,11 +559,11 @@
   function infoCard() {
     const card = node("section", undefined, "agent-card");
     card.append(
-      node("h2", tr("給 agent 的連線資訊", "Connection information")),
+      node("h2", tr("給串接用的連線資訊", "Connection information")),
     );
     [
-      "GET /api/agent/v1",
-      "GET /api/agent/v1/openapi.json",
+      "GET /api/v1",
+      "GET /api/v1/openapi.json",
       "Authorization: Bearer jly_…",
       "skills/jelly-cms/SKILL.md",
     ].forEach((x) => card.append(node("p", x, "agent-muted")));
@@ -573,9 +573,9 @@
           await navigator.clipboard.writeText(
             "API: " +
               location.origin +
-              "/api/agent/v1\nOpenAPI: " +
+              "/api/v1\nOpenAPI: " +
               location.origin +
-              "/api/agent/v1/openapi.json\nAuthorization: Bearer jly_…\nSkill: skills/jelly-cms/SKILL.md",
+              "/api/v1/openapi.json\nAuthorization: Bearer jly_…\nSkill: skills/jelly-cms/SKILL.md",
           );
           message(
             status,
@@ -601,15 +601,15 @@
       node(
         "div",
         tr(
-          "AI agent 以獨立金鑰呼叫 API。有效權限由這裡的設定與擁有者目前角色共同決定。完整金鑰只在建立與輪替時顯示一次。",
-          "Agents use their own API keys. Effective permissions depend on the selected permissions and the owner’s current role. Full keys appear only once after creation or rotation.",
+          "每個 API 串接以獨立金鑰呼叫 API。有效權限由這裡的設定與擁有者目前角色共同決定。完整金鑰只在建立與輪替時顯示一次。",
+          "Each API integration uses its own access keys. Effective permissions depend on the selected permissions and the owner’s current role. Full access keys appear only once after creation or rotation.",
         ),
         "agent-note",
       ),
     );
     const filters = node("div", undefined, "agent-filters");
     const sf = field(
-      tr("搜尋名稱或金鑰前綴", "Search name or key prefix"),
+      tr("搜尋名稱或金鑰前綴", "Search name or access key prefix"),
       "search",
     );
     search = sf.input;
@@ -626,9 +626,9 @@
     filters.append(sf.wrap, stateFilter, count);
     main.append(filters);
     listTable = table([
-      tr("Agent 與擁有者", "Agent and owner"),
+      tr("串接與擁有者", "Integration and owner"),
       tr("權限", "Permissions"),
-      tr("金鑰與最後使用", "Keys and last used"),
+      tr("金鑰與最後使用", "Access keys and last used"),
       tr("狀態", "Status"),
       "",
     ]);
@@ -636,7 +636,7 @@
     const create = node("section", undefined, "agent-card agent-create");
     create.id = "agentCreate";
     create.append(
-      node("h2", tr("建立 agent", "Create agent")),
+      node("h2", tr("建立串接", "Create integration")),
       editor(null, true),
       node(
         "p",
@@ -715,12 +715,12 @@
     try {
       const title =
         action === "delete"
-          ? tr("刪除 agent", "Delete agent")
+          ? tr("刪除串接", "Delete integration")
           : action === "revoke"
-            ? tr("撤銷金鑰", "Revoke key")
+            ? tr("撤銷金鑰", "Revoke access key")
             : action === "disable"
-              ? tr("停用 agent", "Disable agent")
-              : tr("啟用 agent", "Enable agent");
+              ? tr("停用串接", "Disable integration")
+              : tr("啟用串接", "Enable integration");
       const body = node("div");
       body.append(
         node(
@@ -728,21 +728,21 @@
           action === "delete"
             ? tr(
                 "所有金鑰會立即失效。活動紀錄與輪替歷史會保留。",
-                "All keys will stop working immediately. Activity and rotation history are retained.",
+                "All access keys will stop working immediately. Activity and rotation history are retained.",
               )
             : action === "revoke"
               ? tr(
                   "撤銷後，這把金鑰的下一次請求會被拒絕。",
-                  "This key’s next request will be rejected after revocation.",
+                  "This access key’s next request will be rejected after revocation.",
                 )
               : action === "disable"
                 ? tr(
                     "所有金鑰（含過渡中的）會暫停使用，可再啟用。",
-                    "All keys, including grace-period keys, will stop working until enabled again.",
+                    "All access keys, including grace-period access keys, will stop working until enabled again.",
                   )
                 : tr(
                     "未撤銷且未過期的金鑰將恢復使用。",
-                    "Unrevoked, unexpired keys will work again.",
+                    "Unrevoked, unexpired access keys will work again.",
                   ),
         ),
         node("p", targetKey ? targetKey.prefix + "…" : target.name),
@@ -764,7 +764,7 @@
       else path += "/" + action;
       await mutate(path, method, undefined, async (result) => {
         if (action === "delete") {
-          location.assign("/admin/agents");
+          location.assign("/admin/integrations");
           return;
         }
         if (action === "revoke")
@@ -804,11 +804,11 @@
           value === "immediate"
             ? tr(
                 "舊金鑰下一次請求即失效。",
-                "The previous key stops working on its next request.",
+                "The previous access key stops working on its next request.",
               )
             : tr(
                 "新舊金鑰同時可用，最長 24 小時，可提前撤銷。",
-                "Both keys work for up to 24 hours. You can revoke the previous key early.",
+                "Both access keys work for up to 24 hours. You can revoke the previous access key early.",
               ),
         ),
       );
@@ -847,13 +847,13 @@
         "p",
         tr(
           "ID、權限、擁有者與紀錄不變。更早的過渡金鑰會立即撤銷。",
-          "ID, permissions, owner and history stay unchanged. Any older grace-period key is revoked immediately.",
+          "ID, permissions, owner and history stay unchanged. Any older grace-period access key is revoked immediately.",
         ),
         "agent-muted",
       ),
     );
     const confirm = mutationButton(
-      tr("輪替金鑰", "Rotate key"),
+      tr("輪替金鑰", "Rotate access key"),
       () => {
         if (!validate()) return;
         const value = form.querySelector("[name=rotation-mode]:checked").value;
@@ -895,7 +895,7 @@
       confirm.disabled = busy || !valid;
       preview.textContent =
         grace && valid
-          ? tr("舊金鑰預計到期：", "Previous key will expire around: ") +
+          ? tr("舊金鑰預計到期：", "Previous access key will expire around: ") +
             date(new Date(Date.now() + num * 60000).toISOString())
           : "";
       return valid;
@@ -906,7 +906,7 @@
       e.preventDefault();
       if (!confirm.disabled) confirm.click();
     });
-    openDialog(tr("輪替金鑰", "Rotate key"), form, [confirm, cancel()]);
+    openDialog(tr("輪替金鑰", "Rotate access key"), form, [confirm, cancel()]);
     validate();
   }
   function eventSection(title, isHistory) {
@@ -937,8 +937,8 @@
           agents: tr("管理操作", "Management"),
         }),
       ]);
-      select("key_id", tr("金鑰", "Key"), [
-        ["", tr("所有金鑰", "All keys")],
+      select("key_id", tr("金鑰", "Access key"), [
+        ["", tr("所有金鑰", "All access keys")],
         ...(current.keys || []).map((k) => [String(k.id), k.prefix + "…"]),
       ]);
       ["since", "until"].forEach((name) => {
@@ -968,7 +968,7 @@
           ? [tr("時間", "Time"), tr("操作", "Action"), tr("摘要", "Summary")]
           : [
               tr("時間", "Time"),
-              tr("金鑰", "Key"),
+              tr("金鑰", "Access key"),
               tr("請求", "Request"),
               tr("狀態", "Status"),
               tr("來源", "Source"),
@@ -1081,7 +1081,7 @@
       if (controls.key_id) {
         const selected = controls.key_id.value;
         controls.key_id.replaceChildren(
-          new Option(tr("所有金鑰", "All keys"), ""),
+          new Option(tr("所有金鑰", "All access keys"), ""),
           ...(current.keys || []).map(
             (k) => new Option(k.prefix + "…", String(k.id)),
           ),
@@ -1116,13 +1116,13 @@
   function renderDetail() {
     content.replaceChildren();
     const back = link(
-      tr("← AI agent 清單", "← All AI agents"),
-      "/admin/agents",
+      tr("← API 串接清單", "← All API integrations"),
+      "/admin/integrations",
     );
     content.append(back);
     const actions = node("div", undefined, "agent-actions");
     actions.append(
-      mutationButton(tr("輪替金鑰", "Rotate key"), rotate, "primary"),
+      mutationButton(tr("輪替金鑰", "Rotate access key"), rotate, "primary"),
     );
     const toggle = mutationButton(
       current.status === "active"
@@ -1146,7 +1146,7 @@
     detailSummary = node("section", undefined, "agent-card");
     main.append(detailSummary);
     const keyCard = node("section", undefined, "agent-card");
-    keyCard.append(node("h2", tr("金鑰", "Keys")));
+    keyCard.append(node("h2", tr("金鑰", "Access keys")));
     keysTable = table([
       tr("前綴", "Prefix"),
       tr("狀態", "Status"),
@@ -1158,13 +1158,13 @@
     keysTable.wrap.classList.add("agent-key-table-wrap");
     keysTable.wrap.tabIndex = 0;
     keysTable.wrap.setAttribute("role", "region");
-    keysTable.wrap.setAttribute("aria-label", tr("金鑰", "Keys"));
+    keysTable.wrap.setAttribute("aria-label", tr("金鑰", "Access keys"));
     keysTable.wrap.setAttribute("aria-describedby", "agentKeyScrollHint");
     const scrollHint = node(
       "p",
       tr(
         "可左右捲動查看完整金鑰資料與操作。",
-        "Scroll horizontally to view all key details and actions.",
+        "Scroll horizontally to view all access key details and actions.",
       ),
       "agent-muted agent-scroll-hint",
     );
@@ -1204,7 +1204,7 @@
     message(status, tr("載入中…", "Loading…"));
     try {
       const [discovery, data] = await Promise.all([
-        api("/api/agent/v1"),
+        api("/api/v1"),
         api(endpoint),
       ]);
       if (mine !== epoch || !pageActive) return;

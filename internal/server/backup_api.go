@@ -22,7 +22,7 @@ import (
 // Backup, restore and export API (ticket 08, 「備份與匯入」). Every route is
 // admin only. Routes marked interactive accept only a signed-in browser
 // session (see auth.RequireInteractive), so a bearer JWT cannot download or
-// restore a backup. Access keys (jly_, jla_) work only on /api/agent/v1 and are
+// restore a backup. Access keys (jly_, jla_) work only on /api/v1 and are
 // refused here.
 
 // restoreMaintenanceMessage is what visitors see while a restore runs.
