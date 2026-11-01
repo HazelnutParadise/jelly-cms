@@ -52,7 +52,7 @@ func TestAccountsSecurityAuthorScopedAdminTokenCannotReadOrChangeAnotherAuthorsP
 			body = fmt.Sprintf(`{"title":"attempted takeover","content":"changed","type":"post","status":"published","base_updated_at":%q}`,
 				before.UpdatedAt.Format(time.RFC3339Nano))
 		}
-		res := agtDo(h, method, fmt.Sprintf("/api/agent/v1/posts/%d", foreign.ID), body, authorScopeToken, "")
+		res := agtDo(h, method, fmt.Sprintf("/api/v1/posts/%d", foreign.ID), body, authorScopeToken, "")
 		if res.panicked != nil {
 			t.Fatalf("migrated author-scoped token %s foreign post panicked: %v", method, res.panicked)
 		}
@@ -76,10 +76,10 @@ func TestAccountsSecurityAuthorScopedAdminTokenCannotReadOrChangeAnotherAuthorsP
 	if err := h.db.First(&own, own.ID).Error; err != nil {
 		t.Fatalf("reload own post fixture: %v", err)
 	}
-	getOwn := agtDo(h, http.MethodGet, fmt.Sprintf("/api/agent/v1/posts/%d", own.ID), "", authorScopeToken, "")
+	getOwn := agtDo(h, http.MethodGet, fmt.Sprintf("/api/v1/posts/%d", own.ID), "", authorScopeToken, "")
 	agtExpectOK(t, getOwn, "migrated author-scoped token GET own post")
 	updateBody := fmt.Sprintf(`{"title":"updated own","content":"after","type":"post","status":"draft","base_updated_at":%q}`, own.UpdatedAt.Format(time.RFC3339Nano))
-	updateOwn := agtDo(h, http.MethodPut, fmt.Sprintf("/api/agent/v1/posts/%d", own.ID), updateBody, authorScopeToken, "")
+	updateOwn := agtDo(h, http.MethodPut, fmt.Sprintf("/api/v1/posts/%d", own.ID), updateBody, authorScopeToken, "")
 	if updateOwn.panicked != nil {
 		t.Fatalf("migrated author-scoped token PUT own post panicked: %v", updateOwn.panicked)
 	}

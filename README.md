@@ -789,7 +789,7 @@ go build -o recover-oauth ./cmd/recover-oauth
    - **Hash IV**: 金流服務商提供的 Hash IV
    - **測試模式**: 是否啟用測試模式（開發時建議開啟）
 
-金流設定目前只能在管理後台的「設定」頁面進行，機器 API（`/api/agent/v1`）尚未提供金流端點。
+金流設定目前只能在管理後台的「設定」頁面進行，機器 API（`/api/v1`）尚未提供金流端點。
 
 **注意**：設定完成後，系統會自動重新載入金流配置，無需重啟服務。
 
@@ -807,15 +807,15 @@ go build -o recover-oauth ./cmd/recover-oauth
 
 ### 管理後台 API
 
-程式與 AI agent 請在管理後台建立存取金鑰，並用 `Authorization: Bearer jly_…` 呼叫機器 API `/api/agent/v1`：
+程式與 API 串接請在管理後台建立存取金鑰，並用 `Authorization: Bearer jly_…` 呼叫機器 API `/api/v1`。舊的 `/api/agent/v1` 已移除，不留別名：
 
 ```bash
-curl -H "Authorization: Bearer jly_xxxxxxxx" https://your-site.example/api/agent/v1/posts
+curl -H "Authorization: Bearer jly_xxxxxxxx" https://your-site.example/api/v1/posts
 ```
 
-可用的主要路徑與各路徑需要的權限清單，請見 `GET /api/agent/v1`；`GET /api/agent/v1/me` 會回傳此金鑰目前的有效權限。
+可用的主要路徑與各路徑需要的權限清單，請見 `GET /api/v1`；`GET /api/v1/me` 會回傳此存取金鑰目前的有效權限。
 
-`/api/admin/*` 只給管理後台網頁使用，只接受網頁的登入 Cookie（`jwt_token` 或 Session）。帶有任何 `Authorization` 標頭的請求一律回 `401`，寫入還要帶 `X-Jelly-CSRF` 標頭；程式與 AI agent 請用上方的存取金鑰呼叫 `/api/agent/v1`。
+`/api/admin/*` 只給管理後台網頁使用，只接受網頁的登入 Cookie（`jwt_token` 或 Session）。帶有任何 `Authorization` 標頭的請求一律回 `401`，寫入還要帶 `X-Jelly-CSRF` 標頭；程式與 API 串接請用上方的存取金鑰呼叫 `/api/v1`。
 
 匿名要求回應 JSON `401`，不依賴 `Accept` 標頭；已登入但角色不符回應 `403`。商品、訂單、系統設定、金流、主題與外掛 API 僅允許管理員。內容與媒體 API 接受管理員、編輯者、作者，未知角色會被拒絕。作者的媒體所有權限制仍待完成，整體驗收狀態見 [STATUS.md](STATUS.md)。
 

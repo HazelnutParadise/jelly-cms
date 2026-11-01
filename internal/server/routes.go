@@ -23,9 +23,9 @@ const globalBodyLimit = "2M"
 
 // isUploadRoute reports whether the matched route accepts file uploads.
 func isUploadRoute(c echo.Context) bool {
-	// Agent routes apply their own body cap after authentication and auditing so
+	// Machine API routes apply their own body cap after authentication and auditing so
 	// oversized but authenticated requests still produce an audit event.
-	if c.Request().URL.Path == "/api/agent/v1" || strings.HasPrefix(c.Request().URL.Path, "/api/agent/v1/") {
+	if c.Request().URL.Path == machineAPIBasePath || strings.HasPrefix(c.Request().URL.Path, machineAPIBasePath+"/") {
 		return true
 	}
 	switch c.Path() {

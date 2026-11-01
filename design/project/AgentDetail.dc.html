@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8">
-<title>後台 · AI agent 詳情與輪替</title>
+<title>後台 · API 串接詳情與輪替</title>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -158,7 +158,7 @@ td.act{min-width:72px;white-space:nowrap}.chip.nd::before{display:none}
     <a class="nl" href="Plugins.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>外掛</a>
     <div class="ns">系統</div>
     <a class="nl new" href="Users.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 20a7 7 0 0 1 14 0M16 4a3.5 3.5 0 0 1 0 7M22 20a7 7 0 0 0-5-6.7"/></svg>使用者</a>
-    <a class="nl on new" href="Agents.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3M14 8l2 2"/></svg>AI agent</a>
+    <a class="nl on new" href="Agents.dc.html"><svg class="ic" viewBox="0 0 24 24"><circle cx="8" cy="14" r="4"/><path d="M11 11l9-9M16 6l3 3M14 8l2 2"/></svg>API 串接</a>
     <a class="nl new" href="Redirects.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10a4 4 0 0 1 0 8H4M8 11l-4 4 4 4"/></svg>轉址與 SEO</a>
     <a class="nl new" href="Import.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M14 6a4 4 0 0 0 4 4l3-3-4-4-3 3zM14 6L4 16l4 4 10-10"/></svg>工具</a>
     <a class="nl new" href="Logs.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM7 9l3 3-3 3M12 15h5"/></svg>日誌</a>
@@ -168,7 +168,7 @@ td.act{min-width:72px;white-space:nowrap}.chip.nd::before{display:none}
   <div style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column">
     <div class="topline"></div>
     <header style="display: flex; align-items: center; gap: 12px; padding: 10px 24px; border-bottom: 1px solid #EEEFF2">
-      <nav style="display: flex; align-items: center; gap: 8px; color: #5F6470; font-size: 13px" aria-label="路徑"><span>系統</span><span>/</span><span>AI agent</span><span>/</span><b style="color:#15161A">內容小幫手</b></nav>
+      <nav style="display: flex; align-items: center; gap: 8px; color: #5F6470; font-size: 13px" aria-label="路徑"><span>系統</span><span>/</span><span>API 串接</span><span>/</span><b style="color:#15161A">內容小幫手</b></nav>
       <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:34px;width:260px;color:#5F6470;font-size:13px"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><input type="text" placeholder="搜尋或輸入指令…" aria-label="搜尋" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;color:#15161A"><span class="kbd">⌘K</span></label>
       <div style="margin-left: auto; display: flex; align-items: center; gap: 8px"><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M7 4h4v16H7zM13 4h4v16h-4z"/></svg>停用</button><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>輪替金鑰</button></div>
     </header>
@@ -204,7 +204,7 @@ td.act{min-width:72px;white-space:nowrap}.chip.nd::before{display:none}
         <div class="tl"><span class="t">10/24 15:42</span><span><b>Hazel</b> · 輪替 · 過渡期 30 分 · <span class="k">jla_7Hq2…</span> → <span class="k">jla_Qm3d…</span></span></div>
         <div class="tl"><span class="t">10/02 09:12</span><span><b>Ting</b> · 輪替 · 立即失效 · <span class="k">jla_Lp0W…</span> → <span class="k">jla_7Hq2…</span></span></div>
         <div class="tl"><span class="t">09/14 10:03</span><span><b>Ting</b> · 提前撤銷 <span class="k">jla_m2Kc…</span></span></div>
-        <div class="tl"><span class="t">09/01 11:20</span><span><b>Hazel</b> · 建立 agent</span></div>
+        <div class="tl"><span class="t">09/01 11:20</span><span><b>Hazel</b> · 建立串接</span></div>
       </div>
     </div>
 
@@ -226,12 +226,12 @@ td.act{min-width:72px;white-space:nowrap}.chip.nd::before{display:none}
 
   <aside style="display:flex;flex-direction:column;gap:16px;position:sticky;top:16px">
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
-      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:14px">給 agent 的連線資訊</b></div>
-      <div><span class="lbl">API</span><div class="k" style="margin-top:2px">/api/agent/v1</div></div>
-      <div><span class="lbl">說明（不需金鑰）</span><div class="k" style="margin-top:2px">GET /api/agent/v1</div><div class="k">GET /api/agent/v1/openapi.json</div></div>
+      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:14px">給串接用的連線資訊</b></div>
+      <div><span class="lbl">API</span><div class="k" style="margin-top:2px">/api/v1</div></div>
+      <div><span class="lbl">說明（不需金鑰）</span><div class="k" style="margin-top:2px">GET /api/v1</div><div class="k">GET /api/v1/openapi.json</div></div>
       <div><span class="lbl">驗證</span><div class="k" style="margin-top:2px">Authorization: Bearer jla_…</div></div>
-      <div><span class="lbl">Agent Skill</span><div class="k" style="margin-top:2px">skills/jelly-cms/SKILL.md</div></div>
-      <button class="btn t s" type="button" style="align-self:flex-start"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 15V4h11"/></svg>複製給 agent 的說明</button>
+      <div><span class="lbl">串接 Skill</span><div class="k" style="margin-top:2px">skills/jelly-cms/SKILL.md</div></div>
+      <button class="btn t s" type="button" style="align-self:flex-start"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M9 9h11v11H9zM4 15V4h11"/></svg>複製給串接的說明</button>
     </div>
     <div class="card" style="display:flex;flex-direction:column">
       <span class="lbl" style="margin-bottom:4px">停用與刪除</span>
@@ -245,14 +245,14 @@ td.act{min-width:72px;white-space:nowrap}.chip.nd::before{display:none}
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">對話框狀態</b><span style="font-size:12px;color:#5F6470">輪替的兩種模式、過渡時長錯誤、新金鑰一次性顯示、提前撤銷、刪除</span></div>
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:start"><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>1</i>輪替金鑰 · 立即失效（預設）</span>
       <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">輪替金鑰</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-      <div class="bd"><div class="opt on"><span class="rad"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定 agent 那邊能馬上換金鑰時用。</div></span></div>
-      <div class="opt"><span class="rad"></span><span><b>過渡期</b><div class="h">新舊金鑰同時可用，期滿舊金鑰 401。最長 24 小時，可隨時提前撤銷。</div></span></div><div style="font-size:12px;color:#5F6470;line-height:1.6">agent 的 ID、名稱、權限、擁有者與紀錄都不變，只換金鑰。</div></div><div class="ft"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>輪替</button><button class="btn t" type="button">取消</button></div></div></div><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>2</i>輪替金鑰 · 過渡期</span>
+      <div class="bd"><div class="opt on"><span class="rad"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定串接那邊能馬上換金鑰時用。</div></span></div>
+      <div class="opt"><span class="rad"></span><span><b>過渡期</b><div class="h">新舊金鑰同時可用，期滿舊金鑰 401。最長 24 小時，可隨時提前撤銷。</div></span></div><div style="font-size:12px;color:#5F6470;line-height:1.6">串接的 ID、名稱、權限、擁有者與紀錄都不變，只換金鑰。</div></div><div class="ft"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>輪替</button><button class="btn t" type="button">取消</button></div></div></div><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>2</i>輪替金鑰 · 過渡期</span>
       <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">輪替金鑰</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-      <div class="bd"><div class="opt"><span class="rad"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定 agent 那邊能馬上換金鑰時用。</div></span></div>
+      <div class="bd"><div class="opt"><span class="rad"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定串接那邊能馬上換金鑰時用。</div></span></div>
       <div class="opt on"><span class="rad"></span><span><b>過渡期</b><div class="h">新舊金鑰同時可用，期滿舊金鑰 401。最長 24 小時，可隨時提前撤銷。</div></span></div><div><span class="lbl">過渡時長</span>
         <div style="display:flex;align-items:center;gap:10px;margin-top:4px"><input class="ul" type="text" value="30" aria-label="過渡分鐘" style="width:90px"><span style="font-size:13px;color:#5F6470">分鐘</span><div class="seg" style="margin-left:auto"><span>15</span><span class="on">30</span><span>60</span><span>1440</span></div></div></div><div style="font-size:12px;color:#3A3D45;background:#F5F5F7;border-radius:0 10px 0 10px;padding:8px 10px">舊金鑰 <span class="k">jla_Qm3d8sKe…</span> 會在 <b>今天 16:12</b> 失效。</div></div><div class="ft"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>輪替</button><button class="btn t" type="button">取消</button></div></div></div><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>3</i>輪替金鑰 · 過渡期超過上限</span>
       <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">輪替金鑰</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-      <div class="bd"><div class="opt"><span class="rad"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定 agent 那邊能馬上換金鑰時用。</div></span></div>
+      <div class="bd"><div class="opt"><span class="rad"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定串接那邊能馬上換金鑰時用。</div></span></div>
       <div class="opt on"><span class="rad"></span><span><b>過渡期</b><div class="h">新舊金鑰同時可用，期滿舊金鑰 401。最長 24 小時，可隨時提前撤銷。</div></span></div><div><span class="lbl">過渡時長</span>
         <div style="display:flex;align-items:center;gap:10px;margin-top:4px"><input class="ul bad" type="text" value="1500" aria-label="過渡分鐘" style="width:90px"><span style="font-size:13px;color:#5F6470">分鐘</span><div class="seg" style="margin-left:auto"><span>15</span><span>30</span><span>60</span><span>1440</span></div></div><div class="err"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M12 3l10 18H2zM12 10v5M12 18v1"/></svg>過渡期必須是 1 到 1440 分鐘（最長 24 小時）</div></div></div><div class="ft"><button class="btn p" type="button" disabled style="opacity:.45"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>輪替</button><button class="btn t" type="button">取消</button><span style="font-size:12px;color:color-mix(in srgb,#E03B2E 75%,#15161A);margin-left:auto">API 也會回 400 grace_out_of_range</span></div></div></div><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>4</i>新金鑰 · 只顯示這一次</span>
       <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">新金鑰</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
@@ -261,10 +261,10 @@ td.act{min-width:72px;white-space:nowrap}.chip.nd::before{display:none}
         <div class="h">舊金鑰 <span class="k" style="color:#fff;font-size:12px">jla_Qm3d8sKe…</span> 過渡到 16:12，可在金鑰表提前撤銷。</div></div></div><div class="ft"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>我已複製，關閉</button></div></div></div><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>5</i>提前撤銷舊金鑰</span>
       <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">提前撤銷舊金鑰</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
       <div class="bd"><div style="font-size:13px;line-height:1.6">撤銷 <span class="k">jla_7Hq2xP0a…</span>？還剩 23 分的過渡期會直接結束，這把金鑰的下一次請求就 401。</div>
-        <div style="font-size:12px;color:#5F6470">生效中的 <span class="k">jla_Qm3d8sKe…</span> 不受影響。</div></div><div class="ft"><button class="btn danger" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>立即撤銷</button><button class="btn t" type="button">取消</button></div></div></div><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>6</i>刪除 agent</span>
-      <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">刪除 agent</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div style="font-size:12px;color:#5F6470">生效中的 <span class="k">jla_Qm3d8sKe…</span> 不受影響。</div></div><div class="ft"><button class="btn danger" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>立即撤銷</button><button class="btn t" type="button">取消</button></div></div></div><div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>6</i>刪除串接</span>
+      <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">刪除串接</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
       <div class="bd"><div style="font-size:13px;line-height:1.6">刪除「內容小幫手」？所有金鑰（含過渡中的）立刻失效，清單與詳情不再出現。</div>
-        <div style="font-size:12px;color:#5F6470;line-height:1.6">活動紀錄與輪替歷史會保留，之後仍可在紀錄裡依這個 agent 篩選。</div>
+        <div style="font-size:12px;color:#5F6470;line-height:1.6">活動紀錄與輪替歷史會保留，之後仍可在紀錄裡依這個串接篩選。</div>
         <div><span class="lbl">輸入名稱確認</span><input class="ul" type="text" placeholder="內容小幫手" aria-label="輸入名稱確認"></div></div><div class="ft"><button class="btn danger" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>刪除</button><button class="btn t" type="button">取消</button></div></div></div></div>
   </div>
 </main>

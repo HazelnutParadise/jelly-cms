@@ -12,6 +12,11 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+// machineAPIBasePath is the base path of the machine API. Ticket 24 moved it from
+// /api/agent/v1 and removed the old path without an alias. Routes, the discovery
+// document and the upload and maintenance allowlists all read it from here.
+const machineAPIBasePath = "/api/v1"
+
 type agentRouteAuth string
 
 const (
@@ -32,10 +37,10 @@ type agentRoute struct {
 
 func agentRouteTable(tm *theme.Manager, rt *plugin.Runtime) []agentRoute {
 	return []agentRoute{
-		{http.MethodGet, "", "", "Discover the agent API", nil, false, agentRoutePublic, agentDiscovery(tm, rt)},
+		{http.MethodGet, "", "", "Discover the API", nil, false, agentRoutePublic, agentDiscovery(tm, rt)},
 		{http.MethodGet, "/openapi.json", "", "Get the OpenAPI 3.1 document", nil, false, agentRoutePublic, agentOpenAPI(tm, rt)},
-		{http.MethodGet, "/me", "", "Get this agent and its effective permissions", nil, false, agentRouteKey, agentMe},
-		{http.MethodGet, "/logs", agent.LogsRead, "List this agent's request events", adminRoles, false, agentRouteKey, listAgentOwnEvents},
+		{http.MethodGet, "/me", "", "Get this integration and its effective permissions", nil, false, agentRouteKey, agentMe},
+		{http.MethodGet, "/logs", agent.LogsRead, "List this integration's request events", adminRoles, false, agentRouteKey, listAgentOwnEvents},
 		{http.MethodGet, "/posts", agent.PostsRead, "List posts", contentRoles, false, agentRouteKey, agentPostList("post")},
 		{http.MethodGet, "/posts/:id", agent.PostsRead, "Get a post", contentRoles, false, agentRouteKey, agentTypeAndVersion("post", false, getPost)},
 		{http.MethodGet, "/categories", agent.PostsRead, "List post categories", contentRoles, false, agentRouteKey, listCategories},
@@ -122,7 +127,7 @@ func agentRoutePermissionContext(permission agent.Permission) echo.MiddlewareFun
 func agentFallbackPermissionContext(tm *theme.Manager, rt *plugin.Runtime) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			path := strings.TrimPrefix(c.Request().URL.Path, "/api/agent/v1")
+			path := strings.TrimPrefix(c.Request().URL.Path, machineAPIBasePath)
 			for _, route := range agentRouteTable(tm, rt) {
 				if route.Permission != "" && agentRoutePathMatches(route.Path, path) {
 					c.Set("agent.permission", string(route.Permission))
@@ -147,7 +152,7 @@ func registerAgentRoutes(e *echo.Echo, tm *theme.Manager, rt *plugin.Runtime, re
 	manage.POST("/:id/keys/:key_id/revoke", revokeAgentKey, interactive)
 	manage.POST("/:id/disable", disableAgent, interactive)
 	manage.POST("/:id/enable", enableAgent, interactive)
-	api := e.Group("/api/agent/v1")
+	api := e.Group(machineAPIBasePath)
 	for _, r := range agentRouteTable(tm, rt) {
 		h := r.Handler
 		middlewares := []echo.MiddlewareFunc{agentErrorEnvelope, agentRoutePermissionContext(r.Permission)}
@@ -171,20 +176,31 @@ func registerAgentRoutes(e *echo.Echo, tm *theme.Manager, rt *plugin.Runtime, re
 	}
 	api.Any("/*", func(c echo.Context) error {
 		for _, r := range agentRouteTable(tm, rt) {
-			if agentRoutePathMatches(r.Path, c.Request().URL.Path[len("/api/agent/v1"):]) {
+			if agentRoutePathMatches(r.Path, c.Request().URL.Path[len(machineAPIBasePath):]) {
 				return writeAPIError(c, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed", nil)
 			}
 		}
-		return writeAPIError(c, http.StatusNotFound, "not_found", "Agent endpoint not found", nil)
+		return writeAPIError(c, http.StatusNotFound, "not_found", "API endpoint not found", nil)
 	}, agentErrorEnvelope, agentFallbackPermissionContext(tm, rt), agentKeyMiddleware, agentRequestAudit, middleware.BodyLimit(globalBodyLimit))
 	api.Match([]string{http.MethodHead, http.MethodConnect, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions, http.MethodTrace}, "", func(c echo.Context) error {
 		return writeAPIError(c, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed", nil)
 	}, agentErrorEnvelope, agentFallbackPermissionContext(tm, rt), agentKeyMiddleware, agentRequestAudit, middleware.BodyLimit(globalBodyLimit))
 	pages := e.Group("/admin", auth.RequireAuth, agentAdminPageGate)
-	pages.GET("/agents", func(c echo.Context) error { return renderAdmin(c, "agents.html", "agents") })
-	pages.GET("/agents/:id", func(c echo.Context) error { return renderAdmin(c, "agent_detail.html", "agents") })
+	pages.GET("/integrations", func(c echo.Context) error { return renderAdmin(c, "agents.html", "agents") })
+	pages.GET("/integrations/:id", func(c echo.Context) error { return renderAdmin(c, "agent_detail.html", "agents") })
+	// Ticket 24 moved the pages to /admin/integrations. The old paths redirect and keep the id and query string.
+	pages.GET("/agents", redirectToIntegrations)
+	pages.GET("/agents/:id", redirectToIntegrations)
+}
+
+func redirectToIntegrations(c echo.Context) error {
+	target := "/admin/integrations" + strings.TrimPrefix(c.Request().URL.Path, "/admin/agents")
+	if q := c.Request().URL.RawQuery; q != "" {
+		target += "?" + q
+	}
+	return c.Redirect(http.StatusFound, target)
 }
 
 func init() {
-	RegisterNav(NavItem{Key: "agents", Section: "system", Label: "agents", Icon: "i-key", Href: "/admin/agents", Order: 85, Roles: []string{"admin"}})
+	RegisterNav(NavItem{Key: "agents", Section: "system", Label: "agents", Icon: "i-key", Href: "/admin/integrations", Order: 85, Roles: []string{"admin"}})
 }

@@ -34,7 +34,7 @@ import (
 //	S12  DELETE /api/account/sessions/:id           I    revoke one; another user's id 404
 //	S13  POST   /api/account/sessions/revoke-others I    revoke all except the current login
 //	S14-S18  personal API tokens (/api/account/tokens*) were removed by ticket 22;
-//	         access keys on /api/agent/v1 replace them.
+//	         access keys on /api/v1 replace them.
 //	S19  GET    /api/account/notifications               category, unread=1, before, limit <= 50 -> {items, unread_count, counts}
 //	S20  POST   /api/account/notifications/:id/read      own rows only; /api/account/notifications/read-all?category=
 //	S21  GET|PUT /api/account/notification-preferences   {events, webhook_url (https, no private hosts), quiet}

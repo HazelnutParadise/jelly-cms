@@ -2,7 +2,7 @@
 {{define "content"}}
 <link rel="stylesheet" href="{{assetURL "/admin/assets/agents.css"}}">
 <div id="agentsPage" class="agents-page" data-view="detail" data-lang="{{.Lang}}" aria-busy="true">
- <div class="page-header"><h1>{{.T.agents}}</h1><a class="btn btn-secondary" href="/api/agent/v1">{{if eq .Lang "en"}}API documentation{{else}}API 說明{{end}}</a></div>
+ <div class="page-header"><h1>{{.T.agents}}</h1><a class="btn btn-secondary" href="/api/v1">{{if eq .Lang "en"}}API documentation{{else}}API 說明{{end}}</a></div>
  <p id="agentsStatus" role="status" aria-live="polite">{{if eq .Lang "en"}}Loading…{{else}}載入中…{{end}}</p>
  <button id="agentsRetry" class="btn btn-secondary" type="button" hidden>{{if eq .Lang "en"}}Retry{{else}}重試{{end}}</button>
  <div id="agentsContent"></div>

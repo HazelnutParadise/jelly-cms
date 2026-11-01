@@ -302,10 +302,10 @@ func TestAdminAPIBrowserOnlyInvariantAuthMeAcceptsBearer(t *testing.T) {
 }
 
 // TestAdminAPIBrowserOnlyInvariantAgentMeAcceptsAccessKey checks that the
-// agent API still accepts an access key. Ticket 23 leaves /api/agent/v1 unchanged.
+// agent API still accepts an access key. Ticket 24 moved this path from /api/agent/v1 to /api/v1.
 func TestAdminAPIBrowserOnlyInvariantAgentMeAcceptsAccessKey(t *testing.T) {
 	h := newAccessHarness(t)
 	jwt := broAdmin(t, h)
 	created := agtCreate(t, h, jwt, "browser-only 護欄", "posts.read")
-	agtExpectOK(t, agtMe(h, created.APIKey), "GET /api/agent/v1/me with an access key")
+	agtExpectOK(t, agtMe(h, created.APIKey), "GET /api/v1/me with an access key")
 }

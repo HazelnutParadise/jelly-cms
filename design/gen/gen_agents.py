@@ -1,4 +1,4 @@
-# AI agent 管理畫面（docs/tickets/14-agent-api.md）：Agents（清單、建立、金鑰一次性顯示）與
+# API 串接管理畫面（docs/tickets/14-agent-api.md）：Agents（清單、建立、金鑰一次性顯示）與
 # AgentDetail（詳情、金鑰與過渡倒數、輪替歷史、活動紀錄、輪替對話框各狀態、提前撤銷、停用與刪除）。
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
@@ -8,10 +8,10 @@ from gen import I, doc, ADMIN_CSS, OUT, admin
 # These two boards share the shipped admin fonts; no network fonts in previews.
 gen.FONTS = '<link rel="stylesheet" href="./fonts.css">'
 
-# 側欄「系統」區加上 AI agent（只影響這支腳本產生的板）。
+# 側欄「系統」區加上 API 串接（只影響這支腳本產生的板）。
 for _sec, _items in gen.NAV:
     if _sec == "系統" and not any(k == "agents" for k, *_ in _items):
-        _items.insert(1, ("agents", "Agents.dc.html", "AI agent", "key", "new"))
+        _items.insert(1, ("agents", "Agents.dc.html", "API 串接", "key", "new"))
 
 CSS = ADMIN_CSS + '''
 .btn.p{background:#D82050;color:#fff}.btn.danger{background:#CF3025;color:#fff}
@@ -103,10 +103,10 @@ NEW_KEY = "jla_Wz6pR1tYcE8qN3vLbK0sXu5mJaHg7dFo2iCeQ9wTlZr"
 # ---------- 清單與建立 ----------
 agents_main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start">
   <section style="display:flex;flex-direction:column;gap:20px;min-width:0">
-    <div class="note">{I("key",18)}<span>AI agent 用自己的金鑰呼叫 <b class="k">/api/agent/v1</b>，不必借用人的帳號。能做的事＝這裡勾的權限，再和擁有者目前的角色取交集；擁有者被降級，agent 下一次請求就跟著縮小。agent 不能管理 agent，也不能輪替自己的金鑰。不需金鑰的說明：<a class="k" href="#">GET /api/agent/v1</a> · <a class="k" href="#">openapi.json</a></span></div>
-    <div style="display:flex;align-items:center;gap:10px"><div class="seg"><span class="on">全部 <b>4</b></span><span>啟用 3</span><span>停用 1</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="名稱或金鑰前綴" aria-label="搜尋 agent" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;color:#15161A"></label></div>
+    <div class="note">{I("key",18)}<span>每個 API 串接用自己的金鑰呼叫 <b class="k">/api/v1</b>，不必借用人的帳號。能做的事＝這裡勾的權限，再和擁有者目前的角色取交集；擁有者被降級，串接下一次請求就跟著縮小。串接不能管理串接，也不能輪替自己的金鑰。不需金鑰的說明：<a class="k" href="#">GET /api/v1</a> · <a class="k" href="#">openapi.json</a></span></div>
+    <div style="display:flex;align-items:center;gap:10px"><div class="seg"><span class="on">全部 <b>4</b></span><span>啟用 3</span><span>停用 1</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="名稱或金鑰前綴" aria-label="搜尋串接" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;color:#15161A"></label></div>
     <table>
-      <thead><tr><th>agent 與擁有者</th><th>權限</th><th>金鑰與最後使用</th><th>狀態</th><th></th></tr></thead>
+      <thead><tr><th>串接與擁有者</th><th>權限</th><th>金鑰與最後使用</th><th>狀態</th><th></th></tr></thead>
       <tbody>
         {arow("內容小幫手","寫草稿、補摘要與標籤",["posts.read","posts.write","media.write"],"Hazel","管理員","jla_Qm3d8sKe…","","2 分鐘前 · 1.160.10.0","啟用","ok")}
         {arow("訂單日報","每天 08:00 彙整訂單到試算表",["orders.read","products.read","logs.read"],"Ting","管理員","jla_x91LfPz0…",'<div style="margin-top:6px"><span class="chip warn">過渡中 · 剩 23 分</span> <span class="k m" style="font-size:11px">jla_c0AaV2r9…</span></div>',"今天 08:00 · 203.0.113.0","啟用","ok")}
@@ -137,8 +137,8 @@ agents_main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template
     </div>
   </section>
   <aside class="card" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:14px">
-    <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">建立 agent</b></div>
-    <div><span class="lbl">名稱</span><input class="ul" type="text" value="內容小幫手" aria-label="名稱"><div style="font-size:11.5px;color:#5F6470;margin-top:4px">1–80 字，不能和其他 agent 重複</div></div>
+    <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">建立串接</b></div>
+    <div><span class="lbl">名稱</span><input class="ul" type="text" value="內容小幫手" aria-label="名稱"><div style="font-size:11.5px;color:#5F6470;margin-top:4px">1–80 字，不能和其他串接重複</div></div>
     <div><span class="lbl">說明（可選）</span><textarea class="ul" rows="2" aria-label="說明">寫草稿、補摘要與標籤</textarea></div>
     <div><span class="lbl">權限</span><div style="margin-top:8px">{perm_grid({"posts.read","posts.write","media.write"})}</div></div>
     <div style="font-size:12px;color:#5F6470;line-height:1.6;display:flex;gap:8px">{I("user",14)}<span>擁有者是你（Hazel · 管理員）。標「需管理員」的權限，擁有者不是管理員時不會生效。</span></div>
@@ -160,7 +160,7 @@ def tlrow(t, who, what):
 def rot_opts(mode):
     imm = " on" if mode == "immediate" else ""
     gr = " on" if mode != "immediate" else ""
-    return f'''<div class="opt{imm}"><span class="rad"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定 agent 那邊能馬上換金鑰時用。</div></span></div>
+    return f'''<div class="opt{imm}"><span class="rad"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定串接那邊能馬上換金鑰時用。</div></span></div>
       <div class="opt{gr}"><span class="rad"></span><span><b>過渡期</b><div class="h">新舊金鑰同時可用，期滿舊金鑰 401。最長 24 小時，可隨時提前撤銷。</div></span></div>'''
 
 def minutes(value, bad=False):
@@ -175,7 +175,7 @@ def dlg(step, title, body, foot):
       <div class="bd">{body}</div><div class="ft">{foot}</div></div></div>'''
 
 rot_title_imm = "輪替金鑰"
-d1 = dlg("1", "輪替金鑰 · 立即失效（預設）", rot_opts("immediate") + '<div style="font-size:12px;color:#5F6470;line-height:1.6">agent 的 ID、名稱、權限、擁有者與紀錄都不變，只換金鑰。</div>',
+d1 = dlg("1", "輪替金鑰 · 立即失效（預設）", rot_opts("immediate") + '<div style="font-size:12px;color:#5F6470;line-height:1.6">串接的 ID、名稱、權限、擁有者與紀錄都不變，只換金鑰。</div>',
          f'<button class="btn p" type="button">{I("refresh")}輪替</button><button class="btn t" type="button">取消</button>')
 d2 = dlg("2", "輪替金鑰 · 過渡期", rot_opts("grace") + minutes("30") + f'<div style="font-size:12px;color:#3A3D45;background:#F5F5F7;border-radius:0 10px 0 10px;padding:8px 10px">舊金鑰 <span class="k">jla_Qm3d8sKe…</span> 會在 <b>今天 16:12</b> 失效。</div>',
          f'<button class="btn p" type="button">{I("refresh")}輪替</button><button class="btn t" type="button">取消</button>')
@@ -188,8 +188,8 @@ d4 = dlg("4", "新金鑰 · 只顯示這一次", f'''<div class="keybox"><span c
 d5 = dlg("5", "提前撤銷舊金鑰", f'''<div style="font-size:13px;line-height:1.6">撤銷 <span class="k">jla_7Hq2xP0a…</span>？還剩 23 分的過渡期會直接結束，這把金鑰的下一次請求就 401。</div>
         <div style="font-size:12px;color:#5F6470">生效中的 <span class="k">jla_Qm3d8sKe…</span> 不受影響。</div>''',
          f'<button class="btn danger" type="button">{I("x")}立即撤銷</button><button class="btn t" type="button">取消</button>')
-d6 = dlg("6", "刪除 agent", f'''<div style="font-size:13px;line-height:1.6">刪除「內容小幫手」？所有金鑰（含過渡中的）立刻失效，清單與詳情不再出現。</div>
-        <div style="font-size:12px;color:#5F6470;line-height:1.6">活動紀錄與輪替歷史會保留，之後仍可在紀錄裡依這個 agent 篩選。</div>
+d6 = dlg("6", "刪除串接", f'''<div style="font-size:13px;line-height:1.6">刪除「內容小幫手」？所有金鑰（含過渡中的）立刻失效，清單與詳情不再出現。</div>
+        <div style="font-size:12px;color:#5F6470;line-height:1.6">活動紀錄與輪替歷史會保留，之後仍可在紀錄裡依這個串接篩選。</div>
         <div><span class="lbl">輸入名稱確認</span><input class="ul" type="text" placeholder="內容小幫手" aria-label="輸入名稱確認"></div>''',
          f'<button class="btn danger" type="button">{I("trash")}刪除</button><button class="btn t" type="button">取消</button>')
 
@@ -225,7 +225,7 @@ detail_main = f'''<main style="padding:16px 24px 32px;display:flex;flex-directio
         {tlrow("10/24 15:42","Hazel",'輪替 · 過渡期 30 分 · <span class="k">jla_7Hq2…</span> → <span class="k">jla_Qm3d…</span>')}
         {tlrow("10/02 09:12","Ting",'輪替 · 立即失效 · <span class="k">jla_Lp0W…</span> → <span class="k">jla_7Hq2…</span>')}
         {tlrow("09/14 10:03","Ting",'提前撤銷 <span class="k">jla_m2Kc…</span>')}
-        {tlrow("09/01 11:20","Hazel","建立 agent")}
+        {tlrow("09/01 11:20","Hazel","建立串接")}
       </div>
     </div>
 
@@ -247,12 +247,12 @@ detail_main = f'''<main style="padding:16px 24px 32px;display:flex;flex-directio
 
   <aside style="display:flex;flex-direction:column;gap:16px;position:sticky;top:16px">
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
-      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:14px">給 agent 的連線資訊</b></div>
-      <div><span class="lbl">API</span><div class="k" style="margin-top:2px">/api/agent/v1</div></div>
-      <div><span class="lbl">說明（不需金鑰）</span><div class="k" style="margin-top:2px">GET /api/agent/v1</div><div class="k">GET /api/agent/v1/openapi.json</div></div>
+      <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:14px">給串接用的連線資訊</b></div>
+      <div><span class="lbl">API</span><div class="k" style="margin-top:2px">/api/v1</div></div>
+      <div><span class="lbl">說明（不需金鑰）</span><div class="k" style="margin-top:2px">GET /api/v1</div><div class="k">GET /api/v1/openapi.json</div></div>
       <div><span class="lbl">驗證</span><div class="k" style="margin-top:2px">Authorization: Bearer jla_…</div></div>
-      <div><span class="lbl">Agent Skill</span><div class="k" style="margin-top:2px">skills/jelly-cms/SKILL.md</div></div>
-      <button class="btn t s" type="button" style="align-self:flex-start">{I("copy",12)}複製給 agent 的說明</button>
+      <div><span class="lbl">串接 Skill</span><div class="k" style="margin-top:2px">skills/jelly-cms/SKILL.md</div></div>
+      <button class="btn t s" type="button" style="align-self:flex-start">{I("copy",12)}複製給串接的說明</button>
     </div>
     <div class="card" style="display:flex;flex-direction:column">
       <span class="lbl" style="margin-bottom:4px">停用與刪除</span>
@@ -269,9 +269,9 @@ detail_main = f'''<main style="padding:16px 24px 32px;display:flex;flex-directio
 </main>'''
 
 B = {
-    "Agents": ("後台 · AI agent", 1440, 1200, admin("agents", ["系統", "AI agent"],
-        f'<a class="btn t" href="#">{I("external")}API 說明</a><button class="btn p" type="button">{I("plus")}建立 agent</button>', agents_main)),
-    "AgentDetail": ("後台 · AI agent 詳情與輪替", 1440, 2850, admin("agents", ["系統", "AI agent", "內容小幫手"],
+    "Agents": ("後台 · API 串接", 1440, 1200, admin("agents", ["系統", "API 串接"],
+        f'<a class="btn t" href="#">{I("external")}API 說明</a><button class="btn p" type="button">{I("plus")}建立串接</button>', agents_main)),
+    "AgentDetail": ("後台 · API 串接詳情與輪替", 1440, 2850, admin("agents", ["系統", "API 串接", "內容小幫手"],
         f'<button class="btn t" type="button">{I("pause")}停用</button><button class="btn p" type="button">{I("refresh")}輪替金鑰</button>', detail_main)),
 }
 

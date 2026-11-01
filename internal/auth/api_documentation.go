@@ -678,7 +678,7 @@ func authOpenAPIDocument(operations []authDocumentedOperation) map[string]any {
 		"info": map[string]any{
 			"title":       "Jelly CMS Auth API",
 			"version":     "1.0.0",
-			"description": "認證、OAuth 登入、本人登入方式管理與一次性帳號復原的 HTTP 介面契約。文件不包含站台設定或任何帳號／提供者秘密。Agent API 端點總覽見 `GET /api/agent/v1`，OpenAPI 文件位於 `/api/agent/v1/openapi.json`。",
+			"description": "認證、OAuth 登入、本人登入方式管理與一次性帳號復原的 HTTP 介面契約。文件不包含站台設定或任何帳號／提供者秘密。API 串接端點總覽見 `GET /api/v1`，OpenAPI 文件位於 `/api/v1/openapi.json`。",
 		},
 		"servers":    []any{map[string]any{"url": "/", "description": "目前站台"}},
 		"paths":      paths,

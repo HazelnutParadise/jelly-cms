@@ -57,7 +57,7 @@ func newHTTPErrorHandler(tm *theme.Manager) echo.HTTPErrorHandler {
 		}
 
 		path := c.Request().URL.Path
-		if pathOrSubtree(path, "/api/agent/v1") {
+		if pathOrSubtree(path, machineAPIBasePath) {
 			codeName := "internal_error"
 			switch code {
 			case http.StatusNotFound:
