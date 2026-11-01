@@ -148,6 +148,10 @@ func TestIntegrationExternalRenameStaticSourcesContainNoAgent(t *testing.T) {
 				return walkErr
 			}
 			if entry.IsDir() {
+				// Vendored packages carry their own LICENSE and keep upstream text.
+				if _, err := os.Stat(filepath.Join(path, "LICENSE")); err == nil {
+					return filepath.SkipDir
+				}
 				return nil
 			}
 			rel, err := filepath.Rel(root, path)
@@ -204,10 +208,11 @@ func integrationRenameStaticFile(root, path string) bool {
 }
 
 // withoutUserAgentTerms drops the spellings that name the HTTP User-Agent
-// header and the meta-externalagent crawler, which keep their real names.
+// header and the meta-externalagent crawler, which keep their real names, and
+// the colour name magenta, which only contains the letters.
 func withoutUserAgentTerms(s string) string {
 	lower := strings.ToLower(s)
-	for _, term := range []string{"user-agent", "user_agent", "user agent", "useragent", "meta-externalagent"} {
+	for _, term := range []string{"user-agent", "user_agent", "user agent", "useragent", "meta-externalagent", "magenta"} {
 		lower = strings.ReplaceAll(lower, term, "")
 	}
 	return lower
