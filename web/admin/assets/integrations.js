@@ -1,6 +1,6 @@
 (() => {
   "use strict";
-  const root = document.getElementById("agentsPage");
+  const root = document.getElementById("integrationsPage");
   if (!root) return;
   const en = root.dataset.lang === "en";
   const tr = (zh, english) => (en ? english : zh);
@@ -22,21 +22,21 @@
     a.href = href;
     return a;
   };
-  const status = $("agentsStatus"),
-    content = $("agentsContent"),
-    dialog = $("agentDialog");
+  const status = $("integrationsStatus"),
+    content = $("integrationsContent"),
+    dialog = $("integrationDialog");
   const id =
     root.dataset.view === "detail"
       ? location.pathname.split("/").filter(Boolean).pop()
       : null;
   const endpoint =
-    "/api/admin/agents" + (id ? "/" + encodeURIComponent(id) : "");
+    "/api/admin/integrations" + (id ? "/" + encodeURIComponent(id) : "");
   const graceError = tr(
     "過渡期必須是 1 到 1440 分鐘（最長 24 小時）",
     "Grace period must be 1 to 1440 minutes (at most 24 hours).",
   );
   let permissions = [],
-    agents = [],
+    integrations = [],
     current = null,
     busy = false,
     confirmationPending = false,
@@ -81,7 +81,7 @@
   };
   const message = (target, text, error = false) => {
     target.textContent = text;
-    target.classList.toggle("agent-error", error);
+    target.classList.toggle("integration-error", error);
   };
   function errorText(body, response) {
     if (body && body.code === "grace_out_of_range") return graceError;
@@ -98,11 +98,11 @@
         "請至少選擇一項權限。",
         "Select at least one permission.",
       ),
-      agent_name_taken: tr(
+      integration_name_taken: tr(
         "這個名稱已被使用，請換一個。",
         "This name is already in use.",
       ),
-      agent_not_found: tr("找不到這個串接。", "Integration not found."),
+      integration_not_found: tr("找不到這個串接。", "Integration not found."),
       forbidden: tr("你沒有管理串接的權限。", "You cannot manage integrations."),
     };
     if (body && codes[body.code]) return codes[body.code];
@@ -159,14 +159,14 @@
     root.querySelectorAll("[data-mutation]").forEach((b) => {
       b.disabled = value || b.dataset.invalid === "true";
     });
-    $("agentDialogClose").disabled = value;
+    $("integrationDialogClose").disabled = value;
   }
   async function mutate(
     path,
     method,
     payload,
     done,
-    target = $("agentDialogStatus"),
+    target = $("integrationDialogStatus"),
   ) {
     if (busy || !pageActive) return;
     const mine = epoch;
@@ -189,7 +189,7 @@
   }
   function purgeSecret() {
     secret = "";
-    const box = $("agentSecret");
+    const box = $("integrationSecret");
     if (box) {
       box.textContent = "";
       box.remove();
@@ -199,18 +199,18 @@
     if (busy && !force) return;
     purgeSecret();
     dialog.close();
-    $("agentDialogBody").replaceChildren();
-    $("agentDialogActions").replaceChildren();
-    $("agentDialogStatus").textContent = "";
+    $("integrationDialogBody").replaceChildren();
+    $("integrationDialogActions").replaceChildren();
+    $("integrationDialogStatus").textContent = "";
     if (returnFocus && returnFocus.isConnected && !force) returnFocus.focus();
   }
   function openDialog(title, body, actions) {
     purgeSecret();
     if (!dialog.open) returnFocus = document.activeElement;
-    $("agentDialogTitle").textContent = title;
-    $("agentDialogBody").replaceChildren(body);
-    $("agentDialogActions").replaceChildren(...actions);
-    $("agentDialogStatus").textContent = "";
+    $("integrationDialogTitle").textContent = title;
+    $("integrationDialogBody").replaceChildren(body);
+    $("integrationDialogActions").replaceChildren(...actions);
+    $("integrationDialogStatus").textContent = "";
     if (!dialog.open) dialog.showModal();
     const first = dialog.querySelector(
       "input:not([disabled]),button:not([disabled])",
@@ -221,14 +221,14 @@
   function showSecret(result) {
     const value = result.api_key;
     result.api_key = "";
-    if (typeof value !== "string" || !(value.startsWith("jly_") || value.startsWith("jla_")))
+    if (typeof value !== "string" || !(value.startsWith("jly_") || value.startsWith("jly_")))
       throw new Error(
         tr(
           "金鑰回應不完整，請確認清單後輪替金鑰。",
           "The access key response is incomplete. Check the list and rotate the access key.",
         ),
       );
-    const box = node("div", undefined, "agent-keybox");
+    const box = node("div", undefined, "integration-keybox");
     box.append(
       node(
         "p",
@@ -239,7 +239,7 @@
       ),
     );
     const code = node("code", value);
-    code.id = "agentSecret";
+    code.id = "integrationSecret";
     box.append(code);
     const copied = node("p", "");
     copied.setAttribute("role", "status");
@@ -286,7 +286,7 @@
     const wrap = node("label", label),
       input = node(multiline ? "textarea" : "input");
     input.name = name;
-    input.id = "agent-" + name;
+    input.id = "integration-" + name;
     input.value = value;
     if (!multiline) input.type = "text";
     else input.rows = 3;
@@ -294,9 +294,9 @@
     return { wrap, input };
   }
   function permissionGrid(selected) {
-    const grid = node("fieldset", undefined, "agent-permissions");
+    const grid = node("fieldset", undefined, "integration-permissions");
     grid.append(node("legend", tr("權限", "Permissions")));
-    const head = node("div", undefined, "agent-perm-row");
+    const head = node("div", undefined, "integration-perm-row");
     [tr("資源", "Resource"), tr("讀取", "Read"), tr("寫入", "Write")].forEach(
       (x) => head.append(node("span", x)),
     );
@@ -308,9 +308,9 @@
       groups.get(key).push(p);
     });
     groups.forEach((items, res) => {
-      const row = node("div", undefined, "agent-perm-row"),
+      const row = node("div", undefined, "integration-perm-row"),
         title = node("span", resources[res] || res);
-      title.append(node("small", res + ".*", "agent-muted"));
+      title.append(node("small", res + ".*", "integration-muted"));
       row.append(title);
       ["read", "write"].forEach((op) => {
         const p = items.find((x) => x.name === res + "." + op);
@@ -338,13 +338,13 @@
     });
     return grid;
   }
-  function editor(agent, creating) {
-    const form = node("form", undefined, "agent-form"),
-      name = field(tr("名稱", "Name"), "name", agent ? agent.name : ""),
+  function editor(integration, creating) {
+    const form = node("form", undefined, "integration-form"),
+      name = field(tr("名稱", "Name"), "name", integration ? integration.name : ""),
       desc = field(
         tr("說明（可選）", "Description (optional)"),
         "description",
-        agent ? agent.description : "",
+        integration ? integration.description : "",
         true,
       );
     name.input.required = true;
@@ -354,12 +354,12 @@
       node(
         "small",
         tr("1–80 字，名稱不能重複。", "1–80 characters. Names must be unique."),
-        "agent-muted",
+        "integration-muted",
       ),
       desc.wrap,
-      permissionGrid(agent ? agent.permissions : []),
+      permissionGrid(integration ? integration.permissions : []),
     );
-    const feedback = node("p", "", "agent-error");
+    const feedback = node("p", "", "integration-error");
     feedback.setAttribute("role", "status");
     const save = mutationButton(
       creating
@@ -407,13 +407,13 @@
         return;
       }
       mutate(
-        creating ? "/api/admin/agents" : endpoint,
+        creating ? "/api/admin/integrations" : endpoint,
         creating ? "POST" : "PATCH",
         payload,
         async (result) => {
           if (creating) {
             form.reset();
-            agents.unshift(result.agent);
+            integrations.unshift(result.integration);
             renderListRows();
             showSecret(result);
           } else {
@@ -428,8 +428,8 @@
     return form;
   }
   function table(headers) {
-    const wrap = node("div", undefined, "agent-table-wrap"),
-      t = node("table", undefined, "agent-table"),
+    const wrap = node("div", undefined, "integration-table-wrap"),
+      t = node("table", undefined, "integration-table"),
       head = node("thead"),
       r = node("tr"),
       body = node("tbody");
@@ -495,7 +495,7 @@
     if (!listTable) return;
     listTable.body.replaceChildren();
     const q = search.value.trim().toLocaleLowerCase();
-    const shown = agents.filter(
+    const shown = integrations.filter(
       (a) =>
         (!stateFilter.value || a.status === stateFilter.value) &&
         (!q ||
@@ -503,21 +503,21 @@
             .toLocaleLowerCase()
             .includes(q)),
     );
-    $("agentListCount").textContent = tr("共 ", "Total ") + shown.length;
+    $("integrationListCount").textContent = tr("共 ", "Total ") + shown.length;
     shown.forEach((a) => {
       const meta = node("div"),
         aLink = link(a.name, "/admin/integrations/" + encodeURIComponent(a.id));
-      aLink.className = "agent-name";
+      aLink.className = "integration-name";
       meta.append(
         aLink,
-        node("p", a.description, "agent-muted"),
-        node("p", owner(a), "agent-muted"),
+        node("p", a.description, "integration-muted"),
+        node("p", owner(a), "integration-muted"),
       );
-      const perms = node("div", undefined, "agent-chips");
+      const perms = node("div", undefined, "integration-chips");
       (a.permissions || []).forEach((p) =>
         perms.append(node("code", p, "badge")),
       );
-      perms.append(node("p", effective(a), "agent-muted"));
+      perms.append(node("p", effective(a), "integration-muted"));
       const keys = node("div");
       (a.keys || [])
         .filter((k) => ["active", "grace"].includes(keyState(k)))
@@ -530,7 +530,7 @@
         node(
           "p",
           tr("最後使用：", "Last used: ") + date(a.last_used_at),
-          "agent-muted",
+          "integration-muted",
         ),
       );
       row(listTable, [
@@ -557,7 +557,7 @@
       ]);
   }
   function infoCard() {
-    const card = node("section", undefined, "agent-card");
+    const card = node("section", undefined, "integration-card");
     card.append(
       node("h2", tr("給串接用的連線資訊", "Connection information")),
     );
@@ -566,7 +566,7 @@
       "GET /api/v1/openapi.json",
       "Authorization: Bearer jly_…",
       "skills/jelly-cms/SKILL.md",
-    ].forEach((x) => card.append(node("p", x, "agent-muted")));
+    ].forEach((x) => card.append(node("p", x, "integration-muted")));
     card.append(
       button(tr("複製連線資訊", "Copy connection information"), async () => {
         try {
@@ -594,9 +594,9 @@
   }
   function renderList() {
     content.replaceChildren();
-    const layout = node("div", undefined, "agent-layout"),
-      main = node("section", undefined, "agent-main"),
-      side = node("aside", undefined, "agent-side");
+    const layout = node("div", undefined, "integration-layout"),
+      main = node("section", undefined, "integration-main"),
+      side = node("aside", undefined, "integration-side");
     main.append(
       node(
         "div",
@@ -604,10 +604,10 @@
           "每個 API 串接以獨立金鑰呼叫 API。有效權限由這裡的設定與擁有者目前角色共同決定。完整金鑰只在建立與輪替時顯示一次。",
           "Each API integration uses its own access keys. Effective permissions depend on the selected permissions and the owner’s current role. Full access keys appear only once after creation or rotation.",
         ),
-        "agent-note",
+        "integration-note",
       ),
     );
-    const filters = node("div", undefined, "agent-filters");
+    const filters = node("div", undefined, "integration-filters");
     const sf = field(
       tr("搜尋名稱或金鑰前綴", "Search name or access key prefix"),
       "search",
@@ -621,8 +621,8 @@
       ["active", labels.active],
       ["disabled", labels.disabled],
     ].forEach(([v, l]) => stateFilter.append(new Option(l, v)));
-    const count = node("span", "", "agent-count");
-    count.id = "agentListCount";
+    const count = node("span", "", "integration-count");
+    count.id = "integrationListCount";
     filters.append(sf.wrap, stateFilter, count);
     main.append(filters);
     listTable = table([
@@ -633,8 +633,8 @@
       "",
     ]);
     main.append(listTable.wrap);
-    const create = node("section", undefined, "agent-card agent-create");
-    create.id = "agentCreate";
+    const create = node("section", undefined, "integration-card integration-create");
+    create.id = "integrationCreate";
     create.append(
       node("h2", tr("建立串接", "Create integration")),
       editor(null, true),
@@ -644,7 +644,7 @@
           "擁有者是目前登入的管理員。需管理員的權限會隨擁有者角色變更而收斂。",
           "The signed-in administrator is the owner. Admin-only permissions stop taking effect if the owner’s role changes.",
         ),
-        "agent-muted",
+        "integration-muted",
       ),
     );
     side.append(create, infoCard());
@@ -659,23 +659,23 @@
     if (!current) return;
     detailSummary.replaceChildren(
       node("h2", current.name),
-      node("p", current.description, "agent-muted"),
-      node("p", owner(current), "agent-muted"),
+      node("p", current.description, "integration-muted"),
+      node("p", owner(current), "integration-muted"),
       chip(
         labels[current.status] || current.status,
         current.status === "active" ? "success" : "",
       ),
-      node("p", effective(current), "agent-muted"),
+      node("p", effective(current), "integration-muted"),
       node(
         "p",
         tr("建立：", "Created: ") +
           date(current.created_at) +
           tr(" · 最後使用：", " · Last used: ") +
           date(current.last_used_at),
-        "agent-muted",
+        "integration-muted",
       ),
     );
-    const toggle = $("agentToggle");
+    const toggle = $("integrationToggle");
     if (toggle)
       toggle.textContent =
         current.status === "active"
@@ -686,7 +686,7 @@
   function renderKeys() {
     keysTable.body.replaceChildren();
     (current.keys || []).forEach((k) => {
-      const actions = node("div", undefined, "agent-actions");
+      const actions = node("div", undefined, "integration-actions");
       if (["active", "grace"].includes(keyState(k)))
         actions.append(
           mutationButton(
@@ -782,11 +782,11 @@
     }
   }
   function rotate() {
-    const form = node("form", undefined, "agent-form");
+    const form = node("form", undefined, "integration-form");
     const mode = node("fieldset");
     mode.append(node("legend", tr("輪替方式", "Rotation mode")));
     ["immediate", "grace"].forEach((value) => {
-      const label = node("label", undefined, "agent-option"),
+      const label = node("label", undefined, "integration-option"),
         radio = node("input");
       radio.type = "radio";
       radio.name = "rotation-mode";
@@ -824,11 +824,11 @@
     f.input.min = "1";
     f.input.max = "1440";
     f.input.step = "1";
-    const error = node("p", "", "agent-error");
-    error.id = "agentGraceError";
+    const error = node("p", "", "integration-error");
+    error.id = "integrationGraceError";
     f.input.setAttribute("aria-describedby", error.id);
-    const preview = node("p", "", "agent-muted");
-    const presets = node("div", undefined, "agent-actions");
+    const preview = node("p", "", "integration-muted");
+    const presets = node("div", undefined, "integration-actions");
     [15, 30, 60, 1440].forEach((n) =>
       presets.append(
         button(String(n), () => {
@@ -849,7 +849,7 @@
           "ID、權限、擁有者與紀錄不變。更早的過渡金鑰會立即撤銷。",
           "ID, permissions, owner and history stay unchanged. Any older grace-period access key is revoked immediately.",
         ),
-        "agent-muted",
+        "integration-muted",
       ),
     );
     const confirm = mutationButton(
@@ -867,7 +867,7 @@
               : {}),
           },
           async (result) => {
-            current = result.agent;
+            current = result.integration;
             refreshDetailSummary();
             showSecret(result);
             activity.reset();
@@ -910,9 +910,9 @@
     validate();
   }
   function eventSection(title, isHistory) {
-    const section = node("section", undefined, "agent-card");
+    const section = node("section", undefined, "integration-card");
     section.append(node("h2", title));
-    const filters = node("form", undefined, "agent-filters"),
+    const filters = node("form", undefined, "integration-filters"),
       controls = {};
     function select(name, label, values) {
       const wrap = node("label", label),
@@ -934,7 +934,7 @@
         ...Object.entries({
           ...resources,
           me: "me",
-          agents: tr("管理操作", "Management"),
+          integrations: tr("管理操作", "Management"),
         }),
       ]);
       select("key_id", tr("金鑰", "Access key"), [
@@ -960,7 +960,7 @@
       });
       section.append(filters);
     }
-    const total = node("p", "", "agent-muted"),
+    const total = node("p", "", "integration-muted"),
       msg = node("p", ""),
       retry = button(tr("重試", "Retry"), () => load()),
       t = table(
@@ -985,9 +985,9 @@
       started = false,
       appliedParams = null;
     function filterParams() {
-      const p = new URLSearchParams({ agent_id: id, limit: "50" });
+      const p = new URLSearchParams({ integration_id: id, limit: "50" });
       if (isHistory) {
-        p.set("module", "agents");
+        p.set("module", "integrations");
         p.append("action", "key.rotate");
         p.append("action", "key.revoke");
       } else
@@ -1012,7 +1012,7 @@
       try {
         const p = new URLSearchParams(appliedParams);
         if (cursor) p.set("cursor", cursor);
-        const result = await api("/api/admin/agents/events?" + p);
+        const result = await api("/api/admin/integrations/events?" + p);
         if (mine !== generation) return;
         const items = result.items;
         items.forEach((e) => {
@@ -1035,7 +1035,7 @@
             const request = node("div");
             request.append(
               node("code", (e.method || "") + " " + (e.route || e.action)),
-              node("p", JSON.stringify(summary), "agent-muted"),
+              node("p", JSON.stringify(summary), "integration-muted"),
             );
             row(t, [
               date(e.at),
@@ -1120,7 +1120,7 @@
       "/admin/integrations",
     );
     content.append(back);
-    const actions = node("div", undefined, "agent-actions");
+    const actions = node("div", undefined, "integration-actions");
     actions.append(
       mutationButton(tr("輪替金鑰", "Rotate access key"), rotate, "primary"),
     );
@@ -1130,7 +1130,7 @@
         : tr("啟用", "Enable"),
       () => confirmAction(current.status === "active" ? "disable" : "enable"),
     );
-    toggle.id = "agentToggle";
+    toggle.id = "integrationToggle";
     actions.append(
       toggle,
       mutationButton(
@@ -1140,12 +1140,12 @@
       ),
     );
     content.append(actions);
-    const layout = node("div", undefined, "agent-layout"),
-      main = node("section", undefined, "agent-main"),
-      side = node("aside", undefined, "agent-side");
-    detailSummary = node("section", undefined, "agent-card");
+    const layout = node("div", undefined, "integration-layout"),
+      main = node("section", undefined, "integration-main"),
+      side = node("aside", undefined, "integration-side");
+    detailSummary = node("section", undefined, "integration-card");
     main.append(detailSummary);
-    const keyCard = node("section", undefined, "agent-card");
+    const keyCard = node("section", undefined, "integration-card");
     keyCard.append(node("h2", tr("金鑰", "Access keys")));
     keysTable = table([
       tr("前綴", "Prefix"),
@@ -1155,26 +1155,26 @@
       tr("到期時間", "Expires"),
       "",
     ]);
-    keysTable.wrap.classList.add("agent-key-table-wrap");
+    keysTable.wrap.classList.add("integration-key-table-wrap");
     keysTable.wrap.tabIndex = 0;
     keysTable.wrap.setAttribute("role", "region");
     keysTable.wrap.setAttribute("aria-label", tr("金鑰", "Access keys"));
-    keysTable.wrap.setAttribute("aria-describedby", "agentKeyScrollHint");
+    keysTable.wrap.setAttribute("aria-describedby", "integrationKeyScrollHint");
     const scrollHint = node(
       "p",
       tr(
         "可左右捲動查看完整金鑰資料與操作。",
         "Scroll horizontally to view all access key details and actions.",
       ),
-      "agent-muted agent-scroll-hint",
+      "integration-muted integration-scroll-hint",
     );
-    scrollHint.id = "agentKeyScrollHint";
+    scrollHint.id = "integrationKeyScrollHint";
     keyCard.append(scrollHint, keysTable.wrap);
     main.append(keyCard);
     history = eventSection(tr("輪替歷史", "Rotation history"), true);
     activity = eventSection(tr("活動紀錄", "Activity"), false);
-    const pair = node("div", undefined, "agent-pair");
-    const edit = node("section", undefined, "agent-card");
+    const pair = node("div", undefined, "integration-pair");
+    const edit = node("section", undefined, "integration-card");
     edit.append(
       node("h2", tr("基本資料與權限", "Details and permissions")),
       editor(current, false),
@@ -1184,7 +1184,7 @@
           "有效權限由擁有者目前角色決定。",
           "Effective permissions depend on the owner’s current role.",
         ),
-        "agent-muted",
+        "integration-muted",
       ),
     );
     pair.append(edit, history.section);
@@ -1200,7 +1200,7 @@
     const mine = ++epoch;
     setBusy(true);
     root.setAttribute("aria-busy", "true");
-    $("agentsRetry").hidden = true;
+    $("integrationsRetry").hidden = true;
     message(status, tr("載入中…", "Loading…"));
     try {
       const [discovery, data] = await Promise.all([
@@ -1219,7 +1219,7 @@
           activity.reset();
         } else renderDetail();
       } else {
-        agents = data.items || [];
+        integrations = data.items || [];
         if (preserveInput && listTable) renderListRows();
         else renderList();
       }
@@ -1227,7 +1227,7 @@
     } catch (e) {
       if (mine === epoch && pageActive) {
         message(status, e.message, true);
-        $("agentsRetry").hidden = false;
+        $("integrationsRetry").hidden = false;
       }
     } finally {
       if (mine === epoch && pageActive) {
@@ -1236,16 +1236,16 @@
       }
     }
   }
-  $("agentsRetry").addEventListener("click", () => init(true));
-  $("agentDialogClose").addEventListener("click", () => closeDialog());
+  $("integrationsRetry").addEventListener("click", () => init(true));
+  $("integrationDialogClose").addEventListener("click", () => closeDialog());
   dialog.addEventListener("cancel", (e) => {
     e.preventDefault();
     closeDialog();
   });
   dialog.addEventListener("close", () => {
     purgeSecret();
-    $("agentDialogBody").replaceChildren();
-    $("agentDialogActions").replaceChildren();
+    $("integrationDialogBody").replaceChildren();
+    $("integrationDialogActions").replaceChildren();
   });
   dialog.addEventListener("keydown", (e) => {
     if (e.key !== "Tab") return;

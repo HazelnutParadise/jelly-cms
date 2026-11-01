@@ -18,7 +18,7 @@ Jelly CMS 全部畫面的設計稿原始檔。程式與這裡必須一致：改�
 
 ```sh
 cd design/gen
-for s in gen gen_editor gen_update gen_front2 gen_crawlers gen_halo gen_infra gen_layout gen_motion gen_accounts gen_agents; do
+for s in gen gen_editor gen_update gen_front2 gen_crawlers gen_halo gen_infra gen_layout gen_motion gen_accounts gen_integrations; do
   PYTHONDONTWRITEBYTECODE=1 python3 $s.py
 done
 ```
@@ -35,7 +35,7 @@ done
 | `gen_layout.py` | 編輯器版面模式、匯出文章（EditorLayout、EditorExport） |
 | `gen_motion.py` | 編輯器動效與互動元件（EditorMotion、Widgets） |
 | `gen_accounts.py` | 登入驗證碼步驟、接受邀請、重設密碼 |
-| `gen_agents.py` | AI agent 清單、詳情與輪替對話框 |
+| `gen_integrations.py` | API 串接清單、詳情與輪替對話框 |
 
 十一支腳本重新產生後 `git diff` 必須是空的（除非你正好改了它們）；改共用 CSS 或 helmet 後全部重跑。
 

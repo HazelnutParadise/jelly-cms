@@ -27,8 +27,8 @@ type integrationEventResponse struct {
 	At              time.Time       `json:"at"`
 	ActorType       string          `json:"actor_type"`
 	ActorUserID     *uint           `json:"actor_user_id"`
-	IntegrationID   uint            `json:"agent_id"`
-	IntegrationName string          `json:"agent_name"`
+	IntegrationID   uint            `json:"integration_id"`
+	IntegrationName string          `json:"integration_name"`
 	KeyID           *uint           `json:"key_id"`
 	KeyPrefix       string          `json:"key_prefix"`
 	Action          string          `json:"action"`
@@ -191,7 +191,7 @@ func writeIntegrationEventWithSystemLog(tx *gorm.DB, ev core.IntegrationEvent) (
 		ev.Summary = json.RawMessage(`{}`)
 	}
 	if len(ev.Summary) > 2048 {
-		return record, fmt.Errorf("agent event summary exceeds 2 KiB")
+		return record, fmt.Errorf("integration event summary exceeds 2 KiB")
 	}
 	if err := tx.Create(&ev).Error; err != nil {
 		return record, err
@@ -229,7 +229,7 @@ func logIntegrationAuditFailure(ev core.IntegrationEvent, eventID, logID uint, p
 	if ev.KeyID != nil {
 		keyID = *ev.KeyID
 	}
-	syslog.Emit(ctx, syslog.Entry{Level: syslog.LevelError, Source: syslog.SourceApp, Message: "agent request audit persistence failed", RequestID: ev.RequestID, IPMasked: ev.IPMasked, Fields: map[string]any{"phase": phase, "event_id": eventID, "system_log_id": logID, "integration_id": ev.IntegrationID, "key_id": keyID}})
+	syslog.Emit(ctx, syslog.Entry{Level: syslog.LevelError, Source: syslog.SourceApp, Message: "integration request audit persistence failed", RequestID: ev.RequestID, IPMasked: ev.IPMasked, Fields: map[string]any{"phase": phase, "event_id": eventID, "system_log_id": logID, "integration_id": ev.IntegrationID, "key_id": keyID}})
 }
 
 func finalizePendingIntegrationRequest(record integrationAuditRecord, status int, summary json.RawMessage, requestID string, integrationID, keyID uint, ip string) {
@@ -241,7 +241,7 @@ func finalizePendingIntegrationRequest(record integrationAuditRecord, status int
 			return result.Error
 		}
 		if result.RowsAffected != 1 {
-			return fmt.Errorf("pending agent event update affected %d rows", result.RowsAffected)
+			return fmt.Errorf("pending integration event update affected %d rows", result.RowsAffected)
 		}
 		result = tx.Exec(`UPDATE system_logs SET fields = jsonb_set(COALESCE(fields, '{}'::jsonb), '{status}', to_jsonb(?::integer), true) WHERE id = ?`, status, record.logID)
 		if result.Error != nil {
@@ -253,7 +253,7 @@ func finalizePendingIntegrationRequest(record integrationAuditRecord, status int
 		return nil
 	})
 	if err != nil {
-		syslog.Emit(ctx, syslog.Entry{Level: syslog.LevelError, Source: syslog.SourceApp, Message: "agent request audit finalization failed", RequestID: requestID, IPMasked: ip, Fields: map[string]any{"phase": "finalize", "event_id": record.eventID, "system_log_id": record.logID, "integration_id": integrationID, "key_id": keyID}})
+		syslog.Emit(ctx, syslog.Entry{Level: syslog.LevelError, Source: syslog.SourceApp, Message: "integration request audit finalization failed", RequestID: requestID, IPMasked: ip, Fields: map[string]any{"phase": "finalize", "event_id": record.eventID, "system_log_id": record.logID, "integration_id": integrationID, "key_id": keyID}})
 	}
 }
 
@@ -337,7 +337,7 @@ func listIntegrationEvents(c echo.Context, own *uint) error {
 	q := c.QueryParams()
 	for k := range q {
 		switch k {
-		case "agent_id", "actor_type", "action", "module", "status", "key_id", "since", "until", "cursor", "limit":
+		case "integration_id", "actor_type", "action", "module", "status", "key_id", "since", "until", "cursor", "limit":
 		default:
 			return writeAPIError(c, 400, "logs_filter_invalid", "Invalid event filter", nil)
 		}
@@ -357,23 +357,17 @@ func listIntegrationEvents(c echo.Context, own *uint) error {
 	query := data.DB.WithContext(c.Request().Context()).Model(&core.IntegrationEvent{})
 	if own != nil {
 		query = query.Where("integration_id = ? AND actor_type = ?", *own, "integration")
-	} else if raw := c.QueryParam("agent_id"); raw != "" {
+	} else if raw := c.QueryParam("integration_id"); raw != "" {
 		n, e := strconv.ParseUint(raw, 10, 64)
 		if e != nil || n == 0 {
-			return writeAPIError(c, 400, "logs_filter_invalid", "Invalid agent_id", nil)
+			return writeAPIError(c, 400, "logs_filter_invalid", "Invalid integration_id", nil)
 		}
 		query = query.Where("integration_id = ?", n)
 	}
 	for k, col := range map[string]string{"actor_type": "actor_type", "module": "module"} {
 		if v := c.QueryParam(k); v != "" {
-			if (k == "actor_type" && v != "agent" && v != "integration" && v != "user") || len(v) > 32 {
+			if (k == "actor_type" && v != "integration" && v != "user") || len(v) > 32 {
 				return writeAPIError(c, 400, "logs_filter_invalid", "Invalid filter", nil)
-			}
-			if k == "actor_type" && v == "agent" {
-				v = "integration"
-			}
-			if k == "module" && v == "agents" {
-				v = "integrations"
 			}
 			query = query.Where(col+" = ?", v)
 		}

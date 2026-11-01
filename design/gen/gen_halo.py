@@ -130,7 +130,7 @@ B["Tokens"] = ("後台 · 個人帳號 · API 權杖", CSS, 1440, 1000, admin(""
         <div class="card" style="display:flex;flex-direction:column;gap:12px">
           <h2 style="margin:0;font-size:18px">API 權杖</h2>
           <p style="margin:0;font-size:13px;line-height:1.6;color:#3A3D45">程式與 API 串接請在存取金鑰管理頁建立金鑰。</p>
-          <div><a class="btn t" href="Agents.dc.html">{I("key")}前往存取金鑰管理</a></div>
+          <div><a class="btn t" href="Integrations.dc.html">{I("key")}前往存取金鑰管理</a></div>
         </div>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">

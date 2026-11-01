@@ -639,7 +639,7 @@
       "title": "前台 · 會員通知",
       "expand": "fill"
     },
-    "Agents.dc.html": {
+    "Integrations.dc.html": {
       "x": 28880,
       "y": 14430,
       "w": 1440,
@@ -647,7 +647,7 @@
       "title": "後台 · API 串接 · 清單、建立與金鑰一次性顯示",
       "expand": "fill"
     },
-    "AgentDetail.dc.html": {
+    "IntegrationDetail.dc.html": {
       "x": 30400,
       "y": 14430,
       "w": 1440,
@@ -724,8 +724,8 @@
     "Login2FA.dc.html",
     "InviteAccept.dc.html",
     "PasswordReset.dc.html",
-    "Agents.dc.html",
-    "AgentDetail.dc.html",
+    "Integrations.dc.html",
+    "IntegrationDetail.dc.html",
     "Settings.dc.html",
     "SettingsRoutes.dc.html",
     "SettingsCrawlers.dc.html",
