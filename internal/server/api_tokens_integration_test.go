@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/labstack/echo/v4"
@@ -18,9 +19,9 @@ import (
 )
 
 // Shared fixtures for the account tests in this package (login, users and
-// requests). Personal API tokens were merged into access keys by ticket 22, so
-// the token acceptance tests were removed; tokTestCreate is kept only because
-// accounts_security_regression_test.go still calls it.
+// requests). Personal API tokens were merged into access keys by ticket 22 and
+// ticket 25 renamed the agent tables to integration, so tokTestCreate seeds an
+// integration and its access key directly instead of calling /api/account/tokens.
 
 const tokTestPassword = "token-test-password-1"
 
@@ -124,27 +125,20 @@ func tokTestHash(raw string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// tokTestCreate creates a token through POST /api/account/tokens as jwt's owner
-// and returns its row ID and raw value. expiresInDays nil sends null (never).
+// tokTestCreate seeds an integration and one access key directly and returns
+// the integration row ID and the raw key. The old personal-token endpoint is
+// gone, and api_tokens no longer exists. expiresInDays nil sends null (never).
 func tokTestCreate(t *testing.T, h *accessHarness, jwt string, owner core.User, name string, expiresInDays any, scopes []string) (uint, string) {
 	t.Helper()
-	body, err := json.Marshal(map[string]any{"name": name, "note": "fixture", "expires_in_days": expiresInDays, "scopes": scopes})
-	if err != nil {
-		t.Fatalf("encode token body: %v", err)
+	var expiresAt *time.Time
+	if days, ok := expiresInDays.(int); ok {
+		at := time.Now().Add(time.Duration(days) * 24 * time.Hour)
+		expiresAt = &at
 	}
-	res := tokTestCall(t, h, http.MethodPost, "/api/account/tokens", string(body), jwt)
-	if res.code != http.StatusCreated {
-		t.Fatalf("create token %q returned %d, want 201; body=%q", name, res.code, res.body)
-	}
-	var created struct {
-		Token string `json:"token"`
-	}
-	if err := json.Unmarshal([]byte(res.body), &created); err != nil || created.Token == "" {
-		t.Fatalf("create token %q response has no token: err=%v body=%q", name, err, res.body)
-	}
+	raw := apiKeysSeedToken(t, h, owner, name, scopes, expiresAt, nil)
 	var id uint
-	if err := h.db.Raw("SELECT id FROM api_tokens WHERE user_id = ? AND name = ? ORDER BY id DESC LIMIT 1", owner.ID, name).Row().Scan(&id); err != nil {
-		t.Fatalf("find row for token %q: %v", name, err)
+	if err := h.db.Raw("SELECT id FROM integrations WHERE owner_id = ? AND name = ? ORDER BY id DESC LIMIT 1", owner.ID, name).Row().Scan(&id); err != nil {
+		t.Fatalf("find integration %q: %v", name, err)
 	}
-	return id, created.Token
+	return id, raw
 }

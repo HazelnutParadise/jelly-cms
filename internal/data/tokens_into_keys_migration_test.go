@@ -108,28 +108,38 @@ func tikSameTime(got sql.NullTime, want *time.Time) bool {
 	return got.Valid && got.Time.Equal(*want)
 }
 
-// applyTokensIntoKeysMigration runs the 0026 SQL that ships in the embedded
-// migrations. It fails with a clear message while the file does not exist.
+// applyTokensIntoKeysMigration runs the migration runner through 0026. The
+// fixture stops at 0025, so 0026 is the migration under test. Later migrations
+// must not run here: they rename the agent tables this test asserts on.
 func applyTokensIntoKeysMigration(t *testing.T, db *gorm.DB) {
+	t.Helper()
+	if err := migrateDBThrough(db, 26); err != nil {
+		t.Fatalf("migrateDBThrough(db, 26): %v", err)
+	}
+}
+
+// rerunTokensIntoKeysSQL applies the 0026 SQL file directly to a database that
+// already ran 0026, proving the file itself is idempotent.
+func rerunTokensIntoKeysSQL(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	sqlText, err := embeddedMigrationFiles.ReadFile(tokensIntoKeysMigrationPath)
 	if err != nil {
 		t.Fatalf("migration 0026_tokens_into_keys.sql is missing from internal/data/migrations (ticket 22 requires it): %v", err)
 	}
 	if err := db.Exec(string(sqlText)).Error; err != nil {
-		t.Fatalf("apply 0026_tokens_into_keys.sql: %v", err)
+		t.Fatalf("rerun 0026_tokens_into_keys.sql: %v", err)
 	}
 }
 
-// newTokensIntoKeysFixture migrates a fresh database and seeds the api_tokens
-// rows. The seeds cover a duplicate name, a revoked and an expired token, two
-// owners, every scope combination in the mapping table, an unknown scope, and
-// names that are 80 characters long.
+// newTokensIntoKeysFixture migrates a fresh database through 0025 and seeds the
+// api_tokens rows. The seeds cover a duplicate name, a revoked and an expired
+// token, two owners, every scope combination in the mapping table, an unknown
+// scope, and names that are 80 characters long.
 func newTokensIntoKeysFixture(t *testing.T) (*gorm.DB, map[string]core.User, []tikSeed) {
 	t.Helper()
 	db := newAccountsMigrationDB(t)
-	if err := MigrateDB(db); err != nil {
-		t.Fatalf("MigrateDB on a fresh database: %v", err)
+	if err := migrateDBThrough(db, 25); err != nil {
+		t.Fatalf("migrateDBThrough(db, 25) on a fresh database: %v", err)
 	}
 
 	owners := map[string]core.User{}
@@ -279,7 +289,7 @@ func TestTokensIntoKeysMigrationRerunIsIdempotent(t *testing.T) {
 	applyTokensIntoKeysMigration(t, db)
 	before := tikSnapshot(t, db)
 
-	applyTokensIntoKeysMigration(t, db)
+	rerunTokensIntoKeysSQL(t, db)
 	if after := tikSnapshot(t, db); after != before {
 		t.Errorf("rerunning 0026 changed agents or agent_keys:\nbefore=%s\nafter=%s", before, after)
 	}

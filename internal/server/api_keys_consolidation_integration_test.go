@@ -4,8 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,57 +11,111 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 )
 
-// Acceptance tests for ticket 22 (docs/tickets/22-api-keys-consolidation.md):
-// personal API tokens (jly_, api_tokens) are merged into access keys (agent
-// keys on /api/v1). The migration is 0026_tokens_into_keys.sql, which
-// the tests run from the repository because the server package does not embed
-// the migrations.
+// Acceptance tests for ticket 22 (docs/tickets/22-api-keys-consolidation.md)
+// and ticket 25 (docs/tickets/25-integration-internal-rename.md). Ticket 22
+// merged personal API tokens into access keys; ticket 25 renamed the agent
+// tables to integration. These tests seed integrations and integration_keys
+// directly through SQL and exercise the same runtime behaviour.
 
-const apiKeysMigrationRelativePath = "internal/data/migrations/0026_tokens_into_keys.sql"
+var (
+	apiKeysAllPermissions = []string{
+		"posts.read", "posts.write", "pages.read", "pages.write", "media.read", "media.write",
+		"products.read", "products.write", "orders.read", "themes.read", "themes.write",
+		"plugins.read", "plugins.write", "settings.read", "settings.write", "logs.read",
+	}
+	apiKeysAuthorPermissions = []string{"posts.read", "posts.write", "pages.read", "media.read", "media.write"}
+	apiKeysEditorPermissions = []string{"posts.read", "posts.write", "pages.read", "pages.write", "media.read", "media.write"}
+	apiKeysReaderPermissions = []string{"posts.read", "pages.read"}
+)
 
-// apiKeysSeedToken inserts an api_tokens row for owner, as it exists before
-// 0026, and returns the raw jly_ token the owner was shown once.
-func apiKeysSeedToken(t *testing.T, h *accessHarness, owner core.User, name string, scopes []string, expiresAt, revokedAt *time.Time) string {
+// apiKeysSeedIntegration inserts one integration and one active jly_ access key
+// with the given permissions and role cap, returning the raw key.
+func apiKeysSeedIntegration(t *testing.T, h *accessHarness, owner core.User, name string, permissions []string, roleCap string, expiresAt, revokedAt *time.Time) string {
 	t.Helper()
 	var entropy [32]byte
 	if _, err := rand.Read(entropy[:]); err != nil {
-		t.Fatalf("generate token entropy: %v", err)
+		t.Fatalf("generate key entropy: %v", err)
 	}
 	raw := "jly_" + base64.RawURLEncoding.EncodeToString(entropy[:])
-	if err := h.db.Exec(`INSERT INTO api_tokens (user_id, name, note, token_hash, last4, scopes, expires_at, revoked_at)
-		VALUES (?, ?, '', ?, ?, ?::text[], ?, ?)`,
-		owner.ID, name, tokTestHash(raw), raw[len(raw)-4:], "{"+strings.Join(scopes, ",")+"}", expiresAt, revokedAt).Error; err != nil {
-		t.Fatalf("seed api_tokens row %q: %v", name, err)
+	var integrationID uint
+	if err := h.db.Raw(`INSERT INTO integrations (name, description, permissions, owner_id, created_by, status, role_cap)
+		VALUES (?, '', ?::text[], ?, ?, 'active', NULLIF(?::text, '')) RETURNING id`,
+		name, "{"+strings.Join(permissions, ",")+"}", owner.ID, owner.ID, roleCap).Row().Scan(&integrationID); err != nil {
+		t.Fatalf("seed integration %q: %v", name, err)
+	}
+	if err := h.db.Exec(`INSERT INTO integration_keys (integration_id, key_hash, prefix, created_by, expires_at, revoked_at)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		integrationID, tokTestHash(raw), raw[:12], owner.ID, expiresAt, revokedAt).Error; err != nil {
+		t.Fatalf("seed integration key for %q: %v", name, err)
 	}
 	return raw
 }
 
-// apiKeysRunMigration applies 0026_tokens_into_keys.sql to the test database.
+// apiKeysSeedToken keeps the scope vocabulary of the removed personal tokens
+// for the older regression that still describes a token's scopes. It maps them
+// the way migration 0026 did and seeds the resulting integration directly.
+func apiKeysSeedToken(t *testing.T, h *accessHarness, owner core.User, name string, scopes []string, expiresAt, revokedAt *time.Time) string {
+	t.Helper()
+	permissions, roleCap := apiKeysScopesToPermissions(scopes)
+	return apiKeysSeedIntegration(t, h, owner, name, permissions, roleCap, expiresAt, revokedAt)
+}
+
+func apiKeysScopesToPermissions(scopes []string) ([]string, string) {
+	seen := map[string]bool{}
+	var permissions []string
+	add := func(list ...string) {
+		for _, p := range list {
+			if !seen[p] {
+				seen[p] = true
+				permissions = append(permissions, p)
+			}
+		}
+	}
+	roleCap := ""
+	for _, scope := range scopes {
+		switch scope {
+		case "content_read":
+			add(apiKeysReaderPermissions...)
+		case "orders_read":
+			add("orders.read")
+		case "author":
+			add(apiKeysAuthorPermissions...)
+			if roleCap == "" {
+				roleCap = "author"
+			}
+		case "editor":
+			add(apiKeysEditorPermissions...)
+			if roleCap == "" || roleCap == "author" {
+				roleCap = "editor"
+			}
+		case "admin":
+			add(apiKeysAllPermissions...)
+			roleCap = "admin"
+		}
+	}
+	return permissions, roleCap
+}
+
+// apiKeysRunMigration is kept for the older agent regression that used to
+// migrate a personal token. Integrations are seeded directly now, so there is
+// no migration step left here.
 func apiKeysRunMigration(t *testing.T, h *accessHarness) {
 	t.Helper()
-	sqlText, err := os.ReadFile(filepath.Join(repoRoot(t), apiKeysMigrationRelativePath))
-	if err != nil {
-		t.Fatalf("migration 0026_tokens_into_keys.sql is missing (ticket 22 requires it): %v", err)
-	}
-	if err := h.db.Exec(string(sqlText)).Error; err != nil {
-		t.Fatalf("apply 0026_tokens_into_keys.sql: %v", err)
-	}
 }
 
 func TestAPIKeysMigratedTokenAuthenticatesAgentAPIWithOwnerRole(t *testing.T) {
 	h := newAccessHarness(t)
 	owner := tokTestUser(t, h, "apikeys-author-owner", "author")
-	raw := apiKeysSeedToken(t, h, owner, "author bot", []string{"admin"}, nil, nil)
-	apiKeysRunMigration(t, h)
+	raw := apiKeysSeedIntegration(t, h, owner, "author bot", apiKeysAllPermissions, "admin", nil, nil)
 
 	r := agtMe(h, raw)
-	agtExpectOK(t, r, "GET /api/v1/me with the migrated jly_ token")
+	agtExpectOK(t, r, "GET /api/v1/me with the seeded jly_ key")
 	var me struct {
 		Permissions          []string `json:"permissions"`
 		EffectivePermissions []string `json:"effective_permissions"`
 		OwnerRole            string   `json:"owner_role"`
 	}
-	agtDecode(t, r, &me, "me with migrated token")
+	agtDecode(t, r, &me, "me with the seeded key")
 	if len(me.Permissions) != 16 {
 		t.Errorf("permissions=%v, want all 16 permissions because the admin scope maps to them", me.Permissions)
 	}
@@ -82,32 +134,24 @@ func TestAPIKeysMigratedRevokedAndExpiredTokensGetKeyErrors(t *testing.T) {
 	h := newAccessHarness(t)
 	owner := tokTestUser(t, h, "apikeys-state-owner", "admin")
 	past := time.Now().Add(-time.Hour)
-	revokedRaw := apiKeysSeedToken(t, h, owner, "revoked bot", []string{"content_read"}, nil, &past)
-	expiredRaw := apiKeysSeedToken(t, h, owner, "expired bot", []string{"content_read"}, &past, nil)
-	apiKeysRunMigration(t, h)
+	revokedRaw := apiKeysSeedIntegration(t, h, owner, "revoked bot", apiKeysReaderPermissions, "", nil, &past)
+	expiredRaw := apiKeysSeedIntegration(t, h, owner, "expired bot", apiKeysReaderPermissions, "", &past, nil)
 
-	agtExpectError(t, agtMe(h, revokedRaw), http.StatusUnauthorized, "key_revoked", "GET /api/v1/me with a migrated revoked token")
-	agtExpectError(t, agtMe(h, expiredRaw), http.StatusUnauthorized, "key_expired", "GET /api/v1/me with a migrated expired token")
+	agtExpectError(t, agtMe(h, revokedRaw), http.StatusUnauthorized, "key_revoked", "GET /api/v1/me with a revoked key")
+	agtExpectError(t, agtMe(h, expiredRaw), http.StatusUnauthorized, "key_expired", "GET /api/v1/me with an expired key")
 }
 
 func TestAPIKeysMigratedTokenIsNoLongerABackendCredential(t *testing.T) {
 	h := newAccessHarness(t)
 	owner := tokTestUser(t, h, "apikeys-backend-owner", "admin")
-	raw := apiKeysSeedToken(t, h, owner, "backend bot", []string{"admin"}, nil, nil)
-	// A jly_ token is never a backend credential, so the probe must fail both
-	// before and after 0026 has moved the token into access keys.
-	probe := func(stage string) {
-		t.Helper()
-		for _, path := range []string{"/api/admin/posts", "/api/admin/orders"} {
-			res := tokTestCall(t, h, http.MethodGet, path, "", raw)
-			if res.code != http.StatusUnauthorized {
-				t.Errorf("GET %s with a jly_ token %s returned %d, want 401; body=%q", path, stage, res.code, res.body)
-			}
+	raw := apiKeysSeedIntegration(t, h, owner, "backend bot", apiKeysAllPermissions, "admin", nil, nil)
+	// A jly_ access key is never a backend credential.
+	for _, path := range []string{"/api/admin/posts", "/api/admin/orders"} {
+		res := tokTestCall(t, h, http.MethodGet, path, "", raw)
+		if res.code != http.StatusUnauthorized {
+			t.Errorf("GET %s with a jly_ key returned %d, want 401; body=%q", path, res.code, res.body)
 		}
 	}
-	probe("before 0026")
-	apiKeysRunMigration(t, h)
-	probe("after 0026")
 }
 
 func TestAPIKeysNewAgentKeyUsesJLYPrefixAndLegacyJLAKeysStillWork(t *testing.T) {
@@ -125,18 +169,19 @@ func TestAPIKeysNewAgentKeyUsesJLYPrefixAndLegacyJLAKeysStillWork(t *testing.T) 
 	}
 	agtExpectOK(t, agtMe(h, key), "GET /api/v1/me with the new jly_ key")
 
-	// A key issued before this ticket keeps working: jla_ with its own agent.
+	// A key issued before this ticket keeps working: jla_ with its own
+	// integration row.
 	var legacyAgentID uint
-	if err := h.db.Raw(`INSERT INTO agents (name, owner_id, created_by, permissions, status)
+	if err := h.db.Raw(`INSERT INTO integrations (name, owner_id, created_by, permissions, status)
 		VALUES ('舊 jla_ 金鑰', ?, ?, '{posts.read}'::text[], 'active') RETURNING id`, admin.ID, admin.ID).Row().Scan(&legacyAgentID); err != nil {
-		t.Fatalf("seed legacy agent: %v", err)
+		t.Fatalf("seed legacy integration: %v", err)
 	}
 	var entropy [32]byte
 	if _, err := rand.Read(entropy[:]); err != nil {
 		t.Fatalf("generate legacy key entropy: %v", err)
 	}
 	legacyKey := "jla_" + base64.RawURLEncoding.EncodeToString(entropy[:])
-	if err := h.db.Exec(`INSERT INTO agent_keys (agent_id, key_hash, prefix, created_by) VALUES (?, ?, ?, ?)`,
+	if err := h.db.Exec(`INSERT INTO integration_keys (integration_id, key_hash, prefix, created_by) VALUES (?, ?, ?, ?)`,
 		legacyAgentID, tokTestHash(legacyKey), legacyKey[:12], admin.ID).Error; err != nil {
 		t.Fatalf("seed legacy jla_ key: %v", err)
 	}
@@ -146,16 +191,15 @@ func TestAPIKeysNewAgentKeyUsesJLYPrefixAndLegacyJLAKeysStillWork(t *testing.T) 
 func TestAPIKeysMigratedTokenWritesAgentEvent(t *testing.T) {
 	h := newAccessHarness(t)
 	owner := tokTestUser(t, h, "apikeys-event-owner", "admin")
-	raw := apiKeysSeedToken(t, h, owner, "event bot", []string{"content_read"}, nil, nil)
-	apiKeysRunMigration(t, h)
+	raw := apiKeysSeedIntegration(t, h, owner, "event bot", apiKeysReaderPermissions, "", nil, nil)
 
-	agtExpectOK(t, agtMe(h, raw), "GET /api/v1/me with the migrated jly_ token")
+	agtExpectOK(t, agtMe(h, raw), "GET /api/v1/me with the seeded jly_ key")
 	var n int64
-	if err := h.db.Raw(`SELECT count(*) FROM agent_events WHERE key_prefix = ? AND route LIKE '%/api/v1/me'`, "jly_"+raw[len(raw)-4:]).Row().Scan(&n); err != nil {
-		t.Fatalf("count agent_events for the migrated key: %v", err)
+	if err := h.db.Raw(`SELECT count(*) FROM integration_events WHERE key_prefix = ? AND route LIKE '%/api/v1/me'`, raw[:12]).Row().Scan(&n); err != nil {
+		t.Fatalf("count integration_events for the key: %v", err)
 	}
 	if n < 1 {
-		t.Errorf("agent_events has %d rows for the migrated key on /api/v1/me, want at least one", n)
+		t.Errorf("integration_events has %d rows for the key on /api/v1/me, want at least one", n)
 	}
 }
 
@@ -190,14 +234,13 @@ func TestAPIKeysProfilePageHasNoTokenCreationForm(t *testing.T) {
 	}
 }
 
-// /me must report the role cap and the role the agent actually runs with, so a
-// migrated author-scoped token is visibly capped while a read-only one is not.
+// /me must report the role cap and the role the integration actually runs with,
+// so an author-capped integration is visibly capped while a read-only one is not.
 func TestAPIKeysMeReportsRoleCapAndEffectiveRole(t *testing.T) {
 	h := newAccessHarness(t)
 	owner := tokTestUser(t, h, "apikeys-rolecap-owner", "admin")
-	capped := apiKeysSeedToken(t, h, owner, "capped bot", []string{"author"}, nil, nil)
-	readOnly := apiKeysSeedToken(t, h, owner, "read bot", []string{"content_read"}, nil, nil)
-	apiKeysRunMigration(t, h)
+	capped := apiKeysSeedIntegration(t, h, owner, "capped bot", apiKeysAuthorPermissions, "author", nil, nil)
+	readOnly := apiKeysSeedIntegration(t, h, owner, "read bot", apiKeysReaderPermissions, "", nil, nil)
 
 	check := func(key, where, wantRoleCap, wantEffective string) {
 		t.Helper()
@@ -219,8 +262,8 @@ func TestAPIKeysMeReportsRoleCapAndEffectiveRole(t *testing.T) {
 			t.Errorf("%s: effective_role=%v, want %q", where, got, wantEffective)
 		}
 	}
-	check(capped, "GET /me with the migrated author-scoped token", "author", "author")
-	check(readOnly, "GET /me with the migrated content_read token", "", "admin")
+	check(capped, "GET /me with the author-capped key", "author", "author")
+	check(readOnly, "GET /me with the read-only key", "", "admin")
 
 	newAdmin := h.user("admin", "apikeys-rolecap-new-admin")
 	created := agtCreate(t, h, h.token(newAdmin), "無上限金鑰", "posts.read")
