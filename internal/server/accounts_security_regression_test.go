@@ -23,16 +23,15 @@ import (
 // isolated PostgreSQL acceptance harness and never use production data.
 
 // TestAccountsSecurityAuthorScopedAdminTokenCannotReadOrChangeAnotherAuthorsPost
-// was rewritten for ticket 22: personal tokens now live as access keys, so the
-// author-scoped token is seeded as a legacy api_tokens row, moved by migration
-// 0026, and then used against the agent API. The owner is an admin, so the
-// role cap (agents.role_cap = author) is what keeps it at author level.
+// covers ticket 22 and ticket 25: personal tokens now live as access keys and
+// the agent tables are integration tables. The author-scoped key is seeded on
+// an integration directly. The owner is an admin, so the role cap
+// (integrations.role_cap = author) is what keeps it at author level.
 func TestAccountsSecurityAuthorScopedAdminTokenCannotReadOrChangeAnotherAuthorsPost(t *testing.T) {
 	h := newAccessHarness(t)
 	admin := tokTestUser(t, h, "accounts-scope-admin", "admin")
 	other := tokTestUser(t, h, "accounts-scope-other", "author")
-	authorScopeToken := apiKeysSeedToken(t, h, admin, "limited author token", []string{"author"}, nil, nil)
-	apiKeysRunMigration(t, h)
+	authorScopeToken := apiKeysSeedIntegration(t, h, admin, "limited author token", apiKeysAuthorPermissions, "author", nil, nil)
 
 	foreign := core.Post{
 		Title: "Private other-author draft", Slug: "accounts-scope-foreign",

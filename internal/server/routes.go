@@ -227,8 +227,8 @@ func RegisterRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.Runti
 	registerWebMCPRoutes(e, tm, pluginRuntime)
 	registerPublicAPIRoutes(e)
 
-	// AI agent API and its admin screens (ticket 14)
-	registerAgentRoutes(e, tm, pluginRuntime, renderAdmin)
+	// AI integration API and its admin screens (ticket 14)
+	registerIntegrationRoutes(e, tm, pluginRuntime, renderAdmin)
 
 	// Public Routes (Catch-all should be last)
 	registerAccountPages(e)

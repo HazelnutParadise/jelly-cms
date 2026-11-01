@@ -591,11 +591,11 @@ func adminProductsUpdate(c echo.Context) error {
 		}
 		return productError(c, 500, "could not load product")
 	}
-	var agentBase time.Time
-	if base, ok := c.Get("agent.base_updated_at").(time.Time); ok {
-		agentBase = base
+	var integrationBase time.Time
+	if base, ok := c.Get("integration.base_updated_at").(time.Time); ok {
+		integrationBase = base
 		stamp := time.Now().UTC()
-		cas := tx.Model(&core.Product{}).Where("id = ? AND updated_at = ?", p.ID, agentBase).Update("updated_at", stamp)
+		cas := tx.Model(&core.Product{}).Where("id = ? AND updated_at = ?", p.ID, integrationBase).Update("updated_at", stamp)
 		if cas.Error != nil {
 			return productDBError(c, cas.Error)
 		}
@@ -643,7 +643,7 @@ func adminProductsUpdate(c echo.Context) error {
 		}
 	}
 	productFields := []string{"title", "slug", "description", "price", "sku", "status", "compare_at_price", "low_stock_threshold", "requires_shipping", "cold_chain", "kind", "seo_title", "seo_description", "seo_index", "seo_ai", "images", "attributes", "related_ids", "stock"}
-	if agentBase.IsZero() {
+	if integrationBase.IsZero() {
 		if err := tx.Select(productFields).Save(&p).Error; err != nil {
 			return productDBError(c, err)
 		}
@@ -672,7 +672,7 @@ func adminProductsUpdate(c echo.Context) error {
 	if err := tx.Commit().Error; err != nil {
 		return productDBError(c, err)
 	}
-	if !agentBase.IsZero() {
+	if !integrationBase.IsZero() {
 		if err := data.DB.First(&p, uint(id)).Error; err != nil {
 			return productError(c, http.StatusInternalServerError, "product saved but could not load response")
 		}

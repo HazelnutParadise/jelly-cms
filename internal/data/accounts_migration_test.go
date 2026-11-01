@@ -42,7 +42,7 @@ func TestAccountsMigrationIdempotentRerun(t *testing.T) {
 		t.Fatalf("second MigrateDB returned an error: %v", err)
 	}
 
-	for _, table := range []string{"login_sessions", "api_tokens", "notifications", "notification_settings", "notification_prefs", "notification_deliveries", "user_totp", "user_recovery_codes", "user_invites"} {
+	for _, table := range []string{"login_sessions", "notifications", "notification_settings", "notification_prefs", "notification_deliveries", "user_totp", "user_recovery_codes", "user_invites"} {
 		if !db.Migrator().HasTable(table) {
 			t.Errorf("table %s is missing after MigrateDB", table)
 		}
@@ -78,11 +78,6 @@ func TestAccountsMigrationRerunPreservesAccountSecurityState(t *testing.T) {
 		disabledAt, "pending@example.test", strings.Repeat("a", 64), pendingExpiry, u.ID).Error; err != nil {
 		t.Fatalf("seed account state: %v", err)
 	}
-	revokedAt := disabledAt.Add(time.Hour)
-	if err := db.Exec(`INSERT INTO api_tokens (user_id, name, token_hash, last4, scopes, revoked_at)
-		VALUES (?, 'preserve revoked token', ?, 'wxyz', '{author}', ?)`, u.ID, strings.Repeat("b", 64), revokedAt).Error; err != nil {
-		t.Fatalf("seed revoked API token: %v", err)
-	}
 	usedAt := disabledAt.Add(2 * time.Hour)
 	if err := db.Exec(`INSERT INTO user_recovery_codes (user_id, code_hash, used_at) VALUES (?, ?, ?)`,
 		u.ID, strings.Repeat("c", 64), usedAt).Error; err != nil {
@@ -107,18 +102,38 @@ func TestAccountsMigrationRerunPreservesAccountSecurityState(t *testing.T) {
 		got.PendingEmailHash != strings.Repeat("a", 64) || !got.PendingEmailExpiresAt.Equal(pendingExpiry) {
 		t.Errorf("migration changed account security state: %+v", got)
 	}
-	var tokenRevokedAt, recoveryUsedAt time.Time
-	if err := db.Raw("SELECT revoked_at FROM api_tokens WHERE user_id = ? AND name = ?", u.ID, "preserve revoked token").Scan(&tokenRevokedAt).Error; err != nil {
-		t.Fatalf("reload revoked token timestamp: %v", err)
-	}
+	var recoveryUsedAt time.Time
 	if err := db.Raw("SELECT used_at FROM user_recovery_codes WHERE user_id = ? AND code_hash = ?", u.ID, strings.Repeat("c", 64)).Scan(&recoveryUsedAt).Error; err != nil {
 		t.Fatalf("reload recovery-code timestamp: %v", err)
 	}
-	if !tokenRevokedAt.Equal(revokedAt) {
-		t.Errorf("revoked API token timestamp = %v, want %v", tokenRevokedAt, revokedAt)
-	}
 	if !recoveryUsedAt.Equal(usedAt) {
 		t.Errorf("used recovery code timestamp = %v, want %v", recoveryUsedAt, usedAt)
+	}
+
+	// api_tokens was created by 0004 and is removed by 0027, so the rerun of the
+	// schema that still owns it stops at 0025.
+	legacyDB := newAccountsMigrationDB(t)
+	if err := migrateDBThrough(legacyDB, 25); err != nil {
+		t.Fatalf("migrateDBThrough(db, 25): %v", err)
+	}
+	legacyUser := core.User{Username: "accounts-preserve-token-user", Email: "accounts-preserve-token@example.test", Provider: "local"}
+	if err := legacyDB.Create(&legacyUser).Error; err != nil {
+		t.Fatalf("create token owner: %v", err)
+	}
+	revokedAt := disabledAt.Add(time.Hour)
+	if err := legacyDB.Exec(`INSERT INTO api_tokens (user_id, name, token_hash, last4, scopes, revoked_at)
+		VALUES (?, 'preserve revoked token', ?, 'wxyz', '{author}', ?)`, legacyUser.ID, strings.Repeat("b", 64), revokedAt).Error; err != nil {
+		t.Fatalf("seed revoked API token: %v", err)
+	}
+	if err := migrateDBThrough(legacyDB, 25); err != nil {
+		t.Fatalf("rerun migrateDBThrough(db, 25): %v", err)
+	}
+	var tokenRevokedAt time.Time
+	if err := legacyDB.Raw("SELECT revoked_at FROM api_tokens WHERE user_id = ? AND name = ?", legacyUser.ID, "preserve revoked token").Scan(&tokenRevokedAt).Error; err != nil {
+		t.Fatalf("reload revoked token timestamp: %v", err)
+	}
+	if !tokenRevokedAt.Equal(revokedAt) {
+		t.Errorf("revoked API token timestamp = %v, want %v", tokenRevokedAt, revokedAt)
 	}
 }
 
@@ -221,8 +236,10 @@ func TestAccountsMigrationUpgradesLegacyNotificationsVisibilityIdempotently(t *t
 
 func TestAccountsMigrationConstraints(t *testing.T) {
 	db := newAccountsMigrationDB(t)
-	if err := MigrateDB(db); err != nil {
-		t.Fatalf("MigrateDB: %v", err)
+	// 0004 created api_tokens and 0027 removes it, so this test runs the
+	// schema from before the tokens-to-keys migration.
+	if err := migrateDBThrough(db, 25); err != nil {
+		t.Fatalf("migrateDBThrough(db, 25): %v", err)
 	}
 
 	u := core.User{Username: "accounts-constraint-user", Email: "accounts-constraint@example.test", Provider: "local"}
@@ -270,8 +287,10 @@ func TestAccountsMigrationConstraints(t *testing.T) {
 
 func TestAccountsMigrationUserDeleteCascadesPersonalTables(t *testing.T) {
 	db := newAccountsMigrationDB(t)
-	if err := MigrateDB(db); err != nil {
-		t.Fatalf("MigrateDB: %v", err)
+	// api_tokens is one of the cascading personal tables and 0027 removes it,
+	// so the cascade is checked on the schema from before that migration.
+	if err := migrateDBThrough(db, 25); err != nil {
+		t.Fatalf("migrateDBThrough(db, 25): %v", err)
 	}
 
 	u := core.User{Username: "accounts-cascade-user", Email: "accounts-cascade@example.test", Provider: "local"}

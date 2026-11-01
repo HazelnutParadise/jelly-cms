@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"math"
 	"path"
 	"sort"
 	"strconv"
@@ -136,6 +137,22 @@ func closeDB(db *sql.DB) {
 
 // MigrateDB runs auto-migration for core models on the given handle.
 func MigrateDB(db *gorm.DB) error {
+	if err := migrateDBThrough(db, math.MaxInt); err != nil {
+		return err
+	}
+	if err := recordSchemaMigrations(db); err != nil {
+		return err
+	}
+	if err := reconcileLegacyProductVariants(db); err != nil {
+		return err
+	}
+	return reconcileLegacyPostSources(db)
+}
+
+// migrateDBThrough runs the base schema and every embedded migration numbered
+// up to maxVersion. MigrateDB passes math.MaxInt; migration tests pass an older
+// version to build the schema a later migration starts from.
+func migrateDBThrough(db *gorm.DB, maxVersion int) error {
 	if db == nil {
 		return fmt.Errorf("database not initialized")
 	}
@@ -169,16 +186,7 @@ func MigrateDB(db *gorm.DB) error {
 	if err := migrateOAuthIdentities(db); err != nil {
 		return err
 	}
-	if err := runEmbeddedMigrations(db); err != nil {
-		return err
-	}
-	if err := recordSchemaMigrations(db); err != nil {
-		return err
-	}
-	if err := reconcileLegacyProductVariants(db); err != nil {
-		return err
-	}
-	return reconcileLegacyPostSources(db)
+	return runEmbeddedMigrationsThrough(db, maxVersion)
 }
 
 // embeddedMigrationFiles holds the SQL migrations shipped with the binary.
@@ -195,12 +203,13 @@ const embeddedMigrationLockClass = 731984201
 // 0001 belongs to migrateOAuthIdentities, which runs before this runner.
 const firstEmbeddedMigration = 2
 
-// runEmbeddedMigrations applies every embedded migration numbered 0002 and up,
-// in ascending order, grouped by numeric prefix. Each unapplied group runs in
-// its own transaction under pg_advisory_xact_lock(731984201, N), N being the
-// group's number, so concurrent processes serialise per migration. Applied
-// groups are skipped; legacy product data reconciliation runs separately.
-func runEmbeddedMigrations(db *gorm.DB) error {
+// runEmbeddedMigrationsThrough applies every embedded migration numbered 0002
+// through maxVersion, in ascending order, grouped by numeric prefix. Each
+// unapplied group runs in its own transaction under
+// pg_advisory_xact_lock(731984201, N), N being the group's number, so
+// concurrent processes serialise per migration. Applied groups are skipped;
+// legacy product data reconciliation runs separately.
+func runEmbeddedMigrationsThrough(db *gorm.DB, maxVersion int) error {
 	if db == nil {
 		return fmt.Errorf("database not initialized")
 	}
@@ -226,7 +235,7 @@ func runEmbeddedMigrations(db *gorm.DB) error {
 		if err != nil {
 			return err
 		}
-		if number < firstEmbeddedMigration {
+		if number < firstEmbeddedMigration || number > maxVersion {
 			continue
 		}
 		if _, ok := groups[number]; !ok {

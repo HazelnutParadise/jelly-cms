@@ -32,26 +32,6 @@ type LoginSession struct {
 // TableName binds LoginSession to login_sessions.
 func (LoginSession) TableName() string { return "login_sessions" }
 
-// APIToken is a personal access token. Only TokenHash is stored; Last4 is kept
-// for display. Scopes are role templates and never exceed the owner's role.
-type APIToken struct {
-	ID               uint        `json:"id" gorm:"primaryKey"`
-	UserID           uint        `json:"user_id" gorm:"not null"`
-	Name             string      `json:"name" gorm:"size:80;not null"`
-	Note             string      `json:"note" gorm:"type:text;not null;default:''"`
-	TokenHash        string      `json:"-" gorm:"column:token_hash;size:64;not null"`
-	Last4            string      `json:"last4" gorm:"column:last4;size:4;not null"`
-	Scopes           StringArray `json:"scopes" gorm:"type:text[];not null;default:'{}'"`
-	ExpiresAt        *time.Time  `json:"expires_at"`
-	RevokedAt        *time.Time  `json:"revoked_at"`
-	LastUsedAt       *time.Time  `json:"last_used_at"`
-	LastUsedIPMasked string      `json:"last_used_ip_masked" gorm:"column:last_used_ip_masked;size:64;not null;default:''"`
-	CreatedAt        time.Time   `json:"created_at"`
-}
-
-// TableName binds APIToken to api_tokens.
-func (APIToken) TableName() string { return "api_tokens" }
-
 // Notification is one row in a user's notification center. Unread rows that
 // share GroupKey are merged by bumping Count.
 type Notification struct {

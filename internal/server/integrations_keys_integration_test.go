@@ -1,14 +1,14 @@
 package server
 
-// Acceptance tests for ticket 14 (docs/tickets/14-agent-api.md): AI agent identities and keys.
+// Acceptance tests for ticket 14 (docs/tickets/14-integration-api.md): AI integration identities and keys.
 // Slots: A1 (schema), A2 (management API M1–M9: create, rotate, revoke, disable, enable, delete and
 // their events), A5 (admin event log across rotations) and A6 (admin-only pages). The contract is the
 // 契約 section of the ticket plus its 「測試另外釘下的約定」. Several tests also call GET
 // /api/v1/me from slot A3 to prove a key works or fails.
 //
 // These tests were introduced against the draft skeleton; they now define the regression contract.
-// The agent schema is migration 0025_agents.sql. They need JELLY_TEST_POSTGRES=1 and the dedicated
-// PostgreSQL container. Grace expiry is simulated by moving agent_keys.expires_at into the past with
+// The integration schema is migration 0025_agents.sql. They need JELLY_TEST_POSTGRES=1 and the dedicated
+// PostgreSQL container. Grace expiry is simulated by moving integration_keys.expires_at into the past with
 // SQL; owner downgrade and deletion change the users row with SQL.
 
 import (
@@ -65,7 +65,7 @@ type agtOwner struct {
 	Role     string `json:"role"`
 }
 
-type agtAgent struct {
+type agtIntegration struct {
 	ID                   uint      `json:"id"`
 	Name                 string    `json:"name"`
 	Description          string    `json:"description"`
@@ -78,16 +78,16 @@ type agtAgent struct {
 }
 
 type agtCreated struct {
-	Agent  agtAgent `json:"agent"`
-	Key    agtKey   `json:"key"`
-	APIKey string   `json:"api_key"`
+	Agent  agtIntegration `json:"agent"`
+	Key    agtKey         `json:"key"`
+	APIKey string         `json:"api_key"`
 }
 
 type agtRotated struct {
-	Agent       agtAgent `json:"agent"`
-	Key         agtKey   `json:"key"`
-	APIKey      string   `json:"api_key"`
-	PreviousKey *agtKey  `json:"previous_key"`
+	Agent       agtIntegration `json:"agent"`
+	Key         agtKey         `json:"key"`
+	APIKey      string         `json:"api_key"`
+	PreviousKey *agtKey        `json:"previous_key"`
 }
 
 type agtEnvelope struct {
@@ -98,22 +98,22 @@ type agtEnvelope struct {
 }
 
 type agtEvent struct {
-	ID            int64          `json:"id"`
-	At            string         `json:"at"`
-	ActorType     string         `json:"actor_type"`
-	ActorUserID   *uint          `json:"actor_user_id"`
-	AgentID       uint           `json:"agent_id"`
-	AgentName     string         `json:"agent_name"`
-	KeyID         *uint          `json:"key_id"`
-	KeyPrefix     string         `json:"key_prefix"`
-	Action        string         `json:"action"`
-	Module        string         `json:"module"`
-	Method        string         `json:"method"`
-	Route         string         `json:"route"`
-	Status        int            `json:"status"`
-	IPMasked      string         `json:"ip_masked"`
-	Summary       map[string]any `json:"summary"`
-	CorrelationID string         `json:"correlation_id"`
+	ID              int64          `json:"id"`
+	At              string         `json:"at"`
+	ActorType       string         `json:"actor_type"`
+	ActorUserID     *uint          `json:"actor_user_id"`
+	IntegrationID   uint           `json:"agent_id"`
+	IntegrationName string         `json:"agent_name"`
+	KeyID           *uint          `json:"key_id"`
+	KeyPrefix       string         `json:"key_prefix"`
+	Action          string         `json:"action"`
+	Module          string         `json:"module"`
+	Method          string         `json:"method"`
+	Route           string         `json:"route"`
+	Status          int            `json:"status"`
+	IPMasked        string         `json:"ip_masked"`
+	Summary         map[string]any `json:"summary"`
+	CorrelationID   string         `json:"correlation_id"`
 }
 
 type agtEventPage struct {
@@ -122,7 +122,7 @@ type agtEventPage struct {
 	Total      int        `json:"total"`
 }
 
-// agtDo sends one request the way an agent would: no cookies, no CSRF header, the key as a bearer
+// agtDo sends one request the way an integration would: no cookies, no CSRF header, the key as a bearer
 // token and the given RemoteAddr as the source address. It never calls t methods, so goroutines may use it.
 func agtDo(h *accessHarness, method, target, body, bearer, remoteAddr string) agtResult {
 	var r io.Reader
@@ -163,7 +163,7 @@ func agtDecode(t *testing.T, r agtResult, into any, where string) {
 	}
 }
 
-// agtExpectError checks the agent error envelope: status, code, details object and a correlation_id
+// agtExpectError checks the integration error envelope: status, code, details object and a correlation_id
 // equal to the X-Request-ID header.
 func agtExpectError(t *testing.T, r agtResult, status int, code, where string) agtEnvelope {
 	t.Helper()
@@ -212,7 +212,7 @@ func agtCreateBody(name string, permissions ...string) string {
 	return string(payload)
 }
 
-// agtCreate creates an agent through M2 and returns the one-time response.
+// agtCreate creates an integration through M2 and returns the one-time response.
 func agtCreate(t *testing.T, h *accessHarness, adminToken, name string, permissions ...string) agtCreated {
 	t.Helper()
 	r := agtAdmin(h, adminToken, http.MethodPost, "/api/admin/agents", agtCreateBody(name, permissions...))
@@ -230,11 +230,11 @@ func agtCreate(t *testing.T, h *accessHarness, adminToken, name string, permissi
 	return created
 }
 
-func agtRotate(t *testing.T, h *accessHarness, adminToken string, agentID uint, body string) agtRotated {
+func agtRotate(t *testing.T, h *accessHarness, adminToken string, integrationID uint, body string) agtRotated {
 	t.Helper()
-	r := agtAdmin(h, adminToken, http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/rotate", agentID), body)
+	r := agtAdmin(h, adminToken, http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/rotate", integrationID), body)
 	if r.code != http.StatusOK {
-		t.Fatalf("rotate agent %d with %s returned %d, want 200; body=%q", agentID, body, r.code, r.body)
+		t.Fatalf("rotate agent %d with %s returned %d, want 200; body=%q", integrationID, body, r.code, r.body)
 	}
 	var rotated agtRotated
 	agtDecode(t, r, &rotated, "rotate agent")
@@ -244,13 +244,13 @@ func agtRotate(t *testing.T, h *accessHarness, adminToken string, agentID uint, 
 	return rotated
 }
 
-func agtDetail(t *testing.T, h *accessHarness, adminToken string, agentID uint) agtAgent {
+func agtDetail(t *testing.T, h *accessHarness, adminToken string, integrationID uint) agtIntegration {
 	t.Helper()
-	r := agtAdmin(h, adminToken, http.MethodGet, fmt.Sprintf("/api/admin/agents/%d", agentID), "")
+	r := agtAdmin(h, adminToken, http.MethodGet, fmt.Sprintf("/api/admin/agents/%d", integrationID), "")
 	if r.code != http.StatusOK {
-		t.Fatalf("GET /api/admin/agents/%d returned %d, want 200; body=%q", agentID, r.code, r.body)
+		t.Fatalf("GET /api/admin/agents/%d returned %d, want 200; body=%q", integrationID, r.code, r.body)
 	}
-	var a agtAgent
+	var a agtIntegration
 	agtDecode(t, r, &a, "agent detail")
 	return a
 }
@@ -329,15 +329,15 @@ func agtKeyByPrefix(keys []agtKey, prefix string) (agtKey, bool) {
 	return agtKey{}, false
 }
 
-func TestAgentSchemaMigrationIsRepeatable(t *testing.T) {
+func TestIntegrationSchemaMigrationIsRepeatable(t *testing.T) {
 	h := newAccessHarness(t)
 	if err := data.MigrateDB(h.db); err != nil {
 		t.Fatalf("second MigrateDB on a migrated database: %v", err)
 	}
 	want := map[string][]string{
-		"agents":       {"id", "name", "description", "permissions", "owner_id", "created_by", "status", "disabled_at", "created_at", "updated_at", "deleted_at"},
-		"agent_keys":   {"id", "agent_id", "key_hash", "prefix", "created_at", "created_by", "last_used_at", "last_used_ip_masked", "expires_at", "revoked_at", "revoked_by"},
-		"agent_events": {"id", "at", "actor_type", "actor_user_id", "agent_id", "agent_name", "key_id", "key_prefix", "action", "module", "method", "route", "status", "ip_masked", "summary", "request_id"},
+		"integrations":       {"id", "name", "description", "permissions", "owner_id", "created_by", "status", "disabled_at", "created_at", "updated_at", "deleted_at"},
+		"integration_keys":   {"id", "integration_id", "key_hash", "prefix", "created_at", "created_by", "last_used_at", "last_used_ip_masked", "expires_at", "revoked_at", "revoked_by"},
+		"integration_events": {"id", "at", "actor_type", "actor_user_id", "integration_id", "integration_name", "key_id", "key_prefix", "action", "module", "method", "route", "status", "ip_masked", "summary", "request_id"},
 	}
 	for table, columns := range want {
 		var got []string
@@ -357,7 +357,7 @@ func TestAgentSchemaMigrationIsRepeatable(t *testing.T) {
 	}
 }
 
-func TestAgentCreateShowsKeyOnceAndStoresOnlyHash(t *testing.T) {
+func TestIntegrationCreateShowsKeyOnceAndStoresOnlyHash(t *testing.T) {
 	h := newAccessHarness(t)
 	admin := h.user("admin", "agt-create-admin")
 	token := h.token(admin)
@@ -386,8 +386,8 @@ func TestAgentCreateShowsKeyOnceAndStoresOnlyHash(t *testing.T) {
 	list := agtAdmin(h, token, http.MethodGet, "/api/admin/agents", "")
 	agtExpectOK(t, list, "GET /api/admin/agents")
 	var listed struct {
-		Items []agtAgent `json:"items"`
-		Total int        `json:"total"`
+		Items []agtIntegration `json:"items"`
+		Total int              `json:"total"`
 	}
 	agtDecode(t, list, &listed, "agent list")
 	if listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].ID != a.ID {
@@ -410,7 +410,7 @@ func TestAgentCreateShowsKeyOnceAndStoresOnlyHash(t *testing.T) {
 	}
 
 	// The database holds only the hash and the prefix.
-	for _, table := range []string{"agents", "agent_keys", "agent_events"} {
+	for _, table := range []string{"integrations", "integration_keys", "integration_events"} {
 		var dump string
 		if err := h.db.Raw(fmt.Sprintf("SELECT coalesce(string_agg(row_to_json(t)::text, E'\\n'), '') FROM %s t", table)).Scan(&dump).Error; err != nil {
 			t.Fatalf("dump %s: %v", table, err)
@@ -423,7 +423,7 @@ func TestAgentCreateShowsKeyOnceAndStoresOnlyHash(t *testing.T) {
 		KeyHash string
 		Prefix  string
 	}
-	if err := h.db.Raw("SELECT key_hash, prefix FROM agent_keys WHERE agent_id = ?", a.ID).Scan(&stored).Error; err != nil {
+	if err := h.db.Raw("SELECT key_hash, prefix FROM integration_keys WHERE integration_id = ?", a.ID).Scan(&stored).Error; err != nil {
 		t.Fatalf("read agent_keys: %v", err)
 	}
 	sum := sha256.Sum256([]byte(key))
@@ -436,17 +436,17 @@ func TestAgentCreateShowsKeyOnceAndStoresOnlyHash(t *testing.T) {
 
 	// The one-time key works, and creation was recorded as a user action.
 	agtExpectOK(t, agtMe(h, key), "GET /api/v1/me with the new key")
-	page, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(a.ID)}, "action": {"agent.create"}})
+	page, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(a.ID)}, "action": {"integration.create"}})
 	if page.Total != 1 || len(page.Items) != 1 {
 		t.Fatalf("agent.create events = %+v, want exactly one", page)
 	}
 	ev := page.Items[0]
-	if ev.ActorType != "user" || ev.ActorUserID == nil || *ev.ActorUserID != admin.ID || ev.Module != "agents" || ev.KeyPrefix != prefix {
+	if ev.ActorType != "user" || ev.ActorUserID == nil || *ev.ActorUserID != admin.ID || ev.Module != "integrations" || ev.KeyPrefix != prefix {
 		t.Errorf("agent.create event = %+v, want actor user %d, module agents, key_prefix %s", ev, admin.ID, prefix)
 	}
 }
 
-func TestAgentCreateValidation(t *testing.T) {
+func TestIntegrationCreateValidation(t *testing.T) {
 	h := newAccessHarness(t)
 	token := h.token(h.user("admin", "agt-validate-admin"))
 
@@ -480,7 +480,7 @@ func TestAgentCreateValidation(t *testing.T) {
 	agtExpectError(t, agtAdmin(h, token, http.MethodPost, "/api/admin/agents", agtCreateBody("dup agent", "posts.read")), http.StatusConflict, "agent_name_taken", "create with a name that differs only in case")
 
 	var count int64
-	if err := h.db.Raw("SELECT count(*) FROM agents").Scan(&count).Error; err != nil {
+	if err := h.db.Raw("SELECT count(*) FROM integrations").Scan(&count).Error; err != nil {
 		t.Fatalf("count agents: %v", err)
 	}
 	if count != 1 {
@@ -488,7 +488,7 @@ func TestAgentCreateValidation(t *testing.T) {
 	}
 }
 
-func TestAgentManagementRequiresSignedInAdmin(t *testing.T) {
+func TestIntegrationManagementRequiresSignedInAdmin(t *testing.T) {
 	h := newAccessHarness(t)
 	adminToken := h.token(h.user("admin", "agt-mgmt-admin"))
 	editorToken := h.token(h.user("editor", "agt-mgmt-editor"))
@@ -520,14 +520,14 @@ func TestAgentManagementRequiresSignedInAdmin(t *testing.T) {
 		}
 	}
 
-	// None of those calls changed the agent: same single key, same permissions, still active.
+	// None of those calls changed the integration: same single key, same permissions, still active.
 	after := agtDetail(t, h, adminToken, id)
 	if len(after.Keys) != 1 || after.Keys[0].ID != keyID || after.Keys[0].Status != "active" || after.Status != "active" || !agtSameStrings(after.Permissions, []string{"posts.read"}) {
 		t.Errorf("agent after rejected management calls = %+v, want unchanged", after)
 	}
 	agtExpectOK(t, agtMe(h, key), "the agent's key after the rejected calls")
 
-	// The agent API has nowhere to manage agents or rotate keys.
+	// The integration API has nowhere to manage integrations or rotate keys.
 	for _, probe := range []struct{ method, path string }{
 		{http.MethodGet, "/api/v1/agents"},
 		{http.MethodPost, "/api/v1/agents"},
@@ -539,7 +539,7 @@ func TestAgentManagementRequiresSignedInAdmin(t *testing.T) {
 	}
 }
 
-func TestAgentRotateImmediateRevokesOldKeyAtOnce(t *testing.T) {
+func TestIntegrationRotateImmediateRevokesOldKeyAtOnce(t *testing.T) {
 	h := newAccessHarness(t)
 	admin := h.user("admin", "agt-rot-imm-admin")
 	token := h.token(admin)
@@ -587,7 +587,7 @@ func TestAgentRotateImmediateRevokesOldKeyAtOnce(t *testing.T) {
 		t.Errorf("key.rotate summary = %v, want mode immediate, old_key_prefix %s, new_key_prefix %s", ev.Summary, old[:12], fresh[:12])
 	}
 
-	// Requests made with the old key stay under the same agent.
+	// Requests made with the old key stay under the same integration.
 	reqs, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(a.ID)}, "action": {"request"}})
 	sawOld, sawNew := false, false
 	for _, item := range reqs.Items {
@@ -599,7 +599,7 @@ func TestAgentRotateImmediateRevokesOldKeyAtOnce(t *testing.T) {
 	}
 }
 
-func TestAgentRotateGraceKeepsBothKeysUntilExpiry(t *testing.T) {
+func TestIntegrationRotateGraceKeepsBothKeysUntilExpiry(t *testing.T) {
 	h := newAccessHarness(t)
 	token := h.token(h.user("admin", "agt-rot-grace-admin"))
 	created := agtCreate(t, h, token, "過渡輪替", "posts.read")
@@ -644,7 +644,7 @@ func TestAgentRotateGraceKeepsBothKeysUntilExpiry(t *testing.T) {
 	}
 
 	// The grace period ends.
-	if err := h.db.Exec("UPDATE agent_keys SET expires_at = now() - interval '1 second' WHERE prefix = ?", old[:12]).Error; err != nil {
+	if err := h.db.Exec("UPDATE integration_keys SET expires_at = now() - interval '1 second' WHERE prefix = ?", old[:12]).Error; err != nil {
 		t.Fatalf("expire the old key: %v", err)
 	}
 	agtExpectError(t, agtMe(h, old), http.StatusUnauthorized, "key_expired", "old key after the grace period")
@@ -674,7 +674,7 @@ func TestAgentRotateGraceKeepsBothKeysUntilExpiry(t *testing.T) {
 	}
 }
 
-func TestAgentRotateGraceBounds(t *testing.T) {
+func TestIntegrationRotateGraceBounds(t *testing.T) {
 	h := newAccessHarness(t)
 	token := h.token(h.user("admin", "agt-rot-bounds-admin"))
 	created := agtCreate(t, h, token, "過渡上限", "posts.read")
@@ -721,7 +721,7 @@ func TestAgentRotateGraceBounds(t *testing.T) {
 	}
 }
 
-func TestAgentRevokeGraceKeyEarly(t *testing.T) {
+func TestIntegrationRevokeGraceKeyEarly(t *testing.T) {
 	h := newAccessHarness(t)
 	admin := h.user("admin", "agt-revoke-admin")
 	token := h.token(admin)
@@ -759,7 +759,7 @@ func TestAgentRevokeGraceKeyEarly(t *testing.T) {
 	}
 }
 
-func TestAgentDisableBlocksEveryKeyIncludingGrace(t *testing.T) {
+func TestIntegrationDisableBlocksEveryKeyIncludingGrace(t *testing.T) {
 	h := newAccessHarness(t)
 	token := h.token(h.user("admin", "agt-disable-admin"))
 	created := agtCreate(t, h, token, "停用測試", "posts.read")
@@ -769,7 +769,7 @@ func TestAgentDisableBlocksEveryKeyIncludingGrace(t *testing.T) {
 
 	r := agtAdmin(h, token, http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/disable", created.Agent.ID), "")
 	agtExpectOK(t, r, "disable")
-	var a agtAgent
+	var a agtIntegration
 	agtDecode(t, r, &a, "disabled agent")
 	if a.Status != "disabled" || a.DisabledAt == nil {
 		t.Errorf("disabled agent = %+v, want status disabled and disabled_at set", a)
@@ -787,7 +787,7 @@ func TestAgentDisableBlocksEveryKeyIncludingGrace(t *testing.T) {
 	agtExpectOK(t, agtMe(h, fresh), "active key after enabling")
 	agtExpectOK(t, agtMe(h, old), "grace key after enabling, still inside its grace period")
 
-	for _, action := range []string{"agent.disable", "agent.enable"} {
+	for _, action := range []string{"integration.disable", "integration.enable"} {
 		page, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(created.Agent.ID)}, "action": {action}})
 		if page.Total != 1 {
 			t.Errorf("%s events total=%d, want 1", action, page.Total)
@@ -795,7 +795,7 @@ func TestAgentDisableBlocksEveryKeyIncludingGrace(t *testing.T) {
 	}
 }
 
-func TestAgentOwnerDowngradeAndDeletionLimitAccess(t *testing.T) {
+func TestIntegrationOwnerDowngradeAndDeletionLimitAccess(t *testing.T) {
 	h := newAccessHarness(t)
 	owner := h.user("admin", "agt-owner")
 	watcher := h.token(h.user("admin", "agt-owner-watcher"))
@@ -844,7 +844,7 @@ func TestAgentOwnerDowngradeAndDeletionLimitAccess(t *testing.T) {
 	}
 }
 
-func TestAgentDeleteKeepsEvents(t *testing.T) {
+func TestIntegrationDeleteKeepsEvents(t *testing.T) {
 	h := newAccessHarness(t)
 	token := h.token(h.user("admin", "agt-delete-admin"))
 	created := agtCreate(t, h, token, "要刪除的 agent", "posts.read")
@@ -861,8 +861,8 @@ func TestAgentDeleteKeepsEvents(t *testing.T) {
 	list := agtAdmin(h, token, http.MethodGet, "/api/admin/agents", "")
 	agtExpectOK(t, list, "list after deletion")
 	var listed struct {
-		Items []agtAgent `json:"items"`
-		Total int        `json:"total"`
+		Items []agtIntegration `json:"items"`
+		Total int              `json:"total"`
 	}
 	agtDecode(t, list, &listed, "list after deletion")
 	if listed.Total != 0 || len(listed.Items) != 0 {
@@ -873,17 +873,17 @@ func TestAgentDeleteKeepsEvents(t *testing.T) {
 	actions := map[string]bool{}
 	for _, ev := range page.Items {
 		actions[ev.Action] = true
-		if ev.AgentName != "要刪除的 agent" {
-			t.Errorf("event %d agent_name=%q, want the name snapshot", ev.ID, ev.AgentName)
+		if ev.IntegrationName != "要刪除的 agent" {
+			t.Errorf("event %d agent_name=%q, want the name snapshot", ev.ID, ev.IntegrationName)
 		}
 	}
-	for _, want := range []string{"agent.create", "request", "agent.delete"} {
+	for _, want := range []string{"integration.create", "request", "integration.delete"} {
 		if !actions[want] {
 			t.Errorf("events of the deleted agent lack %s; got %v", want, actions)
 		}
 	}
 	var deletedAt *time.Time
-	if err := h.db.Raw("SELECT deleted_at FROM agents WHERE id = ?", id).Scan(&deletedAt).Error; err != nil {
+	if err := h.db.Raw("SELECT deleted_at FROM integrations WHERE id = ?", id).Scan(&deletedAt).Error; err != nil {
 		t.Fatalf("read the deleted agent row: %v", err)
 	}
 	if deletedAt == nil {
@@ -891,7 +891,7 @@ func TestAgentDeleteKeepsEvents(t *testing.T) {
 	}
 }
 
-func TestAgentAdminEventsFollowAgentAcrossRotation(t *testing.T) {
+func TestIntegrationAdminEventsFollowIntegrationAcrossRotation(t *testing.T) {
 	h := newAccessHarness(t)
 	token := h.token(h.user("admin", "agt-events-admin"))
 	a := agtCreate(t, h, token, "跨輪替紀錄", "posts.read")
@@ -914,7 +914,7 @@ func TestAgentAdminEventsFollowAgentAcrossRotation(t *testing.T) {
 	ips := map[string]bool{}
 	rejected := false
 	for _, ev := range page.Items {
-		if ev.AgentID != a.Agent.ID || ev.ActorType != "agent" || ev.Action != "request" || ev.Module != "posts" {
+		if ev.IntegrationID != a.Agent.ID || ev.ActorType != "integration" || ev.Action != "request" || ev.Module != "posts" {
 			t.Errorf("event %+v, want agent %d request on module posts", ev, a.Agent.ID)
 		}
 		if ev.Method != http.MethodGet || ev.Route != "/api/v1/posts" {
@@ -958,7 +958,7 @@ func TestAgentAdminEventsFollowAgentAcrossRotation(t *testing.T) {
 	}
 }
 
-func TestAgentAdminPagesAdminOnly(t *testing.T) {
+func TestIntegrationAdminPagesAdminOnly(t *testing.T) {
 	h := newAccessHarness(t)
 	adminToken := h.token(h.user("admin", "agt-page-admin"))
 	editorToken := h.token(h.user("editor", "agt-page-editor"))

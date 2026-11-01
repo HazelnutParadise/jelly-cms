@@ -13,13 +13,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/HazelnutParadise/jelly-cms/internal/agent"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/integration"
 	"github.com/labstack/echo/v4"
 )
 
-func agentCredential(c echo.Context) (string, string) {
+func integrationCredential(c echo.Context) (string, string) {
 	header := c.Request().Header.Get(echo.HeaderAuthorization)
 	if header == "" {
 		return "", "key_missing"
@@ -34,9 +34,9 @@ func agentCredential(c echo.Context) (string, string) {
 	return token, ""
 }
 
-// agentRoleRank orders the roles an agent can be capped to. Roles outside
+// integrationRoleRank orders the roles an integration can be capped to. Roles outside
 // admin, editor and author rank 0.
-func agentRoleRank(role string) int {
+func integrationRoleRank(role string) int {
 	switch role {
 	case "admin":
 		return 3
@@ -48,67 +48,67 @@ func agentRoleRank(role string) int {
 	return 0
 }
 
-func agentKeyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+func integrationKeyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		raw, problem := agentCredential(c)
+		raw, problem := integrationCredential(c)
 		if problem != "" {
 			return writeAPIError(c, 401, problem, "A valid access key is required", nil)
 		}
-		var key core.AgentKey
-		if err := data.DB.WithContext(c.Request().Context()).Where("key_hash = ?", agent.HashKey(raw)).First(&key).Error; err != nil {
+		var key core.IntegrationKey
+		if err := data.DB.WithContext(c.Request().Context()).Where("key_hash = ?", integration.HashKey(raw)).First(&key).Error; err != nil {
 			return writeAPIError(c, 401, "key_invalid", "Invalid access key", nil)
 		}
-		var a core.Agent
-		if err := data.DB.WithContext(c.Request().Context()).Unscoped().First(&a, key.AgentID).Error; err != nil {
+		var a core.Integration
+		if err := data.DB.WithContext(c.Request().Context()).Unscoped().First(&a, key.IntegrationID).Error; err != nil {
 			return writeAPIError(c, 401, "key_revoked", "Access key is no longer valid", nil)
 		}
 		if key.RevokedAt != nil {
-			return deniedAgentKey(c, a, key, "key_revoked")
+			return deniedIntegrationKey(c, a, key, "key_revoked")
 		}
 		now := time.Now()
 		if key.ExpiresAt != nil && !key.ExpiresAt.After(now) {
-			return deniedAgentKey(c, a, key, "key_expired")
+			return deniedIntegrationKey(c, a, key, "key_expired")
 		}
 		if a.DeletedAt.Valid {
-			return deniedAgentKey(c, a, key, "key_revoked")
+			return deniedIntegrationKey(c, a, key, "key_revoked")
 		}
 		if a.Status != "active" {
-			return deniedAgentKey(c, a, key, "agent_disabled")
+			return deniedIntegrationKey(c, a, key, "agent_disabled")
 		}
 		var owner core.User
 		if a.OwnerID == nil || data.DB.WithContext(c.Request().Context()).First(&owner, *a.OwnerID).Error != nil || owner.Status != "active" {
-			return deniedAgentKey(c, a, key, "owner_unavailable")
+			return deniedIntegrationKey(c, a, key, "owner_unavailable")
 		}
-		// The role cap lowers the role the agent runs with, never raises it.
+		// The role cap lowers the role the integration runs with, never raises it.
 		// The user copy carries the effective role, so every later check
 		// (permissions, author scope) uses it; the owner's own role is kept for /me.
-		c.Set("agent.owner_role", owner.Role)
-		if a.RoleCap != nil && agentRoleRank(*a.RoleCap) < agentRoleRank(owner.Role) {
+		c.Set("integration.owner_role", owner.Role)
+		if a.RoleCap != nil && integrationRoleRank(*a.RoleCap) < integrationRoleRank(owner.Role) {
 			owner.Role = *a.RoleCap
 		}
-		c.Set("agent.identity", &a)
-		c.Set("agent.key", &key)
+		c.Set("integration.identity", &a)
+		c.Set("integration.key", &key)
 		c.Set("user", &owner)
 		return next(c)
 	}
 }
 
-func deniedAgentKey(c echo.Context, a core.Agent, key core.AgentKey, code string) error {
+func deniedIntegrationKey(c echo.Context, a core.Integration, key core.IntegrationKey, code string) error {
 	// A matched key's rejected use is auditable; unknown hashes never reach this point.
-	ev := newAgentRequestEvent(c, &a, &key)
-	record, err := createPendingAgentRequest(ev)
+	ev := newIntegrationRequestEvent(c, &a, &key)
+	record, err := createPendingIntegrationRequest(ev)
 	if err != nil {
-		logAgentAuditFailure(ev, 0, 0, "insert")
+		logIntegrationAuditFailure(ev, 0, 0, "insert")
 		return writeAPIError(c, http.StatusInternalServerError, "internal_error", "Internal server error", nil)
 	}
-	finalizePendingAgentRequest(record, http.StatusUnauthorized, ev.Summary, ev.RequestID, a.ID, key.ID, ev.IPMasked)
+	finalizePendingIntegrationRequest(record, http.StatusUnauthorized, ev.Summary, ev.RequestID, a.ID, key.ID, ev.IPMasked)
 	return writeAPIError(c, 401, code, "Access key is not currently usable", nil)
 }
 
-func agentPermissionMiddleware(route agentRoute) echo.MiddlewareFunc {
+func integrationPermissionMiddleware(route integrationRoute) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			a := c.Get("agent.identity").(*core.Agent)
+			a := c.Get("integration.identity").(*core.Integration)
 			owner := c.Get("user").(*core.User)
 			want := string(route.Permission)
 			allowed := false
@@ -129,11 +129,11 @@ func agentPermissionMiddleware(route agentRoute) echo.MiddlewareFunc {
 	}
 }
 
-func agentMe(c echo.Context) error {
-	a := c.Get("agent.identity").(*core.Agent)
-	k := c.Get("agent.key").(*core.AgentKey)
+func integrationMe(c echo.Context) error {
+	a := c.Get("integration.identity").(*core.Integration)
+	k := c.Get("integration.key").(*core.IntegrationKey)
 	owner := c.Get("user").(*core.User)
-	ownerRole, _ := c.Get("agent.owner_role").(string)
+	ownerRole, _ := c.Get("integration.owner_role").(string)
 	perms := []string{}
 	for _, p := range a.Permissions {
 		if roleListContains(owner.Role, permissionRoles(p)) {
@@ -143,33 +143,33 @@ func agentMe(c echo.Context) error {
 	return c.JSON(200, map[string]any{"id": a.ID, "name": a.Name, "description": a.Description, "permissions": a.Permissions, "effective_permissions": perms, "owner_role": ownerRole, "role_cap": a.RoleCap, "effective_role": owner.Role, "key": map[string]any{"id": k.ID, "prefix": k.Prefix, "expires_at": k.ExpiresAt}})
 }
 
-func agentTouchKey(c echo.Context) {
-	k := c.Get("agent.key").(*core.AgentKey)
+func integrationTouchKey(c echo.Context) {
+	k := c.Get("integration.key").(*core.IntegrationKey)
 	now := time.Now().UTC()
 	if k.LastUsedAt != nil && k.LastUsedAt.After(now.Add(-time.Minute)) {
 		return
 	}
-	_ = data.DB.WithContext(c.Request().Context()).Model(&core.AgentKey{}).Where("id = ? AND (last_used_at IS NULL OR last_used_at < ?)", k.ID, now.Add(-time.Minute)).Updates(map[string]any{"last_used_at": now, "last_used_ip_masked": agent.MaskIP(c.RealIP())}).Error
+	_ = data.DB.WithContext(c.Request().Context()).Model(&core.IntegrationKey{}).Where("id = ? AND (last_used_at IS NULL OR last_used_at < ?)", k.ID, now.Add(-time.Minute)).Updates(map[string]any{"last_used_at": now, "last_used_ip_masked": integration.MaskIP(c.RealIP())}).Error
 }
 
-func withAgentKeyTouch(next echo.HandlerFunc) echo.HandlerFunc {
+func withIntegrationKeyTouch(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		err := next(c)
 		if c.Response().Status >= 200 && c.Response().Status < 300 {
-			agentTouchKey(c)
+			integrationTouchKey(c)
 		}
 		return err
 	}
 }
 
-func agentIdentity(c echo.Context) (*core.Agent, *core.AgentKey, *core.User) {
-	a, _ := c.Get("agent.identity").(*core.Agent)
-	k, _ := c.Get("agent.key").(*core.AgentKey)
+func integrationIdentity(c echo.Context) (*core.Integration, *core.IntegrationKey, *core.User) {
+	a, _ := c.Get("integration.identity").(*core.Integration)
+	k, _ := c.Get("integration.key").(*core.IntegrationKey)
 	u, _ := c.Get("user").(*core.User)
 	return a, k, u
 }
 
-func agentReadBody(c echo.Context) ([]byte, error) {
+func integrationReadBody(c echo.Context) ([]byte, error) {
 	b, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		return nil, err
@@ -177,7 +177,7 @@ func agentReadBody(c echo.Context) ([]byte, error) {
 	c.Request().Body = io.NopCloser(bytes.NewReader(b))
 	return b, nil
 }
-func agentBodyTooLarge(err error) bool {
+func integrationBodyTooLarge(err error) bool {
 	var httpErr *echo.HTTPError
 	if errors.As(err, &httpErr) && httpErr.Code == http.StatusRequestEntityTooLarge {
 		return true
@@ -185,14 +185,14 @@ func agentBodyTooLarge(err error) bool {
 	var maxBytesErr *http.MaxBytesError
 	return errors.As(err, &maxBytesErr)
 }
-func agentRewriteBody(c echo.Context, b []byte) {
+func integrationRewriteBody(c echo.Context, b []byte) {
 	c.Request().Body = io.NopCloser(bytes.NewReader(b))
 	c.Request().ContentLength = int64(len(b))
 }
-func agentTypeAndVersion(pathType string, guard bool, next echo.HandlerFunc) echo.HandlerFunc {
+func integrationTypeAndVersion(pathType string, guard bool, next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if pathType != "" {
-			c.Set("agent.content_type", pathType)
+			c.Set("integration.content_type", pathType)
 		}
 		if c.Request().Method == http.MethodGet && strings.HasSuffix(c.Path(), "/posts") || c.Request().Method == http.MethodGet && strings.HasSuffix(c.Path(), "/pages") {
 			q := c.Request().URL.Query()
@@ -215,8 +215,8 @@ func agentTypeAndVersion(pathType string, guard bool, next echo.HandlerFunc) ech
 			}
 		}
 		if pathType != "" && (c.Request().Method == http.MethodPost || c.Request().Method == http.MethodPut) {
-			body, err := agentReadBody(c)
-			if agentBodyTooLarge(err) {
+			body, err := integrationReadBody(c)
+			if integrationBodyTooLarge(err) {
 				return writeAPIError(c, http.StatusRequestEntityTooLarge, "payload_too_large", "Request body is too large", nil)
 			}
 			if err == nil && len(body) > 0 {
@@ -230,15 +230,15 @@ func agentTypeAndVersion(pathType string, guard bool, next echo.HandlerFunc) ech
 					} else if c.Request().Method == http.MethodPost {
 						fields["type"], _ = json.Marshal(pathType)
 						body, _ = json.Marshal(fields)
-						agentRewriteBody(c, body)
+						integrationRewriteBody(c, body)
 					}
 				}
 			}
 		}
 		if guard && c.Request().Method == http.MethodPut {
-			body, err := agentReadBody(c)
+			body, err := integrationReadBody(c)
 			if err != nil {
-				if agentBodyTooLarge(err) {
+				if integrationBodyTooLarge(err) {
 					return writeAPIError(c, http.StatusRequestEntityTooLarge, "payload_too_large", "Request body is too large", nil)
 				}
 				return writeAPIError(c, 400, "bad_request", "Unable to read request body", nil)
@@ -259,21 +259,21 @@ func agentTypeAndVersion(pathType string, guard bool, next echo.HandlerFunc) ech
 			if err != nil {
 				return writeAPIError(c, 400, "version_invalid", "base_updated_at must be RFC3339", nil)
 			}
-			c.Set("agent.base_updated_at", parsed)
-			agentRewriteBody(c, body)
+			c.Set("integration.base_updated_at", parsed)
+			integrationRewriteBody(c, body)
 		}
 		return next(c)
 	}
 }
 
-func agentSettingsURLGuard(next echo.HandlerFunc) echo.HandlerFunc {
+func integrationSettingsURLGuard(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		if c.Request().Method != http.MethodPost && c.Request().Method != http.MethodPut {
 			return next(c)
 		}
-		b, err := agentReadBody(c)
+		b, err := integrationReadBody(c)
 		if err != nil {
-			if agentBodyTooLarge(err) {
+			if integrationBodyTooLarge(err) {
 				return writeAPIError(c, http.StatusRequestEntityTooLarge, "payload_too_large", "Request body is too large", nil)
 			}
 			return next(c)
@@ -289,21 +289,21 @@ func agentSettingsURLGuard(next echo.HandlerFunc) echo.HandlerFunc {
 			}
 			var text string
 			if err := json.Unmarshal(value, &text); err != nil {
-				agentRewriteBody(c, b)
+				integrationRewriteBody(c, b)
 				return writeAPIError(c, 400, "bad_request", "URL settings must be strings", nil)
 			}
 			values[key] = text
 		}
 		if e := checkURLSettings(c.Request().Context(), values); e != nil {
-			agentRewriteBody(c, b)
+			integrationRewriteBody(c, b)
 			return writeAPIError(c, 400, "bad_request", e.Error(), nil)
 		}
-		agentRewriteBody(c, b)
+		integrationRewriteBody(c, b)
 		return next(c)
 	}
 }
 
-func agentErrorEnvelope(next echo.HandlerFunc) echo.HandlerFunc {
+func integrationErrorEnvelope(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		original := c.Response().Writer
 		rec := httptest.NewRecorder()
