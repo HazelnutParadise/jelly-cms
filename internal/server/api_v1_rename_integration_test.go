@@ -1,9 +1,10 @@
 package server
 
-// Acceptance tests for ticket 24 (docs/tickets/24-api-v1-rename.md): the machine API moves from
-// /api/agent/v1 to /api/v1, the admin pages move from /admin/agents to /admin/integrations, and the
-// user-visible wording changes from "AI agent" and "agent key" to "API integration" and "access key".
-// The old paths are removed without aliases, except that the old admin pages redirect with 302.
+// Acceptance tests for ticket 24 (docs/tickets/24-api-v1-rename.md) and ticket 25b:
+// the machine API moves from /api/agent/v1 to /api/v1, the admin pages move from
+// /admin/agents to /admin/integrations, and the user-visible wording changes from "AI agent"
+// and "agent key" to "API integration" and "access key". Ticket 25b removes the old admin-page
+// redirects, so the legacy paths return 404.
 // They need JELLY_TEST_POSTGRES=1 and the dedicated PostgreSQL container, like the other access tests.
 
 import (
@@ -64,9 +65,10 @@ func renameV1UserVisibleFiles(t *testing.T) []string {
 	t.Helper()
 	root := repoRoot(t)
 	files := []string{
-		filepath.Join(root, "web", "admin", "assets", "agents.js"),
-		filepath.Join(root, "web", "admin", "agents.html"),
-		filepath.Join(root, "web", "admin", "agent_detail.html"),
+		filepath.Join(root, "web", "admin", "assets", "integrations.js"),
+		filepath.Join(root, "web", "admin", "assets", "integrations.css"),
+		filepath.Join(root, "web", "admin", "integrations.html"),
+		filepath.Join(root, "web", "admin", "integration_detail.html"),
 	}
 	locales, err := filepath.Glob(filepath.Join(root, "web", "locales", "*.json"))
 	if err != nil {
@@ -205,24 +207,20 @@ func TestAPIV1RenameUploadAboveGlobalLimitIsNotCapped(t *testing.T) {
 	}
 }
 
-func TestAPIV1RenameOldAdminAgentPagesRedirect(t *testing.T) {
+func TestAPIV1RenameOldAdminIntegrationPagesAreGone(t *testing.T) {
 	h := newAccessHarness(t)
 	adminToken := h.token(h.user("admin", "api-v1-rename-admin"))
-	cases := []struct{ from, to string }{
-		{"/admin/agents", "/admin/integrations"},
-		{"/admin/agents/1", "/admin/integrations/1"},
-		{"/admin/agents/1?tab=keys", "/admin/integrations/1?tab=keys"},
-	}
-	for _, tc := range cases {
-		r := renameV1Cookie(h, http.MethodGet, tc.from, adminToken)
+	for _, target := range []string{
+		"/admin/agents",
+		"/admin/agents/1",
+		"/admin/agents/1?tab=keys",
+	} {
+		r := renameV1Cookie(h, http.MethodGet, target, adminToken)
 		if r.panicked != nil {
-			t.Fatalf("GET %s panicked: %v", tc.from, r.panicked)
+			t.Fatalf("GET %s panicked: %v", target, r.panicked)
 		}
-		if r.code != http.StatusFound {
-			t.Errorf("GET %s returned %d, want 302", tc.from, r.code)
-		}
-		if got := r.header.Get("Location"); got != tc.to {
-			t.Errorf("GET %s Location=%q, want %q", tc.from, got, tc.to)
+		if r.code != http.StatusNotFound {
+			t.Errorf("GET %s returned %d, want 404; body=%q", target, r.code, r.body)
 		}
 	}
 }

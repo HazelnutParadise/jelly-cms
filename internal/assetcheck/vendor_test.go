@@ -178,7 +178,7 @@ var firstPartyAssets = map[string]bool{
 	"sortable.js":         true,
 	"jelly-motion.js":     true,
 	"jelly-components.js": true,
-	"agents.css":          true, "agents.js": true,
+	"integrations.css":    true, "integrations.js": true,
 	"editor.css": true, "editor.js": true,
 	"jelly-mermaid.js": true,
 	"shop-admin.css":   true, "shop-admin.js": true,

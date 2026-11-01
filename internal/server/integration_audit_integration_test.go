@@ -10,24 +10,24 @@ import (
 // Acceptance test for ticket 25a (docs/tickets/25-integration-internal-rename.md):
 // creating an integration through the admin API records the renamed audit
 // values, and using the returned access key records actor_type integration.
-// The external URL and JSON stay unchanged in 25a.
+// The external URL and JSON use the integration names required by 25b.
 func TestIntegrationAuditWritesIntegrationValues(t *testing.T) {
 	h := newAccessHarness(t)
 	admin := h.user("admin", "integration-audit-admin")
 
-	res := agtAdmin(h, h.token(admin), http.MethodPost, "/api/admin/agents", agtCreateBody("稽核串接", "posts.read"))
+	res := agtAdmin(h, h.token(admin), http.MethodPost, "/api/admin/integrations", agtCreateBody("稽核串接", "posts.read"))
 	if res.code != http.StatusCreated {
-		t.Fatalf("POST /api/admin/agents returned %d, want 201; body=%q", res.code, res.body)
+		t.Fatalf("POST /api/admin/integrations returned %d, want 201; body=%q", res.code, res.body)
 	}
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(res.body), &raw); err != nil {
 		t.Fatalf("decode create response: %v; body=%q", err, res.body)
 	}
-	if _, ok := raw["agent"]; !ok {
-		t.Errorf("create response has no agent key; 25a keeps the external JSON unchanged; body=%q", res.body)
+	if _, ok := raw["integration"]; !ok {
+		t.Errorf("create response has no integration key; body=%q", res.body)
 	}
-	if _, ok := raw["integration"]; ok {
-		t.Errorf("create response already has an integration key; 25a keeps the external JSON unchanged; body=%q", res.body)
+	if _, ok := raw["agent"]; ok {
+		t.Errorf("create response still has the legacy agent key; body=%q", res.body)
 	}
 	if _, ok := raw["api_key"]; !ok {
 		t.Errorf("create response has no api_key; body=%q", res.body)
@@ -35,7 +35,7 @@ func TestIntegrationAuditWritesIntegrationValues(t *testing.T) {
 	var created agtCreated
 	agtDecode(t, res, &created, "create integration")
 	if created.Agent.ID == 0 || created.APIKey == "" {
-		t.Fatalf("create response has no agent id or api key; body=%q", res.body)
+		t.Fatalf("create response has no integration id or api key; body=%q", res.body)
 	}
 	integrationID := strconv.FormatUint(uint64(created.Agent.ID), 10)
 

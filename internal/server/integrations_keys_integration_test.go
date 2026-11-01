@@ -78,13 +78,13 @@ type agtIntegration struct {
 }
 
 type agtCreated struct {
-	Agent  agtIntegration `json:"agent"`
+	Agent  agtIntegration `json:"integration"`
 	Key    agtKey         `json:"key"`
 	APIKey string         `json:"api_key"`
 }
 
 type agtRotated struct {
-	Agent       agtIntegration `json:"agent"`
+	Agent       agtIntegration `json:"integration"`
 	Key         agtKey         `json:"key"`
 	APIKey      string         `json:"api_key"`
 	PreviousKey *agtKey        `json:"previous_key"`
@@ -102,8 +102,8 @@ type agtEvent struct {
 	At              string         `json:"at"`
 	ActorType       string         `json:"actor_type"`
 	ActorUserID     *uint          `json:"actor_user_id"`
-	IntegrationID   uint           `json:"agent_id"`
-	IntegrationName string         `json:"agent_name"`
+	IntegrationID   uint           `json:"integration_id"`
+	IntegrationName string         `json:"integration_name"`
 	KeyID           *uint          `json:"key_id"`
 	KeyPrefix       string         `json:"key_prefix"`
 	Action          string         `json:"action"`
@@ -215,9 +215,9 @@ func agtCreateBody(name string, permissions ...string) string {
 // agtCreate creates an integration through M2 and returns the one-time response.
 func agtCreate(t *testing.T, h *accessHarness, adminToken, name string, permissions ...string) agtCreated {
 	t.Helper()
-	r := agtAdmin(h, adminToken, http.MethodPost, "/api/admin/agents", agtCreateBody(name, permissions...))
+	r := agtAdmin(h, adminToken, http.MethodPost, "/api/admin/integrations", agtCreateBody(name, permissions...))
 	if r.code != http.StatusCreated {
-		t.Fatalf("POST /api/admin/agents %q returned %d, want 201; body=%q", name, r.code, r.body)
+		t.Fatalf("POST /api/admin/integrations %q returned %d, want 201; body=%q", name, r.code, r.body)
 	}
 	var created agtCreated
 	agtDecode(t, r, &created, "create agent")
@@ -232,7 +232,7 @@ func agtCreate(t *testing.T, h *accessHarness, adminToken, name string, permissi
 
 func agtRotate(t *testing.T, h *accessHarness, adminToken string, integrationID uint, body string) agtRotated {
 	t.Helper()
-	r := agtAdmin(h, adminToken, http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/rotate", integrationID), body)
+	r := agtAdmin(h, adminToken, http.MethodPost, fmt.Sprintf("/api/admin/integrations/%d/rotate", integrationID), body)
 	if r.code != http.StatusOK {
 		t.Fatalf("rotate agent %d with %s returned %d, want 200; body=%q", integrationID, body, r.code, r.body)
 	}
@@ -246,9 +246,9 @@ func agtRotate(t *testing.T, h *accessHarness, adminToken string, integrationID 
 
 func agtDetail(t *testing.T, h *accessHarness, adminToken string, integrationID uint) agtIntegration {
 	t.Helper()
-	r := agtAdmin(h, adminToken, http.MethodGet, fmt.Sprintf("/api/admin/agents/%d", integrationID), "")
+	r := agtAdmin(h, adminToken, http.MethodGet, fmt.Sprintf("/api/admin/integrations/%d", integrationID), "")
 	if r.code != http.StatusOK {
-		t.Fatalf("GET /api/admin/agents/%d returned %d, want 200; body=%q", integrationID, r.code, r.body)
+		t.Fatalf("GET /api/admin/integrations/%d returned %d, want 200; body=%q", integrationID, r.code, r.body)
 	}
 	var a agtIntegration
 	agtDecode(t, r, &a, "agent detail")
@@ -257,9 +257,9 @@ func agtDetail(t *testing.T, h *accessHarness, adminToken string, integrationID 
 
 func agtEvents(t *testing.T, h *accessHarness, adminToken string, query url.Values) (agtEventPage, agtResult) {
 	t.Helper()
-	r := agtAdmin(h, adminToken, http.MethodGet, "/api/admin/agents/events?"+query.Encode(), "")
+	r := agtAdmin(h, adminToken, http.MethodGet, "/api/admin/integrations/events?"+query.Encode(), "")
 	if r.code != http.StatusOK {
-		t.Fatalf("GET /api/admin/agents/events?%s returned %d, want 200; body=%q", query.Encode(), r.code, r.body)
+		t.Fatalf("GET /api/admin/integrations/events?%s returned %d, want 200; body=%q", query.Encode(), r.code, r.body)
 	}
 	var page agtEventPage
 	agtDecode(t, r, &page, "admin agent events")
@@ -383,8 +383,8 @@ func TestIntegrationCreateShowsKeyOnceAndStoresOnlyHash(t *testing.T) {
 	}
 
 	// The plaintext never appears again: list, detail and event log.
-	list := agtAdmin(h, token, http.MethodGet, "/api/admin/agents", "")
-	agtExpectOK(t, list, "GET /api/admin/agents")
+	list := agtAdmin(h, token, http.MethodGet, "/api/admin/integrations", "")
+	agtExpectOK(t, list, "GET /api/admin/integrations")
 	var listed struct {
 		Items []agtIntegration `json:"items"`
 		Total int              `json:"total"`
@@ -393,10 +393,10 @@ func TestIntegrationCreateShowsKeyOnceAndStoresOnlyHash(t *testing.T) {
 	if listed.Total != 1 || len(listed.Items) != 1 || listed.Items[0].ID != a.ID {
 		t.Errorf("agent list = %+v, want the one created agent", listed)
 	}
-	detail := agtAdmin(h, token, http.MethodGet, fmt.Sprintf("/api/admin/agents/%d", a.ID), "")
-	agtExpectOK(t, detail, "GET /api/admin/agents/:id")
-	events := agtAdmin(h, token, http.MethodGet, fmt.Sprintf("/api/admin/agents/events?agent_id=%d", a.ID), "")
-	agtExpectOK(t, events, "GET /api/admin/agents/events")
+	detail := agtAdmin(h, token, http.MethodGet, fmt.Sprintf("/api/admin/integrations/%d", a.ID), "")
+	agtExpectOK(t, detail, "GET /api/admin/integrations/:id")
+	events := agtAdmin(h, token, http.MethodGet, fmt.Sprintf("/api/admin/integrations/events?integration_id=%d", a.ID), "")
+	agtExpectOK(t, events, "GET /api/admin/integrations/events")
 	for _, r := range []struct {
 		name string
 		res  agtResult
@@ -436,7 +436,7 @@ func TestIntegrationCreateShowsKeyOnceAndStoresOnlyHash(t *testing.T) {
 
 	// The one-time key works, and creation was recorded as a user action.
 	agtExpectOK(t, agtMe(h, key), "GET /api/v1/me with the new key")
-	page, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(a.ID)}, "action": {"integration.create"}})
+	page, _ := agtEvents(t, h, token, url.Values{"integration_id": {fmt.Sprint(a.ID)}, "action": {"integration.create"}})
 	if page.Total != 1 || len(page.Items) != 1 {
 		t.Fatalf("agent.create events = %+v, want exactly one", page)
 	}
@@ -463,7 +463,7 @@ func TestIntegrationCreateValidation(t *testing.T) {
 		{"unknown permission", `{"name":"deleter","permissions":["posts.delete"]}`, "permission_unknown", http.StatusBadRequest},
 	}
 	for _, tc := range cases {
-		r := agtAdmin(h, token, http.MethodPost, "/api/admin/agents", tc.body)
+		r := agtAdmin(h, token, http.MethodPost, "/api/admin/integrations", tc.body)
 		env := agtExpectError(t, r, tc.status, tc.code, "create with "+tc.name)
 		if tc.code == "permission_unknown" {
 			unknown, _ := env.Details["unknown"].([]any)
@@ -473,11 +473,11 @@ func TestIntegrationCreateValidation(t *testing.T) {
 		}
 	}
 
-	first := agtAdmin(h, token, http.MethodPost, "/api/admin/agents", agtCreateBody("Dup Agent", "posts.read"))
+	first := agtAdmin(h, token, http.MethodPost, "/api/admin/integrations", agtCreateBody("Dup Agent", "posts.read"))
 	if first.code != http.StatusCreated {
 		t.Fatalf("first create returned %d, want 201; body=%q", first.code, first.body)
 	}
-	agtExpectError(t, agtAdmin(h, token, http.MethodPost, "/api/admin/agents", agtCreateBody("dup agent", "posts.read")), http.StatusConflict, "agent_name_taken", "create with a name that differs only in case")
+	agtExpectError(t, agtAdmin(h, token, http.MethodPost, "/api/admin/integrations", agtCreateBody("dup agent", "posts.read")), http.StatusConflict, "integration_name_taken", "create with a name that differs only in case")
 
 	var count int64
 	if err := h.db.Raw("SELECT count(*) FROM integrations").Scan(&count).Error; err != nil {
@@ -496,16 +496,16 @@ func TestIntegrationManagementRequiresSignedInAdmin(t *testing.T) {
 	id, keyID, key := created.Agent.ID, created.Key.ID, created.APIKey
 
 	routes := []struct{ method, path, body string }{
-		{http.MethodGet, "/api/admin/agents", ""},
-		{http.MethodPost, "/api/admin/agents", agtCreateBody("by agent", "posts.read")},
-		{http.MethodGet, "/api/admin/agents/events", ""},
-		{http.MethodGet, fmt.Sprintf("/api/admin/agents/%d", id), ""},
-		{http.MethodPatch, fmt.Sprintf("/api/admin/agents/%d", id), `{"permissions":["posts.read","settings.write"]}`},
-		{http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/rotate", id), `{"mode":"immediate"}`},
-		{http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/keys/%d/revoke", id, keyID), ""},
-		{http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/disable", id), ""},
-		{http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/enable", id), ""},
-		{http.MethodDelete, fmt.Sprintf("/api/admin/agents/%d", id), ""},
+		{http.MethodGet, "/api/admin/integrations", ""},
+		{http.MethodPost, "/api/admin/integrations", agtCreateBody("by agent", "posts.read")},
+		{http.MethodGet, "/api/admin/integrations/events", ""},
+		{http.MethodGet, fmt.Sprintf("/api/admin/integrations/%d", id), ""},
+		{http.MethodPatch, fmt.Sprintf("/api/admin/integrations/%d", id), `{"permissions":["posts.read","settings.write"]}`},
+		{http.MethodPost, fmt.Sprintf("/api/admin/integrations/%d/rotate", id), `{"mode":"immediate"}`},
+		{http.MethodPost, fmt.Sprintf("/api/admin/integrations/%d/keys/%d/revoke", id, keyID), ""},
+		{http.MethodPost, fmt.Sprintf("/api/admin/integrations/%d/disable", id), ""},
+		{http.MethodPost, fmt.Sprintf("/api/admin/integrations/%d/enable", id), ""},
+		{http.MethodDelete, fmt.Sprintf("/api/admin/integrations/%d", id), ""},
 	}
 	for _, route := range routes {
 		where := route.method + " " + route.path
@@ -529,13 +529,13 @@ func TestIntegrationManagementRequiresSignedInAdmin(t *testing.T) {
 
 	// The integration API has nowhere to manage integrations or rotate keys.
 	for _, probe := range []struct{ method, path string }{
-		{http.MethodGet, "/api/v1/agents"},
-		{http.MethodPost, "/api/v1/agents"},
-		{http.MethodPost, fmt.Sprintf("/api/v1/agents/%d/rotate", id)},
+		{http.MethodGet, "/api/v1/integrations"},
+		{http.MethodPost, "/api/v1/integrations"},
+		{http.MethodPost, fmt.Sprintf("/api/v1/integrations/%d/rotate", id)},
 		{http.MethodPost, "/api/v1/me/rotate"},
 		{http.MethodPost, "/api/v1/keys/rotate"},
 	} {
-		agtExpectError(t, agtDo(h, probe.method, probe.path, `{"mode":"immediate"}`, key, ""), http.StatusNotFound, "not_found", "agent "+probe.method+" "+probe.path)
+		agtExpectError(t, agtDo(h, probe.method, probe.path, `{"mode":"immediate"}`, key, ""), http.StatusNotFound, "not_found", "integration "+probe.method+" "+probe.path)
 	}
 }
 
@@ -575,7 +575,7 @@ func TestIntegrationRotateImmediateRevokesOldKeyAtOnce(t *testing.T) {
 		t.Errorf("old key status = %q, want revoked", k.Status)
 	}
 
-	page, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(a.ID)}, "action": {"key.rotate"}})
+	page, _ := agtEvents(t, h, token, url.Values{"integration_id": {fmt.Sprint(a.ID)}, "action": {"key.rotate"}})
 	if page.Total != 1 || len(page.Items) != 1 {
 		t.Fatalf("key.rotate events = %+v, want exactly one", page)
 	}
@@ -588,7 +588,7 @@ func TestIntegrationRotateImmediateRevokesOldKeyAtOnce(t *testing.T) {
 	}
 
 	// Requests made with the old key stay under the same integration.
-	reqs, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(a.ID)}, "action": {"request"}})
+	reqs, _ := agtEvents(t, h, token, url.Values{"integration_id": {fmt.Sprint(a.ID)}, "action": {"request"}})
 	sawOld, sawNew := false, false
 	for _, item := range reqs.Items {
 		sawOld = sawOld || item.KeyPrefix == old[:12]
@@ -650,7 +650,7 @@ func TestIntegrationRotateGraceKeepsBothKeysUntilExpiry(t *testing.T) {
 	agtExpectError(t, agtMe(h, old), http.StatusUnauthorized, "key_expired", "old key after the grace period")
 	agtExpectOK(t, agtMe(h, fresh), "new key after the grace period")
 
-	page, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(created.Agent.ID)}, "action": {"key.rotate"}})
+	page, _ := agtEvents(t, h, token, url.Values{"integration_id": {fmt.Sprint(created.Agent.ID)}, "action": {"key.rotate"}})
 	if len(page.Items) != 1 || page.Items[0].Summary["mode"] != "grace" || page.Items[0].Summary["grace_minutes"] != float64(30) {
 		t.Errorf("key.rotate events = %+v, want one with mode grace and grace_minutes 30", page.Items)
 	}
@@ -664,7 +664,7 @@ func TestIntegrationRotateGraceKeepsBothKeysUntilExpiry(t *testing.T) {
 	agtExpectError(t, agtMe(h, fresh), http.StatusUnauthorized, "key_revoked", "the key that was in grace when the agent rotated again")
 	agtExpectOK(t, agtMe(h, second.APIKey), "the second key, now in grace")
 	agtExpectOK(t, agtMe(h, third.APIKey), "the third key, now active")
-	last, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(created.Agent.ID)}, "action": {"key.rotate"}, "limit": {"1"}})
+	last, _ := agtEvents(t, h, token, url.Values{"integration_id": {fmt.Sprint(created.Agent.ID)}, "action": {"key.rotate"}, "limit": {"1"}})
 	if len(last.Items) != 1 {
 		t.Fatalf("latest key.rotate event missing: %+v", last)
 	}
@@ -679,7 +679,7 @@ func TestIntegrationRotateGraceBounds(t *testing.T) {
 	token := h.token(h.user("admin", "agt-rot-bounds-admin"))
 	created := agtCreate(t, h, token, "過渡上限", "posts.read")
 	rotate := func(body string) agtResult {
-		return agtAdmin(h, token, http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/rotate", created.Agent.ID), body)
+		return agtAdmin(h, token, http.MethodPost, fmt.Sprintf("/api/admin/integrations/%d/rotate", created.Agent.ID), body)
 	}
 
 	for _, body := range []string{
@@ -731,7 +731,7 @@ func TestIntegrationRevokeGraceKeyEarly(t *testing.T) {
 	rotated := agtRotate(t, h, token, created.Agent.ID, `{"mode":"grace","grace_minutes":60}`)
 	oldID := rotated.PreviousKey.ID
 
-	revokePath := fmt.Sprintf("/api/admin/agents/%d/keys/%d/revoke", created.Agent.ID, oldID)
+	revokePath := fmt.Sprintf("/api/admin/integrations/%d/keys/%d/revoke", created.Agent.ID, oldID)
 	r := agtAdmin(h, token, http.MethodPost, revokePath, "")
 	agtExpectOK(t, r, "revoke the grace key")
 	var k agtKey
@@ -745,11 +745,11 @@ func TestIntegrationRevokeGraceKeyEarly(t *testing.T) {
 	again := agtAdmin(h, token, http.MethodPost, revokePath, "")
 	agtExpectOK(t, again, "revoke the same key again")
 
-	agtExpectError(t, agtAdmin(h, token, http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/keys/%d/revoke", created.Agent.ID, other.Key.ID), ""), http.StatusNotFound, "key_not_found", "revoke another agent's key through this agent")
-	agtExpectError(t, agtAdmin(h, token, http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/keys/987654321/revoke", created.Agent.ID), ""), http.StatusNotFound, "key_not_found", "revoke a key that does not exist")
+	agtExpectError(t, agtAdmin(h, token, http.MethodPost, fmt.Sprintf("/api/admin/integrations/%d/keys/%d/revoke", created.Agent.ID, other.Key.ID), ""), http.StatusNotFound, "key_not_found", "revoke another integration's key through this integration")
+	agtExpectError(t, agtAdmin(h, token, http.MethodPost, fmt.Sprintf("/api/admin/integrations/%d/keys/987654321/revoke", created.Agent.ID), ""), http.StatusNotFound, "key_not_found", "revoke a key that does not exist")
 	agtExpectOK(t, agtMe(h, other.APIKey), "the other agent's key")
 
-	page, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(created.Agent.ID)}, "action": {"key.revoke"}})
+	page, _ := agtEvents(t, h, token, url.Values{"integration_id": {fmt.Sprint(created.Agent.ID)}, "action": {"key.revoke"}})
 	if len(page.Items) == 0 {
 		t.Fatal("no key.revoke event")
 	}
@@ -767,18 +767,18 @@ func TestIntegrationDisableBlocksEveryKeyIncludingGrace(t *testing.T) {
 	rotated := agtRotate(t, h, token, created.Agent.ID, `{"mode":"grace","grace_minutes":60}`)
 	fresh := rotated.APIKey
 
-	r := agtAdmin(h, token, http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/disable", created.Agent.ID), "")
+	r := agtAdmin(h, token, http.MethodPost, fmt.Sprintf("/api/admin/integrations/%d/disable", created.Agent.ID), "")
 	agtExpectOK(t, r, "disable")
 	var a agtIntegration
 	agtDecode(t, r, &a, "disabled agent")
 	if a.Status != "disabled" || a.DisabledAt == nil {
 		t.Errorf("disabled agent = %+v, want status disabled and disabled_at set", a)
 	}
-	agtExpectError(t, agtMe(h, fresh), http.StatusUnauthorized, "agent_disabled", "active key of a disabled agent")
-	agtExpectError(t, agtMe(h, old), http.StatusUnauthorized, "agent_disabled", "grace key of a disabled agent")
-	agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", fresh, ""), http.StatusUnauthorized, "agent_disabled", "GET /posts as a disabled agent")
+	agtExpectError(t, agtMe(h, fresh), http.StatusUnauthorized, "integration_disabled", "active key of a disabled integration")
+	agtExpectError(t, agtMe(h, old), http.StatusUnauthorized, "integration_disabled", "grace key of a disabled integration")
+	agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", fresh, ""), http.StatusUnauthorized, "integration_disabled", "GET /posts as a disabled integration")
 
-	r = agtAdmin(h, token, http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/enable", created.Agent.ID), "")
+	r = agtAdmin(h, token, http.MethodPost, fmt.Sprintf("/api/admin/integrations/%d/enable", created.Agent.ID), "")
 	agtExpectOK(t, r, "enable")
 	agtDecode(t, r, &a, "enabled agent")
 	if a.Status != "active" || a.DisabledAt != nil {
@@ -788,7 +788,7 @@ func TestIntegrationDisableBlocksEveryKeyIncludingGrace(t *testing.T) {
 	agtExpectOK(t, agtMe(h, old), "grace key after enabling, still inside its grace period")
 
 	for _, action := range []string{"integration.disable", "integration.enable"} {
-		page, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(created.Agent.ID)}, "action": {action}})
+		page, _ := agtEvents(t, h, token, url.Values{"integration_id": {fmt.Sprint(created.Agent.ID)}, "action": {action}})
 		if page.Total != 1 {
 			t.Errorf("%s events total=%d, want 1", action, page.Total)
 		}
@@ -852,13 +852,13 @@ func TestIntegrationDeleteKeepsEvents(t *testing.T) {
 	agtExpectOK(t, agtMe(h, key), "/me before deletion")
 	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", key, ""), "GET /posts before deletion")
 
-	r := agtAdmin(h, token, http.MethodDelete, fmt.Sprintf("/api/admin/agents/%d", id), "")
+	r := agtAdmin(h, token, http.MethodDelete, fmt.Sprintf("/api/admin/integrations/%d", id), "")
 	if r.code != http.StatusNoContent {
-		t.Fatalf("DELETE /api/admin/agents/%d returned %d, want 204; body=%q", id, r.code, r.body)
+		t.Fatalf("DELETE /api/admin/integrations/%d returned %d, want 204; body=%q", id, r.code, r.body)
 	}
 	agtExpectError(t, agtMe(h, key), http.StatusUnauthorized, "key_revoked", "key of a deleted agent")
-	agtExpectError(t, agtAdmin(h, token, http.MethodGet, fmt.Sprintf("/api/admin/agents/%d", id), ""), http.StatusNotFound, "agent_not_found", "detail of a deleted agent")
-	list := agtAdmin(h, token, http.MethodGet, "/api/admin/agents", "")
+	agtExpectError(t, agtAdmin(h, token, http.MethodGet, fmt.Sprintf("/api/admin/integrations/%d", id), ""), http.StatusNotFound, "integration_not_found", "detail of a deleted integration")
+	list := agtAdmin(h, token, http.MethodGet, "/api/admin/integrations", "")
 	agtExpectOK(t, list, "list after deletion")
 	var listed struct {
 		Items []agtIntegration `json:"items"`
@@ -869,12 +869,12 @@ func TestIntegrationDeleteKeepsEvents(t *testing.T) {
 		t.Errorf("list after deletion = %+v, want empty", listed)
 	}
 
-	page, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(id)}})
+	page, _ := agtEvents(t, h, token, url.Values{"integration_id": {fmt.Sprint(id)}})
 	actions := map[string]bool{}
 	for _, ev := range page.Items {
 		actions[ev.Action] = true
 		if ev.IntegrationName != "要刪除的 agent" {
-			t.Errorf("event %d agent_name=%q, want the name snapshot", ev.ID, ev.IntegrationName)
+			t.Errorf("event %d integration_name=%q, want the name snapshot", ev.ID, ev.IntegrationName)
 		}
 	}
 	for _, want := range []string{"integration.create", "request", "integration.delete"} {
@@ -906,7 +906,7 @@ func TestIntegrationAdminEventsFollowIntegrationAcrossRotation(t *testing.T) {
 	agtExpectOK(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", k2, "[2001:db8:abcd:12::5]:5555"), "second key GET /posts")
 	agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/posts", "", k1, "198.51.100.77:4321"), http.StatusUnauthorized, "key_revoked", "first key after rotation")
 
-	page, raw := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(a.Agent.ID)}, "actor_type": {"agent"}})
+	page, raw := agtEvents(t, h, token, url.Values{"integration_id": {fmt.Sprint(a.Agent.ID)}, "actor_type": {"integration"}})
 	if page.Total != 4 || len(page.Items) != 4 {
 		t.Fatalf("agent events across rotation total=%d items=%d, want 4 (two with the first key, one with the second, one rejected)", page.Total, len(page.Items))
 	}
@@ -944,17 +944,17 @@ func TestIntegrationAdminEventsFollowIntegrationAcrossRotation(t *testing.T) {
 		}
 	}
 
-	all, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(a.Agent.ID)}})
+	all, _ := agtEvents(t, h, token, url.Values{"integration_id": {fmt.Sprint(a.Agent.ID)}})
 	if all.Total != 6 {
 		t.Errorf("all events of the agent total=%d, want 6 (create, rotate and four requests)", all.Total)
 	}
-	rot, _ := agtEvents(t, h, token, url.Values{"agent_id": {fmt.Sprint(a.Agent.ID)}, "action": {"key.rotate"}})
+	rot, _ := agtEvents(t, h, token, url.Values{"integration_id": {fmt.Sprint(a.Agent.ID)}, "action": {"key.rotate"}})
 	if rot.Total != 1 {
 		t.Errorf("key.rotate events total=%d, want 1", rot.Total)
 	}
-	everyone, _ := agtEvents(t, h, token, url.Values{"actor_type": {"agent"}})
+	everyone, _ := agtEvents(t, h, token, url.Values{"actor_type": {"integration"}})
 	if everyone.Total != 5 {
-		t.Errorf("agent events across all agents total=%d, want 5", everyone.Total)
+		t.Errorf("integration events across all integrations total=%d, want 5", everyone.Total)
 	}
 }
 

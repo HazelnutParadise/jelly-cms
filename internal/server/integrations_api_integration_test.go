@@ -192,8 +192,8 @@ func TestIntegrationDiscoveryIndexNeedsNoKey(t *testing.T) {
 		if !strings.HasPrefix(ep.Path, "/api/v1") {
 			t.Errorf("endpoint %s is outside /api/v1", key)
 		}
-		if strings.Contains(ep.Path, "/agents") || strings.Contains(ep.Path, "rotate") {
-			t.Errorf("endpoint %s manages agents or keys; agents must not manage agents", key)
+		if strings.Contains(ep.Path, "/integrations") || strings.Contains(ep.Path, "rotate") {
+			t.Errorf("endpoint %s manages integrations or keys; integrations must not manage integrations", key)
 		}
 		if ep.Auth != "public" && ep.Auth != "key" {
 			t.Errorf("endpoint %s auth=%q, want public or key", key, ep.Auth)
@@ -220,7 +220,7 @@ func TestIntegrationDiscoveryIndexNeedsNoKey(t *testing.T) {
 		codes[c.Code] = c.Status
 	}
 	for code, status := range map[string]int{
-		"key_missing": 401, "key_invalid": 401, "key_revoked": 401, "key_expired": 401, "agent_disabled": 401, "owner_unavailable": 401,
+		"key_missing": 401, "key_invalid": 401, "key_revoked": 401, "key_expired": 401, "integration_disabled": 401, "owner_unavailable": 401,
 		"permission_missing": 403, "owner_role_insufficient": 403, "version_required": 400, "version_invalid": 400,
 		"version_conflict": 409, "type_mismatch": 400, "logs_filter_invalid": 400, "not_found": 404, "method_not_allowed": 405,
 	} {
@@ -704,8 +704,8 @@ func TestIntegrationKeyCannotReachAdminAPI(t *testing.T) {
 		{http.MethodGet, "/api/admin/orders", ""},
 		{http.MethodGet, "/api/admin/media", ""},
 		{http.MethodGet, "/api/admin/comments", ""},
-		{http.MethodGet, "/api/admin/agents", ""},
-		{http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/rotate", integration.Agent.ID), `{"mode":"immediate"}`},
+		{http.MethodGet, "/api/admin/integrations", ""},
+		{http.MethodPost, fmt.Sprintf("/api/admin/integrations/%d/rotate", integration.Agent.ID), `{"mode":"immediate"}`},
 	} {
 		if r := agtDo(h, probe.method, probe.path, probe.body, key, ""); r.code != http.StatusUnauthorized {
 			t.Errorf("agent key %s %s returned %d, want 401", probe.method, probe.path, r.code)
