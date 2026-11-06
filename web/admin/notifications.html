@@ -201,6 +201,12 @@
         });
         $('readAll').disabled = state.busy || Number(state.counts.unread || 0) === 0;
     }
+    // 結束忙碌：每條會設 busy 的路徑（成功、失敗、沒有更新資料）都經過這裡。載入中換了篩選（分段與開關不能停用）
+    // 就在這裡依新的篩選重新載入，畫面上選取的篩選與清單才會一致。
+    function endBusy() {
+        state.busy = false; root.setAttribute('aria-busy', 'false');
+        if (state.reload) { state.reload = false; state.before = ''; state.items = []; load(false); }
+    }
     async function load(append) {
         if (state.busy) return;
         state.busy = true; root.setAttribute('aria-busy', 'true');
@@ -223,11 +229,10 @@
             $('notificationError').textContent = message; $('notificationError').hidden = false; $('retryNotifications').hidden = false;
             setStatus(message, true);
         } finally {
-            state.busy = false; root.setAttribute('aria-busy', 'false'); $('notificationLoading').hidden = true;
+            $('notificationLoading').hidden = true;
             $('readAll').disabled = Number(state.counts.unread || 0) === 0;
+            endBusy();
         }
-        // 載入中換了篩選（分段與開關不能停用），載完再依新的篩選重新載入。
-        if (state.reload) { state.reload = false; state.before = ''; state.items = []; load(false); }
     }
     async function loadModerationPermission() {
         $('moderationPermissionError').hidden = true;
@@ -315,7 +320,7 @@
             } catch (error) {
                 moderationError = errorText(error.response, error);
             }
-            state.busy = false; root.setAttribute('aria-busy', 'false');
+            endBusy();
             if (updated > 0) await load(false);
             if (moderationError) setStatus((updated ? (en ? 'Approved ' + updated + ' comments before the error. ' : '錯誤前已核准 ' + updated + ' 則留言。') : '') + moderationError, true);
             else if (updated === 0 && action === 'approve') setStatus(en ? 'There are no pending comments for this post.' : '此文章目前沒有待審留言。', false);
@@ -329,9 +334,10 @@
         state.busy = true; root.setAttribute('aria-busy', 'true'); button.disabled = true;
         try {
             await request('/api/account/notifications/' + id + '/read', { method: 'POST', headers: { 'Accept': 'application/json', 'X-Jelly-CSRF': '1' } });
-            state.busy = false; root.setAttribute('aria-busy', 'false'); await load(false);
+            endBusy(); await load(false);
         } catch (error) {
-            state.busy = false; root.setAttribute('aria-busy', 'false'); button.disabled = false;
+            button.disabled = false;
+            endBusy();
             setStatus(errorText(error.response, error), true);
         }
     });
@@ -341,7 +347,7 @@
         state.busy = true; root.setAttribute('aria-busy', 'true'); $('readAll').disabled = true;
         try {
             const result = await request('/api/account/notifications/read-all' + query, { method: 'POST', headers: { 'Accept': 'application/json', 'X-Jelly-CSRF': '1' } });
-            state.busy = false; root.setAttribute('aria-busy', 'false');
+            endBusy();
             await load(false);
             if ($('notificationError').hidden) {
                 const updated = result && Number(result.updated);
@@ -350,8 +356,8 @@
                     : (en ? 'Notifications marked as read.' : '通知已標為已讀。'), false);
             }
         } catch (error) {
-            state.busy = false; root.setAttribute('aria-busy', 'false');
             setStatus(errorText(error.response, error), true); $('readAll').disabled = false;
+            endBusy();
         }
     });
     $('retryNotifications').addEventListener('click', () => load(false));

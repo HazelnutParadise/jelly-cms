@@ -148,7 +148,7 @@
         return outcome;
       };
 
-      // 一般對話框 <jelly-dialog>：Jelly.dialog(el, { opener, focus, locked }) 打開，Jelly.closeDialog(el) 關閉。
+      // 一般對話框 <jelly-dialog>：Jelly.dialog(el, { opener, focus, locked, dismissOnBackdrop }) 打開，Jelly.closeDialog(el) 關閉。
       // 一律以 open 屬性打開（jelly.js 還沒升級元素時會等它）。開著的對話框（含 Jelly.confirm）排成堆疊：
       // 上游每個開著的對話框都在 document 上聽 Esc，巢狀時會一次全關，所以這裡在 window 的捕獲階段先攔下 Esc
       // （preventDefault 讓上游略過）再只關最上層。關閉後焦點回到 opener（沒給時是打開當下的焦點）；
@@ -156,13 +156,22 @@
       var openDialogs = [], closingDialogs = new WeakSet(), dialogOpeners = new WeakMap(), guardedDialogs = new WeakSet();
       function isJellyDialog(el) { return !!el && el.localName === 'jelly-dialog'; }
       function forgetDialog(el) { openDialogs = openDialogs.filter(function (d) { return d !== el && d.isConnected && d.hasAttribute('open'); }); }
+      // 點背景：上游在 .wrap 收到 click 就關閉，而 Chromium 會把跨 shadow 的按下與放開合成的 click 送到共同祖先 .wrap，
+      // 所以從內容拖到背景才放開也會關。這裡只在按下與放開都在 .wrap 本身時放行；data-jelly-no-backdrop（Jelly.dialog 的
+      // dismissOnBackdrop: false）的對話框完全不因點背景關閉。攔下的 click 在 shadow 的捕獲階段停止，上游收不到。
       function guardDialog(el) {
         if (guardedDialogs.has(el) || !el.shadowRoot) return;
         guardedDialogs.add(el);
+        var pressedOnWrap = false, releasedOnWrap = false;
+        function onWrap(target) { return !!target && !!target.classList && target.classList.contains('wrap'); }
+        el.shadowRoot.addEventListener('mousedown', function (event) { pressedOnWrap = onWrap(event.target); releasedOnWrap = false; }, true);
+        el.shadowRoot.addEventListener('mouseup', function (event) { releasedOnWrap = onWrap(event.target); }, true);
         el.shadowRoot.addEventListener('click', function (event) {
-          if (!el.hasAttribute('data-jelly-locked')) return;
-          var target = event.target;
-          if (target && target.classList && (target.classList.contains('wrap') || target.classList.contains('close'))) event.stopPropagation();
+          var target = event.target, backdrop = onWrap(target), close = !!target && !!target.classList && target.classList.contains('close');
+          var fromBackdrop = pressedOnWrap && releasedOnWrap;
+          pressedOnWrap = releasedOnWrap = false;
+          if (backdrop && (!fromBackdrop || el.hasAttribute('data-jelly-no-backdrop'))) { event.stopPropagation(); return; }
+          if (el.hasAttribute('data-jelly-locked') && (backdrop || close)) event.stopPropagation();
         }, true);
       }
       document.addEventListener('open', function (event) {
@@ -203,6 +212,8 @@
         var stillOpen = el.hasAttribute('open') && !closingDialogs.has(el) && dialogOpeners.has(el);
         if (options.opener || !stillOpen) dialogOpeners.set(el, { opener: options.opener || document.activeElement, explicit: !!options.opener });
         el.toggleAttribute('data-jelly-locked', !!options.locked);
+        // dismissOnBackdrop: false 讓點背景完全不關（Esc 與 ✕ 照常）；與 locked 不同，locked 連 Esc 與 ✕ 都擋。
+        el.toggleAttribute('data-jelly-no-backdrop', options.dismissOnBackdrop === false);
         function show() {
           if (el.hasAttribute('open') && closingDialogs.has(el)) { el.addEventListener('close', show, { once: true }); return; }
           if (!el.hasAttribute('open')) el.setAttribute('open', '');

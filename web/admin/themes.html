@@ -174,7 +174,7 @@
         }
     }
 
-    // 客製化是 <jelly-dialog>：Esc、點背景、右上 ✕ 都關閉，焦點回到「客製化」按鈕；關閉後移除元素。
+    // 客製化是 <jelly-dialog>：Esc 與右上 ✕ 關閉，點背景不關（編輯到一半的主題不會因誤點消失），焦點回到「客製化」按鈕；關閉後移除元素。
     function showCustomizeModal(config, settings, opener) {
         dropCustomizeModal();
         const modal = document.createElement('jelly-dialog');
@@ -240,7 +240,7 @@
 
         modal.addEventListener('close', () => modal.remove(), { once: true });
         document.body.appendChild(modal);
-        Jelly.dialog(modal, { opener });
+        Jelly.dialog(modal, { opener, dismissOnBackdrop: false });
 
         // Sync color picker and text input
         setTimeout(() => {

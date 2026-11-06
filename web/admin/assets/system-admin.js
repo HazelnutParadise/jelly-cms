@@ -136,7 +136,7 @@
             const confirmed = await Jelly.confirm({title:t(title), message:hint ? t(hint) : '', confirmLabel:t(label), cancelLabel:t('cancel'), tone:'danger'});
             return confirmed ? {} : null;
         }
-        // 一般對話框是 <jelly-dialog>：Esc、點背景、右上 ✕ 與「取消」都關閉（結果是 null），焦點回到打開它的按鈕（Jelly.dialog）。
+        // 一般對話框是 <jelly-dialog>：Esc、右上 ✕ 與「取消」都關閉（結果是 null），點背景不關（表單輸入不會因誤點或拖曳選字消失），焦點回到打開它的按鈕（Jelly.dialog）。
         const dialog = document.createElement('jelly-dialog'); dialog.className = 'sys-dialog'; dialog.setAttribute('label', t(title));
         dialog.innerHTML = '<form><h2>' + esc(t(title)) + '</h2>' + (hint ? '<p>' + esc(t(hint)) + '</p>' : '') + extra + fields(specs, initial) + '<div class="sys-actions"><button type="submit" class="btn btn-primary">' + esc(t(label)) + '</button><button type="button" class="btn btn-secondary" data-cancel>' + esc(t('cancel')) + '</button></div></form>';
         document.body.append(dialog); const form = $('form', dialog);
@@ -147,7 +147,7 @@
             dialog.addEventListener('close', () => { dialog.remove(); resolve(result); }, { once: true });
             $('[data-cancel]', dialog).onclick = () => finish(null);
             form.onsubmit = event => { event.preventDefault(); if (!form.reportValidity()) return; try { const data = values(form, specs); if (validate) validate(data); finish(data); } catch (err) {status(form, errorText(err), 'error');} };
-            Jelly.dialog(dialog, { focus: form.querySelector('input:not([type=hidden]):not([disabled]),select:not([disabled]),textarea:not([disabled])') });
+            Jelly.dialog(dialog, { dismissOnBackdrop: false, focus: form.querySelector('input:not([type=hidden]):not([disabled]),select:not([disabled]),textarea:not([disabled])') });
         });
     }
     const bool = (key,label,def = false) => optionSpec(key,label,'bool',{default:def});

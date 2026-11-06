@@ -118,6 +118,8 @@ $('batchSheet').addEventListener('close', () => { /* 清理；Esc、背景、✕
 
 - 打開一律用屬性：`Jelly.dialog(el)` 等 `jelly.js` 定義好元素後 `setAttribute('open', '')`；伺服器輸出的 `<jelly-dialog>` 不帶 `open`。也可以直接 `removeAttribute('open')` 立刻關閉（沒有動畫）。不要呼叫 `.showModal()`（只在升級後存在）。
 - `Jelly.dialog(el, { opener, focus, locked })`：`opener` 是關閉後焦點要回去的元素（預設是打開當下的焦點），`focus` 是打開後要聚焦的元素或選擇器（預設是對話框本體），`locked: true` 讓對話框不理 Esc、點背景，也隱藏右上 ✕，只能由程式關閉（備用碼「我已保存備用碼」之前不能關）。處理中要暫時鎖住，可以直接切換 `data-jelly-locked` 屬性。對已經開著的對話框再呼叫一次（例如換內容）會保留原本的 opener。
+- `dismissOnBackdrop: false`：點背景不關，Esc 與右上 ✕ 照常（與 `locked` 不同：`locked` 連 Esc 與 ✕ 都擋）。用在**輸入或產出後不能因誤點而消失**的對話框：一次性金鑰、還原草稿提示、編輯器的匯出／快捷鍵、主題客製化、外掛上傳、系統頁的表單對話框。預設（不給或給 `true`）點背景關閉，用在短的確認或單一表單（折扣碼批次、選單新增與設定、留言回覆、使用者、個人帳號身分確認）。
+- 點背景的判定：只有按下與放開都在背景（`.wrap` 本身）才算點背景。從對話框內容拖到背景才放開不會關（`layout.html` 攔下上游的 click），所以不必在各頁另外處理拖曳選字。
 - **Esc 只關最上層**：上游每個開著的對話框都在 `document` 上聽 Esc，巢狀時（對話框裡再開 `Jelly.confirm`）會一次全關。`layout.html` 維護開啟堆疊，在 `window` 的捕獲階段攔下 Esc（`preventDefault`）再只關最上層，所以頁面自己的 Esc 處理請先檢查 `event.defaultPrevented`。
 - 打開時對話框會被移到 `<body>`、鎖捲動、外面設成 `inert`。所以**表單要放在對話框裡面**，對話框裡的樣式不能依賴祖先選擇器（例如 `.accounts-page …`），改用 `#userDialog …` 或對話框自己的 class。寬度用 `--jelly-dialog-width`（`.dialog-wide` 是 40rem），內距用 `--jelly-dialog-padding`。
 - 可存取名稱：給 `label` 屬性，或讓第一個 `<h1>`／`<h2>`／`<h3>` 當名稱。右上 ✕ 的 `aria-label` 由 `layout.html` 依介面語言改成「關閉」／Close。

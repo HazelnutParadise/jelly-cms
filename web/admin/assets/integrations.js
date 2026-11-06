@@ -195,7 +195,7 @@
       box.remove();
     }
   }
-  // 對話框是 <jelly-dialog>：Esc、點背景、右上 ✕ 都關閉，焦點回到打開它的按鈕（Jelly.dialog）；
+  // 對話框是 <jelly-dialog>：Esc 與右上 ✕ 關閉，點背景不關（一次性金鑰不能因誤點消失），焦點回到打開它的按鈕（Jelly.dialog）；
   // 關閉後在 close 事件清掉金鑰與內容。force 是離開頁面時立刻關閉。
   function closeDialog(force = false) {
     if (busy && !force) return;
@@ -213,7 +213,7 @@
     const first = dialog.querySelector(
       "input:not([disabled]),button:not([disabled])",
     );
-    Jelly.dialog(dialog, { focus: first });
+    Jelly.dialog(dialog, { focus: first, dismissOnBackdrop: false });
   }
   const cancel = () => button(tr("取消", "Cancel"), () => closeDialog());
   function showSecret(result) {
@@ -411,6 +411,8 @@
         async (result) => {
           if (creating) {
             form.reset();
+            // form.reset() 不會還原 Jelly 勾選框（沒有 formResetCallback）。新增表單初次顯示時權限全部不勾（selected 為空），設回去。
+            form.querySelectorAll("jelly-checkbox[name=permission]").forEach((check) => check.removeAttribute("checked"));
             integrations.unshift(result.integration);
             renderListRows();
             showSecret(result);

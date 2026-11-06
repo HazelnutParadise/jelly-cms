@@ -205,7 +205,9 @@
         SEGS.forEach(s => Jelly.segmentText(seg, s, t('cs_' + s) + (counts[s] != null ? ' ' + (+counts[s]) : '')));
         if (seg.getAttribute('value') !== st.status) seg.setAttribute('value', st.status);
     }
-    $('segs').addEventListener('change', (e) => { st.status = (e.detail && e.detail.value) || $('segs').getAttribute('value'); st.q = ''; $('q').value = ''; load(); });
+    // 換期間就離開搜尋：清空搜尋框與 st.q，依新的期間載入（點目前選取的段也走這裡，見下方 #segs 的 click）。
+    function pickPeriod(value) { st.status = value; st.q = ''; $('q').value = ''; load(); }
+    $('segs').addEventListener('change', (e) => pickPeriod((e.detail && e.detail.value) || $('segs').getAttribute('value')));
     function renderList() {
         const box = $('list');
         box.setAttribute('aria-busy', 'false');
@@ -570,6 +572,16 @@
     });
     let timer = null;
     $('q').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { st.q = $('q').value.trim(); load(); }, 300); });
+    // 上游點目前選取的段不發 change。有搜尋字時這樣點等同離開搜尋：走 pickPeriod（與換段相同的路徑）。
+    // 沒有搜尋字時什麼都不做；點到其他段時 change 已先處理（st.q 已清空），這裡的檢查會擋下。
+    $('segs').addEventListener('click', (e) => {
+        if (!st.q) return;
+        const seg = e.composedPath().find((n) => n.classList && n.classList.contains('segment'));
+        const picked = seg && $('segs').querySelectorAll('jelly-segment')[Number(seg.dataset.index)];
+        if (!picked || picked.getAttribute('value') !== st.status) return;
+        clearTimeout(timer);
+        pickPeriod(picked.getAttribute('value'));
+    });
 
     fillPanel(null);
     load();

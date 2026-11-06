@@ -137,8 +137,8 @@
         }
     }
 
-    // 上傳是 <jelly-dialog>：Esc、點背景、右上 ✕ 與「取消」都關閉，焦點回到「上傳插件」按鈕。
-    document.getElementById('uploadOpen').addEventListener('click', (e) => Jelly.dialog(document.getElementById('uploadModal'), { opener: e.currentTarget, focus: '#pluginFile' }));
+    // 上傳是 <jelly-dialog>：Esc、右上 ✕ 與「取消」都關閉，點背景不關（選好的檔案不會因誤點消失），焦點回到「上傳插件」按鈕。
+    document.getElementById('uploadOpen').addEventListener('click', (e) => Jelly.dialog(document.getElementById('uploadModal'), { opener: e.currentTarget, focus: '#pluginFile', dismissOnBackdrop: false }));
     document.getElementById('uploadCancel').addEventListener('click', () => Jelly.closeDialog(document.getElementById('uploadModal')));
     document.getElementById('uploadForm').addEventListener('submit', async (e) => {
         e.preventDefault();
