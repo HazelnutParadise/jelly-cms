@@ -20,6 +20,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"github.com/HazelnutParadise/jelly-cms/internal/notify"
 )
 
@@ -177,6 +178,13 @@ func Finalize(tx *gorm.DB, provider string, cb VerifiedCallback) error {
 			if err := core.NewOrderService(tx).Transition(tx, order.ID, core.OrderStatusPending, core.OrderStatusPaid, nil, "Payment confirmed"); err != nil {
 				return fmt.Errorf("payment: transition order to paid: %w", err)
 			}
+			events.Stage(ctx, events.Event{Name: "OnPaymentSuccess", Payload: map[string]any{
+				"order_id": order.ID,
+				"payment": map[string]any{
+					"provider": provider, "method": attempt.Method, "merchant_trade_no": attempt.MerchantTradeNo,
+					"amount": attempt.Amount, "currency": attempt.Currency,
+				},
+			}})
 			if err := incrementSoldCount(tx, order.ID); err != nil {
 				return fmt.Errorf("payment: update product sales: %w", err)
 			}
@@ -230,6 +238,14 @@ func Finalize(tx *gorm.DB, provider string, cb VerifiedCallback) error {
 			if err := emitShopEvent(ctx, tx, notify.KindOrderPaymentFailed, order, "payment-failed:"+fmt.Sprint(attempt.ID), "Payment attempt failed; order remains retryable"); err != nil {
 				return err
 			}
+			events.Stage(ctx, events.Event{Name: "OnPaymentFailed", Payload: map[string]any{
+				"order_id": order.ID,
+				"payment": map[string]any{
+					"provider": provider, "method": attempt.Method, "merchant_trade_no": attempt.MerchantTradeNo,
+					"amount": attempt.Amount, "currency": attempt.Currency,
+				},
+				"reason": "payment attempt failed",
+			}})
 		}
 	}
 	return nil

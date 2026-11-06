@@ -15,6 +15,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/money"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -575,6 +576,7 @@ func adminProductsCreate(c echo.Context) error {
 	if err := tx.Commit().Error; err != nil {
 		return productDBError(c, err)
 	}
+	publishPluginEvent(plugin.HookOnProductSave, map[string]any{"action": "create", "product": productEventPayload(p), "actor": pluginEventActor(c)})
 	view, err := loadAdminProduct(data.DB, &p)
 	if err != nil {
 		return productError(c, 500, "product saved but could not load response")
@@ -691,6 +693,7 @@ func adminProductsUpdate(c echo.Context) error {
 	if err := tx.Commit().Error; err != nil {
 		return productDBError(c, err)
 	}
+	publishPluginEvent(plugin.HookOnProductSave, map[string]any{"action": "update", "product": productEventPayload(p), "actor": pluginEventActor(c)})
 	if !integrationBase.IsZero() {
 		if err := data.DB.First(&p, uint(id)).Error; err != nil {
 			return productError(c, http.StatusInternalServerError, "product saved but could not load response")
@@ -736,6 +739,10 @@ func adminProductsDelete(c echo.Context) error {
 	}
 	if res.RowsAffected == 0 {
 		return productError(c, 404, "Product not found")
+	}
+	var deleted core.Product
+	if err := data.DB.Unscoped().First(&deleted, uint(id)).Error; err == nil {
+		publishPluginEvent(plugin.HookOnProductDelete, map[string]any{"action": "trash", "product": productEventPayload(deleted), "actor": pluginEventActor(c)})
 	}
 	return c.JSON(200, map[string]string{"message": "deleted"})
 }
@@ -804,6 +811,7 @@ func adminProductsDuplicate(c echo.Context) error {
 	if err := tx.Commit().Error; err != nil {
 		return productDBError(c, err)
 	}
+	publishPluginEvent(plugin.HookOnProductSave, map[string]any{"action": "duplicate", "product": productEventPayload(dup), "actor": pluginEventActor(c)})
 	view, err := loadAdminProduct(data.DB, &dup)
 	if err != nil {
 		return productError(c, 500, "duplicate saved but could not load response")

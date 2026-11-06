@@ -533,10 +533,10 @@ func TestPluginEventsContentLargeContentOmitted(t *testing.T) {
 
 func TestPluginEventsContentWithoutEventsPermission(t *testing.T) {
 	h := newPluginEventsHarness(t)
+	h.reset(t)
 	h.installFixturePluginWithPermission(t, "no-perm", nil, false)
 	admin := h.user("admin", "pec-noperm-admin")
 	token := h.token(admin)
-	h.reset(t)
 
 	pecCreatePost(t, h, token, map[string]any{"title": "Guarded", "slug": "pec-guarded", "content": "<p>guarded</p>", "type": "post", "status": "draft"})
 	pecExactly(t, h, plugin.HookOnPostSave, 1)

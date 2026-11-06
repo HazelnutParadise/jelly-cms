@@ -1,8 +1,10 @@
 package core
 
 import (
+	"context"
 	"time"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -20,11 +22,15 @@ func ExpireUnpaidOrders(db *gorm.DB, now time.Time) (int, error) {
 		return 0, err
 	}
 
+	ctx := context.Background()
+	if db.Statement != nil && db.Statement.Context != nil {
+		ctx = db.Statement.Context
+	}
 	svc := NewOrderService(db)
 	expired := 0
 	for _, orderID := range orderIDs {
 		transitioned := false
-		err := db.Transaction(func(tx *gorm.DB) error {
+		err := events.Transaction(ctx, db, func(tx *gorm.DB) error {
 			var order Order
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, orderID).Error; err != nil {
 				return err

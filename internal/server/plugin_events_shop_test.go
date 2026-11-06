@@ -297,8 +297,10 @@ func TestPluginEventsShopZeroTotalCheckout(t *testing.T) {
 	if snapshot["number"] != result.Order.Number {
 		t.Errorf("OnOrderCreate order.number = %v, want %s", snapshot["number"], result.Order.Number)
 	}
-	if snapshot["status"] != order.Status {
-		t.Errorf("OnOrderCreate order.status = %v, want the committed status %q", snapshot["status"], order.Status)
+	// The order is announced as created (pending); the zero-total payment then
+	// arrives as OnOrderUpdate pending → paid and OnOrderPaid.
+	if snapshot["status"] != core.OrderStatusPending {
+		t.Errorf("OnOrderCreate order.status = %v, want pending (committed status is %q)", snapshot["status"], order.Status)
 	}
 	if snapshot["email"] != "events-free@example.test" {
 		t.Errorf("OnOrderCreate order.email = %v, want events-free@example.test", snapshot["email"])

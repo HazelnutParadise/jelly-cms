@@ -10,6 +10,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -252,7 +253,7 @@ func shopMemberCancelAPI(c echo.Context) error {
 		return echo.NewHTTPError(401)
 	}
 	result := ""
-	err := data.DB.Transaction(func(tx *gorm.DB) error {
+	err := events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
 		var order core.Order
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("number = ? AND user_id = ?", strings.TrimSpace(c.Param("number")), user.ID).First(&order).Error; err != nil {
 			return err
