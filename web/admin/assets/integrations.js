@@ -750,7 +750,8 @@
       const targetName = target.name;
       const confirmed = await Jelly.confirm({
         title,
-        message:body.textContent,
+        // Jelly.confirm shows one paragraph, so keep the paragraphs apart.
+        message:Array.from(body.children, (p) => p.textContent).join(" "),
         confirmLabel:tr("確認", "Confirm"),
         cancelLabel:tr("取消", "Cancel"),
         inputLabel:action === "delete" ? tr("輸入「" + targetName + "」確認", "Type \"" + targetName + "\" to confirm") : tr("輸入名稱確認", "Type the name to confirm"),
