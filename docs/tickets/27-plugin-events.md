@@ -69,7 +69,7 @@ func Transaction(ctx context.Context, db *gorm.DB, fn func(tx *gorm.DB) error) e
 
 ### 伺服器橋接（`internal/server/plugin_events.go`）
 
-- `ConfigurePluginHost` 時 `events.Subscribe` 一個訂閱者，把事件轉成 `runtime.Emit(plugin.Hook(e.Name), payload)`，payload 固定帶 `event`（名稱）與 `at`（RFC3339）。訂閱者先補齊（enrich）薄事件：payload 有 `order_id` 而沒有 `order` 時，從資料庫讀訂單摘要放進 `order`；有 `actor_user_id` 而沒有 `actor` 時讀使用者放進 `actor`（找不到就 `null`）。補讀發生在提交後、HTTP 回應之外，所以 core 與 payment 套件只需要發薄事件。
+- `ConfigurePluginHost` 時 `events.Subscribe` 一個訂閱者，把事件轉成 `runtime.Emit(plugin.Hook(e.Name), payload)`，payload 固定帶 `event`（名稱）與 `at`（RFC3339）。訂閱者先補齊（enrich）薄事件：payload 有 `order_id` 而沒有 `order` 時，從資料庫讀訂單摘要放進 `order`；有 `actor_user_id` 而沒有 `actor` 時讀使用者放進 `actor`（找不到就 `null`）。補讀發生在提交後、送出回應之前，每次讀取（訂單、actor、外掛權限）以 2 秒為上限，逾時視為讀不到（權限逾時即拒絕），所以 core 與 payment 套件只需要發薄事件。
 - `plugin.SetLogSink` 接到 `forwardPluginLog`：放進容量 1024 的 channel，由一條 goroutine 以 `syslog.Emit` 寫入（`Source: "plugin"`、`PluginID` 為外掛 ID、debug／info → info、warn → warn、error → error）；channel 滿就丟棄。不得在日誌 goroutine 內同步寫資料庫。
 - `pluginEventsWanted(hook)`：有任何已載入外掛註冊該鉤子才回 true；OnPostView／OnProductView 先用它判斷，沒人要就不組 payload 也不 Publish。
 - OnPostView／OnProductView 在 `c.Response().After` 內發布，渲染失敗（非 2xx）不發。
@@ -78,9 +78,9 @@ func Transaction(ctx context.Context, db *gorm.DB, fn func(tx *gorm.DB) error) e
 ### 排程發布
 
 - `system_runtime.go` 新增排程 `{Name: "posts.publish_due", Spec: "* * * * *", Kind: "posts.publish_due"}` 與處理器。
-- 處理器在一個交易內：以 `lockMaintenanceOption` 相同方式鎖 `options.plugin_events_publish_watermark`；第一次沒有水位時只寫入現在時間、不發事件；否則查 `posts` 中 `status = 'published' AND deleted_at IS NULL AND type IN ('post','page') AND published_at > 水位 AND published_at <= now AND published_at > updated_at` 的列，依 `published_at, id` 排序，每列 Stage `OnPostPublish`（`trigger: "schedule"`），最後把水位寫成 now。提交後 Flush。
+- 處理器在一個交易內：以 `lockMaintenanceOption` 相同方式鎖 `options.plugin_events_publish_watermark`；第一次沒有水位時只寫入現在時間、不發事件；水位不小於 now 時直接返回、不寫入（水位只前進）；否則查 `posts` 中 `status = 'published' AND (visibility = 'public' OR visibility = '' OR visibility IS NULL) AND deleted_at IS NULL AND type IN ('post','page') AND published_at > 水位 AND published_at <= now AND published_at > updated_at` 的列，依 `published_at, id` 排序，最多 500 筆，每列 Stage `OnPostPublish`（`trigger: "schedule"`）。水位寫成 now；若剛好取滿 500 筆，水位寫成最後一筆的 `published_at`，下次排程從那裡接續。提交後 Flush。
 - `published_at > updated_at` 代表最後一次儲存時發布時間仍在未來，當下儲存已經即時發布的文章不會重複觸發。
-- 漏發窗口：排程時間已到但排程工作還沒跑，使用者又編輯了一次，`updated_at` 會超過 `published_at`，排程就不再認得它。儲存處理器要補這個窗口：`existing` 的狀態是 published、`published_at <= now`、`published_at > existing.updated_at`（上次儲存時仍在未來）且 `published_at > 水位` 時，視為「尚未宣告」，這次儲存發 `OnPostPublish`（trigger save）。水位空字串視為零時間。這條判斷只在 `existing.Status == "published"` 時讀一次 options。
+- 漏發窗口：排程時間已到但排程工作還沒跑，使用者又編輯了一次，`updated_at` 會超過 `published_at`，排程就不再認得它。儲存處理器要補這個窗口：`postPublishAnnouncement(db, existing, saved, now)` 判斷這次寫入是否讓文章首次公開可讀：`existing` 不是公開可讀（狀態、可見性、`published_at` 未到其一），或是「到期但尚未宣告」（`published_at <= now`、`published_at > existing.updated_at`、`published_at > 水位`），而 `saved` 公開可讀時，發 `OnPostPublish`（trigger save）。建立時 existing 為零值；回收桶還原與版本還原也用同一判斷，還原前讀 existing（回收桶中的列或還原前的版本），還原後讀 saved，因為還原會改寫 `updated_at`。水位空字串視為零時間。沒有外掛監聽 `OnPostSave` 與 `OnPostPublish` 時，文章寫入整段跳過這些讀取（`pluginEventsPostWanted`）；代價是寫入當下沒人收的「尚未宣告」文章不會事後補發。
 - 第一次執行只寫水位不發事件，所以升級到本版本之前就到期的排程文章不會補發；之後伺服器停機期間到期的文章會在重啟後第一次執行時發出。
 - 文章類型白名單 `post`、`page` 用同一個常數給儲存處理器與排程共用。
 

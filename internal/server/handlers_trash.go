@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -385,7 +386,17 @@ func restoreTrash(c echo.Context) error {
 	if !ok || !trashAllowed(user, kind) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Item not found"})
 	}
-	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
+		// The trashed post is read before the update: the restore rewrites
+		// updated_at, and the publish announcement depends on the old value.
+		var before *core.Post
+		if (kind == "post" || kind == "page") && pluginEventsPostWanted() {
+			var row core.Post
+			if err := trashedRows(tx, kind, user, id).Preload("Categories").Preload("Tags").First(&row).Error; err != nil {
+				return err
+			}
+			before = &row
+		}
 		updates := map[string]any{"deleted_at": nil, "deleted_by_id": nil}
 		if kind != "comment" {
 			var trashed string
@@ -415,7 +426,7 @@ func restoreTrash(c echo.Context) error {
 		if result.RowsAffected == 0 {
 			return gorm.ErrRecordNotFound
 		}
-		return stageRestoreEvents(c, tx, kind, id)
+		return stageRestoreEvents(c, tx, kind, id, before)
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Item not found"})
@@ -439,7 +450,7 @@ func deleteTrashItem(c echo.Context) error {
 	if !ok || !trashAllowed(user, kind) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Item not found"})
 	}
-	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
 		return purgeTrashedStaged(c, tx, user, kind, id)
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -462,17 +473,23 @@ func isForeignKeyViolation(err error) bool {
 }
 
 // stageRestoreEvents stages the event of a restored row on tx: OnPostSave
-// (restore) for posts and pages, OnProductSave (restore) for products and
-// OnCommentUpdate (from trash) for comments.
-func stageRestoreEvents(c echo.Context, tx *gorm.DB, kind string, id uint) error {
+// (restore) and, when the restore makes the post publicly readable for the
+// first time, OnPostPublish (trigger save) for posts and pages; OnProductSave
+// (restore) for products and OnCommentUpdate (from trash) for comments. before
+// is the trashed post as it was before the restore; nil means no plugin listens
+// for post events and nothing is read.
+func stageRestoreEvents(c echo.Context, tx *gorm.DB, kind string, id uint, before *core.Post) error {
 	ctx := tx.Statement.Context
 	switch kind {
 	case "post", "page":
+		if before == nil {
+			return nil
+		}
 		var post core.Post
 		if err := tx.Preload("Categories").Preload("Tags").First(&post, id).Error; err != nil {
 			return err
 		}
-		stagePluginEvent(ctx, plugin.HookOnPostSave, map[string]any{"action": "restore", "post": postEventPayload(post), "actor": pluginEventActor(c)})
+		stagePostEvents(c, tx, *before, post, "restore", time.Now())
 	case "product":
 		var product core.Product
 		if err := tx.First(&product, id).Error; err != nil {
@@ -539,7 +556,7 @@ func emptyTrash(c echo.Context) error {
 		return err
 	}
 	deleted := 0
-	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
 		for _, kind := range trashVisibleKinds(user) {
 			var ids []uint
 			if err := trashListQuery(tx, kind, user, "").Pluck("id", &ids).Error; err != nil {

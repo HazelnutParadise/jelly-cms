@@ -285,6 +285,11 @@ func sameNullableTime(left, right *time.Time) bool {
 }
 
 // issueLogin creates one login ID and issues the paired JWT and session.
+// loginMethodContextKey carries the login method a caller names before it calls
+// issueLogin: "password" for local sign-in, "oauth" for an OAuth callback and
+// "recovery" for an OAuth recovery login.
+const loginMethodContextKey = "auth.login_method"
+
 func issueLogin(c echo.Context, user core.User) (string, error) {
 	if data.DB == nil || user.ID == 0 || (user.Status != "" && user.Status != "active") {
 		return "", fmt.Errorf("account is not available for login")
@@ -301,9 +306,14 @@ func issueLogin(c echo.Context, user core.User) (string, error) {
 	issuedAt := time.Now().UTC()
 	expiresAt := issuedAt.Add(7 * 24 * time.Hour)
 	device := loginDeviceFromRequest(c.Request())
+	// The caller may name the login method (auth.login_method); otherwise an
+	// account with a password logs in by password and the rest by OAuth.
 	method := "oauth"
 	if user.Provider == "local" || user.Password != "" {
 		method = "password"
+	}
+	if requested, ok := c.Get(loginMethodContextKey).(string); ok && requested != "" {
+		method = requested
 	}
 	hash := hashLoginID(loginID)
 	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
@@ -449,6 +459,7 @@ func HandleLocalLogin(c echo.Context) error {
 
 	// Issue the paired login credentials. Prepare the JWT before saving the
 	// session so both carry the same login ID.
+	c.Set(loginMethodContextKey, "password")
 	token, err := issueLogin(c, user)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to generate token"})
@@ -653,6 +664,7 @@ func HandleCallback(c echo.Context) error {
 		if err != nil {
 			return c.String(oauthRecoveryErrorStatus(err), oauthRecoveryErrorMessage(err))
 		}
+		c.Set(loginMethodContextKey, "recovery")
 		token, err := issueLogin(c, dbUser)
 		if err != nil {
 			return c.String(http.StatusInternalServerError, "Failed to generate token")
@@ -732,6 +744,7 @@ func HandleCallback(c echo.Context) error {
 
 	// Issue the paired login credentials. Prepare the JWT before saving the
 	// session so both carry the same login ID.
+	c.Set(loginMethodContextKey, "oauth")
 	token, err := issueLogin(c, *dbUser)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to generate token")

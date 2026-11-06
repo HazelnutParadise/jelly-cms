@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -253,7 +254,7 @@ func shopMemberCancelAPI(c echo.Context) error {
 		return echo.NewHTTPError(401)
 	}
 	result := ""
-	err := events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
+	err := events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
 		var order core.Order
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("number = ? AND user_id = ?", strings.TrimSpace(c.Param("number")), user.ID).First(&order).Error; err != nil {
 			return err

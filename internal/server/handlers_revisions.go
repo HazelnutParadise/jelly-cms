@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net/http"
 	"reflect"
@@ -12,7 +13,6 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"github.com/HazelnutParadise/jelly-cms/internal/markup"
-	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/goccy/go-json"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -470,7 +470,7 @@ func restoreRevision(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]any{"error": "invalid format", "diagnostics": []markup.Diagnostic{}})
 	}
 	var renderDiagnostics []markup.Diagnostic
-	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
 		var current core.Post
 		if err := visiblePostQuery(tx, user, id).First(&current).Error; err != nil {
 			return err
@@ -515,11 +515,14 @@ func restoreRevision(c echo.Context) error {
 		if result.RowsAffected == 0 {
 			return gorm.ErrRecordNotFound
 		}
-		var latest core.Post
-		if err := tx.Preload("Categories").Preload("Tags").First(&latest, id).Error; err != nil {
-			return err
+		if pluginEventsPostWanted() {
+			var latest core.Post
+			if err := tx.Preload("Categories").Preload("Tags").First(&latest, id).Error; err != nil {
+				return err
+			}
+			// current is the row before the restore; the restore is a save.
+			stagePostEvents(c, tx, current, latest, "revision", time.Now())
 		}
-		stagePluginEvent(tx.Statement.Context, plugin.HookOnPostSave, map[string]any{"action": "revision", "post": postEventPayload(latest), "actor": pluginEventActor(c)})
 		return nil
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {

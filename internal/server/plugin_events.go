@@ -53,6 +53,17 @@ const pluginEventsPermissionTTL = 5 * time.Second
 // pluginLogQueueSize bounds the plugin log lines waiting for the database writer.
 const pluginLogQueueSize = 1024
 
+// pluginEventReadTimeout caps each database read made on the publishing
+// goroutine while a plugin event is enriched or its permission is checked. The
+// read runs after commit and before the HTTP response is sent, so a slow
+// database delays a response by at most this long per read.
+const pluginEventReadTimeout = 2 * time.Second
+
+// pluginEventsSweepLimit bounds the posts one publish_due sweep announces. A
+// full page moves the watermark to its last published_at so the next sweep
+// continues from there.
+const pluginEventsSweepLimit = 500
+
 // pluginEventsSubscription holds the cancel function of the bridge subscription
 // installed by the latest configurePluginEvents call.
 var pluginEventsSubscription = struct {
@@ -177,6 +188,13 @@ func enrichPluginEvent(payload map[string]any) {
 	}
 }
 
+// pluginEventReadDB binds db to a context that expires after
+// pluginEventReadTimeout. The caller must call the returned cancel function.
+func pluginEventReadDB(db *gorm.DB) (*gorm.DB, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), pluginEventReadTimeout)
+	return db.WithContext(ctx), cancel
+}
+
 // pluginEventOrderSummary loads the order named by raw for a thin event. It
 // returns nil when raw is not a positive id, db is nil or the order is gone.
 func pluginEventOrderSummary(db *gorm.DB, raw any) map[string]any {
@@ -184,6 +202,8 @@ func pluginEventOrderSummary(db *gorm.DB, raw any) map[string]any {
 	if !ok || db == nil {
 		return nil
 	}
+	db, cancel := pluginEventReadDB(db)
+	defer cancel()
 	var order core.Order
 	if err := db.First(&order, id).Error; err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -261,6 +281,8 @@ func pluginEventsManifestDeclared(meta plugin.PluginMetadata) bool {
 // pluginEventsDatabaseAllows reads the plugins row of meta and checks that it
 // is enabled and that its approval matches the manifest's permission names.
 func pluginEventsDatabaseAllows(db *gorm.DB, meta plugin.PluginMetadata) bool {
+	db, cancel := pluginEventReadDB(db)
+	defer cancel()
 	var row struct {
 		Enabled bool   `gorm:"column:enabled"`
 		Granted string `gorm:"column:permissions_granted_hash"`
@@ -368,6 +390,8 @@ func pluginEventActorID(db *gorm.DB, id uint) map[string]any {
 	if db == nil || id == 0 {
 		return nil
 	}
+	db, cancel := pluginEventReadDB(db)
+	defer cancel()
 	var user core.User
 	if err := db.Select("id", "username", "role").First(&user, id).Error; err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -435,11 +459,32 @@ func postEventSummary(post core.Post) map[string]any {
 	}
 }
 
-// postIsLive reports whether a post with status and publishedAt is publicly
-// readable at now: status is "published" and publishedAt is set and not after
-// now. OnPostPublish fires when a save turns a post from not live to live.
-func postIsLive(status string, publishedAt *time.Time, now time.Time) bool {
-	return status == "published" && publishedAt != nil && !publishedAt.After(now)
+// postIsPublic reports whether post is publicly readable at now: status is
+// "published", visibility is "public" (an empty visibility counts as public),
+// and published_at is set and not after now.
+func postIsPublic(post core.Post, now time.Time) bool {
+	if post.Status != "published" || post.PublishedAt == nil || post.PublishedAt.After(now) {
+		return false
+	}
+	return post.Visibility == "public" || post.Visibility == ""
+}
+
+// postPublishAnnouncement reports whether a write from existing to saved makes
+// the post publicly readable for the first time, so OnPostPublish (trigger
+// "save") must be staged. existing is the row as it was before the write; a
+// zero Post stands for a create. A post that was public but whose scheduled
+// announcement is still pending (postPublishPending) counts as not yet
+// announced.
+func postPublishAnnouncement(db *gorm.DB, existing, saved core.Post, now time.Time) bool {
+	wasPublic := postIsPublic(existing, now) && !postPublishPending(db, existing, now)
+	return !wasPublic && postIsPublic(saved, now)
+}
+
+// pluginEventsPostWanted reports whether a post write can announce anything
+// (OnPostSave or OnPostPublish). Handlers skip the reads that only feed those
+// events when no loaded plugin listens.
+func pluginEventsPostWanted() bool {
+	return pluginEventsWanted(plugin.HookOnPostSave) || pluginEventsWanted(plugin.HookOnPostPublish)
 }
 
 // postPublishPending reports whether existing is a scheduled post whose time
@@ -673,11 +718,15 @@ func pluginEventInt64Ptr(v *int64) any {
 // default ""), and
 //   - with an empty watermark write now and emit nothing (first run never
 //     replays history);
-//   - otherwise select posts with status 'published', deleted_at IS NULL, type
+//   - with now <= watermark return without writing (the watermark never moves
+//     back, so posts already announced are not announced again);
+//   - otherwise select up to pluginEventsSweepLimit posts with status
+//     'published', visibility public (or empty/NULL), deleted_at IS NULL, type
 //     IN ('post','page'), published_at > watermark, published_at <= now and
 //     published_at > updated_at, ordered by published_at, id; stage one
 //     OnPostPublish per row with postEventPayload, trigger "schedule" and actor
-//     null; then write now as the watermark.
+//     null. The watermark becomes now, or the last row's published_at when the
+//     page is full so the next sweep continues from it.
 //
 // Events are published after commit. It returns the number of posts emitted.
 // The watermark is stored as RFC3339Nano UTC.
@@ -699,12 +748,15 @@ func publishDuePosts(ctx context.Context, db *gorm.DB, now time.Time) (int, erro
 		if err != nil {
 			return fmt.Errorf("publish due posts: parse watermark: %w", err)
 		}
+		if !now.After(watermark) {
+			return nil
+		}
 
 		var posts []core.Post
 		if err := tx.Where(
-			"type IN ? AND status = ? AND deleted_at IS NULL AND published_at > ? AND published_at <= ? AND published_at > updated_at",
+			"type IN ? AND status = ? AND (visibility = 'public' OR visibility = '' OR visibility IS NULL) AND deleted_at IS NULL AND published_at > ? AND published_at <= ? AND published_at > updated_at",
 			pluginEventPostTypes, "published", watermark, now,
-		).Order("published_at, id").Preload("Categories").Preload("Tags").Find(&posts).Error; err != nil {
+		).Order("published_at, id").Limit(pluginEventsSweepLimit).Preload("Categories").Preload("Tags").Find(&posts).Error; err != nil {
 			return fmt.Errorf("publish due posts: select posts: %w", err)
 		}
 		for _, post := range posts {
@@ -715,7 +767,11 @@ func publishDuePosts(ctx context.Context, db *gorm.DB, now time.Time) (int, erro
 			})
 		}
 		emitted = len(posts)
-		return writeMaintenanceOption(tx, publishWatermarkOption, now.Format(time.RFC3339Nano))
+		next := now
+		if len(posts) == pluginEventsSweepLimit && posts[len(posts)-1].PublishedAt != nil {
+			next = *posts[len(posts)-1].PublishedAt
+		}
+		return writeMaintenanceOption(tx, publishWatermarkOption, next.Format(time.RFC3339Nano))
 	})
 	if err != nil {
 		return 0, err

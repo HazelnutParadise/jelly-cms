@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
@@ -524,10 +525,14 @@ func shopProductPage(tm *theme.Manager) echo.HandlerFunc {
 			path := c.Request().URL.Path
 			viewer, viewerErr := auth.GetCurrentUser(c)
 			signedIn := viewerErr == nil && viewer != nil
+			// Once per response: echo runs After functions after every Write.
+			var once sync.Once
 			c.Response().After(func() {
-				if c.Response().Status < 400 {
-					publishPluginEvent(plugin.HookOnProductView, map[string]any{"product": summary, "path": path, "signed_in": signedIn})
-				}
+				once.Do(func() {
+					if c.Response().Status < 400 {
+						publishPluginEvent(plugin.HookOnProductView, map[string]any{"product": summary, "path": path, "signed_in": signedIn})
+					}
+				})
 			})
 		}
 		var variants []core.ProductVariant

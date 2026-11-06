@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -536,10 +537,15 @@ func stagePostViewEvent(c echo.Context, post core.Post) {
 	path := c.Request().URL.Path
 	signedIn := commentViewerSignedIn(c)
 	summary := postEventSummary(post)
+	// echo runs After functions after every Write, so a body written in
+	// several chunks would report the view once per chunk without the Once.
+	var once sync.Once
 	c.Response().After(func() {
-		if c.Response().Status < 400 {
-			publishPluginEvent(plugin.HookOnPostView, map[string]any{"post": summary, "path": path, "signed_in": signedIn})
-		}
+		once.Do(func() {
+			if c.Response().Status < 400 {
+				publishPluginEvent(plugin.HookOnPostView, map[string]any{"post": summary, "path": path, "signed_in": signedIn})
+			}
+		})
 	})
 }
 

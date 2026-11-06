@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -108,7 +109,7 @@ func createPost(c echo.Context) error {
 		now := time.Now()
 		post.PublishedAt = &now
 	}
-	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
 		if post.Slug == "" {
 			slug, err := newContentSlug(tx, cfg, post)
 			if err != nil {
@@ -138,11 +139,13 @@ func createPost(c echo.Context) error {
 		if err != nil {
 			return err
 		}
-		var saved core.Post
-		if err := tx.Preload("Categories").Preload("Tags").First(&saved, post.ID).Error; err != nil {
-			return err
+		if pluginEventsPostWanted() {
+			var saved core.Post
+			if err := tx.Preload("Categories").Preload("Tags").First(&saved, post.ID).Error; err != nil {
+				return err
+			}
+			stagePostEvents(c, tx, core.Post{}, saved, "create", time.Now())
 		}
-		stagePostEvents(c, tx, saved, "create", false, time.Now())
 		return recordIndexNowIntent(c.Request().Context(), tx, indexNowItem{Kind: post.Type, ID: post.ID, Slug: post.Slug}, accountBaseURL(c))
 	})
 	if errors.Is(err, errReservedSlug) {
@@ -285,13 +288,9 @@ func updatePost(c echo.Context) error {
 	// now is taken after updated_at is stamped, so a published_at stamped from
 	// updated_at counts as already live.
 	now := time.Now()
-	wasLive := postIsLive(existing.Status, existing.PublishedAt, now)
-	if wasLive {
-		wasLive = !postPublishPending(data.DB, existing, now)
-	}
 	oldPath := permalinkPathFor(data.DB, cfg, existing)
 	slugRedirectSkipped := ""
-	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
 		write := tx.Model(&core.Post{}).Where("id = ?", id)
 		if contentType, ok := c.Get("integration.content_type").(string); ok && contentType != "" {
 			write = write.Where("type = ?", contentType)
@@ -339,11 +338,13 @@ func updatePost(c echo.Context) error {
 			}
 			slugRedirectSkipped = skipped
 		}
-		var latest core.Post
-		if err := tx.Preload("Categories").Preload("Tags").First(&latest, id).Error; err != nil {
-			return err
+		if pluginEventsPostWanted() {
+			var latest core.Post
+			if err := tx.Preload("Categories").Preload("Tags").First(&latest, id).Error; err != nil {
+				return err
+			}
+			stagePostEvents(c, tx, existing, latest, "update", now)
 		}
-		stagePostEvents(c, tx, latest, "update", wasLive, now)
 		return recordIndexNowIntent(c.Request().Context(), tx, indexNowItem{Kind: saved.Type, ID: saved.ID, Slug: saved.Slug}, accountBaseURL(c))
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -385,12 +386,14 @@ func updatePost(c echo.Context) error {
 }
 
 // stagePostEvents stages OnPostSave for a post written inside tx and, when the
-// write made it live (wasLive false) and it is live at now, OnPostPublish with
-// trigger "save". Both are published after the transaction commits.
-func stagePostEvents(c echo.Context, tx *gorm.DB, post core.Post, action string, wasLive bool, now time.Time) {
-	stagePluginEvent(tx.Statement.Context, plugin.HookOnPostSave, map[string]any{"action": action, "post": postEventPayload(post), "actor": pluginEventActor(c)})
-	if !wasLive && postIsLive(post.Status, post.PublishedAt, now) {
-		stagePluginEvent(tx.Statement.Context, plugin.HookOnPostPublish, map[string]any{"trigger": "save", "post": postEventPayload(post), "actor": pluginEventActor(c)})
+// write makes it publicly readable for the first time (postPublishAnnouncement),
+// OnPostPublish with trigger "save". existing is the row before the write (a
+// zero Post for a create), saved the row after it. Both are published after the
+// transaction commits.
+func stagePostEvents(c echo.Context, tx *gorm.DB, existing, saved core.Post, action string, now time.Time) {
+	stagePluginEvent(tx.Statement.Context, plugin.HookOnPostSave, map[string]any{"action": action, "post": postEventPayload(saved), "actor": pluginEventActor(c)})
+	if postPublishAnnouncement(tx, existing, saved, now) {
+		stagePluginEvent(tx.Statement.Context, plugin.HookOnPostPublish, map[string]any{"trigger": "save", "post": postEventPayload(saved), "actor": pluginEventActor(c)})
 	}
 }
 
@@ -531,7 +534,7 @@ func deletePost(c echo.Context) error {
 	// the soft delete so a concurrent type change cannot trash the wrong item.
 	var post core.Post
 	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
-		query := visiblePostQuery(tx, user, id).Clauses(clause.Locking{Strength: "UPDATE"})
+		query := visiblePostQuery(tx, user, id).Clauses(clause.Locking{Strength: "UPDATE"}).Preload("Categories").Preload("Tags")
 		contentType, isIntegration := c.Get("integration.content_type").(string)
 		if isIntegration && contentType != "" {
 			query = query.Where("type = ?", contentType)

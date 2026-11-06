@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net/http"
 	"net/mail"
@@ -698,12 +699,16 @@ func commentAction(action string) echo.HandlerFunc {
 		if action == "restore" {
 			from, to = "trash", saved.Status
 		}
-		publishPluginEvent(plugin.HookOnCommentUpdate, map[string]any{
-			"comment": commentEventPayload(saved.Comment),
-			"from":    from,
-			"to":      to,
-			"actor":   pluginEventActor(c),
-		})
+		// Approving an approved comment (and the like) changes nothing, so it
+		// announces nothing.
+		if from != to {
+			publishPluginEvent(plugin.HookOnCommentUpdate, map[string]any{
+				"comment": commentEventPayload(saved.Comment),
+				"from":    from,
+				"to":      to,
+				"actor":   pluginEventActor(c),
+			})
+		}
 		return c.JSON(http.StatusOK, saved)
 	}
 }
@@ -812,7 +817,15 @@ func publishBulkCommentEvents(c echo.Context, action string, targets []core.Comm
 		case "restore":
 			from, to = "trash", row.Status
 		}
-		row.Status = to
+		if from == to {
+			continue
+		}
+		// The payload carries the stored status, except for approve, unapprove
+		// and spam where the stored status is the new one. A trashed row keeps
+		// its status; "trash" is only the to value.
+		if action != "trash" {
+			row.Status = to
+		}
 		publishPluginEvent(plugin.HookOnCommentUpdate, map[string]any{
 			"comment": commentEventPayload(row),
 			"from":    from,
@@ -870,7 +883,7 @@ func replyComment(c echo.Context) error {
 	// A staff reply shows the thread, so a pending parent is approved in the
 	// same transaction as the reply insert. Events are published after commit.
 	parentApproved := false
-	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
 		if err := tx.Create(&reply).Error; err != nil {
 			return err
 		}
@@ -967,12 +980,15 @@ func deleteCommentPermanently(c echo.Context) error {
 	if !row.DeletedAt.Valid {
 		return c.JSON(http.StatusConflict, map[string]string{"error": "Move the comment to trash before deleting it"})
 	}
-	if err := data.DB.Unscoped().Where("id = ? AND deleted_at IS NOT NULL", id).Delete(&core.Comment{}).Error; err != nil {
+	result := data.DB.Unscoped().Where("id = ? AND deleted_at IS NOT NULL", id).Delete(&core.Comment{})
+	if result.Error != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to delete comment"})
 	}
-	publishPluginEvent(plugin.HookOnCommentDelete, map[string]any{
-		"comment": map[string]any{"id": row.ID, "post_id": row.PostID},
-		"actor":   pluginEventActor(c),
-	})
+	if result.RowsAffected > 0 {
+		publishPluginEvent(plugin.HookOnCommentDelete, map[string]any{
+			"comment": map[string]any{"id": row.ID, "post_id": row.PostID},
+			"actor":   pluginEventActor(c),
+		})
+	}
 	return c.JSON(http.StatusOK, map[string]string{"message": "Deleted"})
 }

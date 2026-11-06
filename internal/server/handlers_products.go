@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -24,7 +25,7 @@ func softDeleteProduct(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Product not found"})
 	}
-	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
 		var product core.Product
 		if err := tx.Where("id = ?", id).Take(&product).Error; err != nil {
 			return err
