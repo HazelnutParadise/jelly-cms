@@ -38,6 +38,12 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
 .jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
 .jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.jd.st{position:relative;left:auto;top:auto;transform:none;width:auto;text-align:left}
+.cb.j,.rd.j{--cb:32px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3125)}.rd.j{border-radius:50%}
+.cb.j.on,.rd.j.on{background:#13C2A3}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;width:auto;height:auto;border:0;transform:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 16.5l4.8 4.8L23 11.2' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.375);height:calc(var(--cb)*.375);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 .ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
 .cube{position:absolute;border-radius:0 26% 0 26%}
@@ -124,7 +130,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
     <header style="display: flex; align-items: center; gap: 12px; padding: 10px 24px; border-bottom: 1px solid #EEEFF2">
       <nav style="display: flex; align-items: center; gap: 8px; color: #5F6470; font-size: 13px" aria-label="路徑"><span>系統</span><span>/</span><b style="color:#15161A">日誌</b></nav>
       <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:34px;width:260px;color:#5F6470;font-size:13px"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><input type="text" placeholder="搜尋或輸入指令…" aria-label="搜尋" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;color:#15161A"><span class="kbd">⌘K</span></label>
-      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">即時<span class="tg"></span></label><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>下載 24 小時</button></div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 8px"><label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">即時<span class="tg j"></span></label><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>下載 24 小時</button></div>
     </header>
     <main style="padding: 16px 24px 32px; display:flex; flex-direction:column; gap:14px">
     <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
@@ -134,10 +140,10 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
       <div class="card" style="display:flex;flex-direction:column;gap:4px;padding:14px;background:#15161A;color:#fff;box-shadow:none"><span class="lbl" style="color:#9A9FAB">版本</span><b class="mono" style="font-size:18px">Jelly 0.9.3 · Go 1.25 · PG 17</b><span style="font-size:12px;color:#C9CBD3">上線 12 天 · 磁碟 38% · <a href="Logs.dc.html" style="color:#fff">健康檢查</a></span></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <div class="seg"><span class="on">全部</span><span>應用</span><span>HTTP</span><span>金流</span><span>外掛</span><span>登入與稽核</span><span>排程</span></div>
-      <div class="seg"><span class="on" style="background:#9C2318">錯誤</span><span class="on" style="background:#7A5200">警告</span><span class="on">資訊</span><span>除錯</span></div>
+      <div class="seg j"><span class="on">全部</span><span>應用</span><span>HTTP</span><span>金流</span><span>外掛</span><span>登入與稽核</span><span>排程</span></div>
+      <div class="seg j"><span class="on" style="background:#9C2318">錯誤</span><span class="on" style="background:#7A5200">警告</span><span class="on">資訊</span><span>除錯</span></div>
       <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;flex:1;min-width:200px;color:#5F6470;font-size:13px"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><input type="text" placeholder='搜尋訊息或請求 ID' aria-label="篩選日誌" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></label>
-      <div class="seg"><span>15 分</span><span class="on">1 小時</span><span>今天</span><span><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"/></svg>自訂</span></div>
+      <div class="seg j"><span>15 分</span><span class="on">1 小時</span><span>今天</span><span><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M3 5h18v16H3zM3 10h18M8 3v4M16 3v4"/></svg>自訂</span></div>
     </div>
     <div class="card log" style="padding:0;overflow:hidden">
       <div class="r"><span style="color:#5F6470">16:02:11.204</span><span class="lv e">ERR</span><span style="color:#2F6BFF">payment.ecpay</span><span>callback timeout after 30s order=JL-2026-0417 · 已排重試 (1/3)</span></div>

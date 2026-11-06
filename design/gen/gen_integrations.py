@@ -36,13 +36,9 @@ td.act{min-width:72px;white-space:nowrap}.chip.nd::before{display:none}
 .pg b{font-weight:700}.pg .h{font-size:11.5px;color:#5F6470}
 .opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:0 10px 0 10px;box-shadow:inset 0 0 0 1px #E2E3E8;font-size:13px}
 .opt.on{box-shadow:inset 0 0 0 2px #15161A;background:#F8F8FA}
-.opt .rad{width:16px;height:16px;border-radius:0 6px 0 6px;box-shadow:inset 0 0 0 2px #B9BCC6;flex:0 0 auto;margin-top:2px}
-.opt.on .rad{background:#E8285B;box-shadow:inset 0 0 0 4px #fff,0 0 0 2px #E8285B}
 .opt .h{font-size:12px;color:#5F6470;font-weight:400;margin-top:2px;line-height:1.5}
-.dlg{background:#fff;border-radius:0 18px 0 18px;box-shadow:inset 0 0 0 1px #E2E3E8,0 18px 48px rgba(21,22,26,.10);display:flex;flex-direction:column}
-.dlg .hd{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #EEEFF2}
-.dlg .bd{padding:14px 18px;display:flex;flex-direction:column;gap:12px;flex:1}
-.dlg .ft{padding:12px 18px;border-top:1px solid #EEEFF2;display:flex;gap:8px;align-items:center}
+.jd .bd{display:flex;flex-direction:column;gap:12px}
+.jd .ft{display:flex;gap:8px;align-items:center;justify-content:flex-end}
 .st{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.06em;color:#5F6470;text-transform:uppercase}
 .st i{font-style:normal;width:20px;height:20px;display:grid;place-items:center;border-radius:0 7px 0 7px;background:#15161A;color:#fff;font-size:11px;letter-spacing:0}
 .err{font-size:12px;color:color-mix(in srgb,#E03B2E 75%,#15161A);display:flex;align-items:center;gap:6px;margin-top:6px}
@@ -91,7 +87,7 @@ def perm_grid(checked):
             if not ok:
                 return '<span class="na">—</span>'
             on = " on" if f"{res}.{op}" in checked else ""
-            return f'<span class="c"><span class="cb{on}" role="checkbox" aria-label="{res}.{op}"></span></span>'
+            return f'<span class="c"><span class="cb j{on}" role="checkbox" aria-label="{res}.{op}"></span></span>'
         h = f'<div class="h">{hint}</div>' if hint else ""
         rows.append(f'<div class="pg"><div><b>{label}</b>{tag}<div class="h k m" style="font-size:11px">{res}.*</div>{h}</div>{cell("read", can_r)}{cell("write", can_w)}</div>')
     head = '<div class="pg" style="border-top:0;padding-top:0"><span class="lbl">資源</span><span class="lbl" style="text-align:center">讀取</span><span class="lbl" style="text-align:center">寫入</span></div>'
@@ -104,7 +100,7 @@ NEW_KEY = "jly_Wz6pR1tYcE8qN3vLbK0sXu5mJaHg7dFo2iCeQ9wTlZr"
 integrations_main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start">
   <section style="display:flex;flex-direction:column;gap:20px;min-width:0">
     <div class="note">{I("key",18)}<span>每個 API 串接用自己的金鑰呼叫 <b class="k">/api/v1</b>，不必借用人的帳號。能做的事＝這裡勾的權限，再和擁有者目前的角色取交集；擁有者被降級，串接下一次請求就跟著縮小。串接不能管理串接，也不能輪替自己的金鑰。不需金鑰的說明：<a class="k" href="#">GET /api/v1</a> · <a class="k" href="#">openapi.json</a></span></div>
-    <div style="display:flex;align-items:center;gap:10px"><div class="seg"><span class="on">全部 <b>4</b></span><span>啟用 3</span><span>停用 1</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="名稱或金鑰前綴" aria-label="搜尋串接" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;color:#15161A"></label></div>
+    <div style="display:flex;align-items:center;gap:10px"><div class="seg j"><span class="on">全部 <b>4</b></span><span>啟用 3</span><span>停用 1</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="名稱或金鑰前綴" aria-label="搜尋串接" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;color:#15161A"></label></div>
     <table>
       <thead><tr><th>串接與擁有者</th><th>權限</th><th>金鑰與最後使用</th><th>狀態</th><th></th></tr></thead>
       <tbody>
@@ -160,38 +156,39 @@ def tlrow(t, who, what):
 def rot_opts(mode):
     imm = " on" if mode == "immediate" else ""
     gr = " on" if mode != "immediate" else ""
-    return f'''<div class="opt{imm}"><span class="rad"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定串接那邊能馬上換金鑰時用。</div></span></div>
-      <div class="opt{gr}"><span class="rad"></span><span><b>過渡期</b><div class="h">新舊金鑰同時可用，期滿舊金鑰 401。最長 24 小時，可隨時提前撤銷。</div></span></div>'''
+    return f'''<div class="opt{imm}"><span class="rd j{imm}"></span><span><b>立即失效</b>（預設）<div class="h">舊金鑰下一次請求就 401。確定串接那邊能馬上換金鑰時用。</div></span></div>
+      <div class="opt{gr}"><span class="rd j{gr}"></span><span><b>過渡期</b><div class="h">新舊金鑰同時可用，期滿舊金鑰 401。最長 24 小時，可隨時提前撤銷。</div></span></div>'''
 
 def minutes(value, bad=False):
     cls = " bad" if bad else ""
     err = f'<div class="err">{I("alert",14)}過渡期必須是 1 到 1440 分鐘（最長 24 小時）</div>' if bad else ""
     return f'''<div><span class="lbl">過渡時長</span>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:4px"><input class="ul{cls}" type="text" value="{value}" aria-label="過渡分鐘" style="width:90px"><span style="font-size:13px;color:#5F6470">分鐘</span><div class="seg" style="margin-left:auto"><span>15</span><span{' class="on"' if value=="30" else ''}>30</span><span>60</span><span>1440</span></div></div>{err}</div>'''
+        <div style="display:flex;align-items:center;gap:10px;margin-top:4px"><input class="ul{cls}" type="text" value="{value}" aria-label="過渡分鐘" style="width:90px"><span style="font-size:13px;color:#5F6470;white-space:nowrap">分鐘</span><div class="seg j" style="margin-left:auto"><span>15</span><span{' class="on"' if value=="30" else ''}>30</span><span>60</span><span>1440</span></div></div>{err}</div>'''
 
 def dlg(step, title, body, foot):
+    t = title.split("·")[0].strip() if "·" in title else title
     return f'''<div style="display:flex;flex-direction:column;gap:8px"><span class="st"><i>{step}</i>{title}</span>
-      <div class="dlg"><div class="hd"><span class="stripe" style="width:32px"></span><b style="font-size:14px">{title.split("·")[0].strip() if "·" in title else title}</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto">{I("x")}</button></div>
+      <div class="jd st" role="dialog" aria-label="{t}"><span class="close">{I("x",14)}</span><b style="font-size:16px;padding-right:34px">{t}</b>
       <div class="bd">{body}</div><div class="ft">{foot}</div></div></div>'''
 
 rot_title_imm = "輪替金鑰"
 d1 = dlg("1", "輪替金鑰 · 立即失效（預設）", rot_opts("immediate") + '<div style="font-size:12px;color:#5F6470;line-height:1.6">串接的 ID、名稱、權限、擁有者與紀錄都不變，只換金鑰。</div>',
-         f'<button class="btn p" type="button">{I("refresh")}輪替</button><button class="btn t" type="button">取消</button>')
+         f'<button class="btn t" type="button">取消</button><button class="btn p" type="button">{I("refresh")}輪替</button>')
 d2 = dlg("2", "輪替金鑰 · 過渡期", rot_opts("grace") + minutes("30") + f'<div style="font-size:12px;color:#3A3D45;background:#F5F5F7;border-radius:0 10px 0 10px;padding:8px 10px">舊金鑰 <span class="k">jly_Qm3d8sKe…</span> 會在 <b>今天 16:12</b> 失效。</div>',
-         f'<button class="btn p" type="button">{I("refresh")}輪替</button><button class="btn t" type="button">取消</button>')
-d3 = dlg("3", "輪替金鑰 · 過渡期超過上限", rot_opts("grace") + minutes("1500", True),
-         f'<button class="btn p" type="button" disabled style="opacity:.45">{I("refresh")}輪替</button><button class="btn t" type="button">取消</button><span style="font-size:12px;color:color-mix(in srgb,#E03B2E 75%,#15161A);margin-left:auto">API 也會回 400 grace_out_of_range</span>')
+         f'<button class="btn t" type="button">取消</button><button class="btn p" type="button">{I("refresh")}輪替</button>')
+d3 = dlg("3", "輪替金鑰 · 過渡期超過上限", rot_opts("grace") + minutes("1500", True) + '<div style="font-size:12px;color:color-mix(in srgb,#E03B2E 75%,#15161A)">API 也會回 400 grace_out_of_range</div>',
+         f'<button class="btn t" type="button">取消</button><button class="btn p" type="button" disabled style="opacity:.45">{I("refresh")}輪替</button>')
 d4 = dlg("4", "新金鑰 · 只顯示這一次", f'''<div class="keybox"><span class="lbl">新金鑰</span>
         <div style="display:flex;align-items:flex-start;gap:8px"><code class="k">{NEW_KEY}</code><button class="btn t s i" type="button" aria-label="複製新金鑰">{I("copy",14)}</button></div>
         <div class="h">舊金鑰 <span class="k" style="color:#fff;font-size:12px">jly_Qm3d8sKe…</span> 過渡到 16:12，可在金鑰表提前撤銷。</div></div>''',
          f'<button class="btn p" type="button">{I("check")}我已複製，關閉</button>')
 d5 = dlg("5", "提前撤銷舊金鑰", f'''<div style="font-size:13px;line-height:1.6">撤銷 <span class="k">jly_7Hq2xP0a…</span>？還剩 23 分的過渡期會直接結束，這把金鑰的下一次請求就 401。</div>
         <div style="font-size:12px;color:#5F6470">生效中的 <span class="k">jly_Qm3d8sKe…</span> 不受影響。</div>''',
-         f'<button class="btn danger" type="button">{I("x")}立即撤銷</button><button class="btn t" type="button">取消</button>')
+         f'<button class="btn t" type="button">取消</button><button class="btn danger" type="button">{I("x")}立即撤銷</button>')
 d6 = dlg("6", "刪除串接", f'''<div style="font-size:13px;line-height:1.6">刪除「內容小幫手」？所有金鑰（含過渡中的）立刻失效，清單與詳情不再出現。</div>
         <div style="font-size:12px;color:#5F6470;line-height:1.6">活動紀錄與輪替歷史會保留，之後仍可在紀錄裡依這個串接篩選。</div>
         <div><span class="lbl">輸入名稱確認</span><input class="ul" type="text" placeholder="內容小幫手" aria-label="輸入名稱確認"></div>''',
-         f'<button class="btn danger" type="button">{I("trash")}刪除</button><button class="btn t" type="button">取消</button>')
+         f'<button class="btn t" type="button">取消</button><button class="btn danger" type="button">{I("trash")}刪除</button>')
 
 detail_main = f'''<main style="padding:16px 24px 32px;display:flex;flex-direction:column;gap:28px">
   <div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start">
@@ -231,7 +228,7 @@ detail_main = f'''<main style="padding:16px 24px 32px;display:flex;flex-directio
 
     <div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><span class="lbl">活動紀錄</span>
-        <div class="seg"><span class="on">全部</span><span>2xx</span><span>4xx</span><span>5xx</span></div>
+        <div class="seg j"><span class="on">全部</span><span>2xx</span><span>4xx</span><span>5xx</span></div>
         <span class="sel">全部模組 {I("chevron-d",12)}</span><span class="sel">所有金鑰 {I("chevron-d",12)}</span><span class="sel">最近 24 小時 {I("chevron-d",12)}</span>
         <span style="margin-left:auto;font-size:12px;color:#5F6470">共 <b class="mono" style="font-size:14px;color:#15161A">1,284</b> 筆 · 跨越 3 次輪替</span></div>
       <div class="lg hd"><span>時間</span><span>金鑰</span><span>請求</span><span>狀態</span><span>來源</span></div>
@@ -271,7 +268,7 @@ detail_main = f'''<main style="padding:16px 24px 32px;display:flex;flex-directio
 B = {
     "Integrations": ("後台 · API 串接", 1440, 1200, admin("integrations", ["系統", "API 串接"],
         f'<a class="btn t" href="#">{I("external")}API 說明</a><button class="btn p" type="button">{I("plus")}建立串接</button>', integrations_main)),
-    "IntegrationDetail": ("後台 · API 串接詳情與輪替", 1440, 2850, admin("integrations", ["系統", "API 串接", "內容小幫手"],
+    "IntegrationDetail": ("後台 · API 串接詳情與輪替", 1440, 2810, admin("integrations", ["系統", "API 串接", "內容小幫手"],
         f'<button class="btn t" type="button">{I("pause")}停用</button><button class="btn p" type="button">{I("refresh")}輪替金鑰</button>', detail_main)),
 }
 

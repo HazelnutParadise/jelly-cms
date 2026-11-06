@@ -49,6 +49,18 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .seg span.on{background:#15161A;color:#fff}
 .kbd{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:#EDEEF1;padding:1px 5px;border-radius:0 5px 0 5px;color:#5F6470}
 .mark{display:inline-block;width:22px;height:26px}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}
+.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span,.seg.j a{min-height:30px;padding:0 14px;border-radius:999px}
+.seg.j span.on,.seg.j a.on{background:#15161A;color:#fff;box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
+.jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
+.jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470;z-index:2}
+.jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.cb.j,.rd.j{--cb:32px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3125)}.rd.j{border-radius:50%}
+.cb.j.on,.rd.j.on{background:#13C2A3}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 16.5l4.8 4.8L23 11.2' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.375);height:calc(var(--cb)*.375);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 </style>
 </helmet>
 <div style="width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #fff">
@@ -137,7 +149,7 @@ go run ./cmd/jelly-cms
 
     <aside style="position: sticky; top: 64px; display: flex; flex-direction: column">
       <div class="lbl" style="padding-bottom: 8px">屬性</div>
-      <div class="prop"><label>狀態</label><div class="seg"><span>草稿</span><span class="on">發布</span><span>排程</span></div></div>
+      <div class="prop"><label>狀態</label><div class="seg j"><span>草稿</span><span class="on">發布</span><span>排程</span></div></div>
       <div class="prop"><label for="slug">網址</label><div style="display: flex; align-items: center; gap: 4px; color: #5F6470; font-size: 13px">/post/<input id="slug" class="ul" type="text" value="go-cms" style="flex: 1"></div></div>
       <div class="prop"><label for="pub">發布時間</label><input id="pub" class="ul" type="text" value="2026-10-22 09:00"></div>
       <div class="prop"><label for="au">作者</label><input id="au" class="ul" type="text" value="小榛"></div>
@@ -151,7 +163,7 @@ go run ./cmd/jelly-cms
   </main>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1240}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1250}}'>
 class Component extends DCLogic {
   renderVals() { return {}; }
 }

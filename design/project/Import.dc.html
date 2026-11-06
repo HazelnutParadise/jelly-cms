@@ -38,6 +38,12 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
 .jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
 .jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.jd.st{position:relative;left:auto;top:auto;transform:none;width:auto;text-align:left}
+.cb.j,.rd.j{--cb:32px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3125)}.rd.j{border-radius:50%}
+.cb.j.on,.rd.j.on{background:#13C2A3}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;width:auto;height:auto;border:0;transform:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 16.5l4.8 4.8L23 11.2' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.375);height:calc(var(--cb)*.375);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 .ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
 .cube{position:absolute;border-radius:0 26% 0 26%}
@@ -136,15 +142,15 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
       </div>
       <div class="card" style="padding:0;overflow:hidden">
         <table>
-          <thead><tr><th style="width:36px"><span class="cb on"></span></th><th>內容</th><th>數量</th><th>怎麼處理</th><th>備註</th></tr></thead>
+          <thead><tr><th style="width:36px"><span class="cb j on"></span></th><th>內容</th><th>數量</th><th>怎麼處理</th><th>備註</th></tr></thead>
           <tbody>
-            <tr><td><span class="cb on"></span></td><td><b>文章</b></td><td class="mono" style="font-size:15px">214</td><td><div class="seg"><span class="on">HTML 轉 Markdown</span><span>保留 HTML</span></div></td><td style="color:#5F6470;font-size:12px">Gutenberg 區塊會轉成一般段落；短代碼會原樣留著並標記。</td></tr>
-            <tr><td><span class="cb on"></span></td><td><b>頁面</b></td><td class="mono" style="font-size:15px">11</td><td><div class="seg"><span class="on">HTML 轉 Markdown</span><span>保留 HTML</span></div></td><td style="color:#5F6470;font-size:12px"></td></tr>
-            <tr><td><span class="cb on"></span></td><td><b>分類與標籤</b></td><td class="mono" style="font-size:15px">7 / 42</td><td><span class="chip ok">合併同名</span></td><td style="color:#5F6470;font-size:12px">「未分類」會略過。</td></tr>
-            <tr><td><span class="cb on"></span></td><td><b>留言</b></td><td class="mono" style="font-size:15px">1,840</td><td><div class="seg"><span class="on">已核准的</span><span>全部</span></div></td><td style="color:#5F6470;font-size:12px">垃圾留言 612 則不匯入。</td></tr>
-            <tr><td><span class="cb on"></span></td><td><b>附件</b></td><td class="mono" style="font-size:15px">312</td><td><div class="seg"><span class="on">下載到本站</span><span>只連回原站</span></div></td><td style="color:#7A5200;font-size:12px">約 1.9 GB，背景下載，文章裡的網址會自動改。</td></tr>
-            <tr><td><span class="cb"></span></td><td><b>WooCommerce 商品</b></td><td class="mono" style="font-size:15px">38</td><td><span class="chip warn">需要外掛</span></td><td style="color:#5F6470;font-size:12px">裝「WooCommerce 匯入」外掛才能選。</td></tr>
-            <tr><td><span class="cb on"></span></td><td><b>固定網址</b></td><td class="mono" style="font-size:15px">225</td><td><span class="chip ok">自動建轉址</span></td><td style="color:#5F6470;font-size:12px">/2026/10/21/slug → /posts/slug，舊連結不會壞。</td></tr>
+            <tr><td><span class="cb j on"></span></td><td><b>文章</b></td><td class="mono" style="font-size:15px">214</td><td><div class="seg j"><span class="on">HTML 轉 Markdown</span><span>保留 HTML</span></div></td><td style="color:#5F6470;font-size:12px">Gutenberg 區塊會轉成一般段落；短代碼會原樣留著並標記。</td></tr>
+            <tr><td><span class="cb j on"></span></td><td><b>頁面</b></td><td class="mono" style="font-size:15px">11</td><td><div class="seg j"><span class="on">HTML 轉 Markdown</span><span>保留 HTML</span></div></td><td style="color:#5F6470;font-size:12px"></td></tr>
+            <tr><td><span class="cb j on"></span></td><td><b>分類與標籤</b></td><td class="mono" style="font-size:15px">7 / 42</td><td><span class="chip ok">合併同名</span></td><td style="color:#5F6470;font-size:12px">「未分類」會略過。</td></tr>
+            <tr><td><span class="cb j on"></span></td><td><b>留言</b></td><td class="mono" style="font-size:15px">1,840</td><td><div class="seg j"><span class="on">已核准的</span><span>全部</span></div></td><td style="color:#5F6470;font-size:12px">垃圾留言 612 則不匯入。</td></tr>
+            <tr><td><span class="cb j on"></span></td><td><b>附件</b></td><td class="mono" style="font-size:15px">312</td><td><div class="seg j"><span class="on">下載到本站</span><span>只連回原站</span></div></td><td style="color:#7A5200;font-size:12px">約 1.9 GB，背景下載，文章裡的網址會自動改。</td></tr>
+            <tr><td><span class="cb j"></span></td><td><b>WooCommerce 商品</b></td><td class="mono" style="font-size:15px">38</td><td><span class="chip warn">需要外掛</span></td><td style="color:#5F6470;font-size:12px">裝「WooCommerce 匯入」外掛才能選。</td></tr>
+            <tr><td><span class="cb j on"></span></td><td><b>固定網址</b></td><td class="mono" style="font-size:15px">225</td><td><span class="chip ok">自動建轉址</span></td><td style="color:#5F6470;font-size:12px">/2026/10/21/slug → /posts/slug，舊連結不會壞。</td></tr>
           </tbody>
         </table>
       </div>
@@ -159,7 +165,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
   
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1380}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1440}}'>
 class Component extends DCLogic {
   renderVals() { return {}; }
 }

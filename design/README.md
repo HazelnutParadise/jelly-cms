@@ -67,17 +67,19 @@ node design/tools/shot.mjs Main Posts EditorFull
 - 發布線上畫布時，`files` 要把 `project/fonts.css` 和 `project/fonts/*.woff2` 一起列進去，否則線上畫布會退回系統字型。
 - 新板用 `gen.py` 的 `doc()` 就自動帶這行；手寫新板自己加這一行，不要再貼 Google Fonts。
 
-## Jelly UI 元件對照
+## Jelly UI 元件對照（界線）
 
-後台採用 [Jelly UI](https://jelly-ui.com/)（Web Components）的四類控制項；版面、側欄、卡片、表格、按鈕、自家圖示不換。板上是它們在本專案語言裡的樣子，程式用的標籤、屬性與對接規則在 `docs/tickets/12-zero-cdn-jelly-ui.md`。
+後台依「控制項的種類」劃線，同一類在整個後台只有一種長相與一種實作；界線的決定與理由在 `docs/tickets/26-jelly-ui-consistency.md`。前台、登入、安裝與帳號復原頁不用 Jelly UI，板上維持自家樣子。
 
-| 控制項 | 板 | 板上的樣子 | 程式 |
-|---|---|---|---|
-| 開關 | Settings、SettingsRoutes、SettingsCrawlers（`.tg.j`） | 膠囊軌道、白色圓形拇指與柔影；開是薄荷色、關是灰；上游拇指移動時會拉長，靜態板不畫 | `<jelly-switch>`，設定頁的布林欄位，包含 OAuth、金流、閱讀、搜尋引擎與維護模式 |
-| 分段選擇 | Posts、Settings（`.seg.j`） | 膠囊軌道，選中的段是墨色膠囊與柔影；Posts 每段標籤後面接篇數，同字級同色（上游的段標籤只能是純文字）；Settings 的「環境」兩段是「測試」「正式」 | `<jelly-segmented>` 加 `<jelly-segment>`：文章列表的狀態篩選；設定頁綠界與藍新的「環境」（測試＝`test_mode: true`） |
-| 對話框 | Trash（`.jd`） | 對角單角圓角卡片、右上角圓形 ✕、背景暗化加輕微模糊；回收桶的「輸入刪除確認」是 `Jelly.confirm` 的 `requireText` 版 | `<jelly-dialog>`，由 `window.Jelly.confirm()` 產生 |
-| 通知 | States（`.jt`） | 墨色底、圓形色點、右側圓形 ✕；動作按鈕與細節文字沿用 | `<jelly-toaster>`，由 `window.Jelly.toast()` 轉呼叫 `jellyToast()` |
+| 類別 | 在板上的樣子 | 程式用什麼 |
+|---|---|---|
+| 選擇與切換 | 開關 `.tg.j`：膠囊軌道、白色圓形拇指與柔影，開是薄荷色、關是灰。分段選擇 `.seg.j`：膠囊軌道，選中的段是墨色膠囊與柔影，用在卡片或清單內選值、篩選清單、切換卡片內的來源（例：文章狀態、使用者角色、折扣碼類型、編輯器的檢視模式、設定頁的「環境」）。勾選框 `.cb.j`：32px 圓角方塊，沒勾是淺灰、勾了是薄荷色底加白色勾。單選 `.rd.j`：32px 圓形，沒選是淺灰，選了是薄荷色圓加白色圓點。尺寸是 `--cb`，與上游預設的 `--jelly-checkbox-size`、`--jelly-radio-size` 相同。表格的全選與逐列勾選、勾選卡片（邀請角色、匯出格式、快取驅動）裡的指示也用它們 | `<jelly-switch>`、`<jelly-segmented>` 加 `<jelly-segment>`、`<jelly-checkbox>`、`<jelly-radio-group>` 加 `<jelly-radio>` |
+| 回饋與覆蓋層 | 通知 `.jt`：墨色底、圓形色點、右側圓形 ✕。對話框 `.jd`：對角單角圓角卡片、右上圓形 ✕、背景暗化加輕微模糊（`.jd-scrim`）；一個板上若同時並列多種對話框狀態，用 `.jd.st` 畫成不絕對定位的靜態範例（IntegrationDetail 的輪替對話框、Profile 的備用碼） | `window.Jelly.toast()`、`window.Jelly.confirm()`、`<jelly-dialog>` |
+| 輸入與動作 | 底線欄位、對角單角按鈕、覆盆子紅主要動作、下拉選單、徽章、卡片、表格、側欄、⌘K 面板（Palette）維持自家，不畫成 Jelly | 自家 CSS，不採用 `jelly-button`、`jelly-input`、`jelly-select`、`jelly-badge` 等 |
+| 導覽 | 會換網址或切換整頁區塊的分頁列維持自家分頁樣式：設定頁分頁列、個人資料分頁、附件策略頁分頁、轉址與 SEO 的三個分頁、應用市場的外掛／主題分頁 | 自家分頁 |
+
+判斷分段選擇還是分頁：在卡片或清單內選一個值、篩選清單、切換卡片內的來源，畫 `.seg.j`；換網址或切換整頁的主要區塊，畫自家分頁。使用者內容不算後台控制項：編輯器預覽裡的待辦清單勾選框不換。
 
 手機版的文章狀態選擇會縮減左右內距。標籤與篇數過長時，只在控制項所在的列內橫向捲動，不讓整頁溢出；開關與分段選擇的繪圖裁切保留 8px 焦點空間。
 
-兩個上游限制寫在這裡，免得有人誤會是板畫錯：開關與分段選擇是 canvas 繪製的膠囊形，圓角不能改成對角單角；只有對話框與通知有 `--jelly-<元件>-radius` 變數，所以這兩個維持對角圓角。
+上游限制寫在這裡，免得有人誤會是板畫錯：開關與分段選擇是 canvas 繪製的膠囊形，勾選框與單選也是圓角方塊與圓形，都不能改成對角單角；只有對話框與通知有 `--jelly-<元件>-radius` 變數，所以只有這兩個用對角單角。勾選框與單選也是圓角，不是對角單角。

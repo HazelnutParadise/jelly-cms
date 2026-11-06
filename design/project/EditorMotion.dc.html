@@ -38,6 +38,12 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
 .jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
 .jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.jd.st{position:relative;left:auto;top:auto;transform:none;width:auto;text-align:left}
+.cb.j,.rd.j{--cb:32px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3125)}.rd.j{border-radius:50%}
+.cb.j.on,.rd.j.on{background:#13C2A3}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;width:auto;height:auto;border:0;transform:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 16.5l4.8 4.8L23 11.2' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.375);height:calc(var(--cb)*.375);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 .ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
 .cube{position:absolute;border-radius:0 26% 0 26%}
@@ -135,8 +141,8 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
       <b style="font-size:14px">中秋禮盒預購</b><span class="chip nd">頁面</span><span class="chip warn">草稿</span>
       <span style="font-size:12px;color:#5F6470;display:inline-flex;align-items:center;gap:5px"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>已儲存 · 剛剛</span>
       <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
-        <div class="seg"><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM3 10h18M9 10v10"/></svg>文字</span><span class="on"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>版面</span><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg>分割</span></div>
-        <div class="seg"><span class="on"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>桌面</span><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM3 10h18M9 10v10"/></svg>手機</span></div>
+        <div class="seg j"><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM3 10h18M9 10v10"/></svg>文字</span><span class="on"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>版面</span><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg>分割</span></div>
+        <div class="seg j"><span class="on"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>桌面</span><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM3 10h18M9 10v10"/></svg>手機</span></div>
         <button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>匯出</button>
         <button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>預覽</button>
         <button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>發布 <span style="opacity:.7">▾</span></button>
@@ -189,7 +195,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
 
       <aside style="border-left:1px solid #E6E7EB;padding:14px 16px;display:flex;flex-direction:column;gap:14px;overflow:auto">
         <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:14px">英雄區</b><span class="chip nd" style="margin-left:auto">第 1 個區塊</span></div>
-        <div class="seg" style="align-self:flex-start"><span>樣式</span><span>內容</span><span class="on">動效</span><span>進階</span></div>
+        <div class="seg j" style="align-self:flex-start"><span>樣式</span><span>內容</span><span class="on">動效</span><span>進階</span></div>
         <div><span class="lbl">出現時</span>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
             <div class="pre"><span class="sw" style="background:#D9DBE0"></span>無</div>
@@ -200,12 +206,12 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
             <div class="pre"><span class="sw" style="background:#15161A;transform:scale(.8)"></span>放大</div>
           </div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div><span class="lbl">時長</span><div class="seg" style="margin-top:6px"><span>快</span><span class="on">中</span><span>慢</span></div></div>
-          <div><span class="lbl">延遲</span><div class="seg" style="margin-top:6px"><span class="on">0</span><span>0.2s</span><span>0.4s</span></div></div>
+          <div><span class="lbl">時長</span><div class="seg j" style="margin-top:6px"><span>快</span><span class="on">中</span><span>慢</span></div></div>
+          <div><span class="lbl">延遲</span><div class="seg j" style="margin-top:6px"><span class="on">0</span><span>0.2s</span><span>0.4s</span></div></div>
         </div>
-        <div><span class="lbl">子元素依序出現</span><div style="display:flex;align-items:center;gap:10px;margin-top:6px;font-size:13px"><span class="tg"></span><span>每個隔 <b>80ms</b></span></div></div>
-        <div><span class="lbl">滑鼠移上去</span><div class="seg" style="margin-top:6px"><span>無</span><span class="on">浮起</span><span>發光</span><span>傾斜</span></div></div>
-        <div><span class="lbl">捲動時</span><div class="seg" style="margin-top:6px"><span class="on">無</span><span>視差</span></div></div>
+        <div><span class="lbl">子元素依序出現</span><div style="display:flex;align-items:center;gap:10px;margin-top:6px;font-size:13px"><span class="tg j"></span><span>每個隔 <b>80ms</b></span></div></div>
+        <div><span class="lbl">滑鼠移上去</span><div class="seg j" style="margin-top:6px"><span>無</span><span class="on">浮起</span><span>發光</span><span>傾斜</span></div></div>
+        <div><span class="lbl">捲動時</span><div class="seg j" style="margin-top:6px"><span class="on">無</span><span>視差</span></div></div>
         <div><span class="lbl">時間軸（這個區塊）</span>
           <div class="tl" style="margin-top:6px">
             <span class="tick" style="left:25%"></span><span class="tick" style="left:50%"></span><span class="tick" style="left:75%"></span>
@@ -214,7 +220,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
             <span class="bar" style="left:22%;width:30%;top:28px;margin-left:34%;background:#E8285B">按鈕 滑入左側</span>
             <span style="position:absolute;right:6px;bottom:4px;font-size:10px;color:#9A9FAB">0 · 0.3 · 0.6 · 0.9s</span>
           </div></div>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">只播放一次<span class="tg"></span></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">只播放一次<span class="tg j"></span></label>
         <div style="font-size:11.5px;color:#5F6470;line-height:1.6">使用者系統有開「減少動態」時，全部改成直接出現。依系統設定直接出現，持續保留內容與操作。</div>
         <div style="border-top:1px solid #EEEFF2;padding-top:12px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span class="lbl">對應的文字</span><button class="btn t s" type="button" style="margin-left:auto"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M7 4l12 8-12 8z"/></svg>播一次</button></div>
 <div class="code"><b>:::hero</b>{bg=mint <u>reveal=fade-up stagger=80 hover=lift</u>}

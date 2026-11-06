@@ -38,8 +38,8 @@ def top(seg_on, right_extra=""):
       <b style="font-size:14px">中秋禮盒預購</b><span class="chip nd">頁面</span><span class="chip warn">草稿</span>
       <span style="font-size:12px;color:#5F6470;display:inline-flex;align-items:center;gap:5px">{I("check",13)}已儲存 · 剛剛</span>
       <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
-        <div class="seg">{seg}</div>
-        <div class="seg"><span class="on">{I("grid",13)}桌面</span><span>{I("page",13)}手機</span></div>
+        <div class="seg j">{seg}</div>
+        <div class="seg j"><span class="on">{I("grid",13)}桌面</span><span>{I("page",13)}手機</span></div>
         {right_extra}
         <button class="btn t" type="button">{I("eye")}預覽</button>
         <button class="btn p" type="button">{I("check")}發布 <span style="opacity:.7">▾</span></button>
@@ -97,13 +97,13 @@ layout = f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction
 
       <aside style="border-left:1px solid #E6E7EB;padding:14px 16px;display:flex;flex-direction:column;gap:14px;overflow:auto">
         <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:14px">英雄區</b><span class="chip nd" style="margin-left:auto">第 1 個區塊</span></div>
-        <div class="seg" style="align-self:flex-start"><span class="on">樣式</span><span>內容</span><span>進階</span></div>
+        <div class="seg j" style="align-self:flex-start"><span class="on">樣式</span><span>內容</span><span>進階</span></div>
         <div><span class="lbl">背景</span><div style="display:flex;gap:6px;margin-top:6px"><span style="width:26px;height:26px;background:#fff;box-shadow:inset 0 0 0 1px #D9DBE0;border-radius:0 9px 0 9px / 0 5px 0 5px"></span><span style="width:26px;height:26px;background:#15161A;border-radius:0 9px 0 9px / 0 5px 0 5px"></span><span style="width:26px;height:26px;background:#E8285B;border-radius:0 9px 0 9px / 0 5px 0 5px"></span><span style="width:26px;height:26px;background:#2F6BFF;border-radius:0 9px 0 9px / 0 5px 0 5px"></span><span style="width:26px;height:26px;background:#13C2A3;border-radius:0 9px 0 9px / 0 5px 0 5px;box-shadow:0 0 0 2px #fff,0 0 0 4px #15161A"></span><span style="width:26px;height:26px;background:#F5B800;border-radius:0 9px 0 9px / 0 5px 0 5px"></span><span style="width:26px;height:26px;display:grid;place-items:center;box-shadow:inset 0 0 0 1px #D9DBE0;border-radius:0 9px 0 9px / 0 5px 0 5px">{I("image",14)}</span></div><div style="font-size:11.5px;color:#5F6470;margin-top:6px">只給主題的口味色，不給色票。換主題時顏色跟著換。</div></div>
-        <div><span class="lbl">對齊</span><div class="seg" style="margin-top:6px"><span class="on">靠左</span><span>置中</span></div></div>
-        <div><span class="lbl">高度</span><div class="seg" style="margin-top:6px"><span>緊湊</span><span class="on">一般</span><span>滿版</span></div></div>
-        <div><span class="lbl">內距</span><div class="seg" style="margin-top:6px"><span>小</span><span class="on">中</span><span>大</span></div></div>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">手機時隱藏按鈕列<span class="tg off"></span></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">加果凍丁裝飾<span class="tg"></span></label>
+        <div><span class="lbl">對齊</span><div class="seg j" style="margin-top:6px"><span class="on">靠左</span><span>置中</span></div></div>
+        <div><span class="lbl">高度</span><div class="seg j" style="margin-top:6px"><span>緊湊</span><span class="on">一般</span><span>滿版</span></div></div>
+        <div><span class="lbl">內距</span><div class="seg j" style="margin-top:6px"><span>小</span><span class="on">中</span><span>大</span></div></div>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">手機時隱藏按鈕列<span class="tg j off"></span></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">加果凍丁裝飾<span class="tg j"></span></label>
         <div><span class="lbl">錨點</span><input class="ul" type="text" value="preorder" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></div>
         <div style="border-top:1px solid #EEEFF2;padding-top:12px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span class="lbl">這個區塊的文字</span><a href="EditorFull.dc.html" style="font-size:11.5px;margin-left:auto">在文字模式打開</a></div>
 <div class="code"><b>:::hero</b>{{bg=mint align=left height=normal cubes}}
@@ -127,22 +127,23 @@ export = f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction
     <div class="topline"></div>
     {top("分割")}
     <div style="flex:1;background:#F6F7F9;opacity:.5"></div>
-    <div style="position:absolute;inset:0;background:rgba(21,22,26,.35)"></div>
-    <div style="position:absolute;top:0;right:0;bottom:0;width:520px;background:#fff;box-shadow:-24px 0 48px rgba(21,22,26,.12);border-radius:0 0 0 24px;display:flex;flex-direction:column">
-      <div style="display:flex;align-items:center;gap:10px;padding:16px 22px;border-bottom:1px solid #EEEFF2"><span class="stripe" style="width:40px"></span><b style="font-size:15px">匯出「中秋禮盒預購」</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto">{I("x")}</button></div>
-      <div style="padding:18px 22px;display:flex;flex-direction:column;gap:10px;flex:1;overflow:auto">
+    <div class="jd-scrim"></div>
+    <div class="jd" role="dialog" aria-label="匯出「中秋禮盒預購」" style="width:600px">
+      <span class="close">{I("x",14)}</span>
+      <b style="font-size:16px;padding-right:34px">匯出「中秋禮盒預購」</b>
+      <div style="display:flex;flex-direction:column;gap:10px">
         <div class="lbl" style="margin-bottom:2px">格式</div>
-        <label class="ex on"><span class="cb on" style="margin-top:3px"></span>{I("doc")}<span><b>Jelly Markdown（.md）</b><p>原稿原樣：一般 Markdown 加上 <span class="kbd">:::</span> 版面區塊、<span class="kbd">```table</span>、數學、LaTeX 與 HTML 區塊。任何 Markdown 編輯器都打得開，版面區塊會顯示成文字。要搬回 Jelly 或進版本控制就選這個。</p></span></label>
-        <label class="ex"><span class="cb" style="margin-top:3px"></span>{I("page")}<span><b>純 Markdown（.md）</b><p>把 Jelly 專用的東西攤平：欄變成連續段落、商品格變成連結清單、YAML 表格轉成管線表格、提示框變成引言。數學保留 <span class="kbd">$…$</span>。要貼到 GitHub、Notion、別家 CMS 選這個。</p></span></label>
-        <label class="ex"><span class="cb" style="margin-top:3px"></span>{I("globe")}<span><b>HTML（.html）</b><p>獨立文件附上內容樣式；數學與 LaTeX 原稿在沒有排版引擎時保留為原始碼。可勾選把圖片一起打包成 .zip。</p></span></label>
-        <label class="ex"><span class="cb" style="margin-top:3px"></span>{I("download")}<span><b>PDF</b><p>以瀏覽器列印前台樣式，再選「另存為 PDF」。伺服器沒有 PDF 引擎時會提示改用列印。</p></span></label>
+        <label class="ex on"><span class="rd j on" style="margin-top:3px"></span>{I("doc")}<span><b>Jelly Markdown（.md）</b><p>原稿原樣：一般 Markdown 加上 <span class="kbd">:::</span> 版面區塊、<span class="kbd">```table</span>、數學、LaTeX 與 HTML 區塊。任何 Markdown 編輯器都打得開，版面區塊會顯示成文字。要搬回 Jelly 或進版本控制就選這個。</p></span></label>
+        <label class="ex"><span class="rd j" style="margin-top:3px"></span>{I("page")}<span><b>純 Markdown（.md）</b><p>把 Jelly 專用的東西攤平：欄變成連續段落、商品格變成連結清單、YAML 表格轉成管線表格、提示框變成引言。數學保留 <span class="kbd">$…$</span>。要貼到 GitHub、Notion、別家 CMS 選這個。</p></span></label>
+        <label class="ex"><span class="rd j" style="margin-top:3px"></span>{I("globe")}<span><b>HTML（.html）</b><p>獨立文件附上內容樣式；數學與 LaTeX 原稿在沒有排版引擎時保留為原始碼。可勾選把圖片一起打包成 .zip。</p></span></label>
+        <label class="ex"><span class="rd j" style="margin-top:3px"></span>{I("download")}<span><b>PDF</b><p>以瀏覽器列印前台樣式，再選「另存為 PDF」。伺服器沒有 PDF 引擎時會提示改用列印。</p></span></label>
         <div style="display:flex;flex-direction:column;gap:8px;padding:12px 14px;background:#F5F5F7;border-radius:0 10px 0 10px;font-size:13px;margin-top:4px">
-          <label style="display:flex;align-items:center;gap:8px"><span class="cb on"></span>包含圖片（複製到同一個資料夾，連結改成相對路徑）</label>
-          <label style="display:flex;align-items:center;gap:8px"><span class="cb on"></span>開頭附上標題、網址、日期、標籤的 YAML 標頭</label>
+          <label style="display:flex;align-items:center;gap:8px"><span class="cb j on"></span>包含圖片（複製到同一個資料夾，連結改成相對路徑）</label>
+          <label style="display:flex;align-items:center;gap:8px"><span class="cb j on"></span>開頭附上標題、網址、日期、標籤的 YAML 標頭</label>
         </div>
         <div style="font-size:12.5px;color:#5F6470;line-height:1.6;margin-top:4px;display:flex;gap:8px">{I("alert",15)}<span>整個網站要匯出，去「備份與匯出」：Markdown 資料夾、WXR（給 WordPress，會用「純 Markdown」的攤平規則轉成 HTML）或 JSON。</span></div>
       </div>
-      <div style="padding:14px 22px;border-top:1px solid #EEEFF2;display:flex;gap:8px;align-items:center"><button class="btn p" type="button">{I("download")}下載 .md</button><button class="btn t" type="button">{I("copy")}複製到剪貼簿</button><span style="margin-left:auto;font-size:12px;color:#5F6470">約 14 KB · 3 張圖</span></div>
+      <div style="display:flex;gap:8px;align-items:center"><button class="btn p" type="button">{I("download")}下載 .md</button><button class="btn t" type="button">{I("copy")}複製到剪貼簿</button><span style="margin-left:auto;font-size:12px;color:#5F6470">約 14 KB · 3 張圖</span></div>
     </div>
   </div>'''
 

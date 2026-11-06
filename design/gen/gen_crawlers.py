@@ -28,14 +28,14 @@ main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-column
         <div class="lbl" style="margin-bottom:4px">搜尋引擎（Google、Bing、DuckDuckGo…）</div>
         <div class="srow"><div><label>讓搜尋引擎索引這個網站</label><div class="h">關掉等於整站 noindex，測試站或還沒上線用。</div></div><div class="c"><span class="tg j"></span></div></div>
         <div class="srow"><div><label>哪些頁面可以被索引</label><div class="h">不索引的頁面不會進 sitemap，並加 noindex。單篇文章可以另外覆寫。</div></div><div class="c" style="flex-wrap:wrap;justify-content:flex-start;gap:6px"><span class="chip ok">首頁</span><span class="chip ok">文章</span><span class="chip ok">頁面</span><span class="chip ok">分類頁</span><span class="chip">標籤頁</span><span class="chip ok">作者頁</span><span class="chip">月份彙整</span><span class="chip ok">商品</span><span class="chip">搜尋結果</span><span class="chip">購物車與結帳</span><span class="chip">會員中心</span></div></div>
-        <div class="srow"><div><label>圖片</label></div><div class="c"><div class="seg"><span class="on">可被圖片搜尋</span><span>不要（noimageindex）</span></div></div></div>
-        <div class="srow"><div><label>摘要長度與快照</label><div class="h">對應 max-snippet、max-image-preview、noarchive。</div></div><div class="c"><div class="seg"><span class="on">不限制</span><span>只給短摘要</span><span>不給快取副本</span></div></div></div>
+        <div class="srow"><div><label>圖片</label></div><div class="c"><div class="seg j"><span class="on">可被圖片搜尋</span><span>不要（noimageindex）</span></div></div></div>
+        <div class="srow"><div><label>摘要長度與快照</label><div class="h">對應 max-snippet、max-image-preview、noarchive。</div></div><div class="c"><div class="seg j"><span class="on">不限制</span><span>只給短摘要</span><span>不給快取副本</span></div></div></div>
         <div class="srow"><div><label>變更時通知搜尋引擎</label><div class="h">IndexNow（Bing、Yandex、Naver…）。金鑰留空保留，可明確清除。</div></div><div class="c"><span class="tg j"></span></div></div>
       </div>
 
       <div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span class="lbl">AI 爬蟲</span><span style="font-size:12px;color:#5F6470">分「拿去訓練模型」和「拿去回答問題／AI 搜尋」兩種用途，可以分開決定。</span></div>
-        <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><div class="seg"><span class="on">全部封鎖訓練、允許搜尋</span><span>全部封鎖</span><span>全部允許</span><span>自訂</span></div><span style="font-size:12px;color:#5F6470;margin-left:auto">名單每月隨更新自動補，自訂規則不會被動到</span></div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><div class="seg j"><span class="on">全部封鎖訓練、允許搜尋</span><span>全部封鎖</span><span>全部允許</span><span>自訂</span></div><span style="font-size:12px;color:#5F6470;margin-left:auto">名單每月隨更新自動補，自訂規則不會被動到</span></div>
         <div class="bot" style="border-top:0;font-size:11px;font-weight:700;color:#5F6470;letter-spacing:.06em;text-transform:uppercase;padding-top:0"><span>爬蟲</span><span>訓練用</span><span>搜尋／回答用</span><span>行為</span></div>
         {bot("OpenAI","GPTBot · ChatGPT-User · OAI-SearchBot","ChatGPT","no","ok",False)}
         {bot("Anthropic","ClaudeBot · Claude-User · Claude-SearchBot","Claude","no","ok",False)}
@@ -112,4 +112,4 @@ TDM-Policy: https://example.com/tdm-policy.json</div>
     </aside>
   </main>'''
 html = admin("settings", ["系統","設定","搜尋引擎與 AI 爬蟲"], f'<button class="btn t" type="button">{I("undo")}還原</button><button class="btn p" type="button">{I("save")}儲存並重新產生</button>', main)
-open(os.path.join(OUT, "SettingsCrawlers.dc.html"),"w",encoding="utf-8").write(doc("後台 · 設定 · 搜尋引擎與 AI 爬蟲", CSS, html, 1440, 2030)); print("wrote SettingsCrawlers")
+open(os.path.join(OUT, "SettingsCrawlers.dc.html"),"w",encoding="utf-8").write(doc("後台 · 設定 · 搜尋引擎與 AI 爬蟲", CSS, html, 1440, 2050)); print("wrote SettingsCrawlers")

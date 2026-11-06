@@ -38,6 +38,12 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
 .jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
 .jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.jd.st{position:relative;left:auto;top:auto;transform:none;width:auto;text-align:left}
+.cb.j,.rd.j{--cb:32px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3125)}.rd.j{border-radius:50%}
+.cb.j.on,.rd.j.on{background:#13C2A3}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;width:auto;height:auto;border:0;transform:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 16.5l4.8 4.8L23 11.2' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.375);height:calc(var(--cb)*.375);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 .ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
 .cube{position:absolute;border-radius:0 26% 0 26%}
@@ -159,14 +165,14 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
         <div class="lbl" style="margin-bottom:4px">搜尋引擎（Google、Bing、DuckDuckGo…）</div>
         <div class="srow"><div><label>讓搜尋引擎索引這個網站</label><div class="h">關掉等於整站 noindex，測試站或還沒上線用。</div></div><div class="c"><span class="tg j"></span></div></div>
         <div class="srow"><div><label>哪些頁面可以被索引</label><div class="h">不索引的頁面不會進 sitemap，並加 noindex。單篇文章可以另外覆寫。</div></div><div class="c" style="flex-wrap:wrap;justify-content:flex-start;gap:6px"><span class="chip ok">首頁</span><span class="chip ok">文章</span><span class="chip ok">頁面</span><span class="chip ok">分類頁</span><span class="chip">標籤頁</span><span class="chip ok">作者頁</span><span class="chip">月份彙整</span><span class="chip ok">商品</span><span class="chip">搜尋結果</span><span class="chip">購物車與結帳</span><span class="chip">會員中心</span></div></div>
-        <div class="srow"><div><label>圖片</label></div><div class="c"><div class="seg"><span class="on">可被圖片搜尋</span><span>不要（noimageindex）</span></div></div></div>
-        <div class="srow"><div><label>摘要長度與快照</label><div class="h">對應 max-snippet、max-image-preview、noarchive。</div></div><div class="c"><div class="seg"><span class="on">不限制</span><span>只給短摘要</span><span>不給快取副本</span></div></div></div>
+        <div class="srow"><div><label>圖片</label></div><div class="c"><div class="seg j"><span class="on">可被圖片搜尋</span><span>不要（noimageindex）</span></div></div></div>
+        <div class="srow"><div><label>摘要長度與快照</label><div class="h">對應 max-snippet、max-image-preview、noarchive。</div></div><div class="c"><div class="seg j"><span class="on">不限制</span><span>只給短摘要</span><span>不給快取副本</span></div></div></div>
         <div class="srow"><div><label>變更時通知搜尋引擎</label><div class="h">IndexNow（Bing、Yandex、Naver…）。金鑰留空保留，可明確清除。</div></div><div class="c"><span class="tg j"></span></div></div>
       </div>
 
       <div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span class="lbl">AI 爬蟲</span><span style="font-size:12px;color:#5F6470">分「拿去訓練模型」和「拿去回答問題／AI 搜尋」兩種用途，可以分開決定。</span></div>
-        <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><div class="seg"><span class="on">全部封鎖訓練、允許搜尋</span><span>全部封鎖</span><span>全部允許</span><span>自訂</span></div><span style="font-size:12px;color:#5F6470;margin-left:auto">名單每月隨更新自動補，自訂規則不會被動到</span></div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center"><div class="seg j"><span class="on">全部封鎖訓練、允許搜尋</span><span>全部封鎖</span><span>全部允許</span><span>自訂</span></div><span style="font-size:12px;color:#5F6470;margin-left:auto">名單每月隨更新自動補，自訂規則不會被動到</span></div>
         <div class="bot" style="border-top:0;font-size:11px;font-weight:700;color:#5F6470;letter-spacing:.06em;text-transform:uppercase;padding-top:0"><span>爬蟲</span><span>訓練用</span><span>搜尋／回答用</span><span>行為</span></div>
         <div class="bot"><div><b>OpenAI</b> <span style="font-size:12px;color:#5F6470">· ChatGPT</span><div class="ua">GPTBot · ChatGPT-User · OAI-SearchBot</div></div><span class="tri"><span class="">允許</span><span class="no">封鎖</span></span><span class="tri"><span class="ok">允許</span><span class="">封鎖</span></span><span style="font-size:12px;color:#5F6470">遵守 robots</span></div>
         <div class="bot"><div><b>Anthropic</b> <span style="font-size:12px;color:#5F6470">· Claude</span><div class="ua">ClaudeBot · Claude-User · Claude-SearchBot</div></div><span class="tri"><span class="">允許</span><span class="no">封鎖</span></span><span class="tri"><span class="ok">允許</span><span class="">封鎖</span></span><span style="font-size:12px;color:#5F6470">遵守 robots</span></div>
@@ -246,7 +252,7 @@ TDM-Policy: https://example.com/tdm-policy.json</div>
   
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2030}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":2050}}'>
 class Component extends DCLogic {
   renderVals() { return {}; }
 }

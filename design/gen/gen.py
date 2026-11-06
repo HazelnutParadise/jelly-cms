@@ -113,6 +113,12 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
 .jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
 .jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.jd.st{position:relative;left:auto;top:auto;transform:none;width:auto;text-align:left}
+.cb.j,.rd.j{--cb:32px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3125)}.rd.j{border-radius:50%}
+.cb.j.on,.rd.j.on{background:#13C2A3}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;width:auto;height:auto;border:0;transform:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 16.5l4.8 4.8L23 11.2' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.375);height:calc(var(--cb)*.375);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 .ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
 .cube{position:absolute;border-radius:0 26% 0 26%}
@@ -430,22 +436,22 @@ def row_tax(name, slug, n, lv=0, color=None, kind="分類"):
     pad = f' style="padding-left:{10+lv*22}px"' if lv else ""
     dot = f'<span style="width:10px;height:10px;background:{color};border-radius:0 3px 0 3px;display:inline-block;margin-right:8px;vertical-align:middle"></span>' if color else ""
     arrow = '<span style="color:#B9BCC6;margin-right:6px">└</span>' if lv else ""
-    return f'<tr><td style="width:36px"><span class="cb"></span></td><td{pad}>{arrow}{dot}<b>{name}</b></td><td style="color:#5F6470">/{slug}</td><td class="mono" style="font-size:15px">{n}</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="看前台">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>'
+    return f'<tr><td style="width:36px"><span class="cb j"></span></td><td{pad}>{arrow}{dot}<b>{name}</b></td><td style="color:#5F6470">/{slug}</td><td class="mono" style="font-size:15px">{n}</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="看前台">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>'
 
 def prow(name, slug, n, lv=0, color=None, sel=False):
     pad = f' style="padding-left:{10+lv*22}px"' if lv else ""
     dot = f'<span style="width:10px;height:10px;background:{color};border-radius:0 3px 0 3px;display:inline-block;margin-right:8px;vertical-align:middle"></span>' if color else ""
     arrow = '<span style="color:#B9BCC6;margin-right:6px">└</span>' if lv else ""
     bg = ' style="background:#F8F9FF"' if sel else ""
-    return f'<tr{bg}><td style="width:36px"><span class="cb{" on" if sel else ""}"></span></td><td{pad}>{arrow}{dot}<b>{name}</b></td><td style="color:#5F6470">/shop/c/{slug}</td><td class="mono" style="font-size:15px">{n}</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="看前台">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>'
+    return f'<tr{bg}><td style="width:36px"><span class="cb j{" on" if sel else ""}"></span></td><td{pad}>{arrow}{dot}<b>{name}</b></td><td style="color:#5F6470">/shop/c/{slug}</td><td class="mono" style="font-size:15px">{n}</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="看前台">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>'
 
-pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS + "\n@media(max-width:700px){.seg{flex-wrap:wrap;max-width:100%;box-sizing:border-box}}\n", 1440, 1340, admin("taxonomy", ["內容","分類與標籤"],
+pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS + "\n@media(max-width:700px){.seg{flex-wrap:wrap;max-width:100%;box-sizing:border-box}}\n", 1440, 1380, admin("taxonomy", ["內容","分類與標籤"],
   f'<button class="btn t" type="button">{I("upload")}從 WordPress 匯入</button><button class="btn p" type="button">{I("plus")}新增分類</button>',
   f'''<main style="padding: 16px 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start">
     <section>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">{I("folder",14)}分類 <b>7</b></span><span>{I("tag",14)}標籤 <b>42</b></span><span>{I("box",14)}商品分類 <b>5</b></span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="篩選" aria-label="篩選" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><button class="btn t s" type="button">{I("drag")}拖曳排序</button></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg j"><span class="on">{I("folder",14)}分類 <b>7</b></span><span>{I("tag",14)}標籤 <b>42</b></span><span>{I("box",14)}商品分類 <b>5</b></span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="篩選" aria-label="篩選" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><button class="btn t s" type="button">{I("drag")}拖曳排序</button></div>
       <table>
-        <thead><tr><th><span class="cb"></span></th><th>名稱</th><th>網址</th><th>文章</th><th></th></tr></thead>
+        <thead><tr><th><span class="cb j"></span></th><th>名稱</th><th>網址</th><th>文章</th><th></th></tr></thead>
         <tbody>
           {row_tax("食譜","recipes",18,0,"#2F6BFF")}
           {row_tax("甜點","recipes/desserts",11,1)}
@@ -472,9 +478,9 @@ pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS + "\n@media(max-width:70
   <div style="margin:4px 24px 0;padding-top:14px;border-top:1px dashed #D9DBE0;display:flex;align-items:center;gap:10px;color:#5F6470;font-size:13px">{I("box",14)}<b style="color:#15161A">切到「商品分類」分段</b>商品有自己的分類樹，網址是 <span class="mono">/shop/c/…</span>，跟文章分類互不相干。</div>
   <main style="padding: 16px 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start">
     <section>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span>{I("folder",14)}分類 <b>7</b></span><span>{I("tag",14)}標籤 <b>42</b></span><span class="on">{I("box",14)}商品分類 <b>5</b></span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="篩選" aria-label="篩選商品分類" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><button class="btn p s" type="button">{I("plus")}新增商品分類</button></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg j"><span>{I("folder",14)}分類 <b>7</b></span><span>{I("tag",14)}標籤 <b>42</b></span><span class="on">{I("box",14)}商品分類 <b>5</b></span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="篩選" aria-label="篩選商品分類" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><button class="btn p s" type="button">{I("plus")}新增商品分類</button></div>
       <table>
-        <thead><tr><th><span class="cb"></span></th><th>名稱</th><th>網址</th><th>商品</th><th></th></tr></thead>
+        <thead><tr><th><span class="cb j"></span></th><th>名稱</th><th>網址</th><th>商品</th><th></th></tr></thead>
         <tbody>
           {prow("果凍","jelly",18,0,"#2F6BFF")}
           {prow("水果","jelly-fruit",8,1,sel=True)}
@@ -496,7 +502,7 @@ pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS + "\n@media(max-width:70
       <div><span class="lbl">上層分類</span><select class="ul"><option>果凍</option><option>（無）</option><option>禮盒</option><option>器具</option></select></div>
       <div><span class="lbl">封面圖網址（分類頁頂端）</span><input class="ul" type="text" value="/uploads/jelly-fruit.jpg"></div>
       <div><span class="lbl">描述（SEO 與分類頁開頭）</span><textarea class="ul" rows="3">真的水果榨汁做的，不加香精。冷藏寄出，兩天內到貨最好吃。</textarea></div>
-      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">在商店隱藏（網址仍可進入）<span class="tg off"></span></label>
+      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">在商店隱藏（網址仍可進入）<span class="tg j off"></span></label>
       <div style="display:flex;gap:8px;margin-top:4px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("external")}看前台</button><button class="btn x i" type="button" aria-label="刪除" style="margin-left:auto;color:#9C2318">{I("trash")}</button></div>
       <div style="display:flex;gap:8px;align-items:flex-start;padding:10px 12px;background:#FBE1DE;color:#9C2318;border-radius:0 10px 0 10px;font-size:12px;line-height:1.6">{I("alert",14)}<span><b>無法刪除「水果」</b><br>這個分類裡還有 8 個商品，先把商品移出再刪。</span></div>
     </aside>
@@ -520,14 +526,14 @@ pages["Menus"] = ("後台導覽選單", ADMIN_CSS, 1440, 1000, admin("menus", ["
       </div>
       <div class="card" style="display:flex;flex-direction:column;gap:10px">
         <div class="lbl">加入項目</div>
-        <div class="seg" style="align-self:flex-start"><span class="on">頁面</span><span>分類</span><span>文章</span><span>商店</span><span>自訂</span></div>
+        <div class="seg j" style="align-self:flex-start"><span class="on">頁面</span><span>分類</span><span>文章</span><span>商店</span><span>自訂</span></div>
         <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;color:#5F6470;font-size:13px">{I("search",14)}<input type="text" placeholder="找頁面" aria-label="找頁面" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label>
         <div style="display:flex;flex-direction:column;gap:4px;font-size:13.5px">
-          <label style="display:flex;align-items:center;gap:8px"><span class="cb on"></span>關於我們</label>
-          <label style="display:flex;align-items:center;gap:8px"><span class="cb"></span>門市資訊</label>
-          <label style="display:flex;align-items:center;gap:8px"><span class="cb on"></span>常見問題</label>
-          <label style="display:flex;align-items:center;gap:8px"><span class="cb"></span>隱私權政策</label>
-          <label style="display:flex;align-items:center;gap:8px"><span class="cb"></span>退換貨說明</label>
+          <label style="display:flex;align-items:center;gap:8px"><span class="cb j on"></span>關於我們</label>
+          <label style="display:flex;align-items:center;gap:8px"><span class="cb j"></span>門市資訊</label>
+          <label style="display:flex;align-items:center;gap:8px"><span class="cb j on"></span>常見問題</label>
+          <label style="display:flex;align-items:center;gap:8px"><span class="cb j"></span>隱私權政策</label>
+          <label style="display:flex;align-items:center;gap:8px"><span class="cb j"></span>退換貨說明</label>
         </div>
         <button class="btn s" type="button" style="align-self:flex-start">{I("arrow-r")}加到選單（2）</button>
       </div>
@@ -552,8 +558,8 @@ pages["Menus"] = ("後台導覽選單", ADMIN_CSS, 1440, 1000, admin("menus", ["
         <div><span class="lbl">顯示文字</span><input class="ul" type="text" value="關於我們"></div>
         <div><span class="lbl">連到</span><div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:6px">{I("page",14)}頁面「關於我們」<a href="Menus.dc.html" style="margin-left:auto;font-size:12px">換一個</a></div></div>
         <div><span class="lbl">圖示（可選）</span><div style="display:flex;gap:6px;margin-top:6px"><span class="btn t s i" style="box-shadow:inset 0 0 0 2px #15161A">{I("user",14)}</span><span class="btn t s i">{I("home",14)}</span><span class="btn t s i">{I("star",14)}</span><span class="btn t s i">{I("mail",14)}</span><span class="btn t s i">{I("plus",14)}</span></div></div>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600">開新分頁<span class="tg off"></span></label>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600">只給登入者看<span class="tg off"></span></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600">開新分頁<span class="tg j off"></span></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600">只給登入者看<span class="tg j off"></span></label>
         <div><span class="lbl">CSS class</span><input class="ul" type="text" placeholder="可留空"></div>
         <div style="display:flex;gap:8px;margin-top:4px"><button class="btn t s" type="button">{I("check")}套用</button><button class="btn x s" type="button" style="margin-left:auto;color:#9C2318">{I("trash")}移除</button></div>
       </aside>
@@ -562,7 +568,7 @@ pages["Menus"] = ("後台導覽選單", ADMIN_CSS, 1440, 1000, admin("menus", ["
 
 # ======================= ADMIN: Comments =======================
 def crow(av, color, name, meta, text, post, state, cls):
-    return f'''<tr><td style="width:36px"><span class="cb"></span></td>
+    return f'''<tr><td style="width:36px"><span class="cb j"></span></td>
 <td style="width:260px"><div style="display:flex;gap:10px;align-items:flex-start"><span class="av" style="background:{color}">{av}</span><div><b>{name}</b><div style="font-size:12px;color:#5F6470">{meta}</div></div></div></td>
 <td><div style="line-height:1.6;max-width:52ch">{text}</div><div style="display:flex;gap:4px;margin-top:6px"><button class="btn x s" type="button" style="color:#0F6A45">{I("check",14)}核准</button><button class="btn x s" type="button">{I("reply",14)}回覆</button><button class="btn x s" type="button">{I("edit",14)}編輯</button><button class="btn x s" type="button" style="color:#9C2318">{I("spam",14)}垃圾</button><button class="btn x s" type="button" style="color:#9C2318">{I("trash",14)}</button></div></td>
 <td style="width:200px"><a href="Post.dc.html" style="color:#15161A;font-weight:600">{post}</a><div style="font-size:12px;color:#5F6470">2 天前</div></td>
@@ -572,11 +578,11 @@ pages["Comments"] = ("後台留言管理", ADMIN_CSS, 1440, 1000, admin("comment
   f'<button class="btn t" type="button">{I("settings")}留言設定</button><button class="btn p" type="button">{I("check")}核准全部待審（7）</button>',
   f'''<main style="padding: 16px 24px 32px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-      <div class="seg"><span>全部 <b>184</b></span><span class="on">待審 <b style="color:#F5B800">7</b></span><span>已核准 <b>171</b></span><span>垃圾 <b>6</b></span><span>回收桶 <b>0</b></span></div>
+      <div class="seg j"><span>全部 <b>184</b></span><span class="on">待審 <b style="color:#F5B800">7</b></span><span>已核准 <b>171</b></span><span>垃圾 <b>6</b></span><span>回收桶 <b>0</b></span></div>
       <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:240px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="找留言、名字、Email" aria-label="搜尋留言" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label>
       <button class="btn t s" type="button">{I("filter")}文章</button>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F8F8FA;border-radius:0 9px 0 9px;margin-bottom:4px;font-size:13px"><span class="cb"></span><span style="color:#5F6470">已選 0 則</span><button class="btn t s" type="button" disabled style="opacity:.5">{I("check",14)}核准</button><button class="btn t s" type="button" disabled style="opacity:.5">{I("spam",14)}垃圾</button><button class="btn t s" type="button" disabled style="opacity:.5">{I("trash",14)}刪除</button><span style="margin-left:auto;color:#5F6470">按 <span class="kbd">J</span>/<span class="kbd">K</span> 上下、<span class="kbd">A</span> 核准、<span class="kbd">S</span> 垃圾</span></div>
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:#F8F8FA;border-radius:0 9px 0 9px;margin-bottom:4px;font-size:13px"><span class="cb j"></span><span style="color:#5F6470">已選 0 則</span><button class="btn t s" type="button" disabled style="opacity:.5">{I("check",14)}核准</button><button class="btn t s" type="button" disabled style="opacity:.5">{I("spam",14)}垃圾</button><button class="btn t s" type="button" disabled style="opacity:.5">{I("trash",14)}刪除</button><span style="margin-left:auto;color:#5F6470">按 <span class="kbd">J</span>/<span class="kbd">K</span> 上下、<span class="kbd">A</span> 核准、<span class="kbd">S</span> 垃圾</span></div>
     <table>
       <thead><tr><th></th><th>誰</th><th>內容</th><th>在哪篇</th><th>狀態</th></tr></thead>
       <tbody>
@@ -589,27 +595,29 @@ pages["Comments"] = ("後台留言管理", ADMIN_CSS, 1440, 1000, admin("comment
     </table>
     <div style="display:flex;align-items:center;gap:12px;margin-top:14px;font-size:13px;color:#5F6470"><span>顯示 1–5，共 7 則</span><div style="margin-left:auto;display:flex;gap:6px"><button class="btn t s i" type="button" aria-label="上一頁">{I("arrow-l",14)}</button><button class="btn t s i" type="button" aria-label="下一頁">{I("arrow-r",14)}</button></div></div>
   </main>''',
-  extra=f'''<div class="sheet" style="width:420px">
-    <div style="display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid #EEEFF2"><span class="stripe" style="width:40px"></span><b style="font-size:15px">回覆 阿凱</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto">{I("x")}</button></div>
-    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;flex:1">
+  extra=f'''<div class="jd-scrim"></div>
+  <div class="jd" role="dialog" aria-label="回覆 阿凱" style="width:480px">
+    <span class="close">{I("x",14)}</span>
+    <b style="font-size:16px;padding-right:34px">回覆 阿凱</b>
+    <div style="display:flex;flex-direction:column;gap:12px">
       <div style="background:#F5F5F7;border-radius:0 10px 0 10px;padding:12px;font-size:13px;line-height:1.6"><b>阿凱：</b>請問可以用黑糖嗎？<div style="font-size:12px;color:#5F6470;margin-top:4px">在「零失敗焦糖布丁，重點在火」</div></div>
       <textarea class="ul" rows="6" placeholder="用站長身分回覆。送出後會自動核准原留言。" style="line-height:1.6">可以，但黑糖的焦糖化溫度比較低，顏色會比較難判斷。建議第一次先用白砂糖。</textarea>
       <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="chip nd">{I("check",12)}送出時一併核准</span><span class="chip nd">{I("mail",12)}Email 通知對方</span></div>
     </div>
-    <div style="padding:12px 20px;border-top:1px solid #EEEFF2;display:flex;gap:8px"><button class="btn p" type="button">{I("reply")}送出回覆</button><button class="btn t" type="button">{I("x")}取消</button></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn t" type="button">{I("x")}取消</button><button class="btn p" type="button">{I("reply")}送出回覆</button></div>
   </div>'''))
 
 # ======================= ADMIN: Users =======================
 USER_MENU = lambda: f'''<div role="menu" aria-label="小魚的更多操作" style="position:absolute;right:6px;top:38px;z-index:5;width:188px;padding:6px;background:#fff;border-radius:0 12px 0 12px;box-shadow:0 0 0 1px #E2E3E8,0 12px 32px rgba(21,22,26,.14);display:flex;flex-direction:column;gap:2px;text-align:left"><button class="btn x s" role="menuitem" type="button" style="justify-content:flex-start;opacity:1;width:100%">{I("lock",14)}登出所有裝置</button><button class="btn x s" role="menuitem" type="button" style="justify-content:flex-start;opacity:1;width:100%;color:#9C2318">{I("trash",14)}刪除</button></div>'''
 
 def urow(av,color,name,email,role,rcls,last,state,scls,me=False,menu=False):
-    return f'''<tr><td style="width:36px"><span class="cb"></span></td><td><div style="display:flex;gap:10px;align-items:center"><span class="av" style="background:{color}">{av}</span><div><b>{name}</b>{' <span class="chip nd" style="margin-left:4px">你</span>' if me else ''}<div style="font-size:12px;color:#5F6470">{email}</div></div></div></td><td><span class="chip {rcls}">{role}</span></td><td style="color:#5F6470">{last}</td><td><span class="chip {scls}">{state}</span></td><td class="act"{' style="position:relative"' if menu else ''}><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="重設密碼">{I("key")}</button><button class="btn x s i" type="button" aria-label="更多"{' aria-haspopup="menu" aria-expanded="true" style="opacity:1;background:#EDEEF1"' if menu else ''}>{I("more")}</button>{USER_MENU() if menu else ''}</td></tr>'''
+    return f'''<tr><td style="width:36px"><span class="cb j"></span></td><td><div style="display:flex;gap:10px;align-items:center"><span class="av" style="background:{color}">{av}</span><div><b>{name}</b>{' <span class="chip nd" style="margin-left:4px">你</span>' if me else ''}<div style="font-size:12px;color:#5F6470">{email}</div></div></div></td><td><span class="chip {rcls}">{role}</span></td><td style="color:#5F6470">{last}</td><td><span class="chip {scls}">{state}</span></td><td class="act"{' style="position:relative"' if menu else ''}><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="重設密碼">{I("key")}</button><button class="btn x s i" type="button" aria-label="更多"{' aria-haspopup="menu" aria-expanded="true" style="opacity:1;background:#EDEEF1"' if menu else ''}>{I("more")}</button>{USER_MENU() if menu else ''}</td></tr>'''
 
 pages["Users"] = ("後台使用者與角色", ADMIN_CSS, 1440, 1000, admin("users", ["系統","使用者"],
   f'<button class="btn t" type="button">{I("shield")}角色與權限</button><button class="btn p" type="button">{I("plus")}邀請使用者</button>',
   f'''<main style="padding: 16px 24px 32px; display:grid; grid-template-columns: minmax(0,1fr) 380px; gap:24px; align-items:start">
     <section>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">全部 <b>6</b></span><span>管理員 2</span><span>編輯 2</span><span>作者 1</span><span>顧客 1</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="名字或 Email" aria-label="搜尋使用者" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg j"><span class="on">全部 <b>6</b></span><span>管理員 2</span><span>編輯 2</span><span>作者 1</span><span>顧客 1</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="名字或 Email" aria-label="搜尋使用者" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label></div>
       <table>
         <thead><tr><th></th><th>使用者</th><th>角色</th><th>最後登入</th><th>狀態</th><th></th></tr></thead>
         <tbody>
@@ -636,9 +644,9 @@ pages["Users"] = ("後台使用者與角色", ADMIN_CSS, 1440, 1000, admin("user
       <div><span class="lbl">Email</span><input class="ul" type="email" placeholder="name@example.com"></div>
       <div><span class="lbl">角色</span>
         <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
-          <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:0 10px 0 10px;box-shadow:inset 0 0 0 2px #15161A;background:#F8F8FA"><span class="cb on" style="margin-top:2px"></span><span><b>編輯</b><div style="font-size:12px;color:#5F6470">管所有內容和留言，碰不到設定和商店。</div></span></label>
-          <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:0 10px 0 10px;box-shadow:inset 0 0 0 1px #E2E3E8"><span class="cb" style="margin-top:2px"></span><span><b>作者</b><div style="font-size:12px;color:#5F6470">只能寫和發自己的文章。</div></span></label>
-          <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:0 10px 0 10px;box-shadow:inset 0 0 0 1px #E2E3E8"><span class="cb" style="margin-top:2px"></span><span><b>管理員</b><div style="font-size:12px;color:#9C2318">什麼都能做，包含刪站。想清楚。</div></span></label>
+          <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:0 10px 0 10px;box-shadow:inset 0 0 0 2px #15161A;background:#F8F8FA"><span class="rd j on" style="margin-top:2px"></span><span><b>編輯</b><div style="font-size:12px;color:#5F6470">管所有內容和留言，碰不到設定和商店。</div></span></label>
+          <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:0 10px 0 10px;box-shadow:inset 0 0 0 1px #E2E3E8"><span class="rd j" style="margin-top:2px"></span><span><b>作者</b><div style="font-size:12px;color:#5F6470">只能寫和發自己的文章。</div></span></label>
+          <label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:0 10px 0 10px;box-shadow:inset 0 0 0 1px #E2E3E8"><span class="rd j" style="margin-top:2px"></span><span><b>管理員</b><div style="font-size:12px;color:#9C2318">什麼都能做，包含刪站。想清楚。</div></span></label>
         </div>
       </div>
       <div><span class="lbl">附一句話（可選）</span><textarea class="ul" rows="2" placeholder="嗨，來幫我顧站～"></textarea></div>
@@ -646,9 +654,11 @@ pages["Users"] = ("後台使用者與角色", ADMIN_CSS, 1440, 1000, admin("user
       <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("mail")}寄出邀請</button><button class="btn t" type="button">{I("copy")}複製連結</button></div>
     </aside>
   </main>''',
-  extra=f'''<div class="sheet" role="dialog" aria-label="刪除使用者" style="width:400px">
-    <div style="display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid #EEEFF2"><span class="stripe" style="width:40px"></span><b style="font-size:15px">刪除使用者</b><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto">{I("x")}</button></div>
-    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;flex:1;overflow:auto">
+  extra=f'''<div class="jd-scrim"></div>
+  <div class="jd" role="dialog" aria-label="刪除使用者" style="width:480px">
+    <span class="close">{I("x",14)}</span>
+    <b style="font-size:16px;padding-right:34px">刪除使用者</b>
+    <div style="display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;align-items:center;gap:12px"><span class="av" style="background:#13C2A3;width:40px;height:40px;font-size:16px;border-radius:0 12px 0 12px">小</span><div><b>小魚</b><div style="font-size:12px;color:#5F6470">yu@example.com · 編輯</div></div></div>
       <div><span class="lbl">這個帳號名下還有</span>
         <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px">
@@ -659,7 +669,7 @@ pages["Users"] = ("後台使用者與角色", ADMIN_CSS, 1440, 1000, admin("user
       <div><label class="lbl" for="rt">轉移給</label><select id="rt" class="ul"><option>Hazel · 管理員</option><option>Ting · 管理員</option><option>Wen · 作者</option></select><div style="font-size:12px;color:#5F6470;margin-top:6px;line-height:1.5">只能選啟用中、能寫作的人。文章、頁面和留言的作者會改成他。</div></div>
       <div style="display:flex;gap:10px;align-items:flex-start;padding:12px;background:#FBE1DE;color:#9C2318;border-radius:0 10px 0 10px;font-size:13px;line-height:1.6"><span style="margin-top:2px">{I("alert",16)}</span><span><b>刪除後無法復原。</b>小魚在所有裝置上的登入會立刻登出，Google、GitHub 綁定也一併移除。</span></div>
     </div>
-    <div style="padding:12px 20px;border-top:1px solid #EEEFF2;display:flex;gap:8px"><button class="btn danger" type="button">{I("trash")}轉移並刪除</button><button class="btn t" type="button">{I("x")}取消</button></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn t" type="button">{I("x")}取消</button><button class="btn danger" type="button">{I("trash")}轉移並刪除</button></div>
   </div>'''))
 
 # ======================= ADMIN: Profile =======================
@@ -678,8 +688,8 @@ pages["Profile"] = ("後台個人帳號", ADMIN_CSS + SUB_CSS, 1440, 1000, admin
         <div class="srow"><div><label for="p1">顯示名稱</label><div class="h">前台文章署名用這個。</div></div><div class="c"><input id="p1" class="ul" type="text" value="Hazel"></div></div>
         <div class="srow"><div><label for="p2">Email</label><div class="h">登入與通知。改了要輸入密碼，並到新信箱按確認連結。</div></div><div class="c"><input id="p2" class="ul" type="email" value="hazel@example.com"></div></div>
         <div class="srow"><div><label for="p3">簡介</label><div class="h">作者頁與文章末尾的小卡。</div></div><div class="c"><textarea id="p3" class="ul" rows="2">在台中做果凍，順便寫字。</textarea></div></div>
-        <div class="srow"><div><label for="p4">介面語言</label></div><div class="c"><div class="seg"><span class="on">繁中</span><span>English</span></div></div></div>
-        <div class="srow"><div><label>外觀</label><div class="h">後台配色。</div></div><div class="c"><div class="seg"><span>跟系統</span><span class="on">淺色</span><span>深色</span></div></div></div>
+        <div class="srow"><div><label for="p4">介面語言</label></div><div class="c"><div class="seg j"><span class="on">繁中</span><span>English</span></div></div></div>
+        <div class="srow"><div><label>外觀</label><div class="h">後台配色。</div></div><div class="c"><div class="seg j"><span>跟系統</span><span class="on">淺色</span><span>深色</span></div></div></div>
       </div>
       <div>
         <div class="lbl" style="margin-bottom:4px">密碼與安全</div>
@@ -699,15 +709,15 @@ pages["Profile"] = ("後台個人帳號", ADMIN_CSS + SUB_CSS, 1440, 1000, admin
             <div style="font-size:12px;color:#5F6470">重新產生會讓舊的 10 組全部失效；關閉要輸入密碼與驗證碼。</div>""")}
         </div>
         <div style="display:grid;grid-template-columns:minmax(0,360px) minmax(0,1fr);gap:24px;align-items:start;margin-top:20px">
-          <div role="dialog" aria-label="備用碼" style="background:#fff;border-radius:0 24px 0 24px;box-shadow:0 0 0 1px #E2E3E8,0 24px 48px rgba(21,22,26,.1);display:flex;flex-direction:column">
-            <div style="display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid #EEEFF2"><span class="stripe" style="width:40px"></span><b style="font-size:15px">備用碼</b><span class="chip warn" style="margin-left:auto">只顯示這一次</span></div>
-            <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+          <div class="jd st" role="dialog" aria-label="備用碼">
+            <div style="display:flex;align-items:center;gap:10px"><b style="font-size:16px">備用碼</b><span class="chip warn">只顯示這一次</span></div>
+            <div style="display:flex;flex-direction:column;gap:12px">
               <div style="font-size:13px;line-height:1.6;color:#5F6470">每組只能用一次。關掉這張卡就看不到了，請現在存到密碼管理員或印出來。</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;padding:14px;background:#F6F7F9;border-radius:0 12px 0 12px">
                 {"".join(f'<span style="font:700 14px/1.9 ui-monospace,SF Mono,Menlo,Consolas,monospace;letter-spacing:.04em"><span style="color:#9A9FAB;font-size:11px;margin-right:6px">{i+1:02d}</span>{c}</span>' for i,c in enumerate(RECOVERY))}
               </div>
             </div>
-            <div style="padding:12px 20px;border-top:1px solid #EEEFF2;display:flex;gap:8px"><button class="btn t" type="button">{I("copy")}複製</button><button class="btn p" type="button">{I("check")}我已存好</button></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn t" type="button">{I("copy")}複製</button><button class="btn p" type="button">{I("check")}我已存好</button></div>
           </div>
           <div style="font-size:12.5px;line-height:1.7;color:#5F6470;padding-top:6px">啟用成功後會自動出現這張卡，重新產生備用碼後也會出現。「我已存好」之前不能關。</div>
         </div>
@@ -724,13 +734,13 @@ pages["Profile"] = ("後台個人帳號", ADMIN_CSS + SUB_CSS, 1440, 1000, admin
 
 # ======================= ADMIN: Trash =======================
 def trow(kind, ic, title, who, when, left, cls=""):
-    return f'<tr><td style="width:36px"><span class="cb"></span></td><td><div style="display:flex;align-items:center;gap:10px"><span class="chip nd">{I(ic,12)}{kind}</span><b>{title}</b></div></td><td style="color:#5F6470">{who}</td><td style="color:#5F6470">{when}</td><td><span class="chip {cls}">{left}</span></td><td class="act"><button class="btn t s" type="button">{I("undo",14)}還原</button><button class="btn x s i" type="button" aria-label="永久刪除" style="color:#9C2318">{I("trash")}</button></td></tr>'
+    return f'<tr><td style="width:36px"><span class="cb j"></span></td><td><div style="display:flex;align-items:center;gap:10px"><span class="chip nd">{I(ic,12)}{kind}</span><b>{title}</b></div></td><td style="color:#5F6470">{who}</td><td style="color:#5F6470">{when}</td><td><span class="chip {cls}">{left}</span></td><td class="act"><button class="btn t s" type="button">{I("undo",14)}還原</button><button class="btn x s i" type="button" aria-label="永久刪除" style="color:#9C2318">{I("trash")}</button></td></tr>'
 
 pages["Trash"] = ("後台回收桶", ADMIN_CSS, 1440, 1000, admin("trash", ["內容","回收桶"],
   f'<button class="btn t" type="button">{I("undo")}全部還原</button><button class="btn danger" type="button">{I("trash")}清空回收桶（9）</button>',
   f'''<main style="padding: 16px 24px 32px">
     <div style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:#F5F5F7;border-radius:0 14px 0 14px;margin-bottom:16px">{I("clock",20)}<div style="font-size:13.5px;line-height:1.5"><b>東西放這裡 30 天</b>，期間可以還原。到期自動永久刪除，附件的檔案也會一起從硬碟移除。<a href="Settings.dc.html" style="margin-left:6px">改保留天數</a></div></div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">全部 <b>9</b></span><span>文章 4</span><span>頁面 1</span><span>附件 2</span><span>商品 1</span><span>留言 1</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="找被刪的東西" aria-label="搜尋回收桶" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg j"><span class="on">全部 <b>9</b></span><span>文章 4</span><span>頁面 1</span><span>附件 2</span><span>商品 1</span><span>留言 1</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="找被刪的東西" aria-label="搜尋回收桶" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label></div>
     <table>
       <thead><tr><th></th><th>項目</th><th>誰刪的</th><th>何時</th><th>剩餘</th><th></th></tr></thead>
       <tbody>
@@ -771,7 +781,7 @@ pages["Revisions"] = ("後台版本比較", ADMIN_CSS, 1440, 1000, admin("posts"
       <div style="font-size:12px;color:#5F6470;line-height:1.6;padding:10px;background:#F5F5F7;border-radius:0 10px 0 10px">自動儲存每 60 秒一次，只留最近 20 個；手動儲存和發布的版本永久保留。</div>
     </aside>
     <section>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">{I("list",14)}逐行比較</span><span>{I("eye",14)}只看 v13</span><span>{I("grid",14)}左右並排</span></div><span style="font-size:13px;color:#5F6470">比較 <b class="mono">v13</b> → <b class="mono">v14（目前）</b></span><label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">只顯示有變的段落<span class="tg"></span></label></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg j"><span class="on">{I("list",14)}逐行比較</span><span>{I("eye",14)}只看 v13</span><span>{I("grid",14)}左右並排</span></div><span style="font-size:13px;color:#5F6470">比較 <b class="mono">v13</b> → <b class="mono">v14（目前）</b></span><label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">只顯示有變的段落<span class="tg j"></span></label></div>
       <div class="card" style="padding:0;overflow:hidden">
         <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #EEEFF2;font-size:12px;font-weight:700;color:#5F6470"><div style="padding:8px 14px;border-right:1px solid #EEEFF2">標題</div><div style="padding:8px 14px"></div></div>
         <div class="diff" style="padding:12px 14px;border-bottom:1px solid #EEEFF2"><span class="a">焦糖布丁食譜</span><span class="b">零失敗焦糖布丁，重點在火</span></div>
@@ -794,7 +804,7 @@ pages["Revisions"] = ("後台版本比較", ADMIN_CSS, 1440, 1000, admin("posts"
   </main>'''))
 
 # ======================= ADMIN: Import (WordPress) =======================
-pages["Import"] = ("後台 WordPress 匯入", ADMIN_CSS, 1440, 1380, admin("tools", ["系統","工具","從 WordPress 匯入"],
+pages["Import"] = ("後台 WordPress 匯入", ADMIN_CSS, 1440, 1440, admin("tools", ["系統","工具","從 WordPress 匯入"],
   f'<button class="btn t" type="button">{I("x")}取消匯入</button>',
   f'''<main style="padding: 16px 24px 32px; display:grid; grid-template-columns: 220px minmax(0,1fr); gap:32px; align-items:start">
     <nav class="sub tree" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:2px"><a class="on" href="Import.dc.html">{I("wp",14)}從 WordPress 匯入</a><a href="Backup.dc.html">{I("db",14)}備份與匯出</a><a href="Redirects.dc.html">{I("redirect",14)}轉址</a><a href="Logs.dc.html">{I("terminal",14)}系統日誌</a><a href="Import.dc.html">{I("refresh",14)}重建索引與快取</a><a href="Import.dc.html">{I("alert",14)}站台健康檢查</a></nav>
@@ -806,15 +816,15 @@ pages["Import"] = ("後台 WordPress 匯入", ADMIN_CSS, 1440, 1380, admin("tool
       </div>
       <div class="card" style="padding:0;overflow:hidden">
         <table>
-          <thead><tr><th style="width:36px"><span class="cb on"></span></th><th>內容</th><th>數量</th><th>怎麼處理</th><th>備註</th></tr></thead>
+          <thead><tr><th style="width:36px"><span class="cb j on"></span></th><th>內容</th><th>數量</th><th>怎麼處理</th><th>備註</th></tr></thead>
           <tbody>
-            <tr><td><span class="cb on"></span></td><td><b>文章</b></td><td class="mono" style="font-size:15px">214</td><td><div class="seg"><span class="on">HTML 轉 Markdown</span><span>保留 HTML</span></div></td><td style="color:#5F6470;font-size:12px">Gutenberg 區塊會轉成一般段落；短代碼會原樣留著並標記。</td></tr>
-            <tr><td><span class="cb on"></span></td><td><b>頁面</b></td><td class="mono" style="font-size:15px">11</td><td><div class="seg"><span class="on">HTML 轉 Markdown</span><span>保留 HTML</span></div></td><td style="color:#5F6470;font-size:12px"></td></tr>
-            <tr><td><span class="cb on"></span></td><td><b>分類與標籤</b></td><td class="mono" style="font-size:15px">7 / 42</td><td><span class="chip ok">合併同名</span></td><td style="color:#5F6470;font-size:12px">「未分類」會略過。</td></tr>
-            <tr><td><span class="cb on"></span></td><td><b>留言</b></td><td class="mono" style="font-size:15px">1,840</td><td><div class="seg"><span class="on">已核准的</span><span>全部</span></div></td><td style="color:#5F6470;font-size:12px">垃圾留言 612 則不匯入。</td></tr>
-            <tr><td><span class="cb on"></span></td><td><b>附件</b></td><td class="mono" style="font-size:15px">312</td><td><div class="seg"><span class="on">下載到本站</span><span>只連回原站</span></div></td><td style="color:#7A5200;font-size:12px">約 1.9 GB，背景下載，文章裡的網址會自動改。</td></tr>
-            <tr><td><span class="cb"></span></td><td><b>WooCommerce 商品</b></td><td class="mono" style="font-size:15px">38</td><td><span class="chip warn">需要外掛</span></td><td style="color:#5F6470;font-size:12px">裝「WooCommerce 匯入」外掛才能選。</td></tr>
-            <tr><td><span class="cb on"></span></td><td><b>固定網址</b></td><td class="mono" style="font-size:15px">225</td><td><span class="chip ok">自動建轉址</span></td><td style="color:#5F6470;font-size:12px">/2026/10/21/slug → /posts/slug，舊連結不會壞。</td></tr>
+            <tr><td><span class="cb j on"></span></td><td><b>文章</b></td><td class="mono" style="font-size:15px">214</td><td><div class="seg j"><span class="on">HTML 轉 Markdown</span><span>保留 HTML</span></div></td><td style="color:#5F6470;font-size:12px">Gutenberg 區塊會轉成一般段落；短代碼會原樣留著並標記。</td></tr>
+            <tr><td><span class="cb j on"></span></td><td><b>頁面</b></td><td class="mono" style="font-size:15px">11</td><td><div class="seg j"><span class="on">HTML 轉 Markdown</span><span>保留 HTML</span></div></td><td style="color:#5F6470;font-size:12px"></td></tr>
+            <tr><td><span class="cb j on"></span></td><td><b>分類與標籤</b></td><td class="mono" style="font-size:15px">7 / 42</td><td><span class="chip ok">合併同名</span></td><td style="color:#5F6470;font-size:12px">「未分類」會略過。</td></tr>
+            <tr><td><span class="cb j on"></span></td><td><b>留言</b></td><td class="mono" style="font-size:15px">1,840</td><td><div class="seg j"><span class="on">已核准的</span><span>全部</span></div></td><td style="color:#5F6470;font-size:12px">垃圾留言 612 則不匯入。</td></tr>
+            <tr><td><span class="cb j on"></span></td><td><b>附件</b></td><td class="mono" style="font-size:15px">312</td><td><div class="seg j"><span class="on">下載到本站</span><span>只連回原站</span></div></td><td style="color:#7A5200;font-size:12px">約 1.9 GB，背景下載，文章裡的網址會自動改。</td></tr>
+            <tr><td><span class="cb j"></span></td><td><b>WooCommerce 商品</b></td><td class="mono" style="font-size:15px">38</td><td><span class="chip warn">需要外掛</span></td><td style="color:#5F6470;font-size:12px">裝「WooCommerce 匯入」外掛才能選。</td></tr>
+            <tr><td><span class="cb j on"></span></td><td><b>固定網址</b></td><td class="mono" style="font-size:15px">225</td><td><span class="chip ok">自動建轉址</span></td><td style="color:#5F6470;font-size:12px">/2026/10/21/slug → /posts/slug，舊連結不會壞。</td></tr>
           </tbody>
         </table>
       </div>
@@ -863,15 +873,15 @@ pages["Redirects"] = ("後台轉址與 SEO", ADMIN_CSS, 1440, 1000, admin("redir
   f'''<main style="padding: 16px 24px 32px; display:grid; grid-template-columns: minmax(0,1fr) 360px; gap:24px; align-items:start">
     <section>
       <div class="seg" style="margin-bottom:14px"><span class="on">{I("redirect",14)}轉址 <b>231</b></span><span>{I("alert",14)}404 紀錄 <b style="color:#E8285B">18</b></span><span style="padding:0"><a href="Settings.dc.html" style="display:inline-flex;align-items:center;gap:6px;min-height:26px;padding:0 10px;color:inherit">{I("globe",14)}SEO 預設</a></span></div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:280px;color:#5F6470;font-size:13px">{I("search",14)}<input type="text" placeholder="找來源或目標網址，CSV 匯入先預覽" aria-label="搜尋轉址" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><div class="seg"><span class="on">全部</span><span>301</span><span>302</span><span>自動建立</span></div><span style="margin-left:auto;font-size:12px;color:#5F6470">225 筆是 WordPress 匯入時自動建的</span></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:280px;color:#5F6470;font-size:13px">{I("search",14)}<input type="text" placeholder="找來源或目標網址，CSV 匯入先預覽" aria-label="搜尋轉址" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label><div class="seg j"><span class="on">全部</span><span>301</span><span>302</span><span>自動建立</span></div><span style="margin-left:auto;font-size:12px;color:#5F6470">225 筆是 WordPress 匯入時自動建的</span></div>
       <table>
-        <thead><tr><th style="width:36px"><span class="cb"></span></th><th>從</th><th></th><th>到</th><th>類型</th><th>命中</th><th></th></tr></thead>
+        <thead><tr><th style="width:36px"><span class="cb j"></span></th><th>從</th><th></th><th>到</th><th>類型</th><th>命中</th><th></th></tr></thead>
         <tbody>
-          <tr><td><span class="cb"></span></td><td class="mono" style="font-weight:600;font-family:ui-monospace,Menlo,monospace;font-size:12.5px">/2026/10/21/caramel-pudding/</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Post.dc.html">/post/caramel-pudding</a></td><td><span class="chip nd">301</span></td><td class="mono">1,204</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
-          <tr><td><span class="cb"></span></td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:600">/shop/gift-box-2025</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Product.dc.html">/shop/gift-box</a></td><td><span class="chip nd">301</span></td><td class="mono">388</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
-          <tr><td><span class="cb"></span></td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:600">/promo</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Shop.dc.html">/shop?tag=midautumn</a></td><td><span class="chip info">302 · 到 10/31</span></td><td class="mono">2,910</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
-          <tr><td><span class="cb"></span></td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:600">/category/recipes/*</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Archive.dc.html">/c/recipes/$1</a></td><td><span class="chip nd">301 · 規則</span></td><td class="mono">7,120</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
-          <tr style="background:#FBE1DE"><td><span class="cb"></span></td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:600">/old-menu.pdf</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="color:#9C2318;font-size:12.5px">目標 404 了</td><td><span class="chip bad">壞掉</span></td><td class="mono">41</td><td class="act"><button class="btn t s" type="button">{I("edit",14)}修</button></td></tr>
+          <tr><td><span class="cb j"></span></td><td class="mono" style="font-weight:600;font-family:ui-monospace,Menlo,monospace;font-size:12.5px">/2026/10/21/caramel-pudding/</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Post.dc.html">/post/caramel-pudding</a></td><td><span class="chip nd">301</span></td><td class="mono">1,204</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
+          <tr><td><span class="cb j"></span></td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:600">/shop/gift-box-2025</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Product.dc.html">/shop/gift-box</a></td><td><span class="chip nd">301</span></td><td class="mono">388</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
+          <tr><td><span class="cb j"></span></td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:600">/promo</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Shop.dc.html">/shop?tag=midautumn</a></td><td><span class="chip info">302 · 到 10/31</span></td><td class="mono">2,910</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
+          <tr><td><span class="cb j"></span></td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:600">/category/recipes/*</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><a href="Archive.dc.html">/c/recipes/$1</a></td><td><span class="chip nd">301 · 規則</span></td><td class="mono">7,120</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="測試">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>
+          <tr style="background:#FBE1DE"><td><span class="cb j"></span></td><td style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:600">/old-menu.pdf</td><td style="color:#B9BCC6">{I("arrow-r",14)}</td><td style="color:#9C2318;font-size:12.5px">目標 404 了</td><td><span class="chip bad">壞掉</span></td><td class="mono">41</td><td class="act"><button class="btn t s" type="button">{I("edit",14)}修</button></td></tr>
         </tbody>
       </table>
       <div style="margin-top:24px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span class="lbl">最近 404（7 天）</span><span style="font-size:12px;color:#5F6470">點一下就能建轉址</span></div>
@@ -886,9 +896,9 @@ pages["Redirects"] = ("後台轉址與 SEO", ADMIN_CSS, 1440, 1000, admin("redir
       <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">新增轉址</b></div>
       <div><span class="lbl">從（舊網址）</span><input class="ul" type="text" value="/wp-content/uploads/2024/05/hero.jpg" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></div>
       <div><span class="lbl">到</span><input class="ul" type="text" placeholder="/uploads/2024/05/hero.jpg 或完整網址" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><div style="font-size:12px;color:#0F6A45;margin-top:6px;display:flex;align-items:center;gap:4px">{I("check",14)}附件庫有同名檔案，已幫你填好。</div></div>
-      <div><span class="lbl">類型</span><div class="seg" style="margin-top:6px"><span class="on">301 永久</span><span>302 暫時</span><span>410 已移除</span></div></div>
-      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600">保留原本的 ?query<span class="tg"></span></label>
-      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600">當成規則（支援 * 和 $1）<span class="tg off"></span></label>
+      <div><span class="lbl">類型</span><div class="seg j" style="margin-top:6px"><span class="on">301 永久</span><span>302 暫時</span><span>410 已移除</span></div></div>
+      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600">保留原本的 ?query<span class="tg j"></span></label>
+      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13.5px;font-weight:600">當成規則（支援 * 和 $1）<span class="tg j off"></span></label>
       <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("external")}先測試</button></div>
       </aside>
   </main>
@@ -903,7 +913,7 @@ def lrow(t, lv, src, msg):
     return f'<div class="r"><span style="color:#5F6470">{t}</span><span class="lv {lv[0]}">{lv[1]}</span><span style="color:#2F6BFF">{src}</span><span>{msg}</span></div>'
 
 pages["Logs"] = ("後台系統日誌", ADMIN_CSS, 1440, 1000, admin("logs", ["系統","日誌"],
-  f'<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">即時<span class="tg"></span></label><button class="btn t" type="button">{I("download")}下載 24 小時</button>',
+  f'<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">即時<span class="tg j"></span></label><button class="btn t" type="button">{I("download")}下載 24 小時</button>',
   f'''<main style="padding: 16px 24px 32px; display:flex; flex-direction:column; gap:14px">
     <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
       <div class="card" style="display:flex;flex-direction:column;gap:4px;padding:14px"><span class="lbl">請求 / 分</span><b class="mono" style="font-size:26px">342</b><span style="font-size:12px;color:#5F6470">p95 86 ms</span></div>
@@ -912,10 +922,10 @@ pages["Logs"] = ("後台系統日誌", ADMIN_CSS, 1440, 1000, admin("logs", ["�
       <div class="card" style="display:flex;flex-direction:column;gap:4px;padding:14px;background:#15161A;color:#fff;box-shadow:none"><span class="lbl" style="color:#9A9FAB">版本</span><b class="mono" style="font-size:18px">Jelly 0.9.3 · Go 1.25 · PG 17</b><span style="font-size:12px;color:#C9CBD3">上線 12 天 · 磁碟 38% · <a href="Logs.dc.html" style="color:#fff">健康檢查</a></span></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <div class="seg"><span class="on">全部</span><span>應用</span><span>HTTP</span><span>金流</span><span>外掛</span><span>登入與稽核</span><span>排程</span></div>
-      <div class="seg"><span class="on" style="background:#9C2318">錯誤</span><span class="on" style="background:#7A5200">警告</span><span class="on">資訊</span><span>除錯</span></div>
+      <div class="seg j"><span class="on">全部</span><span>應用</span><span>HTTP</span><span>金流</span><span>外掛</span><span>登入與稽核</span><span>排程</span></div>
+      <div class="seg j"><span class="on" style="background:#9C2318">錯誤</span><span class="on" style="background:#7A5200">警告</span><span class="on">資訊</span><span>除錯</span></div>
       <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;flex:1;min-width:200px;color:#5F6470;font-size:13px">{I("search",14)}<input type="text" placeholder='搜尋訊息或請求 ID' aria-label="篩選日誌" style="border:0;background:transparent;font:inherit;flex:1;min-width:0;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></label>
-      <div class="seg"><span>15 分</span><span class="on">1 小時</span><span>今天</span><span>{I("calendar",12)}自訂</span></div>
+      <div class="seg j"><span>15 分</span><span class="on">1 小時</span><span>今天</span><span>{I("calendar",12)}自訂</span></div>
     </div>
     <div class="card log" style="padding:0;overflow:hidden">
       {lrow("16:02:11.204",("e","ERR"),"payment.ecpay","callback timeout after 30s order=JL-2026-0417 · 已排重試 (1/3)")}

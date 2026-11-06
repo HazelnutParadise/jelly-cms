@@ -34,6 +34,18 @@ table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;font
 .seg{display:inline-flex;gap:3px;padding:3px;background:#F3F3F5;border-radius:0 9px 0 9px}
 .seg span{min-height:26px;padding:0 10px;display:inline-flex;align-items:center;font-size:12px;font-weight:700;color:#5F6470;border-radius:0 7px 0 7px}
 .seg span.on{background:#15161A;color:#fff}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}
+.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span,.seg.j a{min-height:30px;padding:0 14px;border-radius:999px}
+.seg.j span.on,.seg.j a.on{background:#15161A;color:#fff;box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
+.jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
+.jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470;z-index:2}
+.jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.cb.j,.rd.j{--cb:32px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3125)}.rd.j{border-radius:50%}
+.cb.j.on,.rd.j.on{background:#13C2A3}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 16.5l4.8 4.8L23 11.2' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.375);height:calc(var(--cb)*.375);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 </style>
 </helmet>
 <div style="width: 100%; min-height: 100vh; display: flex; flex-direction: column; background: #fff">
@@ -128,10 +140,10 @@ table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;font
       <div style="display: flex; align-items: center; gap: 8px; color: #5F6470; font-size: 12px; padding: 4px 2px 0"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>按上方「退款」會打開這張面板</div>
       <div class="box" style="background: #fff; box-shadow: inset 0 0 0 1px #E2E3E8; gap: 12px">
         <div style="display: flex; align-items: center; gap: 8px"><span class="stripe"></span><b style="font-size: 15px">退款</b><span class="chip info" style="margin-left: auto">已付 NT$1,280</span></div>
-        <div><span class="lbl" style="display: block">退款方式</span><div class="seg" style="margin-top: 6px"><span>全額</span><span class="on">部分退款</span></div></div>
+        <div><span class="lbl" style="display: block">退款方式</span><div class="seg j" style="margin-top: 6px"><span>全額</span><span class="on">部分退款</span></div></div>
         <div><label for="ra" class="lbl">退款金額 (NT$)</label><input id="ra" class="ul mono" type="text" value="500" style="font-size: 16px"><div style="font-size: 12px; color: #5F6470; margin-top: 4px">最多可退 NT$1,280，已退 NT$0。金額以元輸入。</div></div>
         <div><label for="rr" class="lbl">原因</label><select id="rr" class="ul"><option>顧客要求</option><option>商品瑕疵</option><option>缺貨</option><option>其他（另填說明）</option></select></div>
-        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600"><input type="checkbox" style="accent-color: #E8285B; width: 16px; height: 16px; margin: 0">同時回補庫存</label>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600"><span class="cb j"></span>同時回補庫存</label>
         <div style="font-size: 12px; color: #5F6470; line-height: 1.6">ATM 付款無法原路退回，確認後請另外匯款給顧客；系統只記帳並寄通知。</div>
         <div style="display: flex; gap: 8px"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>確認退款 NT$500</button><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>取消</button></div>
         <!-- 送出失敗：保留金額與原因；連線中斷或逾時再按一次，沿用同一個退款請求代碼，伺服器只會退一次 -->
@@ -141,7 +153,7 @@ table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;font
   </main>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1760}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1790}}'>
 class Component extends DCLogic {
   renderVals() { return {}; }
 }

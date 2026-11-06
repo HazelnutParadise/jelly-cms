@@ -18,7 +18,7 @@ CSS = L.CSS + '''
 # ---------- 版面模式 › 動效分頁 ----------
 right = f'''<aside style="border-left:1px solid #E6E7EB;padding:14px 16px;display:flex;flex-direction:column;gap:14px;overflow:auto">
         <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:14px">英雄區</b><span class="chip nd" style="margin-left:auto">第 1 個區塊</span></div>
-        <div class="seg" style="align-self:flex-start"><span>樣式</span><span>內容</span><span class="on">動效</span><span>進階</span></div>
+        <div class="seg j" style="align-self:flex-start"><span>樣式</span><span>內容</span><span class="on">動效</span><span>進階</span></div>
         <div><span class="lbl">出現時</span>
           <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:6px">
             <div class="pre"><span class="sw" style="background:#D9DBE0"></span>無</div>
@@ -29,12 +29,12 @@ right = f'''<aside style="border-left:1px solid #E6E7EB;padding:14px 16px;displa
             <div class="pre"><span class="sw" style="background:#15161A;transform:scale(.8)"></span>放大</div>
           </div></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div><span class="lbl">時長</span><div class="seg" style="margin-top:6px"><span>快</span><span class="on">中</span><span>慢</span></div></div>
-          <div><span class="lbl">延遲</span><div class="seg" style="margin-top:6px"><span class="on">0</span><span>0.2s</span><span>0.4s</span></div></div>
+          <div><span class="lbl">時長</span><div class="seg j" style="margin-top:6px"><span>快</span><span class="on">中</span><span>慢</span></div></div>
+          <div><span class="lbl">延遲</span><div class="seg j" style="margin-top:6px"><span class="on">0</span><span>0.2s</span><span>0.4s</span></div></div>
         </div>
-        <div><span class="lbl">子元素依序出現</span><div style="display:flex;align-items:center;gap:10px;margin-top:6px;font-size:13px"><span class="tg"></span><span>每個隔 <b>80ms</b></span></div></div>
-        <div><span class="lbl">滑鼠移上去</span><div class="seg" style="margin-top:6px"><span>無</span><span class="on">浮起</span><span>發光</span><span>傾斜</span></div></div>
-        <div><span class="lbl">捲動時</span><div class="seg" style="margin-top:6px"><span class="on">無</span><span>視差</span></div></div>
+        <div><span class="lbl">子元素依序出現</span><div style="display:flex;align-items:center;gap:10px;margin-top:6px;font-size:13px"><span class="tg j"></span><span>每個隔 <b>80ms</b></span></div></div>
+        <div><span class="lbl">滑鼠移上去</span><div class="seg j" style="margin-top:6px"><span>無</span><span class="on">浮起</span><span>發光</span><span>傾斜</span></div></div>
+        <div><span class="lbl">捲動時</span><div class="seg j" style="margin-top:6px"><span class="on">無</span><span>視差</span></div></div>
         <div><span class="lbl">時間軸（這個區塊）</span>
           <div class="tl" style="margin-top:6px">
             <span class="tick" style="left:25%"></span><span class="tick" style="left:50%"></span><span class="tick" style="left:75%"></span>
@@ -43,7 +43,7 @@ right = f'''<aside style="border-left:1px solid #E6E7EB;padding:14px 16px;displa
             <span class="bar" style="left:22%;width:30%;top:28px;margin-left:34%;background:#E8285B">按鈕 滑入左側</span>
             <span style="position:absolute;right:6px;bottom:4px;font-size:10px;color:#9A9FAB">0 · 0.3 · 0.6 · 0.9s</span>
           </div></div>
-        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">只播放一次<span class="tg"></span></label>
+        <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">只播放一次<span class="tg j"></span></label>
         <div style="font-size:11.5px;color:#5F6470;line-height:1.6">使用者系統有開「減少動態」時，全部改成直接出現。依系統設定直接出現，持續保留內容與操作。</div>
         <div style="border-top:1px solid #EEEFF2;padding-top:12px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span class="lbl">對應的文字</span><button class="btn t s" type="button" style="margin-left:auto">{I("play",12)}播一次</button></div>
 <div class="code"><b>:::hero</b>{{bg=mint <u>reveal=fade-up stagger=80 hover=lift</u>}}
@@ -69,7 +69,7 @@ def wrow(color, ic, name, desc, by, used, state, cls):
 widgets_main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 520px;gap:24px;align-items:start">
     <section style="display:flex;flex-direction:column;gap:16px">
       <div style="padding:14px 16px;background:#F5F5F7;border-radius:0 12px 0 12px;font-size:13px;color:#5F6470">內建元件可直接使用；自訂元件在隔離框中執行。</div>
-      <div class="seg" style="align-self:flex-start"><span class="on">全部</span><span>內建</span><span>自訂</span><span>來自外掛</span></div>
+      <div class="seg j" style="align-self:flex-start"><span class="on">全部</span><span>內建</span><span>自訂</span><span>來自外掛</span></div>
       <div>
         {wrow("#15161A","list","分頁 tabs",TABS_DESC,"內建","—","可用","ok")}
         {wrow("#15161A","chevron-d","摺疊 accordion","原生 details，鍵盤可操作","內建","—","可用","ok")}

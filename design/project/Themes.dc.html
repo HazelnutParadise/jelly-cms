@@ -38,6 +38,18 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .seg span.on{background:#15161A;color:#fff}
 .mark{display:inline-block;width:22px;height:26px;object-fit:contain}
 .sec{padding:12px 0;border-top:1px solid #EEEFF2;display:flex;flex-direction:column;gap:6px}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}
+.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span,.seg.j a{min-height:30px;padding:0 14px;border-radius:999px}
+.seg.j span.on,.seg.j a.on{background:#15161A;color:#fff;box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
+.jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
+.jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470;z-index:2}
+.jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.cb.j,.rd.j{--cb:32px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3125)}.rd.j{border-radius:50%}
+.cb.j.on,.rd.j.on{background:#13C2A3}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 16.5l4.8 4.8L23 11.2' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.375);height:calc(var(--cb)*.375);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 </style>
 </helmet>
 <div style="width: 100%; min-height: 100vh; display: flex; flex-wrap: wrap; background: #fff; position: relative">
@@ -90,10 +102,11 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
   </div>
 
   <!-- 客製化抽屜：左邊即時預覽、右邊設定 -->
-  <div style="position: absolute; inset: 0; background: rgba(21, 22, 26, .45); display: flex; justify-content: flex-end" aria-hidden="true"></div>
-  <div style="position: absolute; top: 0; right: 0; bottom: 0; width: 860px; background: #fff; border-radius: 0 0 0 24px; display: grid; grid-template-columns: minmax(0, 1fr) 320px; overflow: hidden" role="dialog" aria-label="客製化 Jelly">
+  <div class="jd-scrim" aria-hidden="true"></div>
+  <div class="jd" style="width: 860px; height: 700px; padding: 0; gap: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; overflow: hidden" role="dialog" aria-label="客製化 Jelly">
+    <span class="close"><svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M6 6l12 12M18 6L6 18"/></svg></span>
     <div style="background: #F5F5F7; padding: 16px; display: flex; flex-direction: column; gap: 10px">
-      <div style="display: flex; align-items: center; gap: 8px"><span class="lbl">即時預覽</span><div class="seg" style="margin-left: auto"><span class="on">桌面</span><span>手機</span></div></div>
+      <div style="display: flex; align-items: center; gap: 8px"><span class="lbl">即時預覽</span><div class="seg j" style="margin-left: auto"><span class="on">桌面</span><span>手機</span></div></div>
       <div style="flex: 1; background: #fff; border-radius: 0 12px 0 12px; overflow: hidden; display: flex; flex-direction: column; box-shadow: inset 0 0 0 1px #E2E3E8">
         <div style="height: 3px; background: linear-gradient(90deg, #E8285B 0 64%, #2F6BFF 64% 86%, #13C2A3 86% 100%)"></div>
         <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 11px; font-weight: 700"><span style="width: 12px; height: 14px; background: #E8285B; border-radius: 0 4px 0 4px"></span>榛果繽紛樂<span style="margin-left: auto; background: #15161A; color: #fff; padding: 2px 8px; border-radius: 0 5px 0 5px">首頁</span><span>文章</span><span>關於</span></div>
@@ -102,8 +115,8 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
       </div>
     </div>
     <div style="display: flex; flex-direction: column; padding: 16px 20px 0; overflow: hidden">
-      <div style="display: flex; align-items: center; gap: 8px; padding-bottom: 8px"><div><div class="lbl">客製化</div><h2 class="d" style="font-size: 20px">Jelly</h2></div><button class="btn x i" type="button" aria-label="關閉" style="margin-left: auto"><svg class="ic" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
-      <div class="seg" style="align-self: flex-start"><span class="on">顏色</span><span>版面</span><span>內容</span></div>
+      <div style="display: flex; align-items: center; gap: 8px; padding-bottom: 8px"><div><div class="lbl">客製化</div><h2 class="d" style="font-size: 20px">Jelly</h2></div></div>
+      <div class="seg j" style="align-self: flex-start"><span class="on">顏色</span><span>版面</span><span>內容</span></div>
       <div class="sec" style="margin-top: 8px"><span class="lbl">口味</span>
         <div class="row"><span class="sw" style="background: #E8285B"></span><span>主色</span><input type="text" value="#E8285B" aria-label="主色"></div>
         <div class="row"><span class="sw" style="background: #2F6BFF"></span><span>第二色</span><input type="text" value="#2F6BFF" aria-label="第二色"></div>
