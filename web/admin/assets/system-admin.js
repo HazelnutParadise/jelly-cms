@@ -61,7 +61,7 @@
         if (el.disabled || el.getAttribute('aria-busy') === 'true') return;
         el.disabled = true; el.setAttribute('aria-busy', 'true');
         try { return await fn(); } catch (err) { status(container, errorText(err), 'error'); }
-        finally { el.disabled = false; el.removeAttribute('aria-busy'); }
+        finally { el.disabled = false; el.removeAttribute('aria-busy'); if (el.isConnected && (!document.activeElement || document.activeElement === document.body)) el.focus(); }
     }
     function row(spec, value) {
         const id = spec.id || ('sys-' + spec.key + '-' + (++fieldCounter));
@@ -73,7 +73,7 @@
         else if (spec.type === 'bool') input = '<jelly-switch' + attrs + ' label="' + esc(t(spec.label || spec.key)) + '"' + ((value === true || value === 'true') ? ' checked' : '') + '></jelly-switch>';
         else if (spec.type === 'textarea' || spec.type === 'json') input = '<textarea' + attrs + ' rows="' + (spec.rows || 4) + '"' + (spec.type === 'json' ? ' class="sys-mono" spellcheck="false"' : '') + '>' + esc(typeof value === 'object' ? JSON.stringify(value, null, 2) : value) + '</textarea>';
         else input = '<input type="' + (spec.type === 'secret' ? 'password' : (spec.type || 'text')) + '"' + attrs + ' value="' + (spec.type === 'file' || spec.type === 'secret' ? '' : esc(value)) + '"' + (spec.type === 'secret' ? ' autocomplete="new-password" placeholder="' + esc(value || t('unset')) + '"' : '') + (spec.accept ? ' accept="' + esc(spec.accept) + '"' : '') + '>';
-        if (spec.type === 'secret') input += '<small class="sys-hint">' + esc(t('keepSecret')) + '</small>' + (spec.clear === false ? '' : '<label class="sys-check"><input type="checkbox" data-clear-secret="' + esc(spec.key) + '">' + esc(t('clearSecret')) + '</label>');
+        if (spec.type === 'secret') input += '<small class="sys-hint">' + esc(t('keepSecret')) + '</small>' + (spec.clear === false ? '' : '<jelly-checkbox size="sm" class="sys-check" data-clear-secret="' + esc(spec.key) + '">' + esc(t('clearSecret')) + '</jelly-checkbox>');
         return '<div class="sys-row"><label for="' + esc(id) + '">' + esc(t(spec.label || spec.key)) + (spec.required ? ' *' : '') + (spec.hint ? '<small class="sys-hint">' + esc(t(spec.hint)) + '</small>' : '') + '</label><div class="sys-control">' + input + '</div></div>';
     }
     function fields(specs, values = {}) { return specs.map(spec => row(spec, values[spec.key])).join(''); }
@@ -83,7 +83,7 @@
             const el = form.elements[spec.key];
             let value = spec.type === 'bool' ? el.hasAttribute('checked') : el.value;
             if (spec.type === 'secret') {
-                if (form.querySelector('[data-clear-secret="' + CSS.escape(spec.key) + '"]:checked')) value = '';
+                if (form.querySelector('[data-clear-secret="' + CSS.escape(spec.key) + '"][checked]')) value = '';
                 else if (value === '') continue;
             }
             if (spec.type === 'multiselect') value = Array.from(el.selectedOptions, option => option.value);
@@ -136,16 +136,18 @@
             const confirmed = await Jelly.confirm({title:t(title), message:hint ? t(hint) : '', confirmLabel:t(label), cancelLabel:t('cancel'), tone:'danger'});
             return confirmed ? {} : null;
         }
-        const dialog = document.createElement('dialog'); dialog.className = 'sys-dialog';
+        // 一般對話框是 <jelly-dialog>：Esc、點背景、右上 ✕ 與「取消」都關閉（結果是 null），焦點回到打開它的按鈕（Jelly.dialog）。
+        const dialog = document.createElement('jelly-dialog'); dialog.className = 'sys-dialog'; dialog.setAttribute('label', t(title));
         dialog.innerHTML = '<form><h2>' + esc(t(title)) + '</h2>' + (hint ? '<p>' + esc(t(hint)) + '</p>' : '') + extra + fields(specs, initial) + '<div class="sys-actions"><button type="submit" class="btn btn-primary">' + esc(t(label)) + '</button><button type="button" class="btn btn-secondary" data-cancel>' + esc(t('cancel')) + '</button></div></form>';
-        document.body.append(dialog); const form = $('form', dialog); const previous = document.activeElement;
+        document.body.append(dialog); const form = $('form', dialog);
         if (configure) configure(form);
         return new Promise(resolve => {
-            const finish = data => { dialog.close(); dialog.remove(); if (previous && previous.isConnected) previous.focus(); resolve(data); };
+            let result = null;
+            const finish = data => { result = data; Jelly.closeDialog(dialog); };
+            dialog.addEventListener('close', () => { dialog.remove(); resolve(result); }, { once: true });
             $('[data-cancel]', dialog).onclick = () => finish(null);
-            dialog.addEventListener('cancel', event => {event.preventDefault(); finish(null);});
             form.onsubmit = event => { event.preventDefault(); if (!form.reportValidity()) return; try { const data = values(form, specs); if (validate) validate(data); finish(data); } catch (err) {status(form, errorText(err), 'error');} };
-            dialog.showModal();
+            Jelly.dialog(dialog, { focus: form.querySelector('input:not([type=hidden]):not([disabled]),select:not([disabled]),textarea:not([disabled])') });
         });
     }
     const bool = (key,label,def = false) => optionSpec(key,label,'bool',{default:def});
@@ -308,10 +310,10 @@
     }
     let logRows=[],logBefore=null,logFilters={source:'',level:'',q:'',since:''};
     async function showLogs() {
-        root.innerHTML=toolbar('<div class="sys-actions"><label class="sys-check"><input type="checkbox" id="sys-live">'+esc(t('live'))+'</label>'+link('download24h','/api/admin/logs/export?hours=24')+'</div>')+'<div class="sys-stats" id="sys-log-stats"></div><form id="sys-log-filter" class="sys-toolbar"><div class="sys-field"><label for="sys-log-source">'+esc(t('source'))+'</label><select id="sys-log-source" name="source">'+[['','all'],...['app','http','payment','plugin','audit','cron','job','crawler']].map(v=>{const a=Array.isArray(v)?v:[v,v];return '<option value="'+a[0]+'">'+esc(t(a[1]))+'</option>';}).join('')+'</select></div><div class="sys-field"><label for="sys-log-level">'+esc(t('level'))+'</label><select id="sys-log-level" name="level"><option value="">'+esc(t('all'))+'</option>'+['debug','info','warn','error'].map((k,i)=>'<option value="'+i+'">'+esc(t(k))+'</option>').join('')+'</select></div><div class="sys-field"><label for="sys-log-q">'+esc(t('search'))+'</label><input type="search" id="sys-log-q" name="q"></div><div class="sys-field"><label for="sys-log-since">'+esc(t('since'))+'</label><input type="datetime-local" id="sys-log-since" name="since"></div><button class="btn btn-secondary btn-sm" type="submit">'+esc(t('filter'))+'</button></form><div id="sys-log-rows"></div><div>'+button('more','more-logs')+'</div>';
+        root.innerHTML=toolbar('<div class="sys-actions"><jelly-checkbox size="sm" class="sys-check" id="sys-live">'+esc(t('live'))+'</jelly-checkbox>'+link('download24h','/api/admin/logs/export?hours=24')+'</div>')+'<div class="sys-stats" id="sys-log-stats"></div><form id="sys-log-filter" class="sys-toolbar"><div class="sys-field"><label for="sys-log-source">'+esc(t('source'))+'</label><select id="sys-log-source" name="source">'+[['','all'],...['app','http','payment','plugin','audit','cron','job','crawler']].map(v=>{const a=Array.isArray(v)?v:[v,v];return '<option value="'+a[0]+'">'+esc(t(a[1]))+'</option>';}).join('')+'</select></div><div class="sys-field"><label for="sys-log-level">'+esc(t('level'))+'</label><select id="sys-log-level" name="level"><option value="">'+esc(t('all'))+'</option>'+['debug','info','warn','error'].map((k,i)=>'<option value="'+i+'">'+esc(t(k))+'</option>').join('')+'</select></div><div class="sys-field"><label for="sys-log-q">'+esc(t('search'))+'</label><input type="search" id="sys-log-q" name="q"></div><div class="sys-field"><label for="sys-log-since">'+esc(t('since'))+'</label><input type="datetime-local" id="sys-log-since" name="since"></div><button class="btn btn-secondary btn-sm" type="submit">'+esc(t('filter'))+'</button></form><div id="sys-log-rows"></div><div>'+button('more','more-logs')+'</div>';
         const form=$('#sys-log-filter');Object.entries(logFilters).forEach(([k,v])=>{if(form.elements[k])form.elements[k].value=v;});
-        form.onsubmit=event=>{event.preventDefault();logFilters=Object.fromEntries(new FormData(form));busy($('[type=submit]',form),async()=>{await loadLogs(false);if($('#sys-live').checked)startLive();});};
-        $('#sys-live').onchange=()=>{if($('#sys-live').checked)startLive();else stopLive();};
+        form.onsubmit=event=>{event.preventDefault();logFilters=Object.fromEntries(new FormData(form));busy($('[type=submit]',form),async()=>{await loadLogs(false);if($('#sys-live').hasAttribute('checked'))startLive();});};
+        $('#sys-live').addEventListener('change',()=>{if($('#sys-live').hasAttribute('checked'))startLive();else stopLive();});
         await loadLogs(false);
         const summary=await api('GET','/api/admin/logs/summary');await settingForm('retention',[num('logs_retention_days','retentionDays',30,1,3650),num('logs_error_retention_days','errorRetentionDays',90,1,3650),select('logs_http_level','httpLogLevel',[['debug','debug'],['info','info'],['warn','warn'],['error','error']],'error')],await getOptions());$('#sys-log-stats').innerHTML=stat('last24h',summary.total)+stat('error',summary.by_level.error)+stat('warn',summary.by_level.warn)+stat('info',summary.by_level.info);
     }
@@ -398,7 +400,7 @@
                 s3Fields.forEach(key=>{form.elements[key].closest('.sys-row').hidden=!s3;form.elements[key].disabled=!s3;});
                 form.elements.clear_credentials.closest('.sys-row').hidden=!s3||!policy.has_secret;
                 form.elements.endpoint.required=s3;form.elements.bucket.required=s3;
-                credentials.forEach(key=>{form.elements[key].disabled=!s3||form.elements.clear_credentials.checked;});
+                credentials.forEach(key=>{form.elements[key].disabled=!s3||form.elements.clear_credentials.hasAttribute('checked');});
             };
             form.elements.driver.addEventListener('change',update);
             form.elements.clear_credentials.addEventListener('change',update);update();
@@ -498,13 +500,13 @@
     window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
     window.addEventListener('pagehide',()=>{pageActive=false;++epoch;stopImportTimer();importPoll=null;stopLive();if(downloadURL)URL.revokeObjectURL(downloadURL);});
     refresh=async(polling=false)=>{
-        const preserved=all('form[data-dirty]:not([data-saving])').map(form=>({key:form.dataset.formKey,fields:Array.from(form.elements).filter(el=>el.getAttribute('name')&&el.type!=='file').map(el=>({name:el.getAttribute('name'),type:el.type,value:el.value,checked:el.tagName==='JELLY-SWITCH'?el.hasAttribute('checked'):el.checked,selected:el.multiple?Array.from(el.selectedOptions,option=>option.value):null}))}));
+        const preserved=all('form[data-dirty]:not([data-saving])').map(form=>({key:form.dataset.formKey,fields:Array.from(form.elements).filter(el=>el.getAttribute('name')&&el.type!=='file').map(el=>({name:el.getAttribute('name'),type:el.type,value:el.value,on:el.hasAttribute('checked'),selected:el.multiple?Array.from(el.selectedOptions,option=>option.value):null}))}));
         const token=++epoch;stopImportTimer();stopLive();root.setAttribute('aria-busy','true');
         try{
             const page=root.dataset.page;
             if(page.startsWith('settings-'))await showSettings(page.slice(9));
             else if(page==='backup')await showBackup();else if(page==='import')await showImport(polling);else if(page==='logs')await showLogs();else if(page==='redirects')await showRedirects();else if(page==='store')await showStore();else if(page==='plugin')await showPlugin();else if(page==='media')await showMedia();
-            for(const saved of preserved){const form=all('form[data-form-key]').find(form=>form.dataset.formKey===saved.key);if(!form)continue;for(const field of saved.fields){const el=form.elements[field.name];if(!el)continue;if(el.tagName==='JELLY-SWITCH')el.toggleAttribute('checked',field.checked);else if(field.type==='checkbox')el.checked=field.checked;else if(field.selected)Array.from(el.options).forEach(option=>{option.selected=field.selected.includes(option.value);});else el.value=field.value;}form.dataset.dirty='true';}
+            for(const saved of preserved){const form=all('form[data-form-key]').find(form=>form.dataset.formKey===saved.key);if(!form)continue;for(const field of saved.fields){const el=form.elements[field.name];if(!el)continue;if(el.tagName==='JELLY-SWITCH'||el.tagName==='JELLY-CHECKBOX')el.toggleAttribute('checked',field.on);else if(field.selected)Array.from(el.options).forEach(option=>{option.selected=field.selected.includes(option.value);});else el.value=field.value;}form.dataset.dirty='true';}
             dirty=!!$('form[data-dirty]');
             if(token===epoch)root.setAttribute('aria-busy','false');
         }catch(err){if(token===epoch){root.setAttribute('aria-busy','false');status(root,t('loadFailed')+': '+errorText(err),'error');if(!$('[data-action=refresh]'))root.insertAdjacentHTML('beforeend',button('retry','refresh'));}throw err;}

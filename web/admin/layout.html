@@ -147,13 +147,100 @@
         });
         return outcome;
       };
+
+      // 一般對話框 <jelly-dialog>：Jelly.dialog(el, { opener, focus, locked }) 打開，Jelly.closeDialog(el) 關閉。
+      // 一律以 open 屬性打開（jelly.js 還沒升級元素時會等它）。開著的對話框（含 Jelly.confirm）排成堆疊：
+      // 上游每個開著的對話框都在 document 上聽 Esc，巢狀時會一次全關，所以這裡在 window 的捕獲階段先攔下 Esc
+      // （preventDefault 讓上游略過）再只關最上層。關閉後焦點回到 opener（沒給時是打開當下的焦點）；
+      // 右上 ✕ 的 aria-label 依介面語言；locked 的對話框不理 Esc、背景與 ✕（✕ 隱藏），只能由程式關閉。
+      var openDialogs = [], closingDialogs = new WeakSet(), dialogOpeners = new WeakMap(), guardedDialogs = new WeakSet();
+      function isJellyDialog(el) { return !!el && el.localName === 'jelly-dialog'; }
+      function forgetDialog(el) { openDialogs = openDialogs.filter(function (d) { return d !== el && d.isConnected && d.hasAttribute('open'); }); }
+      function guardDialog(el) {
+        if (guardedDialogs.has(el) || !el.shadowRoot) return;
+        guardedDialogs.add(el);
+        el.shadowRoot.addEventListener('click', function (event) {
+          if (!el.hasAttribute('data-jelly-locked')) return;
+          var target = event.target;
+          if (target && target.classList && (target.classList.contains('wrap') || target.classList.contains('close'))) event.stopPropagation();
+        }, true);
+      }
+      document.addEventListener('open', function (event) {
+        var el = event.target;
+        if (!isJellyDialog(el)) return;
+        closingDialogs.delete(el); forgetDialog(el); openDialogs.push(el);
+        if (!el.shadowRoot) return;
+        localizeClose(el.shadowRoot); guardDialog(el);
+        var close = el.shadowRoot.querySelector('.close');
+        if (close) close.hidden = el.hasAttribute('data-jelly-locked');
+      }, true);
+      document.addEventListener('close', function (event) {
+        var el = event.target;
+        if (!isJellyDialog(el)) return;
+        closingDialogs.delete(el); forgetDialog(el);
+        var entry = dialogOpeners.get(el), active = document.activeElement;
+        dialogOpeners.delete(el);
+        if (!entry || !entry.opener || !entry.opener.isConnected || entry.opener === active) return;
+        if (entry.explicit || !active || active === document.body || el.contains(active)) entry.opener.focus();
+      }, true);
+      window.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape' || event.defaultPrevented) return;
+        var top = null;
+        for (var i = openDialogs.length - 1; i >= 0 && !top; i--) {
+          var d = openDialogs[i];
+          if (d.isConnected && d.hasAttribute('open') && !closingDialogs.has(d)) top = d;
+        }
+        if (!top) return;
+        event.preventDefault();
+        // 注音、倉頡等輸入法選字中按 Esc 是取消選字，不關對話框
+        if (event.isComposing || top.hasAttribute('data-jelly-locked')) return;
+        window.Jelly.closeDialog(top);
+      }, true);
+      window.Jelly.dialog = function (el, options) {
+        options = options || {};
+        if (!el) return el;
+        // 已經開著（例如同一個對話框換內容）就保留原本的 opener，除非呼叫端另外指定。
+        var stillOpen = el.hasAttribute('open') && !closingDialogs.has(el) && dialogOpeners.has(el);
+        if (options.opener || !stillOpen) dialogOpeners.set(el, { opener: options.opener || document.activeElement, explicit: !!options.opener });
+        el.toggleAttribute('data-jelly-locked', !!options.locked);
+        function show() {
+          if (el.hasAttribute('open') && closingDialogs.has(el)) { el.addEventListener('close', show, { once: true }); return; }
+          if (!el.hasAttribute('open')) el.setAttribute('open', '');
+          var target = typeof options.focus === 'string' ? el.querySelector(options.focus) : options.focus;
+          if (target && target.focus) target.focus();
+        }
+        if (customElements.get('jelly-dialog')) show();
+        else customElements.whenDefined('jelly-dialog').then(show);
+        return el;
+      };
+      // 分段的文字（例如篇數）：改 <jelly-segment> 的文字會讓 <jelly-segmented> 重建內部按鈕、焦點掉出，
+      // 所以只在文字真的變了才改，原本焦點在分段裡就放回選中的段。
+      window.Jelly.segmentText = function (segmented, value, text) {
+        if (!segmented) return;
+        var segment = [].find.call(segmented.querySelectorAll('jelly-segment'), function (s) { return s.getAttribute('value') === value; });
+        text = String(text);
+        if (!segment || segment.textContent === text) return;
+        var refocus = segmented.matches(':focus-within');
+        segment.textContent = text;
+        if (refocus) queueMicrotask(function () {
+          var selected = segmented.shadowRoot && segmented.shadowRoot.querySelector('button[tabindex="0"]');
+          if (selected) selected.focus();
+        });
+      };
+      window.Jelly.closeDialog = function (el) {
+        if (!el || !el.hasAttribute('open')) return;
+        closingDialogs.add(el);
+        var Dialog = customElements.get('jelly-dialog');
+        if (Dialog && el instanceof Dialog) el.open = false;
+        else el.removeAttribute('open');
+      };
     })();
     </script>
     <style>
       :root { --jelly-color-background-default:var(--surface); --jelly-color-background-surface:var(--surface); --jelly-color-background-muted:var(--field); --jelly-color-background-neutral:var(--surface-high); --jelly-color-background-accent:var(--accent); --jelly-color-foreground-default:var(--ink); --jelly-color-foreground-muted:var(--muted); --jelly-color-foreground-on-accent:var(--ink); --jelly-color-border-default:var(--outline); --jelly-color-border-focus:var(--secondary); --jelly-font-display:var(--font-display); --jelly-font-text:var(--font); --jelly-font-mono:var(--mono); --jelly-dialog-radius:0 1.5rem 0 1.5rem; --jelly-toast-radius:0 .75rem 0 .75rem; }
       jelly-toaster { --jelly-toast-radius:inherit; }
       jelly-segmented { --jelly-pill:var(--ink); --jelly-label-on:var(--surface); --jelly-track:var(--surface-mid); }
-      jelly-switch, jelly-segmented { overflow:clip; overflow-clip-margin:8px; }
+      jelly-switch, jelly-segmented, jelly-checkbox, jelly-radio { overflow:clip; overflow-clip-margin:8px; }
       jelly-toaster::part(toast) { background:var(--toast-bg); color:#fff; border:0; }
       jelly-toaster::part(close) { color:#fff; }
       jelly-dialog[data-jelly-confirm] .confirm-actions { display:flex; justify-content:flex-end; gap:.5rem; margin-top:1.25rem; flex-wrap:wrap; }
@@ -516,7 +603,6 @@
         input:disabled, textarea:disabled, select:disabled { opacity: .45; cursor: not-allowed; }
         textarea { min-height: 7rem; resize: vertical; line-height: 1.6; }
         select { appearance: none; padding-right: 1.5rem; background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%); background-position: calc(100% - .7rem) 50%, calc(100% - .35rem) 50%; background-size: .35rem .35rem; background-repeat: no-repeat; cursor: pointer; }
-        input[type="checkbox"], input[type="radio"] { width: 1.05rem; height: 1.05rem; min-height: 0; padding: 0; accent-color: var(--primary); }
         input[type="color"] { width: 2.25rem; height: 2.25rem; min-height: 0; padding: 0; background: none; border: 0; cursor: pointer; border-radius: 0 .5rem 0 .5rem; overflow: hidden; }
         input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
         input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 0 .5rem 0 .5rem; }
@@ -535,24 +621,6 @@
         .setting-row .hint { margin-top: .1rem; }
         .setting-row .control { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; }
         .setting-row .control input[type="text"], .setting-row .control input[type="password"], .setting-row .control select { min-height: 2.25rem; }
-
-        /* 開關：方形，圓右上角 */
-        .toggle-switch { display: inline-flex; align-items: center; gap: .75rem; cursor: pointer; }
-        .toggle-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
-        .slider { position: relative; width: 2.6rem; height: 1.5rem; background: var(--surface-high); border-radius: 0 .75rem 0 .75rem; transition: background-color .15s ease; flex: 0 0 auto; }
-        .slider::before { content: ""; position: absolute; top: .1875rem; left: .1875rem; width: 1.125rem; height: 1.125rem; background: var(--surface); border-radius: 0 .5rem 0 .5rem; transition: transform .15s ease; }
-        .toggle-switch input:checked + .slider { background: var(--accent); }
-        .toggle-switch input:checked + .slider::before { transform: translateX(1.1rem); }
-        .toggle-switch input:focus-visible + .slider { outline: 3px solid var(--secondary); outline-offset: 2px; }
-        .toggle-label { font-weight: 600; }
-
-        /* 分段選擇（狀態用） */
-        .segmented { display: inline-flex; background: var(--surface-mid); border-radius: var(--r-sm); padding: .2rem; gap: .2rem; }
-        .segmented label { margin: 0; cursor: pointer; }
-        .segmented input { position: absolute; opacity: 0; width: 0; height: 0; }
-        .segmented span { display: inline-flex; align-items: center; min-height: 1.9rem; padding: 0 .85rem; font-size: .8125rem; font-weight: 700; color: var(--muted); border-radius: var(--r-sm); transition: background-color .12s ease, color .12s ease; }
-        .segmented input:checked + span { background: var(--ink); color: var(--surface); }
-        .segmented input:focus-visible + span { outline: 3px solid var(--secondary); }
 
         /* ---------- 標籤 ---------- */
         .badge { display: inline-flex; align-items: center; gap: .35rem; min-height: 1.5rem; padding: 0 .55rem; font-size: .75rem; font-weight: 700; white-space: nowrap; background: var(--surface-mid); color: var(--ink); border-radius: var(--r-sm); }
@@ -586,15 +654,23 @@
         .alert-close { background: none; border: 0; cursor: pointer; font-size: 1.25rem; line-height: 1; opacity: .6; }
         .alert-close:hover { opacity: 1; }
 
-        /* ---------- 側頁（取代彈窗） ---------- */
-        .modal-overlay { position: fixed; inset: 0; background: color-mix(in srgb, var(--ink) 45%, transparent); z-index: 1000; display: none; justify-content: flex-end; }
-        .modal-overlay.open, .modal-overlay[style*="flex"] { display: flex; }
-        .modal-content { background: var(--surface); width: min(32rem, 100%); height: 100%; overflow-y: auto; padding: 1.75rem 2rem 2.5rem; border-radius: 0 0 0 1.5rem; animation: sheet .22s ease; }
-        @keyframes sheet { from { transform: translateX(2rem); opacity: 0; } to { transform: none; opacity: 1; } }
-        .modal-header { margin-bottom: 1.25rem; }
-        .modal-header h2 { font-size: 1.375rem; }
-        .modal-footer { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1.5rem; position: sticky; bottom: 0; padding: 1rem 0 0; background: var(--surface); }
-        .modal-section { margin: 1.5rem 0 .5rem; font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+        /* ---------- 一般對話框（<jelly-dialog>，見 COMPONENTS.md） ----------
+           內容是 light DOM，頁面樣式照常作用；打開時對話框被移到 <body>，所以這裡與各頁都不用祖先選擇器。 */
+        /* 上游的 .dialog 是 content-box：max-height 不含內距，長的對話框會超出視窗上下各 26px */
+        jelly-dialog::part(dialog) { box-sizing: border-box; }
+        jelly-dialog.dialog-wide { --jelly-dialog-width: min(40rem, 100%); }
+        jelly-dialog .modal-header { margin-bottom: 1.25rem; padding-right: 2rem; }
+        jelly-dialog .modal-header h2 { font-size: 1.375rem; overflow-wrap: anywhere; }
+        jelly-dialog .modal-footer { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1.5rem; }
+        jelly-dialog .modal-section { margin: 1.5rem 0 .5rem; font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+        /* 分段選擇太長時只在自己的列內橫向捲動（沿用文章列表 .posts-status-scroll 的做法）；
+           上下左右各留 8px，焦點環與果凍彈跳不被裁掉。 */
+        .seg-scroll { box-sizing: border-box; max-width: calc(100% + 16px); min-width: 0; margin: -8px; padding: 8px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: thin; }
+        /* 段寬跟著文字（上游預設是等寬，文字長短不一時長的那段會溢出自己的按鈕） */
+        .seg-scroll > jelly-segmented { width: max-content; max-width: none; --jelly-segmented-min-width: max-content; }
+        /* 窄卡片與側欄裡的分段：縮小左右內距（不改 size，高度與字級維持預設） */
+        jelly-segmented.compact { --jelly-segmented-padding-inline: 12px; }
 
         /* ---------- 分頁籤 ---------- */
         .tabs, .tabs-header { display: inline-flex; flex-wrap: wrap; gap: .2rem; padding: .2rem; background: var(--surface-low); border-radius: var(--r-sm); margin-bottom: 1.25rem; }
@@ -773,7 +849,6 @@
             .posts-status-scroll #postStatus { width:max-content; min-width:100%; max-width:none; --jelly-segmented-min-width:max-content; --jelly-segmented-padding-inline:8px; --jelly-segmented-font-size:13px; }
             .setting-row { grid-template-columns: 1fr; }
             .setting-row .control { justify-content: flex-start; }
-            .modal-content { width: 100%; border-radius: 0; }
             .palette-overlay { padding: 1rem .75rem; }
             .palette { max-height: calc(100vh - 2rem); max-height: calc(100dvh - 2rem); }
             .palette-modes, .palette-foot .hint-newtab { display: none; }

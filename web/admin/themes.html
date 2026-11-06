@@ -20,6 +20,7 @@
     .color-field { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr) 7rem; gap: .75rem; align-items: center; padding: .4rem 0; }
     .color-field label { margin: 0; font-size: .9rem; font-weight: 600; color: var(--ink); }
     .color-field input[type="text"] { font-family: var(--mono); font-size: .8125rem; min-height: 2rem; }
+    #customizeModal jelly-checkbox { --jelly-label: var(--ink); }
 </style>
 {{end}}
 {{define "content"}}
@@ -49,6 +50,7 @@
         failedToReset: "{{.T.failedToReset}}",
         themeActivated: "{{.T.themeActivated}}",
         failedToActivate: "{{.T.failedToActivate}}",
+        configLoadFailed: "{{.T.themeConfigLoadFailed}}",
         noThemesInstalled: "{{.T.noThemesInstalled}}",
         activeThemeBadge: "{{.T.activeThemeBadge}}",
         view: "{{.T.view}}"
@@ -132,11 +134,11 @@
             body: JSON.stringify({ name })
         });
         if (res.ok) {
-            alert(T.themeActivated);
+            Jelly.toast(T.themeActivated, { kind: 'success' });
             loadThemes();
         } else {
-            const err = await res.json();
-            alert(T.failedToActivate + ': ' + (err.error || 'Unknown error'));
+            const err = await res.json().catch(() => ({}));
+            Jelly.toast(T.failedToActivate, { kind: 'error', detail: err.error || 'Unknown error' });
         }
     }
 
@@ -146,6 +148,7 @@
 
     async function customizeTheme(name) {
         currentCustomizingTheme = name;
+        const opener = document.activeElement;
 
         // Load theme config and settings
         try {
@@ -165,16 +168,19 @@
             };
 
             // Show customization modal
-            showCustomizeModal(config, settings);
+            showCustomizeModal(config, settings, opener);
         } catch (e) {
-            alert('Failed to load theme configuration: ' + e.message);
+            Jelly.toast(T.configLoadFailed, { kind: 'error', detail: e.message });
         }
     }
 
-    function showCustomizeModal(config, settings) {
-        const modal = document.createElement('div');
+    // 客製化是 <jelly-dialog>：Esc、點背景、右上 ✕ 都關閉，焦點回到「客製化」按鈕；關閉後移除元素。
+    function showCustomizeModal(config, settings, opener) {
+        dropCustomizeModal();
+        const modal = document.createElement('jelly-dialog');
         modal.id = 'customizeModal';
-        modal.className = 'modal-overlay open';
+        modal.className = 'dialog-wide';
+        modal.setAttribute('label', T.customizeTheme + ' ' + (config.name || currentCustomizingTheme));
 
         // Use defaults from config
         let colors = {...(config.colors || {})};
@@ -211,7 +217,6 @@
         }
 
         modal.innerHTML = `
-            <div class="modal-content">
                 <div class="modal-header">
                     <div class="label">${T.customizeTheme}</div>
                     <h2>${escapeHtml(config.name || currentCustomizingTheme)}</h2>
@@ -228,13 +233,14 @@
                     <div class="modal-footer">
                         <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>${T.saveSettings}</button>
                         <button type="button" class="btn btn-secondary" onclick="resetToDefaults()"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg>${T.resetToDefaults}</button>
-                        <button type="button" class="btn btn-text btn-icon" onclick="closeCustomizeModal()" title="${T.cancel}" aria-label="${T.cancel}"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
+                        <button type="button" class="btn btn-text" onclick="closeCustomizeModal()">${T.cancel}</button>
                     </div>
                 </form>
-            </div>
         `;
 
+        modal.addEventListener('close', () => modal.remove(), { once: true });
         document.body.appendChild(modal);
+        Jelly.dialog(modal, { opener });
 
         // Sync color picker and text input
         setTimeout(() => {
@@ -298,10 +304,7 @@
             if (field.type === 'checkbox') {
                 return `
                     <div class="form-group">
-                        <label class="inline">
-                            <input type="checkbox" name="layout_${field.id}" ${value ? 'checked' : ''}>
-                            ${title}
-                        </label>
+                        <jelly-checkbox size="sm" name="layout_${field.id}" ${value ? 'checked' : ''}>${title}</jelly-checkbox>
                     </div>
                 `;
             } else {
@@ -329,6 +332,14 @@
                         <select id="custom_${field.id}" name="custom_${field.id}">
                             ${field.options.map(opt => `<option value="${escapeHtml(opt)}" ${value === opt ? 'selected' : ''}>${escapeHtml(opt)}</option>`).join('')}
                         </select>
+                        ${hint}
+                    </div>
+                `;
+            } else if (field.type === 'checkbox') {
+                const on = value === true || value === 'true' || value === 'on';
+                return `
+                    <div class="form-group">
+                        <jelly-checkbox size="sm" name="custom_${escapeHtml(field.id)}" value="true" ${on ? 'checked' : ''}>${escapeHtml(field.label)}</jelly-checkbox>
                         ${hint}
                     </div>
                 `;
@@ -386,19 +397,25 @@
         });
 
         if (res.ok) {
-            alert(T.themeSettingsSaved);
+            Jelly.toast(T.themeSettingsSaved, { kind: 'success' });
             closeCustomizeModal();
         } else {
-            const err = await res.json();
-            alert(T.failedToSave + ': ' + (err.error || 'Unknown error'));
+            const err = await res.json().catch(() => ({}));
+            Jelly.toast(T.failedToSave, { kind: 'error', detail: err.error || 'Unknown error' });
         }
     }
 
     function closeCustomizeModal() {
         const modal = document.getElementById('customizeModal');
-        if (modal) {
-            modal.remove();
-        }
+        if (modal) Jelly.closeDialog(modal);
+    }
+
+    // 立刻拿掉（重設後要馬上換成新的對話框，不等退場動畫）；移除 open 屬性時焦點會先回到「客製化」按鈕。
+    function dropCustomizeModal() {
+        const modal = document.getElementById('customizeModal');
+        if (!modal) return;
+        modal.removeAttribute('open');
+        modal.remove();
     }
 
     async function resetToDefaults() {
@@ -419,16 +436,16 @@
             });
 
             if (res.ok) {
-                alert(T.themeSettingsReset);
-                closeCustomizeModal();
+                Jelly.toast(T.themeSettingsReset, { kind: 'success' });
+                dropCustomizeModal();
                 // Reload the customization modal to show defaults
                 await customizeTheme(currentCustomizingTheme);
             } else {
-                const err = await res.json();
-                alert(T.failedToReset + ': ' + (err.error || 'Unknown error'));
+                const err = await res.json().catch(() => ({}));
+                Jelly.toast(T.failedToReset, { kind: 'error', detail: err.error || 'Unknown error' });
             }
         } catch (e) {
-            alert(T.failedToReset + ': ' + e.message);
+            Jelly.toast(T.failedToReset, { kind: 'error', detail: e.message });
         }
     }
 

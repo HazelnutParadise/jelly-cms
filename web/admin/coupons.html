@@ -10,7 +10,13 @@
 <div class="sa-split">
     <section class="sa-main" aria-label="{{.T.coupons}}">
         <div class="sa-head" style="margin-bottom:.75rem">
-            <div class="sa-seg" id="segs" role="group"></div>
+            <div class="seg-scroll">
+                <jelly-segmented id="segs" name="period" value="active">
+                    <jelly-segment value="active" data-t="cs_active"></jelly-segment>
+                    <jelly-segment value="scheduled" data-t="cs_scheduled"></jelly-segment>
+                    <jelly-segment value="ended" data-t="cs_ended"></jelly-segment>
+                </jelly-segmented>
+            </div>
             <span class="sa-grow"></span>
             <label class="sa-search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="q" autocomplete="off" enterkeyhint="search"></label>
         </div>
@@ -26,11 +32,13 @@
             </div>
             <div class="sa-field" data-field><label for="fLabel" data-t="label"></label><input type="text" id="fLabel" maxlength="120"></div>
             <div class="sa-field"><span class="label" id="lKind" data-t="kind"></span>
-                <div class="segmented" role="radiogroup" aria-labelledby="lKind" style="flex-wrap:wrap">
-                    <label><input type="radio" name="kind" value="percent" checked><span data-t="k_percent"></span></label>
-                    <label><input type="radio" name="kind" value="fixed"><span data-t="k_fixed"></span></label>
-                    <label><input type="radio" name="kind" value="free_shipping"><span data-t="k_free_shipping"></span></label>
-                    <label><input type="radio" name="kind" value="bogo"><span data-t="k_bogo"></span></label>
+                <div class="seg-scroll">
+                    <jelly-segmented id="fKind" class="compact" name="kind" value="percent">
+                        <jelly-segment value="percent" data-t="k_percent"></jelly-segment>
+                        <jelly-segment value="fixed" data-t="k_fixed"></jelly-segment>
+                        <jelly-segment value="free_shipping" data-t="k_free_shipping"></jelly-segment>
+                        <jelly-segment value="bogo" data-t="k_bogo"></jelly-segment>
+                    </jelly-segmented>
                 </div>
             </div>
             <div class="sa-grid two">
@@ -47,10 +55,12 @@
                 <small class="hint" data-t="bogoHint"></small>
             </div>
             <div class="sa-field"><span class="label" id="lScope" data-t="scope"></span>
-                <div class="segmented" role="radiogroup" aria-labelledby="lScope">
-                    <label><input type="radio" name="scope" value="all" checked><span data-t="sc_all"></span></label>
-                    <label><input type="radio" name="scope" value="category"><span data-t="sc_category"></span></label>
-                    <label><input type="radio" name="scope" value="product"><span data-t="sc_product"></span></label>
+                <div class="seg-scroll">
+                    <jelly-segmented id="fScope" class="compact" name="scope" value="all">
+                        <jelly-segment value="all" data-t="sc_all"></jelly-segment>
+                        <jelly-segment value="category" data-t="sc_category"></jelly-segment>
+                        <jelly-segment value="product" data-t="sc_product"></jelly-segment>
+                    </jelly-segmented>
                 </div>
                 <div id="targets" style="margin-top:.5rem"></div>
             </div>
@@ -61,9 +71,9 @@
                 <div class="sa-field" data-field><label for="fEnd" data-t="endsAt"></label><input type="datetime-local" id="fEnd"></div>
             </div>
             <div class="sa-field" data-field><label for="fEmail" data-t="boundEmail"></label><input type="email" id="fEmail" maxlength="255" spellcheck="false"></div>
-            <label class="sa-toggle toggle-switch"><span data-t="stackable"></span><input type="checkbox" id="fStack"><span class="slider" aria-hidden="true"></span></label>
-            <label class="sa-toggle toggle-switch"><span data-t="membersOnly"></span><input type="checkbox" id="fMembers"><span class="slider" aria-hidden="true"></span></label>
-            <label class="sa-toggle toggle-switch"><span><span data-t="enabled"></span><small data-t="enabledHint"></small></span><input type="checkbox" id="fEnabled" checked><span class="slider" aria-hidden="true"></span></label>
+            <div class="sa-toggle"><span data-t="stackable"></span><jelly-switch id="fStack"></jelly-switch></div>
+            <div class="sa-toggle"><span data-t="membersOnly"></span><jelly-switch id="fMembers"></jelly-switch></div>
+            <div class="sa-toggle"><span><span data-t="enabled"></span><small data-t="enabledHint"></small></span><jelly-switch id="fEnabled" checked></jelly-switch></div>
             <div class="row" style="display:flex;gap:.5rem;flex-wrap:wrap">
                 <button type="submit" class="btn btn-primary" id="saveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg><span id="saveText"></span></button>
                 <button type="button" class="btn btn-secondary" id="previewOpen"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg><span data-t="preview"></span></button>
@@ -81,8 +91,7 @@
 </div>
 <div class="sa-backdrop" id="backdrop"></div>
 
-<div class="modal-overlay" id="batchSheet" aria-hidden="true">
-    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="batchTitle">
+<jelly-dialog id="batchSheet" class="dialog-wide">
         <div class="modal-header"><h2 id="batchTitle"></h2></div>
         <form id="bf" novalidate style="display:grid;gap:.9rem">
             <p class="hint" id="batchHint"></p>
@@ -94,8 +103,7 @@
             <div class="sa-preview-out" id="batchOut" role="status" aria-live="polite" hidden></div>
             <div class="modal-footer"><button type="submit" class="btn btn-primary" id="batchBtn"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg><span data-t="generate"></span></button><a class="btn btn-secondary" id="batchDownload" hidden download="coupons.csv"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-t="download"></span></a><button type="button" class="btn btn-secondary" id="batchClose"><span data-t="close"></span></button></div>
         </form>
-    </div>
-</div>
+</jelly-dialog>
 {{end}}
 {{define "scripts"}}
 <script src="{{assetURL "/admin/assets/shop-admin.js"}}"></script>
@@ -156,7 +164,13 @@
     $('batchOpen').querySelector('span').textContent = t('batch');
     $('batchTitle').textContent = t('batchTitle');
     $('batchHint').textContent = t('batchHint');
-    $('segs').setAttribute('aria-label', t('colPeriod'));
+    $('segs').setAttribute('label', t('colPeriod'));
+    $('fKind').setAttribute('label', t('kind'));
+    $('fScope').setAttribute('label', t('scope'));
+    $('batchSheet').setAttribute('label', t('batchTitle'));
+    $('fStack').setAttribute('label', t('stackable'));
+    $('fMembers').setAttribute('label', t('membersOnly'));
+    $('fEnabled').setAttribute('label', t('enabled'));
     ['fLimit', 'fPerUser'].forEach(i => { $(i).placeholder = t('limitPh'); });
 
     /* ---------- list ---------- */
@@ -185,10 +199,13 @@
         if (c.starts_at && c.ends_at) return SA.day(c.starts_at) + '–' + SA.day(c.ends_at);
         return c.ends_at ? t('until', SA.day(c.ends_at)) : t('from', SA.day(c.starts_at));
     }
+    // 期間篩選是 <jelly-segmented>：段只在篇數變了才改文字（見 Jelly.segmentText），選取跟著 st.status。
     function renderSegs() {
-        $('segs').innerHTML = SEGS.map(s => '<button type="button" data-s="' + s + '" aria-pressed="' + (!st.q && st.status === s) + '">' + esc(t('cs_' + s)) + (counts[s] != null ? ' <b>' + (+counts[s]) + '</b>' : '') + '</button>').join('');
-        $('segs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { st.status = b.dataset.s; st.q = ''; $('q').value = ''; load(); }));
+        const seg = $('segs');
+        SEGS.forEach(s => Jelly.segmentText(seg, s, t('cs_' + s) + (counts[s] != null ? ' ' + (+counts[s]) : '')));
+        if (seg.getAttribute('value') !== st.status) seg.setAttribute('value', st.status);
     }
+    $('segs').addEventListener('change', (e) => { st.status = (e.detail && e.detail.value) || $('segs').getAttribute('value'); st.q = ''; $('q').value = ''; load(); });
     function renderList() {
         const box = $('list');
         box.setAttribute('aria-busy', 'false');
@@ -245,8 +262,8 @@
 
     /* ---------- panel ---------- */
     const isNarrow = () => window.matchMedia('(max-width: 1100px)').matches;
-    const kind = () => f.querySelector('input[name="kind"]:checked').value;
-    const scope = () => f.querySelector('input[name="scope"]:checked').value;
+    const kind = () => $('fKind').getAttribute('value') || 'percent';
+    const scope = () => $('fScope').getAttribute('value') || 'all';
     function syncKind() {
         const k = kind();
         f.querySelectorAll('[data-kind]').forEach(el => { el.hidden = el.dataset.kind !== k; });
@@ -260,13 +277,13 @@
         $('fCode').value = v.code || '';
         $('fCode').readOnly = !!(editing && +editing.used_count > 0);
         $('fLabel').value = v.label || '';
-        (f.querySelector('input[name="kind"][value="' + (v.kind || 'percent') + '"]') || f.querySelector('input[name="kind"]')).checked = true;
+        $('fKind').setAttribute('value', ['percent', 'fixed', 'free_shipping', 'bogo'].includes(v.kind) ? v.kind : 'percent');
         $('fPercent').value = v.kind === 'percent' && v.value ? String(v.value) : '';
         $('fFixed').value = v.kind === 'fixed' && v.value ? SA.toInput(v.value) : '';
         $('fMin').value = v.min_subtotal ? SA.toInput(v.min_subtotal) : '';
         $('fBuy').value = v.buy_qty ? String(v.buy_qty) : '';
         $('fGet').value = v.get_qty ? String(v.get_qty) : '';
-        (f.querySelector('input[name="scope"][value="' + (v.scope || 'all') + '"]') || f.querySelector('input[name="scope"]')).checked = true;
+        $('fScope').setAttribute('value', ['all', 'category', 'product'].includes(v.scope) ? v.scope : 'all');
         targets = { category: new Map(), product: new Map() };
         (Array.isArray(v.targets) ? v.targets : []).forEach(x => {
             const type = x.target_type === 'category' ? 'category' : 'product';
@@ -277,9 +294,9 @@
         $('fStart').value = SA.toLocalInput(v.starts_at);
         $('fEnd').value = SA.toLocalInput(v.ends_at);
         $('fEmail').value = v.bound_email || '';
-        $('fStack').checked = !!v.stackable_with_free_shipping;
-        $('fMembers').checked = !!v.members_only;
-        $('fEnabled').checked = v.status !== 'disabled';
+        $('fStack').toggleAttribute('checked', !!v.stackable_with_free_shipping);
+        $('fMembers').toggleAttribute('checked', !!v.members_only);
+        $('fEnabled').toggleAttribute('checked', v.status !== 'disabled');
         $('panelTitle').textContent = editing ? t('editCoupon', editing.code) : t('newCoupon');
         $('panelBadge').innerHTML = editing ? SA.badge('coupon', editing.status === 'disabled' ? 'disabled' : st.status) : '';
         $('saveText').textContent = editing ? t('saveEdit') : t('create');
@@ -312,10 +329,10 @@
             }
             if (scope() !== 'category') return;
             if (!catList.length) { box.innerHTML = '<span class="muted" style="font-size:.8125rem">' + esc(t('noCats')) + '</span>'; return; }
-            box.innerHTML = '<div class="sa-picker" role="group" aria-label="' + esc(t('pickCats')) + '">' + catList.map(c => '<label style="padding-left:' + (c.depth * 1.25) + 'rem"><input type="checkbox" value="' + c.id + '"' + (targets.category.has(c.id) ? ' checked' : '') + '>' + esc(c.name) + '</label>').join('') + '</div>';
-            box.querySelectorAll('input').forEach(i => i.addEventListener('change', () => {
-                const c = catList.find(x => x.id === +i.value);
-                i.checked ? targets.category.set(c.id, c.name) : targets.category.delete(c.id);
+            box.innerHTML = '<div class="sa-picker" role="group" aria-label="' + esc(t('pickCats')) + '">' + catList.map(c => '<jelly-checkbox size="sm" style="margin-left:' + (c.depth * 1.25) + 'rem" value="' + c.id + '"' + (targets.category.has(c.id) ? ' checked' : '') + '>' + esc(c.name) + '</jelly-checkbox>').join('') + '</div>';
+            box.querySelectorAll('[value]').forEach(i => i.addEventListener('change', () => {
+                const c = catList.find(x => x.id === +i.getAttribute('value'));
+                i.hasAttribute('checked') ? targets.category.set(c.id, c.name) : targets.category.delete(c.id);
             }));
             return;
         }
@@ -334,8 +351,8 @@
                     const data = await SA.api('GET', '/api/admin/products?per_page=10&q=' + encodeURIComponent(q));
                     if (my !== pseq) return;
                     const list = Array.isArray(data) ? data : (data && data.items) || [];
-                    $('prodResults').innerHTML = list.map(p => '<label><input type="checkbox" value="' + (+p.id) + '" data-name="' + esc(p.title) + '"' + (targets.product.has(+p.id) ? ' checked' : '') + '>' + esc(p.title) + '</label>').join('') || '<span class="muted" style="font-size:.8125rem">—</span>';
-                    $('prodResults').querySelectorAll('input').forEach(i => i.addEventListener('change', () => { i.checked ? targets.product.set(+i.value, i.dataset.name) : targets.product.delete(+i.value); renderChips(); }));
+                    $('prodResults').innerHTML = list.map(p => '<jelly-checkbox size="sm" value="' + (+p.id) + '" data-name="' + esc(p.title) + '"' + (targets.product.has(+p.id) ? ' checked' : '') + '>' + esc(p.title) + '</jelly-checkbox>').join('') || '<span class="muted" style="font-size:.8125rem">—</span>';
+                    $('prodResults').querySelectorAll('[data-name]').forEach(i => i.addEventListener('change', () => { const id = +i.getAttribute('value'); i.hasAttribute('checked') ? targets.product.set(id, i.dataset.name) : targets.product.delete(id); renderChips(); }));
                 } catch (err) { if (my === pseq) $('prodResults').textContent = SA.errText(err); }
             }, 250);
         });
@@ -346,8 +363,8 @@
         box.innerHTML = [...targets.product].map(([id, name]) => '<span class="sa-chip">' + esc(name) + '<button type="button" data-id="' + id + '" aria-label="' + esc(t('removeTarget', name)) + '">' + SA.svg('i-x') + '</button></span>').join('');
         box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
             targets.product.delete(+b.dataset.id);
-            const cb = document.querySelector('#prodResults input[value="' + (+b.dataset.id) + '"]');
-            if (cb) cb.checked = false;
+            const cb = document.querySelector('#prodResults [value="' + (+b.dataset.id) + '"]');
+            if (cb) cb.removeAttribute('checked');
             renderChips();
             $('prodSearch').focus();
         }));
@@ -360,7 +377,9 @@
             $('panel').classList.add('open'); $('backdrop').classList.add('open');
             $('panel').setAttribute('role', 'dialog'); $('panel').setAttribute('aria-modal', 'true');
         }
-        setTimeout(() => $('fCode').focus(), 30);
+        // 窄螢幕等側頁滑進來再聚焦；寬螢幕直接聚焦，免得 30ms 後把使用者已經移走的焦點搶回來。
+        if (isNarrow()) setTimeout(() => $('fCode').focus(), 30);
+        else $('fCode').focus();
     }
     function closePanel() {
         const wasOpen = $('panel').classList.contains('open');
@@ -405,13 +424,13 @@
         const email = $('fEmail').value.trim();
         if (email && !$('fEmail').checkValidity()) fail($('fEmail'), t('badEmail'));
         body.bound_email = email.toLowerCase();
-        body.stackable_with_free_shipping = $('fStack').checked;
-        body.members_only = $('fMembers').checked;
-        body.status = $('fEnabled').checked ? 'active' : 'disabled';
+        body.stackable_with_free_shipping = $('fStack').hasAttribute('checked');
+        body.members_only = $('fMembers').hasAttribute('checked');
+        body.status = $('fEnabled').hasAttribute('checked') ? 'active' : 'disabled';
         const s = scope();
         const chosen = s === 'category' ? targets.category : s === 'product' ? targets.product : null;
         body.targets = chosen ? [...chosen.keys()].map(id => ({ target_type: s, target_id: id })) : [];
-        if (chosen && !chosen.size) { const anchor = f.querySelector('input[name="scope"]:checked'); fail(anchor, t('targetsRequired')); }
+        if (chosen && !chosen.size) fail($('fScope'), t('targetsRequired'));
         if (bad.length) { bad[0].focus(); return null; }
         return body;
     }
@@ -488,20 +507,15 @@
     }));
 
     /* ---------- batch ---------- */
-    let batchOpener = null, csvUrl = null;
+    // 批次產生是 <jelly-dialog>：Esc、點背景、右上 ✕ 與「關閉」都關，焦點回到打開它的按鈕。
+    let csvUrl = null;
     function openBatch() {
-        batchOpener = document.activeElement;
-        $('batchSheet').classList.add('open'); $('batchSheet').setAttribute('aria-hidden', 'false');
         $('batchOut').hidden = true; $('batchDownload').hidden = true;
-        $('bPrefix').focus();
+        Jelly.dialog($('batchSheet'), { opener: $('batchOpen'), focus: '#bPrefix' });
     }
-    function closeBatch() {
-        $('batchSheet').classList.remove('open'); $('batchSheet').setAttribute('aria-hidden', 'true');
-        if (batchOpener && document.contains(batchOpener)) batchOpener.focus();
-    }
+    function closeBatch() { Jelly.closeDialog($('batchSheet')); }
     $('batchOpen').addEventListener('click', openBatch);
     $('batchClose').addEventListener('click', closeBatch);
-    $('batchSheet').addEventListener('click', (e) => { if (e.target === $('batchSheet')) closeBatch(); });
     $('bf').addEventListener('submit', async (e) => {
         e.preventDefault();
         const prefix = $('bPrefix').value.trim().toUpperCase();
@@ -538,10 +552,8 @@
     });
 
     /* ---------- events ---------- */
-    f.addEventListener('change', (e) => {
-        if (e.target.name === 'kind') syncKind();
-        if (e.target.name === 'scope') { SA.fieldError(e.target, ''); renderTargets(); }
-    });
+    $('fKind').addEventListener('change', syncKind);
+    $('fScope').addEventListener('change', () => { SA.fieldError($('fScope'), ''); renderTargets(); });
     f.addEventListener('input', (e) => { if (e.target.getAttribute('aria-invalid')) SA.fieldError(e.target, ''); });
     $('randomCode').addEventListener('click', () => {
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -554,8 +566,7 @@
     $('backdrop').addEventListener('click', closePanel);
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape' || e.defaultPrevented) return;
-        if ($('batchSheet').classList.contains('open')) { e.preventDefault(); closeBatch(); }
-        else if ($('panel').classList.contains('open')) { e.preventDefault(); closePanel(); }
+        if ($('panel').classList.contains('open')) { e.preventDefault(); closePanel(); }
     });
     let timer = null;
     $('q').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { st.q = $('q').value.trim(); load(); }, 300); });

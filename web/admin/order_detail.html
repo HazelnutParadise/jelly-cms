@@ -69,17 +69,17 @@
             <div class="sa-panel-head"><span class="stripes" aria-hidden="true"></span><b id="hRefund"></b><span class="badge badge-info" id="refundPaid" style="margin-left:auto"></span></div>
             <form id="refundForm" novalidate style="display:grid;gap:.75rem">
                 <div class="sa-field"><span class="label" id="lRefundMode"></span>
-                    <div class="segmented" role="radiogroup" aria-labelledby="lRefundMode">
-                        <label><input type="radio" name="mode" value="full" checked><span data-t="full"></span></label>
-                        <label><input type="radio" name="mode" value="partial"><span data-t="partial"></span></label>
-                    </div>
+                    <jelly-segmented id="rMode" name="mode" value="full">
+                        <jelly-segment value="full" data-t="full"></jelly-segment>
+                        <jelly-segment value="partial" data-t="partial"></jelly-segment>
+                    </jelly-segmented>
                 </div>
                 <div class="sa-field" data-field><label for="rAmount" data-t="refundAmount"></label><input type="text" id="rAmount" inputmode="decimal"><small class="hint" id="rHint"></small></div>
                 <div class="sa-field" data-field><label for="rReason" data-t="reason"></label>
                     <select id="rReason"><option value="customer_request" data-t="rsCustomer"></option><option value="defective" data-t="rsDefective"></option><option value="out_of_stock" data-t="rsStock"></option><option value="other" data-t="rsOther"></option></select>
                 </div>
                 <div class="sa-field" data-field id="rOtherBox" hidden><label for="rOther" data-t="reasonText"></label><input type="text" id="rOther" maxlength="200"></div>
-                <label class="sa-checks" style="display:flex;gap:.5rem;align-items:center"><input type="checkbox" id="rRestock"><span data-t="restock"></span></label>
+                <div class="sa-checks"><jelly-checkbox size="sm" id="rRestock"><span data-t="restock"></span></jelly-checkbox></div>
                 <p class="hint" id="rOffline" hidden></p>
                 <div class="row"><button type="submit" class="btn btn-danger" id="refundBtn"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span id="refundBtnText"></span></button><button type="button" class="btn btn-secondary" id="refundCancel"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg><span data-t="cancel"></span></button></div>
             </form>
@@ -150,6 +150,7 @@
 
     document.querySelectorAll('[data-t]').forEach(el => { el.textContent = t(el.dataset.t); });
     [['hItems', 'items'], ['hTimeline', 'timeline'], ['hNotes', 'notes'], ['hCustomer', 'customer'], ['hShipTo', 'shipTo'], ['hPayment', 'payment'], ['hStatus', 'status'], ['hRefund', 'refundTitle'], ['lRefundMode', 'refundMode']].forEach(([el, k]) => { $(el).textContent = t(k); });
+    $('rMode').setAttribute('label', t('refundMode'));
     $('slipBtn').querySelector('span').textContent = t('slip');
     $('receiptBtn').querySelector('span').textContent = t('receipt');
     $('refundOpen').querySelector('span').textContent = t('refund');
@@ -397,7 +398,8 @@
     $('noteInput').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); $('noteForm').requestSubmit(); } });
 
     /* ---------- refund ---------- */
-    function refundMode() { return document.querySelector('#refundForm input[name="mode"]:checked').value; }
+    // 退款方式是 <jelly-segmented>：讀寫一律用 value 屬性。
+    function refundMode() { return $('rMode').getAttribute('value') === 'partial' ? 'partial' : 'full'; }
     function refundAmount() {
         if (refundMode() === 'full') return { ok: true, minor: remaining() };
         const a = SA.parseAmount($('rAmount').value);
@@ -421,7 +423,8 @@
         $('refundCard').hidden = false;
         syncRefund();
         $('refundCard').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        document.querySelector('#refundForm input[name="mode"]:checked').focus();
+        const chosen = $('rMode').shadowRoot && $('rMode').shadowRoot.querySelector('button[tabindex="0"]');
+        (chosen || $('rMode')).focus();
     }
     function closeRefund() { $('refundCard').hidden = true; }
     $('refundOpen').addEventListener('click', openRefund);
@@ -436,14 +439,14 @@
         if (a.minor > remaining()) { SA.fieldError($('rAmount'), t('refundTooMuch', SA.money(remaining(), o.currency))); $('rAmount').focus(); return; }
         const reasonKey = $('rReason').value;
         const reason = reasonKey === 'other' ? ($('rOther').value.trim() || t('rsOther')) : $('rReason').selectedOptions[0].textContent;
-        const body = { amount: a.minor, reason, reason_code: reasonKey, restock: $('rRestock').checked, idempotency_key: refundKey };
+        const body = { amount: a.minor, reason, reason_code: reasonKey, restock: $('rRestock').hasAttribute('checked'), idempotency_key: refundKey };
         await SA.busy($('refundBtn'), async () => {
             try {
                 await SA.api('POST', '/api/admin/orders/' + id + '/refund', body, { headers: { 'Idempotency-Key': refundKey } });
                 refundKey = null;
                 SA.toast(t('refundDone', SA.money(a.minor, o.currency)));
                 closeRefund();
-                $('rAmount').value = ''; $('rOther').value = ''; $('rRestock').checked = false;
+                $('rAmount').value = ''; $('rOther').value = ''; $('rRestock').removeAttribute('checked');
                 await load(true);
             } catch (err) {
                 // Network and timeout errors keep the same key, so pressing again cannot refund twice.

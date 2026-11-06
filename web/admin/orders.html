@@ -3,7 +3,7 @@
 {{define "content"}}
 <div class="sa-head">
     <h1>{{.T.orders}}</h1>
-    <div class="sa-seg" id="segs" role="group" aria-label="{{.T.status}}"></div>
+    <div class="seg-scroll"><jelly-segmented id="segs" name="status" value="all" label="{{.T.status}}"></jelly-segmented></div>
     <span class="sa-grow"></span>
     <a class="btn btn-secondary btn-sm" href="/admin/settings#payment" id="settingsLink"><svg class="icon" aria-hidden="true"><use href="#i-sliders"/></svg><span></span></a>
 </div>
@@ -62,12 +62,17 @@
     $('from').value = st.from;
     $('to').value = st.to;
 
+    // 狀態篩選是 <jelly-segmented>：段只建一次，之後只在數字變了才改文字（Jelly.segmentText），選取跟著 st.status。
+    const segLabel = (s) => s === 'all' ? t('all') : t('st_' + s);
+    $('segs').innerHTML = SEGS.map(s => '<jelly-segment value="' + s + '">' + esc(segLabel(s)) + '</jelly-segment>').join('');
+    $('segs').addEventListener('change', (e) => { st.status = (e.detail && e.detail.value) || $('segs').getAttribute('value'); st.page = 1; load(); });
     function renderSegs() {
-        $('segs').innerHTML = SEGS.map(s => {
+        const seg = $('segs');
+        SEGS.forEach(s => {
             const n = s === 'all' ? (counts.all != null ? counts.all : Object.keys(counts).reduce((a, k) => a + (+counts[k] || 0), 0)) : counts[s];
-            return '<button type="button" data-s="' + s + '" aria-pressed="' + (st.status === s) + '">' + esc(s === 'all' ? t('all') : t('st_' + s)) + (n ? ' <b>' + (+n) + '</b>' : '') + '</button>';
-        }).join('');
-        $('segs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { st.status = b.dataset.s; st.page = 1; load(); }));
+            Jelly.segmentText(seg, s, segLabel(s) + (n ? ' ' + (+n) : ''));
+        });
+        if (seg.getAttribute('value') !== st.status) seg.setAttribute('value', st.status);
     }
 
     function renderKpi(k) {

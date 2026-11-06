@@ -22,22 +22,11 @@
     .rv-note { font-size: .75rem; line-height: 1.6; color: var(--muted); padding: .65rem .75rem; background: var(--surface-low); border-radius: var(--r-sm); }
 
     .rv-toolbar { display: flex; align-items: center; gap: .6rem .9rem; flex-wrap: wrap; margin-bottom: .75rem; }
-    .rv-seg { display: inline-flex; flex-wrap: wrap; gap: .2rem; padding: .2rem; background: var(--surface-mid); border-radius: var(--r-sm); }
-    .rv-seg button { display: inline-flex; align-items: center; gap: .4rem; min-height: 1.9rem; padding: 0 .75rem; border: 0; background: transparent; font: inherit; font-size: .8125rem; font-weight: 700; color: var(--muted); border-radius: var(--r-sm); cursor: pointer; white-space: nowrap; transition: background-color .12s ease, color .12s ease; }
-    .rv-seg button .icon { width: .875rem; height: .875rem; }
-    .rv-seg button:hover { color: var(--ink); }
-    .rv-seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
-    .rv-seg button:focus-visible { outline: 3px solid var(--secondary); outline-offset: 1px; }
     .rv-cmp { display: inline-flex; align-items: center; gap: .4rem; font-size: .8125rem; color: var(--muted); flex-wrap: wrap; }
     .rv-cmp b { font-family: var(--font-display); font-weight: 800; color: var(--ink); }
     .rv-cmp select { width: auto; min-height: 1.9rem; padding: 0 1.4rem 0 .4rem; font-size: .8125rem; font-weight: 700; color: var(--ink); }
-    .rv-collapse { margin-left: auto; display: inline-flex; align-items: center; gap: .6rem; font-size: .8125rem; font-weight: 600; cursor: pointer; margin-bottom: 0; color: var(--ink); }
-    .rv-collapse input { position: absolute; opacity: 0; width: 0; height: 0; }
-    .rv-collapse .slider { position: relative; width: 2.6rem; height: 1.5rem; background: var(--surface-high); border-radius: 0 .75rem 0 .75rem; transition: background-color .15s ease; flex: 0 0 auto; }
-    .rv-collapse .slider::before { content: ""; position: absolute; top: .1875rem; left: .1875rem; width: 1.125rem; height: 1.125rem; background: var(--surface); border-radius: 0 .5rem 0 .5rem; transition: transform .15s ease; }
-    .rv-collapse input:checked + .slider { background: var(--accent); }
-    .rv-collapse input:checked + .slider::before { transform: translateX(1.1rem); }
-    .rv-collapse input:focus-visible + .slider { outline: 3px solid var(--secondary); outline-offset: 2px; }
+    .rv-collapse { margin-left: auto; display: inline-flex; align-items: center; gap: .6rem; font-size: .8125rem; font-weight: 600; margin-bottom: 0; color: var(--ink); }
+    .rv-collapse jelly-switch { flex: 0 0 auto; }
 
     .rv-card { background: var(--surface); box-shadow: inset 0 0 0 1px var(--outline); border-radius: var(--r-md); overflow: hidden; }
     .rv-sec { padding: .5rem .9rem; font-size: .75rem; font-weight: 700; color: var(--muted); border-bottom: 1px solid color-mix(in srgb, var(--outline) 60%, transparent); background: var(--surface-low); }
@@ -103,13 +92,15 @@
     </aside>
     <section aria-live="polite">
         <div class="rv-toolbar">
-            <div class="rv-seg" id="modeSeg" role="group" aria-label="{{.T.rvViewMode}}">
-                <button type="button" data-mode="inline" aria-pressed="true"><svg class="icon" aria-hidden="true"><use href="#i-list"/></svg>{{.T.rvModeInline}}</button>
-                <button type="button" data-mode="only" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-eye"/></svg><span id="onlyLabel"></span></button>
-                <button type="button" data-mode="split" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg>{{.T.rvModeSplit}}</button>
+            <div class="seg-scroll">
+                <jelly-segmented id="modeSeg" name="mode" value="inline" label="{{.T.rvViewMode}}">
+                    <jelly-segment value="inline">{{.T.rvModeInline}}</jelly-segment>
+                    <jelly-segment value="only">{{.T.rvOnly}}</jelly-segment>
+                    <jelly-segment value="split">{{.T.rvModeSplit}}</jelly-segment>
+                </jelly-segmented>
             </div>
             <span class="rv-cmp" id="cmp"><span>{{.T.rvCompare}}</span> <b id="cmpFrom"></b> <span aria-hidden="true">→</span> <label class="rv-sr" for="cmpTo">{{.T.rvCompareTo}}</label><select id="cmpTo"></select></span>
-            <label class="rv-collapse" id="collapseWrap"><span>{{.T.rvOnlyChanged}}</span><input type="checkbox" id="collapse" checked><span class="slider" aria-hidden="true"></span></label>
+            <div class="rv-collapse" id="collapseWrap"><span>{{.T.rvOnlyChanged}}</span><jelly-switch id="collapse" label="{{.T.rvOnlyChanged}}" checked></jelly-switch></div>
         </div>
         <div class="rv-card" id="card"></div>
         <div class="rv-foot">
@@ -150,6 +141,7 @@
         return n;
     }
     function fmt(tpl, vars) { return String(tpl).replace(/\{(\w+)\}/g, function (x, k) { return vars[k] != null ? vars[k] : x; }); }
+    Jelly.segmentText(document.getElementById('modeSeg'), 'only', fmt(T.only, { v: '' }).trim());
     function toast(msg, opts) { if (window.Jelly && Jelly.toast) Jelly.toast(msg, opts || {}); }
     function api(method, url) {
         return fetch(url, { method: method, headers: { 'Content-Type': 'application/json' } }).then(function (res) {
@@ -283,7 +275,7 @@
     function renderToolbar() {
         var rev = state.selected;
         $('cmpFrom').textContent = label(rev);
-        $('onlyLabel').textContent = fmt(T.only, { v: label(rev) });
+        Jelly.segmentText($('modeSeg'), 'only', fmt(T.only, { v: label(rev) }));
         $('copyLabel').textContent = fmt(T.copy, { v: label(rev) });
         var sel = $('cmpTo');
         sel.textContent = '';
@@ -313,7 +305,7 @@
         $('collapseWrap').hidden = state.mode === 'only';
         $('cmp').hidden = state.mode === 'only';
         $('legend').hidden = state.mode === 'only';
-        document.querySelectorAll('#modeSeg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.mode === state.mode)); });
+        if ($('modeSeg').getAttribute('value') !== state.mode) $('modeSeg').setAttribute('value', state.mode);
     }
 
     function choose(rev) {
@@ -535,11 +527,9 @@
         var rev = revById(b.dataset.id);
         if (rev) choose(rev);
     });
-    document.querySelectorAll('#modeSeg button').forEach(function (b) {
-        b.addEventListener('click', function () { state.mode = b.dataset.mode; choose(state.selected); });
-    });
+    $('modeSeg').addEventListener('change', function (e) { state.mode = (e.detail && e.detail.value) || $('modeSeg').getAttribute('value'); choose(state.selected); });
     $('cmpTo').addEventListener('change', function (e) { state.to = e.target.value; choose(state.selected); });
-    $('collapse').addEventListener('change', function (e) { state.collapse = e.target.checked; renderCard(); });
+    $('collapse').addEventListener('change', function () { state.collapse = $('collapse').hasAttribute('checked'); renderCard(); });
     $('card').addEventListener('click', function (e) {
         var g = e.target.closest('[data-gap]');
         if (g) { state.expanded[g.dataset.gap] = true; renderCard(); }

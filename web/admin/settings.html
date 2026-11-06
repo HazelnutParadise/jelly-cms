@@ -229,6 +229,8 @@
 </script>
 {{if eq .ActiveTab "auth"}}
 <script>
+    // OAuth 儲存結果用 Jelly 通知，文字走 i18n 鍵。
+    const OAUTH_T = {{json (dict "googleSaved" .T.oauthGoogleSaved "githubSaved" .T.oauthGithubSaved "saveFailed" .T.oauthSaveFailed "tryAgain" .T.oauthTryAgain)}};
     async function loadOAuthSettings() {
         const res = await fetch('/api/admin/oauth/providers');
         const configs = await res.json();
@@ -352,15 +354,15 @@
                     clientID: data.client_id,
                     clientSecret: data.client_secret
                 };
-                alert('Google OAuth settings saved!');
+                Jelly.toast(OAUTH_T.googleSaved, { kind: 'success' });
                 checkGoogleForm();
             } else {
-                const err = await res.json();
-                alert('Failed to save: ' + (err.error || 'Unknown error'));
+                const err = await res.json().catch(() => ({}));
+                Jelly.toast(OAUTH_T.saveFailed, { kind: 'error', detail: err.error || OAUTH_T.tryAgain });
             }
         } catch (err) {
             console.error('Failed to save Google OAuth settings:', err);
-            alert('Failed to save Google OAuth settings. Please try again.');
+            Jelly.toast(OAUTH_T.saveFailed, { kind: 'error', detail: OAUTH_T.tryAgain });
         }
     });
 
@@ -385,15 +387,15 @@
                     clientID: data.client_id,
                     clientSecret: data.client_secret
                 };
-                alert('GitHub OAuth settings saved!');
+                Jelly.toast(OAUTH_T.githubSaved, { kind: 'success' });
                 checkGitHubForm();
             } else {
-                const err = await res.json();
-                alert('Failed to save: ' + (err.error || 'Unknown error'));
+                const err = await res.json().catch(() => ({}));
+                Jelly.toast(OAUTH_T.saveFailed, { kind: 'error', detail: err.error || OAUTH_T.tryAgain });
             }
         } catch (err) {
             console.error('Failed to save GitHub OAuth settings:', err);
-            alert('Failed to save GitHub OAuth settings. Please try again.');
+            Jelly.toast(OAUTH_T.saveFailed, { kind: 'error', detail: OAUTH_T.tryAgain });
         }
     });
 
@@ -518,16 +520,12 @@
     function readKey(el) {
         if (el.tagName === 'JELLY-SWITCH') return el.hasAttribute('checked') ? 'true' : 'false';
         if (el.tagName === 'JELLY-SEGMENTED') return el.getAttribute('value') === 'test' ? 'true' : 'false';
-        if (el.type === 'checkbox') return el.checked ? 'true' : 'false';
-        if (el.type === 'radio') { const c = document.querySelector('input[name="' + el.name + '"]:checked'); return c ? c.value : ''; }
         if (el.hasAttribute('data-money')) { const a = SA.parseAmount(el.value); return a.ok ? String(a.minor) : el.value; }
         return el.tagName === 'TEXTAREA' ? el.value : el.value.trim();
     }
     function writeKey(el, v) {
         if (el.tagName === 'JELLY-SWITCH') el.toggleAttribute('checked', v === 'true');
         else if (el.tagName === 'JELLY-SEGMENTED') setTestMode(el.id, v !== 'false');
-        else if (el.type === 'checkbox') el.checked = v === 'true';
-        else if (el.type === 'radio') el.checked = el.value === v;
         else if (el.hasAttribute('data-money')) el.value = v && v !== '0' ? SA.toInput(+v) : '';
         else el.value = v;
     }

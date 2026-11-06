@@ -6,7 +6,7 @@
  <p id="integrationsStatus" role="status" aria-live="polite">{{if eq .Lang "en"}}Loading…{{else}}載入中…{{end}}</p>
  <button id="integrationsRetry" class="btn btn-secondary" type="button" hidden>{{if eq .Lang "en"}}Retry{{else}}重試{{end}}</button>
  <div id="integrationsContent"></div>
- <dialog id="integrationDialog" aria-labelledby="integrationDialogTitle"><div class="integration-dialog-header"><h2 id="integrationDialogTitle"></h2><button id="integrationDialogClose" class="btn btn-text" type="button">{{if eq .Lang "en"}}Close{{else}}關閉{{end}}</button></div><div id="integrationDialogBody"></div><p id="integrationDialogStatus" role="status" aria-live="polite"></p><div id="integrationDialogActions" class="integration-actions"></div></dialog>
+ <jelly-dialog id="integrationDialog"><div class="integration-dialog-header"><h2 id="integrationDialogTitle"></h2></div><div id="integrationDialogBody"></div><p id="integrationDialogStatus" role="status" aria-live="polite"></p><div id="integrationDialogActions" class="integration-actions"></div></jelly-dialog>
 </div>
 <script src="{{assetURL "/admin/assets/integrations.js"}}" defer></script>
 {{end}}

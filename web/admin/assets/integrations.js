@@ -41,7 +41,6 @@
     busy = false,
     confirmationPending = false,
     secret = "",
-    returnFocus = null,
     epoch = 0,
     pageActive = true;
   const controllers = new Set();
@@ -159,7 +158,8 @@
     root.querySelectorAll("[data-mutation]").forEach((b) => {
       b.disabled = value || b.dataset.invalid === "true";
     });
-    $("integrationDialogClose").disabled = value;
+    // 處理中鎖住對話框：Esc、點背景與右上 ✕ 都不關（Jelly.dialog 的 data-jelly-locked）。
+    dialog.toggleAttribute("data-jelly-locked", value);
   }
   async function mutate(
     path,
@@ -195,27 +195,25 @@
       box.remove();
     }
   }
+  // 對話框是 <jelly-dialog>：Esc、點背景、右上 ✕ 都關閉，焦點回到打開它的按鈕（Jelly.dialog）；
+  // 關閉後在 close 事件清掉金鑰與內容。force 是離開頁面時立刻關閉。
   function closeDialog(force = false) {
     if (busy && !force) return;
     purgeSecret();
-    dialog.close();
-    $("integrationDialogBody").replaceChildren();
-    $("integrationDialogActions").replaceChildren();
-    $("integrationDialogStatus").textContent = "";
-    if (returnFocus && returnFocus.isConnected && !force) returnFocus.focus();
+    if (force) dialog.removeAttribute("open");
+    else Jelly.closeDialog(dialog);
   }
   function openDialog(title, body, actions) {
     purgeSecret();
-    if (!dialog.open) returnFocus = document.activeElement;
     $("integrationDialogTitle").textContent = title;
+    dialog.setAttribute("label", title);
     $("integrationDialogBody").replaceChildren(body);
     $("integrationDialogActions").replaceChildren(...actions);
     $("integrationDialogStatus").textContent = "";
-    if (!dialog.open) dialog.showModal();
     const first = dialog.querySelector(
       "input:not([disabled]),button:not([disabled])",
     );
-    if (first) first.focus();
+    Jelly.dialog(dialog, { focus: first });
   }
   const cancel = () => button(tr("取消", "Cancel"), () => closeDialog());
   function showSecret(result) {
@@ -318,13 +316,13 @@
           row.append(node("span", "—"));
           return;
         }
-        const label = node("label"),
-          check = node("input");
-        check.type = "checkbox";
-        check.name = "permission";
-        check.value = p.name;
-        check.checked = selected.includes(p.name);
-        check.setAttribute("aria-label", p.name);
+        const label = node("span", undefined, "integration-perm-cell"),
+          check = node("jelly-checkbox");
+        check.setAttribute("size", "sm");
+        check.setAttribute("name", "permission");
+        check.setAttribute("value", p.name);
+        check.toggleAttribute("checked", selected.includes(p.name));
+        check.setAttribute("label", p.name);
         label.append(check);
         if (
           p.required_roles &&
@@ -376,8 +374,8 @@
         name: name.input.value.trim(),
         description: desc.input.value,
         permissions: [
-          ...form.querySelectorAll("[name=permission]:checked"),
-        ].map((x) => x.value),
+          ...form.querySelectorAll("[name=permission][checked]"),
+        ].map((x) => x.getAttribute("value")),
       };
       if ([...payload.name].length < 1 || [...payload.name].length > 80) {
         message(
@@ -784,15 +782,18 @@
   }
   function rotate() {
     const form = node("form", undefined, "integration-form");
-    const mode = node("fieldset");
-    mode.append(node("legend", tr("輪替方式", "Rotation mode")));
+    // 輪替方式是單選卡：Jelly 單選群組包 name="rotation-mode" 的 Jelly 單選，點卡片任何地方等同點選。
+    const mode = node("jelly-radio-group", undefined, "integration-options");
+    mode.setAttribute("size", "sm");
+    mode.setAttribute("direction", "vertical");
+    mode.setAttribute("label", tr("輪替方式", "Rotation mode"));
     ["immediate", "grace"].forEach((value) => {
-      const label = node("label", undefined, "integration-option"),
-        radio = node("input");
-      radio.type = "radio";
-      radio.name = "rotation-mode";
-      radio.value = value;
-      radio.checked = value === "immediate";
+      const label = node("div", undefined, "integration-option"),
+        radio = node("jelly-radio");
+      radio.setAttribute("size", "sm");
+      radio.setAttribute("name", "rotation-mode");
+      radio.setAttribute("value", value);
+      radio.toggleAttribute("checked", value === "immediate");
       const text = node(
         "span",
         value === "immediate"
@@ -813,7 +814,13 @@
               ),
         ),
       );
-      label.append(radio, text);
+      radio.append(text);
+      label.append(radio);
+      label.addEventListener("click", () => {
+        if (radio.hasAttribute("disabled")) return;
+        form.querySelectorAll("[name=rotation-mode]").forEach((item) => item.toggleAttribute("checked", item === radio));
+        validate();
+      });
       mode.append(label);
     });
     const f = field(
@@ -857,7 +864,7 @@
       tr("輪替金鑰", "Rotate access key"),
       () => {
         if (!validate()) return;
-        const value = form.querySelector("[name=rotation-mode]:checked").value;
+        const value = form.querySelector("[name=rotation-mode][checked]").getAttribute("value");
         mutate(
           endpoint + "/rotate",
           "POST",
@@ -880,7 +887,7 @@
     );
     function validate() {
       const grace =
-          form.querySelector("[name=rotation-mode]:checked").value === "grace",
+          form.querySelector("[name=rotation-mode][checked]").getAttribute("value") === "grace",
         num = Number(f.input.value),
         valid =
           !grace ||
@@ -1238,36 +1245,11 @@
     }
   }
   $("integrationsRetry").addEventListener("click", () => init(true));
-  $("integrationDialogClose").addEventListener("click", () => closeDialog());
-  dialog.addEventListener("cancel", (e) => {
-    e.preventDefault();
-    closeDialog();
-  });
   dialog.addEventListener("close", () => {
     purgeSecret();
     $("integrationDialogBody").replaceChildren();
     $("integrationDialogActions").replaceChildren();
-  });
-  dialog.addEventListener("keydown", (e) => {
-    if (e.key !== "Tab") return;
-    const all = [
-      ...dialog.querySelectorAll(
-        "button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),a[href]",
-      ),
-    ].filter((n) => n.getClientRects().length);
-    if (!all.length) {
-      e.preventDefault();
-      return;
-    }
-    const first = all[0],
-      last = all[all.length - 1];
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
+    $("integrationDialogStatus").textContent = "";
   });
   const countdown = setInterval(() => {
     root.querySelectorAll("[data-expires]").forEach((n) => {
@@ -1288,7 +1270,7 @@
     epoch++;
     setBusy(false);
     purgeSecret();
-    if (dialog.open) closeDialog(true);
+    if (dialog.hasAttribute("open")) closeDialog(true);
     controllers.forEach((c) => c.abort());
   }
   window.addEventListener("pagehide", leave);

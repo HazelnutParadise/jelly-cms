@@ -1056,5 +1056,21 @@
     "sys_s3CredentialsHint": "只有 S3 策略需要填寫 S3 設定。已儲存的憑證只顯示遮罩，留空保留；勾選清除會刪除全部憑證。",
     "sys_s3CredentialsPair": "新的 S3 憑證請同時填寫 Access key 與 Secret key。",
     "errorNotFoundBody": "這一塊果凍掉到桌子底下了。網址可能打錯，或者文章已經被移走。",
-    "searchQueryTooLong": "搜尋字詞最多 100 個字"
+    "searchQueryTooLong": "搜尋字詞最多 100 個字",
+    "ed2ExportFormat": "格式",
+    "mediaUploadFile": "上傳檔案",
+    "mediaCopyUrl": "複製網址",
+    "mediaUrlCopied": "已複製網址",
+    "mediaCopyFailed": "無法複製網址",
+    "mediaDeleteTitle": "刪除 {name}？刪除後無法復原。",
+    "mediaDeleteFailed": "刪除失敗",
+    "mediaRenameFailed": "重新命名失敗",
+    "mediaUploadFailed": "上傳失敗",
+    "mediaEmptyTitle": "還沒有檔案",
+    "mediaEmptyText": "上傳圖片或文件就能開始使用。",
+    "oauthGoogleSaved": "已儲存 Google OAuth 設定",
+    "oauthGithubSaved": "已儲存 GitHub OAuth 設定",
+    "oauthSaveFailed": "OAuth 設定沒有儲存",
+    "oauthTryAgain": "請再試一次。",
+    "themeConfigLoadFailed": "無法載入主題設定"
 }

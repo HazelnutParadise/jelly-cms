@@ -1,15 +1,18 @@
 .integrations-page {
   min-width: 0;
 }
-.integrations-page .btn-primary {
+.integrations-page .btn-primary,
+#integrationDialog .btn-primary {
   background: #d82050;
   color: #fff;
 }
-.integrations-page .btn-primary:hover {
+.integrations-page .btn-primary:hover,
+#integrationDialog .btn-primary:hover {
   background: var(--ink);
   color: var(--surface);
 }
-.integrations-page .btn-danger {
+.integrations-page .btn-danger,
+#integrationDialog .btn-danger {
   background: #cf3025;
   color: #fff;
 }
@@ -19,7 +22,8 @@
 .integrations-page .badge-warning {
   color: color-mix(in srgb, var(--warning) 45%, var(--ink));
 }
-.integrations-page [hidden] {
+.integrations-page [hidden],
+#integrationDialog [hidden] {
   display: none !important;
 }
 .integrations-page h1 {
@@ -29,7 +33,8 @@
   font-size: 1.05rem;
   margin: 0 0 0.85rem;
 }
-.integrations-page p {
+.integrations-page p,
+#integrationDialog p {
   overflow-wrap: anywhere;
 }
 .integration-layout {
@@ -108,7 +113,7 @@
 .integration-filters label {
   font-size: 0.8rem;
 }
-.integration-form input:not([type="checkbox"]),
+.integration-form input,
 .integration-form textarea,
 .integration-filters input,
 .integration-filters select {
@@ -188,10 +193,9 @@
   text-align: center;
   margin: 0;
 }
-.integration-perm-row input {
-  width: 1.1rem;
-  height: 1.1rem;
-  accent-color: var(--primary);
+.integration-perm-cell {
+  display: grid;
+  justify-items: center;
 }
 .integration-perm-row small {
   display: block;
@@ -214,45 +218,42 @@
   color: #d0d3db;
   margin: 0;
 }
-.integrations-page dialog {
-  background: var(--surface);
-  color: var(--ink);
-  border: 1px solid var(--outline);
-  border-radius: var(--r-md);
-  padding: 1.5rem;
-  width: min(34rem, calc(100% - 2rem));
-  max-height: calc(100dvh - 2rem);
-  overflow: auto;
-  box-sizing: border-box;
-}
-.integrations-page dialog::backdrop {
-  background: #0008;
+/* 對話框是 <jelly-dialog id="integrationDialog">：打開時被移到 <body>，不在 .integrations-page 裡，所以用 #integrationDialog 起頭 */
+#integrationDialog {
+  --jelly-dialog-width: min(34rem, 100%);
 }
 .integration-dialog-header {
   display: flex;
   align-items: start;
   justify-content: space-between;
   gap: 1rem;
+  padding-right: 2rem;
 }
-.integration-dialog-header h2 {
-  margin-top: 0.65rem;
+#integrationDialog h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.85rem;
+}
+.integration-options {
+  margin: 0 0 0.75rem;
 }
 .integration-option {
-  display: flex;
-  gap: 0.7rem;
   padding: 0.8rem;
   background: var(--surface-low);
   border-radius: var(--r-sm);
+  cursor: pointer;
 }
-.integration-option input {
-  flex: none;
-  width: auto !important;
-  margin-top: 0.25rem;
+.integration-option jelly-radio {
+  display: flex;
+  --jelly-label: var(--ink);
+}
+.integration-option jelly-radio::part(wrap) {
+  align-items: flex-start;
 }
 .integration-option small {
   display: block;
   color: var(--muted);
   line-height: 1.5;
+  font-weight: 400;
 }
 .integration-history {
   list-style: none;
@@ -329,8 +330,8 @@
   .integration-filters > * {
     min-width: 100% !important;
   }
-  .integrations-page dialog {
-    padding: 1rem;
+  #integrationDialog {
+    --jelly-dialog-padding: 1rem;
   }
 }
 @media (prefers-reduced-motion: reduce) {
