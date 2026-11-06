@@ -114,11 +114,11 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
 .jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
 .jd.st{position:relative;left:auto;top:auto;transform:none;width:auto;text-align:left}
-.cb.j,.rd.j{--cb:32px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
-.cb.j{border-radius:calc(var(--cb)*.3125)}.rd.j{border-radius:50%}
+.cb.j,.rd.j{--cb:28px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3)}.rd.j{border-radius:50%}
 .cb.j.on,.rd.j.on{background:#13C2A3}
-.cb.j.on:after{display:block;content:"";position:absolute;inset:0;width:auto;height:auto;border:0;transform:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 16.5l4.8 4.8L23 11.2' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
-.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.375);height:calc(var(--cb)*.375);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;width:auto;height:auto;border:0;transform:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Cpath d='M6.2 14.2l5.2 5.4L21.9 7.4' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.357);height:calc(var(--cb)*.357);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 .ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
 .cube{position:absolute;border-radius:0 26% 0 26%}
@@ -445,7 +445,7 @@ def prow(name, slug, n, lv=0, color=None, sel=False):
     bg = ' style="background:#F8F9FF"' if sel else ""
     return f'<tr{bg}><td style="width:36px"><span class="cb j{" on" if sel else ""}"></span></td><td{pad}>{arrow}{dot}<b>{name}</b></td><td style="color:#5F6470">/shop/c/{slug}</td><td class="mono" style="font-size:15px">{n}</td><td class="act"><button class="btn x s i" type="button" aria-label="編輯">{I("edit")}</button><button class="btn x s i" type="button" aria-label="看前台">{I("external")}</button><button class="btn x s i" type="button" aria-label="刪除">{I("trash")}</button></td></tr>'
 
-pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS + "\n@media(max-width:700px){.seg{flex-wrap:wrap;max-width:100%;box-sizing:border-box}}\n", 1440, 1380, admin("taxonomy", ["內容","分類與標籤"],
+pages["Taxonomy"] = ("後台分類與標籤", ADMIN_CSS + "\n@media(max-width:700px){.seg{flex-wrap:wrap;max-width:100%;box-sizing:border-box}}\n", 1440, 1360, admin("taxonomy", ["內容","分類與標籤"],
   f'<button class="btn t" type="button">{I("upload")}從 WordPress 匯入</button><button class="btn p" type="button">{I("plus")}新增分類</button>',
   f'''<main style="padding: 16px 24px 32px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start">
     <section>
@@ -804,7 +804,7 @@ pages["Revisions"] = ("後台版本比較", ADMIN_CSS, 1440, 1000, admin("posts"
   </main>'''))
 
 # ======================= ADMIN: Import (WordPress) =======================
-pages["Import"] = ("後台 WordPress 匯入", ADMIN_CSS, 1440, 1440, admin("tools", ["系統","工具","從 WordPress 匯入"],
+pages["Import"] = ("後台 WordPress 匯入", ADMIN_CSS, 1440, 1430, admin("tools", ["系統","工具","從 WordPress 匯入"],
   f'<button class="btn t" type="button">{I("x")}取消匯入</button>',
   f'''<main style="padding: 16px 24px 32px; display:grid; grid-template-columns: 220px minmax(0,1fr); gap:32px; align-items:start">
     <nav class="sub tree" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:2px"><a class="on" href="Import.dc.html">{I("wp",14)}從 WordPress 匯入</a><a href="Backup.dc.html">{I("db",14)}備份與匯出</a><a href="Redirects.dc.html">{I("redirect",14)}轉址</a><a href="Logs.dc.html">{I("terminal",14)}系統日誌</a><a href="Import.dc.html">{I("refresh",14)}重建索引與快取</a><a href="Import.dc.html">{I("alert",14)}站台健康檢查</a></nav>

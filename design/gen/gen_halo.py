@@ -66,7 +66,7 @@ def profile_preferences():
 
 
 profile_title, profile_css, profile_width, profile_height, profile_body = pages["Profile"]
-profile_height = max(profile_height, 2600)
+profile_height = max(profile_height, 2570)
 profile_anchor = '      <div>\n        <div class="lbl" style="margin-bottom:4px">密碼與安全</div>'
 if profile_anchor not in profile_body:
     raise RuntimeError("Profile generator anchor changed; refusing to update the board")
@@ -82,7 +82,7 @@ profile_email_state = '''        <div role="status" style="display:flex;align-it
 profile_body = profile_body.replace(profile_email_anchor, profile_email_anchor + "\n" + profile_email_state, 1)
 B["Profile"] = (profile_title, profile_css, profile_width, profile_height, profile_body)
 
-B["Notifications"] = ("後台 · 通知中心", CSS, 1440, 1020, admin("", ["通知"],
+B["Notifications"] = ("後台 · 通知中心", CSS, 1440, 1000, admin("", ["通知"],
   f'<button class="btn t" type="button">{I("check")}全部標為已讀</button><a class="btn t" href="Notifications.dc.html">{I("settings")}通知設定</a>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start">
     <section>
@@ -200,7 +200,7 @@ B["AppStore"] = ("後台 · 應用市場", CSS, 1440, 1050, admin("plugins", ["�
   f'<button class="btn t" type="button">{I("upload")}上傳 .zip</button><button class="btn t" type="button">{I("link")}從網址安裝</button>',
   f'''<main style="padding:16px 24px 32px;display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div class="seg"><span class="on">{I("plug",13)}外掛 <b>86</b></span><span>{I("theme",13)}主題 <b>41</b></span><span>{I("refresh",13)}可更新 <b style="color:#E8285B">2</b></span><span>{I("check",13)}已安裝 <b>7</b></span></div>
+      <div class="seg j"><span class="on">{I("plug",13)}外掛 <b>86</b></span><span>{I("theme",13)}主題 <b>41</b></span><span>{I("refresh",13)}可更新 <b style="color:#E8285B">2</b></span><span>{I("check",13)}已安裝 <b>7</b></span></div>
       <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:260px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="找外掛或主題" aria-label="搜尋" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label>
       <div class="seg j"><span class="on">全部</span><span>官方</span><span>編輯器</span><span>儲存</span><span>搜尋</span><span>留言</span><span>SEO</span><span>通知</span><span>內容類型</span><span>商店</span></div>
     </div>
@@ -335,7 +335,7 @@ def coupon_row(code, label, offer, cond, used, limit, pct, period, dim=False, no
             f'<td>{offer}</td><td style="color:#5F6470">{cond}</td><td><b class="mono">{used}</b> / {limit or "不限"}{bar}</td><td style="color:#5F6470">{period}</td>'
             f'<td class="act"><button class="btn x s i" type="button" aria-label="編輯 {code}">{I("edit")}</button><button class="btn x s i" type="button" aria-label="複製 {code}">{I("copy")}</button><button class="btn x s i" type="button" aria-label="刪除 {code}">{I("trash")}</button></td></tr>')
 
-B["Coupons"] = ("後台 · 折扣碼", CSS, 1440, 1340, admin("coupons", ["商店","折扣碼"],
+B["Coupons"] = ("後台 · 折扣碼", CSS, 1440, 1320, admin("coupons", ["商店","折扣碼"],
   f'<button class="btn t" type="button">{I("list")}批次產生</button><button class="btn p" type="button">{I("plus")}新增折扣碼</button>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start">
     <section>

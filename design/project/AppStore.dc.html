@@ -39,11 +39,11 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
 .jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
 .jd.st{position:relative;left:auto;top:auto;transform:none;width:auto;text-align:left}
-.cb.j,.rd.j{--cb:32px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
-.cb.j{border-radius:calc(var(--cb)*.3125)}.rd.j{border-radius:50%}
+.cb.j,.rd.j{--cb:28px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3)}.rd.j{border-radius:50%}
 .cb.j.on,.rd.j.on{background:#13C2A3}
-.cb.j.on:after{display:block;content:"";position:absolute;inset:0;width:auto;height:auto;border:0;transform:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 16.5l4.8 4.8L23 11.2' fill='none' stroke='%23fff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
-.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.375);height:calc(var(--cb)*.375);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;width:auto;height:auto;border:0;transform:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Cpath d='M6.2 14.2l5.2 5.4L21.9 7.4' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.357);height:calc(var(--cb)*.357);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 .ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
 .cube{position:absolute;border-radius:0 26% 0 26%}
@@ -150,7 +150,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
     </header>
     <main style="padding:16px 24px 32px;display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div class="seg"><span class="on"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>外掛 <b>86</b></span><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>主題 <b>41</b></span><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>可更新 <b style="color:#E8285B">2</b></span><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>已安裝 <b>7</b></span></div>
+      <div class="seg j"><span class="on"><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12l-1 5a5 5 0 0 1-10 0zM12 18v3"/></svg>外掛 <b>86</b></span><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>主題 <b>41</b></span><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>可更新 <b style="color:#E8285B">2</b></span><span><svg class="ic" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M4 12l5 5L20 7"/></svg>已安裝 <b>7</b></span></div>
       <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:260px;color:#5F6470;font-size:13px;margin-left:auto"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><input type="text" placeholder="找外掛或主題" aria-label="搜尋" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label>
       <div class="seg j"><span class="on">全部</span><span>官方</span><span>編輯器</span><span>儲存</span><span>搜尋</span><span>留言</span><span>SEO</span><span>通知</span><span>內容類型</span><span>商店</span></div>
     </div>

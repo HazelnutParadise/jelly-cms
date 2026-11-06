@@ -73,10 +73,10 @@ node design/tools/shot.mjs Main Posts EditorFull
 
 | 類別 | 在板上的樣子 | 程式用什麼 |
 |---|---|---|
-| 選擇與切換 | 開關 `.tg.j`：膠囊軌道、白色圓形拇指與柔影，開是薄荷色、關是灰。分段選擇 `.seg.j`：膠囊軌道，選中的段是墨色膠囊與柔影，用在卡片或清單內選值、篩選清單、切換卡片內的來源（例：文章狀態、使用者角色、折扣碼類型、編輯器的檢視模式、設定頁的「環境」）。勾選框 `.cb.j`：32px 圓角方塊，沒勾是淺灰、勾了是薄荷色底加白色勾。單選 `.rd.j`：32px 圓形，沒選是淺灰，選了是薄荷色圓加白色圓點。尺寸是 `--cb`，與上游預設的 `--jelly-checkbox-size`、`--jelly-radio-size` 相同。表格的全選與逐列勾選、勾選卡片（邀請角色、匯出格式、快取驅動）裡的指示也用它們 | `<jelly-switch>`、`<jelly-segmented>` 加 `<jelly-segment>`、`<jelly-checkbox>`、`<jelly-radio-group>` 加 `<jelly-radio>` |
+| 選擇與切換 | 開關 `.tg.j`：膠囊軌道、白色圓形拇指與柔影，開是薄荷色、關是灰。分段選擇 `.seg.j`：膠囊軌道，選中的段是墨色膠囊與柔影，用在卡片或清單內選值、篩選清單、切換卡片內的來源（例：文章狀態、使用者角色、折扣碼類型、編輯器的檢視模式、設定頁的「環境」）。勾選框 `.cb.j`：28px 圓角方塊（圓角約 8px），沒勾是淺灰、勾了是薄荷色底加白色勾。單選 `.rd.j`：28px 圓形，沒選是淺灰，選了是薄荷色圓加 10px 白色圓點。尺寸是 `.cb.j`、`.rd.j` 的 `--cb`，照 `size="sm"` 量得，後台的 `<jelly-checkbox>`、`<jelly-radio>` 一律加 `size="sm"`（預設 32px 比開關還高；`--jelly-checkbox-size` 等變數無效，只有 `size` 屬性有效）。表格的全選與逐列勾選、勾選卡片（邀請角色、匯出格式、快取驅動）裡的指示也用它們 | `<jelly-switch>`、`<jelly-segmented>` 加 `<jelly-segment>`、`<jelly-checkbox size="sm">`、`<jelly-radio-group size="sm">` 加 `<jelly-radio size="sm">`；單選的選取狀態是 `<jelly-radio checked>` 加共同的 `name`，群組元素沒有 `value` 屬性 |
 | 回饋與覆蓋層 | 通知 `.jt`：墨色底、圓形色點、右側圓形 ✕。對話框 `.jd`：對角單角圓角卡片、右上圓形 ✕、背景暗化加輕微模糊（`.jd-scrim`）；一個板上若同時並列多種對話框狀態，用 `.jd.st` 畫成不絕對定位的靜態範例（IntegrationDetail 的輪替對話框、Profile 的備用碼） | `window.Jelly.toast()`、`window.Jelly.confirm()`、`<jelly-dialog>` |
 | 輸入與動作 | 底線欄位、對角單角按鈕、覆盆子紅主要動作、下拉選單、徽章、卡片、表格、側欄、⌘K 面板（Palette）維持自家，不畫成 Jelly | 自家 CSS，不採用 `jelly-button`、`jelly-input`、`jelly-select`、`jelly-badge` 等 |
-| 導覽 | 會換網址或切換整頁區塊的分頁列維持自家分頁樣式：設定頁分頁列、個人資料分頁、附件策略頁分頁、轉址與 SEO 的三個分頁、應用市場的外掛／主題分頁 | 自家分頁 |
+| 導覽 | 會換網址或切換整頁區塊的分頁列維持自家分頁樣式：設定頁分頁列、個人資料分頁、附件策略頁分頁、轉址與 SEO 的三個分頁 | 自家分頁 |
 
 判斷分段選擇還是分頁：在卡片或清單內選一個值、篩選清單、切換卡片內的來源，畫 `.seg.j`；換網址或切換整頁的主要區塊，畫自家分頁。使用者內容不算後台控制項：編輯器預覽裡的待辦清單勾選框不換。
 

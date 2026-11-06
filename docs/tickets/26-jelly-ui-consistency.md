@@ -80,8 +80,9 @@ Blocked by：12 零 CDN 與 Jelly UI（已合併，Jelly UI 1.1.0 釘 `1b775385`
 ### 元件寫法（沿用工作單 12 已驗證的上游行為）
 
 - 開關：`<jelly-switch name label checked disabled>`；讀 `el.hasAttribute('checked')`，寫 `el.toggleAttribute('checked', v)`；**不得**對開關、勾選框、單選讀寫 `.checked` 屬性（元素升級前指定會被實例屬性遮住，工作單 12〈上游事實〉第 6 點）。
-- 勾選框：`<jelly-checkbox name value checked disabled>文字</jelly-checkbox>`，讀寫規則同開關。
-- 單選群組：`<jelly-radio-group name label value>` 包 `<jelly-radio value>`；讀寫一律用 `value` 屬性（`getAttribute('value')`／`setAttribute('value', v)`）。實作前從上游原始碼確認單選群組的選取與 `change` 事件行為，寫進本檔〈測試另外釘下的約定〉。
+- 勾選框：`<jelly-checkbox size="sm" name value checked disabled>文字</jelly-checkbox>`，讀寫規則同開關。
+- 單選：`<jelly-radio-group size="sm" label>` 包 `<jelly-radio size="sm" name value checked>`。上游 1.1.0 的單選群組**沒有** `value` 屬性（`observedAttributes` 只有 `label`、`direction`、`size`）；選取狀態在 `<jelly-radio>` 的 `checked` 屬性，同一組靠每個單選上相同的 `name`（上游以 `jelly-radio[name="…"]` 找同組，點選時會移除同組其他單選的 `checked`），`change` 事件由被選到的單選發出。讀取目前值：找同組帶 `checked` 屬性的單選讀它的 `value`；寫入：對目標單選 `setAttribute('checked','')`、同組其他單選 `removeAttribute('checked')`。
+- 尺寸：後台的勾選框與單選一律 `size="sm"`（28px，與開關軌道等高；預設 32px 太大）；`--jelly-checkbox-size` 等尺寸變數實測無效。開關與分段選擇用預設大小，不加 `size`。
 - 分段選擇：沿用工作單 12：讀 `getAttribute('value')`、寫 `setAttribute('value', v)`；段標籤只能是純文字。
 - 「勾選卡片」（例：邀請使用者的角色、匯出格式）保留卡片版面，卡片內的單選指示改用 `<jelly-radio>`，點整張卡片等同點選。
 - 對話框：`<jelly-dialog label>` 包內容；打開 `setAttribute('open','')`，關閉 `removeAttribute('open')`；監聽 `close` 事件做清理與焦點歸還。對話框內的表單保留原本的 `<form>`，送出邏輯不變。可以在 `layout.html` 的 `window.Jelly` 加一個共用的 `Jelly.dialog(el)`／`Jelly.closeDialog(el)` 輔助函式，給各頁一致的開關與焦點歸還，但不得改變 `Jelly.confirm` 與 `Jelly.toast` 的既有簽名。
