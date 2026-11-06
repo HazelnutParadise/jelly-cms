@@ -268,6 +268,9 @@ func (w *workerProcess) request(ctx context.Context, request workerRequest, time
 			return workerFrame{}, fmt.Errorf("send %s request to plugin worker: %w", request.Op, err)
 		}
 	case <-w.readDone:
+		if frame, ok := w.bufferedResponse(); ok {
+			return w.handleResponse(request.ID, frame)
+		}
 		w.terminate()
 		return workerFrame{}, w.exitError(request.Op)
 	case <-ctxDone:
@@ -300,6 +303,9 @@ func (w *workerProcess) request(ctx context.Context, request workerRequest, time
 			select {
 			case err = <-writeDone:
 			case <-w.readDone:
+				if frame, ok := w.bufferedResponse(); ok {
+					return w.handleResponse(request.ID, frame)
+				}
 				w.terminate()
 				return workerFrame{}, w.exitError(request.Op)
 			case <-ctxDone:
@@ -314,25 +320,11 @@ func (w *workerProcess) request(ctx context.Context, request workerRequest, time
 				return workerFrame{}, fmt.Errorf("send host reply to plugin worker: %w", err)
 			}
 		case frame := <-w.responses:
-			if frame.ID != request.ID {
-				w.terminate()
-
-				return workerFrame{}, fmt.Errorf(
-					"plugin worker answered request %d while %d was pending",
-					frame.ID, request.ID,
-				)
-			}
-
-			if !frame.OK {
-				if frame.Error == "" {
-					frame.Error = "plugin worker reported an unspecified error"
-				}
-
-				return frame, errors.New(frame.Error)
-			}
-
-			return frame, nil
+			return w.handleResponse(request.ID, frame)
 		case <-w.readDone:
+			if frame, ok := w.bufferedResponse(); ok {
+				return w.handleResponse(request.ID, frame)
+			}
 			w.terminate()
 
 			return workerFrame{}, w.exitError(request.Op)
@@ -348,6 +340,41 @@ func (w *workerProcess) request(ctx context.Context, request workerRequest, time
 			)
 		}
 	}
+}
+
+// bufferedResponse takes the response readLoop buffered before it closed
+// readDone. readLoop sends a response before it observes EOF, so a request that
+// sees readDone must still look here before reporting that the worker exited.
+func (w *workerProcess) bufferedResponse() (workerFrame, bool) {
+	select {
+	case frame := <-w.responses:
+		return frame, true
+	default:
+		return workerFrame{}, false
+	}
+}
+
+// handleResponse applies the rules for a worker response to the pending
+// request. It is shared by the normal response path and the readDone paths.
+func (w *workerProcess) handleResponse(requestID uint64, frame workerFrame) (workerFrame, error) {
+	if frame.ID != requestID {
+		w.terminate()
+
+		return workerFrame{}, fmt.Errorf(
+			"plugin worker answered request %d while %d was pending",
+			frame.ID, requestID,
+		)
+	}
+
+	if !frame.OK {
+		if frame.Error == "" {
+			frame.Error = "plugin worker reported an unspecified error"
+		}
+
+		return frame, errors.New(frame.Error)
+	}
+
+	return frame, nil
 }
 
 // shutdown runs the OnShutdown hook and then reclaims the worker process. The
