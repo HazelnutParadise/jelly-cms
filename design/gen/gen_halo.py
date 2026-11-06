@@ -86,7 +86,7 @@ B["Notifications"] = ("後台 · 通知中心", CSS, 1440, 1000, admin("", ["通
   f'<button class="btn t" type="button">{I("check")}全部標為已讀</button><a class="btn t" href="Notifications.dc.html">{I("settings")}通知設定</a>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start">
     <section>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div class="seg j"><span class="on">全部 <b>12</b></span><span>未讀 <b style="color:#E8285B">4</b></span><span>留言</span><span>訂單</span><span>系統</span><span>安全</span></div></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div class="seg j"><span class="on">全部 <b>12</b></span><span>留言</span><span>訂單</span><span>系統</span><span>安全</span></div><label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600"><span class="tg j off"></span>未讀 <b style="color:#E8285B">4</b></label></div>
       {nrow("comment","#F5B800;color:#3A2E00","2 則新留言待審","阿凱、Mei 在「零失敗焦糖布丁」留言。","5 分鐘前",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="Comments.dc.html">{I("eye",12)}去審核</a><button class="btn x s" type="button">{I("check",12)}全部核准</button></div>')}
       {nrow("cart","#E8285B","新訂單 JL-2026-0417 · NT$ 880","Ting 下單，信用卡已付款。","16:02",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="OrderDetail.dc.html">{I("arrow-r",12)}看訂單</a></div>')}
       {nrow("alert","#9C2318","外掛「SEO Boost」載入失敗","v1.4.0 與目前版本不相容，已自動停用。網站照常運作。","15:40",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="PluginDetail.dc.html">{I("plug",12)}看外掛</a><a class="btn x s" href="Logs.dc.html">{I("terminal",12)}日誌</a></div>')}
