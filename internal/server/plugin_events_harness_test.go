@@ -71,23 +71,30 @@ func newPluginEventsHarness(t *testing.T) *pluginEventsHarness {
 	if err != nil {
 		t.Fatalf("create plugin runtime: %v", err)
 	}
-	e := echo.New()
-	RegisterRoutes(e, theme.NewManager("web/themes"), runtime)
-	base.echo = e
-
-	sink := &pluginEventSink{}
-	plugin.SetLogSink(func(pluginID, level, message string) {
-		sink.add(pluginID, level, message)
-		forwardPluginLog(pluginID, level, message)
-	})
+	h := &pluginEventsHarness{accessHarness: base, runtime: runtime, sink: &pluginEventSink{}}
+	h.rebuildRoutes(t, theme.NewManager("web/themes"))
 	t.Cleanup(func() {
 		runtime.Close()
 		plugin.SetLogSink(nil)
 		configurePluginEvents(nil)
 	})
-	h := &pluginEventsHarness{accessHarness: base, runtime: runtime, sink: sink}
 	h.installFixturePlugin(t, pluginEventsFixtureID, nil)
 	return h
+}
+
+// rebuildRoutes registers the routes again on a fresh echo with tm (for
+// example an activated theme) and the harness runtime, then re-installs the
+// capturing log sink, because RegisterRoutes installs the production sink.
+func (h *pluginEventsHarness) rebuildRoutes(t *testing.T, tm *theme.Manager) {
+	t.Helper()
+	e := echo.New()
+	RegisterRoutes(e, tm, h.runtime)
+	h.accessHarness.echo = e
+	sink := h.sink
+	plugin.SetLogSink(func(pluginID, level, message string) {
+		sink.add(pluginID, level, message)
+		forwardPluginLog(pluginID, level, message)
+	})
 }
 
 // installFixturePlugin writes and loads a plugin that registers hooks (all
