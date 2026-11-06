@@ -17,7 +17,3 @@
 - 頁面不得從 CDN 或任何外部網址載入腳本、樣式、字型或圖示；第三方前端套件只能以建置後的檔案自帶在 `web/` 下，每個套件附 `LICENSE` 與 `VERSION`（版本、來源 commit、建置日期），取得與重建的腳本放在 `scripts/vendor/`。
 - 每次發版前依 `docs/release-checklist.md` 把所有自帶套件更新到最新版、重跑驗收，再打版本。
 - 部署與破壞性遷移須另有明確授權。
-
-## Follow-ups
-
-- `internal/plugin` 的 `TestRuntimeCallsPluginHooksAndPreservesThemOnFailedReload` 偶發失敗：`manager_test.go:91` 的 `Unload()` 回 `worker exited during shutdown`（`worker_process.go:434`），發生在 `JELLY_TEST_POSTGRES=1 go test ./... -count=1` 各套件並行時；單獨重跑該測試 5 次與整個套件 1 次都通過。需查 worker 送出 shutdown 結果與行程結束之間的競態，先寫能穩定重現的測試再修根因。
