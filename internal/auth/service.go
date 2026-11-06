@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"github.com/HazelnutParadise/jelly-cms/internal/notify"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/sessions"
@@ -304,7 +306,7 @@ func issueLogin(c echo.Context, user core.User) (string, error) {
 		method = "password"
 	}
 	hash := hashLoginID(loginID)
-	err = data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
 		var current core.User
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, user.ID).Error; err != nil {
 			return err
@@ -344,6 +346,11 @@ func issueLogin(c echo.Context, user core.User) (string, error) {
 			}
 		}
 		user.LastLoginAt = &issuedAt
+		events.Stage(tx.Statement.Context, events.Event{Name: "OnUserLogin", Payload: map[string]any{
+			"user":      authUserPayload(current),
+			"method":    method,
+			"ip_masked": device.ipMasked,
+		}})
 		return nil
 	})
 	if err != nil {
@@ -356,6 +363,32 @@ func issueLogin(c echo.Context, user core.User) (string, error) {
 	}
 
 	return token, nil
+}
+
+// authUserPayload is the "user" object of account events: id, username,
+// display_name, email, role, status, provider, created_at. It never carries
+// the password hash or any token.
+func authUserPayload(user core.User) map[string]any {
+	return map[string]any{
+		"id":           user.ID,
+		"username":     user.Username,
+		"display_name": user.DisplayName,
+		"email":        user.Email,
+		"role":         user.Role,
+		"status":       user.Status,
+		"provider":     user.Provider,
+		"created_at":   user.CreatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+// publishLoginFailed publishes OnUserLoginFailed for a rejected password login.
+// The payload carries the typed identifier and a short reason, never the password.
+func publishLoginFailed(c echo.Context, identifier, reason string) {
+	events.Publish(events.Event{Name: "OnUserLoginFailed", Payload: map[string]any{
+		"identifier": identifier,
+		"reason":     reason,
+		"ip_masked":  loginDeviceFromRequest(c.Request()).ipMasked,
+	}})
 }
 
 // HandleLocalLogin handles local username/password login
@@ -377,20 +410,28 @@ func HandleLocalLogin(c echo.Context) error {
 	var user core.User
 	result := data.DB.Where("username = ? OR email = ?", req.Username, req.Username).First(&user)
 	if result.Error != nil {
+		reason := "lookup_failed"
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			reason = "unknown_account"
+		}
+		publishLoginFailed(c, req.Username, reason)
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
 	}
 
 	// Any account with a password can use local sign-in, including an account
 	// that originally came from OAuth and later set a password.
 	if user.Password == "" {
+		publishLoginFailed(c, req.Username, "oauth_only")
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "This account uses OAuth login. Please use OAuth to sign in."})
 	}
 
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		publishLoginFailed(c, req.Username, "invalid_password")
 		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
 	}
 	if user.Status != "" && user.Status != "active" {
+		publishLoginFailed(c, req.Username, "account_disabled")
 		return c.JSON(http.StatusForbidden, map[string]string{"error": "account_disabled"})
 	}
 	if enabled, err := TOTPEnabled(user.ID); err != nil {
@@ -735,6 +776,7 @@ func HandleCallback(c echo.Context) error {
 func HandleLogout(c echo.Context) error {
 	collected := make([]string, 0)
 	hasValid := false
+	var logoutUserID uint
 
 	authHeader := c.Request().Header.Get("Authorization")
 	if authHeader != "" {
@@ -743,6 +785,7 @@ func HandleLogout(c echo.Context) error {
 				if loginID, ok := claims["jti"].(string); ok && validLoginID(loginID) {
 					collected = append(collected, loginID)
 					hasValid = true
+					logoutUserID = claimUserID(claims["user_id"])
 				}
 			}
 		}
@@ -753,6 +796,9 @@ func HandleLogout(c echo.Context) error {
 			if loginID, ok := claims["jti"].(string); ok && validLoginID(loginID) {
 				collected = append(collected, loginID)
 				hasValid = true
+				if logoutUserID == 0 {
+					logoutUserID = claimUserID(claims["user_id"])
+				}
 			}
 		}
 	}
@@ -761,6 +807,11 @@ func HandleLogout(c echo.Context) error {
 		if loginID, ok := session.Values["login_id"].(string); ok && validLoginID(loginID) {
 			collected = append(collected, loginID)
 			hasValid = true
+			if logoutUserID == 0 {
+				if id, ok := session.Values["user_id"].(uint); ok {
+					logoutUserID = id
+				}
+			}
 		}
 	}
 
@@ -778,6 +829,11 @@ func HandleLogout(c echo.Context) error {
 		if err := revokeLoginIDs(unique); err != nil {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Failed to revoke login"})
 		}
+		logoutUser := map[string]any{}
+		if logoutUserID != 0 {
+			logoutUser["id"] = logoutUserID
+		}
+		events.Publish(events.Event{Name: "OnUserLogout", Payload: map[string]any{"user": logoutUser}})
 	}
 	if !hasValid && !hasLoginCookie(c.Request()) {
 		return c.JSON(http.StatusOK, map[string]string{"message": "Logged out successfully"})
@@ -813,6 +869,30 @@ func HandleLogout(c echo.Context) error {
 	})
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "Logged out successfully"})
+}
+
+// claimUserID reads a user_id claim, which JSON decoding may hand back as a
+// float64 or an integer type. Anything else, including zero, reports 0.
+func claimUserID(raw any) uint {
+	switch v := raw.(type) {
+	case float64:
+		if v >= 1 && v <= 9007199254740991 && v == math.Trunc(v) {
+			return uint(v)
+		}
+	case int64:
+		if v >= 1 {
+			return uint(v)
+		}
+	case int:
+		if v >= 1 {
+			return uint(v)
+		}
+	case uint:
+		return v
+	case uint64:
+		return uint(v)
+	}
+	return 0
 }
 
 // GetCurrentUser retrieves the current authenticated user from session or JWT

@@ -62,9 +62,15 @@ func activateTheme(c echo.Context, tm *theme.Manager) error {
 		return c.JSON(500, map[string]string{"error": "database is unavailable"})
 	}
 	db := data.DB.WithContext(c.Request().Context())
+	previous := tm.GetActive()
 	if err := tm.ActivateAndPersist(req.Name, db); err != nil {
 		return c.JSON(500, map[string]string{"error": err.Error()})
 	}
+	publishPluginEvent(plugin.HookOnThemeActivate, map[string]any{
+		"theme":    req.Name,
+		"previous": previous,
+		"actor":    pluginEventActor(c),
+	})
 	return c.JSON(200, map[string]string{"message": "Theme activated"})
 }
 func getThemeConfig(c echo.Context, tm *theme.Manager) error {
