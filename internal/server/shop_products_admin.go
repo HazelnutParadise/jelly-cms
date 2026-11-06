@@ -501,6 +501,21 @@ func applyLegacyDefaultVariant(tx *gorm.DB, productID uint, in productInput, pri
 	return true, nil
 }
 
+// saveShopFlagsExplicitly writes requires_shipping and low_stock_threshold after a Create. GORM's Create
+// replaces a zero value of a field with a default tag by the tag's default, so a false or 0 requested before
+// the Create comes back as true or 5. An UPDATE with a map writes the zero values as given, and the struct is
+// set to the same values so the API response matches the row.
+func saveShopFlagsExplicitly(tx *gorm.DB, p *core.Product, requiresShipping bool, lowStockThreshold int) error {
+	if err := tx.Model(p).UpdateColumns(map[string]any{
+		"requires_shipping":   requiresShipping,
+		"low_stock_threshold": lowStockThreshold,
+	}).Error; err != nil {
+		return err
+	}
+	p.RequiresShipping, p.LowStockThreshold = requiresShipping, lowStockThreshold
+	return nil
+}
+
 func adminProductsCreate(c echo.Context) error {
 	var in productInput
 	if err := c.Bind(&in); err != nil {
@@ -535,7 +550,11 @@ func adminProductsCreate(c echo.Context) error {
 	if err := applyProductInput(tx, &p, in, price, compare, true); err != nil {
 		return productError(c, 400, "Invalid product values")
 	}
+	wantShipping, wantThreshold := p.RequiresShipping, p.LowStockThreshold
 	if err := tx.Select("title", "slug", "description", "price", "sku", "stock", "images", "status", "compare_at_price", "low_stock_threshold", "requires_shipping", "cold_chain", "attributes", "related_ids", "seo_title", "seo_description", "seo_index", "seo_ai", "kind").Create(&p).Error; err != nil {
+		return productDBError(c, err)
+	}
+	if err := saveShopFlagsExplicitly(tx, &p, wantShipping, wantThreshold); err != nil {
 		return productDBError(c, err)
 	}
 	stock, err := saveVariantSet(tx, p.ID, variants, true)
@@ -763,7 +782,11 @@ func adminProductsDuplicate(c echo.Context) error {
 		}
 		dup.Slug = fmt.Sprintf("%s-%d", src.Slug, n)
 	}
+	wantShipping, wantThreshold := dup.RequiresShipping, dup.LowStockThreshold
 	if err := tx.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&dup).Error; err != nil {
+		return productDBError(c, err)
+	}
+	if err := saveShopFlagsExplicitly(tx, &dup, wantShipping, wantThreshold); err != nil {
 		return productDBError(c, err)
 	}
 	for _, v := range vars {

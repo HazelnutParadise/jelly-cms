@@ -118,13 +118,20 @@ async function runTool(page, name, input, abortBeforeCall = false) {
   }, [name, input, abortBeforeCall]);
 }
 
+// The crawlers switch is a <jelly-switch>; its state lives in the checked attribute, never in the .checked property.
+async function switchChecked(page) {
+  return page.locator('#webmcpEnabled').evaluate((el) => el.hasAttribute('checked'));
+}
+
 async function setSwitchThroughUI(page, enabled) {
   const input = page.locator('#webmcpEnabled');
   await input.waitFor({ state: 'visible', timeout: 7000 });
-  const metadata = await input.evaluate((el) => ({ type: el.type, name: el.name, checked: el.checked }));
-  check(metadata.type === 'checkbox' && metadata.name === 'webmcp_enabled', 'crawlers UI exposes the WebMCP checkbox with its settings key');
+  const metadata = await input.evaluate((el) => ({ tag: el.tagName.toLowerCase(), name: el.getAttribute('name'), checked: el.hasAttribute('checked') }));
+  check(metadata.tag === 'jelly-switch' && metadata.name === 'webmcp_enabled', 'crawlers UI exposes the WebMCP jelly-switch with its settings key');
   if (metadata.checked !== enabled) {
-    if (enabled) await input.check(); else await input.uncheck();
+    // Click the switch's track, the part a user presses; a click on the host's box center does not reach it.
+    await page.locator('#webmcpEnabled .track').click();
+    await page.waitForFunction(([want]) => document.querySelector('#webmcpEnabled')?.hasAttribute('checked') === want, [enabled], { timeout: 7000 });
     const form = input.locator('xpath=ancestor::form');
     const saved = page.waitForResponse((response) => response.url().includes('/api/admin/settings') && response.request().method() === 'PUT');
     await form.locator('button[type="submit"]').click();
@@ -309,11 +316,11 @@ try {
     await page.goto(`${baseURL}/admin/settings/crawlers`, { waitUntil: 'load' });
     await setSwitchThroughUI(page, true);
     await page.reload({ waitUntil: 'load' });
-    check(await page.locator('#webmcpEnabled').isChecked(), 'WebMCP switch remains enabled after reload');
+    check(await switchChecked(page), 'WebMCP switch remains enabled after reload');
 
     await setSwitchThroughUI(page, false);
     await page.reload({ waitUntil: 'load' });
-    check(!(await page.locator('#webmcpEnabled').isChecked()), 'WebMCP switch remains disabled after reload');
+    check(!(await switchChecked(page)), 'WebMCP switch remains disabled after reload');
     const off = await adminContext.newPage();
     const offResponse = await off.goto(`${baseURL}/`, { waitUntil: 'load' });
     const offPolicy = (offResponse && (await offResponse.headerValue('permissions-policy'))) || '';
@@ -323,7 +330,7 @@ try {
 
     await setSwitchThroughUI(page, true);
     await page.reload({ waitUntil: 'load' });
-    check(await page.locator('#webmcpEnabled').isChecked(), 'WebMCP switch can be re-enabled from the crawlers UI');
+    check(await switchChecked(page), 'WebMCP switch can be re-enabled from the crawlers UI');
     const on = await adminContext.newPage();
     await on.addInitScript(fakeHost, 'ok');
     await on.goto(`${baseURL}/`, { waitUntil: 'load' });
