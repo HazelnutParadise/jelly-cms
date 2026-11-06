@@ -87,6 +87,9 @@ type pluginLogRecord struct {
 	pluginID string
 	level    string
 	message  string
+	// done is closed by the writer once the record was processed; only
+	// flushPluginLogForwarder markers set it.
+	done chan struct{}
 }
 
 // pluginLogWriter owns the bounded channel and the single goroutine that
@@ -321,7 +324,33 @@ func forwardPluginLog(pluginID, level, message string) {
 // drainPluginLogs writes queued plugin log lines until the process exits.
 func drainPluginLogs(queue <-chan pluginLogRecord) {
 	for record := range queue {
+		if record.done != nil {
+			close(record.done)
+			continue
+		}
 		writePluginLog(record)
+	}
+}
+
+// flushPluginLogForwarder blocks until every plugin log line forwarded before
+// the call has been written to the system log, or until ctx ends. The marker
+// waits for queue space instead of being dropped. Tests call it (after
+// plugin.FlushLogs) before they swap the global database.
+func flushPluginLogForwarder(ctx context.Context) error {
+	pluginLogWriter.once.Do(func() {
+		go drainPluginLogs(pluginLogWriter.queue)
+	})
+	marker := pluginLogRecord{done: make(chan struct{})}
+	select {
+	case pluginLogWriter.queue <- marker:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	select {
+	case <-marker.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 

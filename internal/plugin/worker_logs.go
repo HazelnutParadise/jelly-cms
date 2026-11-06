@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -24,6 +25,9 @@ type pluginLogLine struct {
 	pluginID  string
 	level     string
 	message   string
+	// marker lines carry no text; FlushLogs uses them to learn when every
+	// line queued before it has been written and handed to the sink.
+	marker bool
 }
 
 const workerLogWriteBudget = 2 * time.Millisecond
@@ -106,13 +110,36 @@ func enqueueLogLine(entry pluginLogLine) {
 func startLogWriter() {
 	go func() {
 		for entry := range workerLogQueue {
-			_, _ = io.WriteString(entry.writer, entry.text)
-			if entry.forPlugin {
-				deliverLogSink(entry.pluginID, entry.level, entry.message)
+			if !entry.marker {
+				_, _ = io.WriteString(entry.writer, entry.text)
+				if entry.forPlugin {
+					deliverLogSink(entry.pluginID, entry.level, entry.message)
+				}
 			}
 			close(entry.done)
 		}
 	}()
+}
+
+// FlushLogs blocks until every plugin and runtime log line queued before the
+// call has been written and handed to the log sink, or until ctx ends. Tests
+// and shutdown paths use it so a sink that writes asynchronously is not still
+// running when its dependencies go away. Unlike ordinary lines the marker is
+// never dropped: the call waits for queue space.
+func FlushLogs(ctx context.Context) error {
+	workerLogOnce.Do(startLogWriter)
+	entry := pluginLogLine{marker: true, done: make(chan struct{})}
+	select {
+	case workerLogQueue <- entry:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	select {
+	case <-entry.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // deliverLogSink calls the installed sink. A panic inside the sink is recovered
