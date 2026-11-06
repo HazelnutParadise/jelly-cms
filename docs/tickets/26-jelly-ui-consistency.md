@@ -131,7 +131,149 @@ Blocked by：12 零 CDN 與 Jelly UI（已合併，Jelly UI 1.1.0 釘 `1b775385`
 
 ## 測試另外釘下的約定
 
-（由 26-B 測試代理補上。）
+以下名稱與格式由 26-B 的測試釘死，工作單本文沒有寫到的部分以這裡為準。測試在現況（main `fc6ab71`）下失敗是預期的，失敗訊息會指出它找到的舊控制項。
+
+### 測試與執行方式
+
+- 不需資料庫：`internal/assetcheck/consistency_test.go`。`TestAdminHasNoHandMadeSwitches`、`TestAdminRendersNoNativeCheckboxOrRadio`、`TestAdminUsesNoNativeAlertConfirmOrPrompt`、`TestAdminDialogsAreJellyDialogs`、`TestAdminSegmentedChoicesUseNoPageOwnClasses`、`TestAdminPagesUseTheJellyElementsTheyNeed`、`TestAdminJellyChoiceControlsAreSmallAndNamed`、`TestComponentsGuideDescribesTheBoundary` 在替換後要通過；`TestAdminNavigationTabsStayNavigation` 現在就通過，替換後仍要通過。
+- 需要資料庫：`internal/server/jelly_ui_consistency_integration_test.go`（`JELLY_TEST_POSTGRES=1`）。`TestAdminPagesRenderOnlyJellySelectionControls`、`TestAdminPagesRenderTheirChoicesAsJellyControls` 要通過；守門測試 `TestCouponCreatePayloadStaysTheSame`、`TestCategoryFlagsStayTheSame`、`TestProductShippingFlagsStayTheSame`、`TestUserInviteRolePayloadStaysTheSame`、`TestThemeLayoutCheckboxesStayTheSame` 現在就通過，替換後仍要通過。
+- 瀏覽器：`JELLY_ONLY=consistency node scripts/acceptance/jelly-ui.spec.mjs`（其餘環境變數同檔頭）。不設 `JELLY_ONLY` 時這一組也會跑。它會建立並刪除一篇草稿文章、選單、折扣碼、分類與商品；邀請、主題設定、主題啟用、OAuth 儲存、批次產生與匯出下載的請求在瀏覽器內攔截回應，不寫進資料庫。
+
+### 掃描範圍與允許清單
+
+- 靜態掃描讀 `web/admin/*.html`、`web/admin/assets/*.js`、`web/admin/assets/*.css`（不遞迴，所以 `jelly-ui/`、`codemirror/`、`pele/`、`fonts/` 不讀）。CSS 只套用類名規則。
+- 不掃描、也不受本單規則約束的模板（不使用後台版型、不載入 Jelly UI）：`login.html`、`install.html`、`account.html`、`account_layout.html`、`account_recover.html`、`password_reset.html`、`invite.html`。
+- 原生勾選框／單選與原生對話框的允許清單都是空的。⌘K 面板是 `layout.html` 的 `<div class="palette-overlay" id="palette" hidden>` 內含 `<div class="palette" role="dialog" aria-modal="true">`，不是 `.modal-overlay`、`<dialog>` 或 `showModal()`，不會被規則抓到；`TestAdminNavigationTabsStayNavigation` 確認它原樣保留。內容裡的待辦清單 `<input type="checkbox" disabled>` 由 `internal/markup` 在執行時產生，不在模板裡；瀏覽器檢查排除 `#editorPreview` 之內的元素。
+- 瀏覽器只數 light DOM（`document.querySelectorAll`）：`<jelly-checkbox>` 的 shadow root 內有它自己的原生 checkbox，不算。注意 Playwright 的 CSS 選擇器會穿透 shadow root，所以 `page.locator('input[type=checkbox]')` 會數到 Jelly 內部的那一個；檢查用的是頁面內的 `querySelectorAll`。瀏覽器檢查比「可見的為 0」更嚴：隱藏的原生 checkbox／radio 也算（失敗訊息標出哪些可見）。
+
+### 不得再出現的寫法（模板、腳本字串與伺服器輸出）
+
+- 類名或 CSS 選擇器：`toggle-switch`、`modal-overlay`、`cm-seg`、`rv-seg`、`tr-seg`、`role-tabs`、`tx-seg`、`sa-seg`、`mn-tabs`（整個名稱比對，前後不是英數、`-`、`_`），以及作為類名的 `segmented`（`.segmented` 選擇器、`class="… segmented …"`、`className`、`classList.*('segmented')`）。`jelly-segmented` 不受影響。
+- `{{define "toggle"}}`、`{{template "toggle"`；`role="switch"`（含 `setAttribute('role','switch')`）。
+- 原生勾選框／單選：`type="checkbox"`、`type='radio'`、`type=checkbox`、JS 字串裡的 `type=\"checkbox\"`、`input.type = 'radio'`、`setAttribute('type','checkbox')`，以及 `input[type="checkbox"]` 選擇器（`layout.html` 的 `accent-color` 規則因此必須移除）。`el.type === 'checkbox'` 這類比較與 `theme.json` 欄位描述 `{type: 'checkbox'}` 不算。
+- `alert(`、`confirm(`、`prompt(`（前面是 `.` 的方法呼叫如 `Jelly.confirm(` 不算）；JS 註解裡寫這幾個字也會被抓到。
+- `<dialog`、`createElement('dialog')`、`.showModal(`。`<jelly-dialog>` 也有 `showModal()`，但只在升級後存在，所以一律用 `setAttribute('open','')` 打開。
+- `.checked`、`.indeterminate`（讀或寫，含一般物件的鍵，例如 `system-admin.js` 保存表單狀態用的 `field.checked` 要改名）與 `:checked`。Go 模板的 `{{.checked}}` 不算。讀用 `hasAttribute('checked')`，寫用 `toggleAttribute('checked', v)`；`:checked` 改成 `[checked]`。
+- 〈不做〉列出的 Jelly 元件：`jelly-button`、`jelly-input`、`jelly-textarea`、`jelly-select`、`jelly-badge`、`jelly-chip`、`jelly-tabs`、`jelly-card`、`jelly-pagination`、`jelly-tooltip`、`jelly-menu`、`jelly-drawer`。
+
+### 各來源必須用到的元件
+
+「用到」指模板或腳本字串裡的 `<jelly-…` 開始標籤，或帶引號的標籤名（`createElement('jelly-checkbox')`、`node("jelly-checkbox")`）。伺服器輸出測試另以 `/admin` 儀表板為基準，頁面的次數要多於儀表板（版型的 `Jelly.confirm` 本身就會建立 `jelly-dialog`）。
+
+| 來源 | 必須用到 |
+|---|---|
+| `taxonomy.html` | `jelly-switch`、`jelly-segmented` |
+| `menus.html`、`coupons.html` | `jelly-switch`、`jelly-segmented`、`jelly-checkbox`、`jelly-dialog` |
+| `post_editor.html` | `jelly-switch`、`jelly-segmented`、`jelly-checkbox` |
+| `page_editor.html` | `jelly-switch`、`jelly-segmented` |
+| `product_editor.html`、`order_detail.html` | `jelly-segmented`、`jelly-checkbox` |
+| `products.html`、`orders.html` | `jelly-segmented` |
+| `comments.html` | `jelly-segmented`、`jelly-checkbox`、`jelly-dialog` |
+| `revisions.html` | `jelly-segmented`、`jelly-switch` 或 `jelly-checkbox`（「只顯示變更」） |
+| `trash.html` | `jelly-segmented`、`jelly-checkbox` |
+| `users.html` | `jelly-segmented`、`jelly-checkbox`、`jelly-radio-group`、`jelly-radio`、`jelly-dialog` |
+| `media.html` | `Jelly.toast(` |
+| `plugins.html` | `Jelly.toast(`、`jelly-dialog` |
+| `settings.html` | `Jelly.toast(` 或 `SA.toast(` |
+| `themes.html` | `jelly-checkbox`、`Jelly.toast(`、`jelly-dialog` |
+| `profile.html` | `jelly-checkbox` 或 `jelly-switch`、`jelly-dialog` |
+| `editor.html` | `jelly-dialog`、`jelly-radio-group`、`jelly-radio`、`jelly-checkbox` |
+| `integrations.html`、`integration_detail.html` | `jelly-dialog` |
+| `assets/integrations.js` | `jelly-checkbox`（權限）、`jelly-radio-group`、`jelly-radio`（輪替方式） |
+| `assets/system-admin.js` | `jelly-checkbox`（`.sys-check`）、`jelly-dialog` |
+
+瀏覽器另外要求頁面載入後 DOM 裡有：`/admin/settings/auth` 的 `jelly-switch`、`/admin/logs` 的 `jelly-checkbox`（即時尾巴）、`/admin/integrations` 的 `jelly-checkbox`（權限）、`/admin/account?tab=notifications` 的 `jelly-checkbox` 或 `jelly-switch`。
+
+### 文件與保留的導覽
+
+- `web/admin/COMPONENTS.md` 必須出現：「選擇與切換」「回饋與覆蓋層」「輸入與動作」「導覽」四類，`<jelly-switch`、`<jelly-segmented`、`<jelly-checkbox`、`<jelly-radio-group`、`<jelly-radio`、`<jelly-dialog`、`Jelly.toast`、`Jelly.confirm`，以及 `size="sm"`、`toggleAttribute('checked'`、`hasAttribute('checked')`、`setAttribute('open'` 這幾個寫法；不得再有 `{{template "toggle"`、`toggle-switch`、`modal-overlay`。`components.html` 是範本庫（只有 `{{define}}`），測試只要求它不再定義 `toggle`、不再有 `modal-overlay`（`modal` 範本要改成 `<jelly-dialog>` 或移除）。
+- 導覽維持自家（現在通過、替換後仍要通過）：`settings.html` 的 `<nav class="tabs">` 內 `{{range .Tabs}}<a class="tab…`；`profile.html` 的 `<nav class="profile-tabs">` 與六個 `<a href="/admin/account?tab=…">`；`system-admin.js` 的兩處 `class="sys-tabs" role="tablist"`（轉址頁與附件策略頁）與 `role="tab"` 按鈕；`layout.html` 的 ⌘K 面板原樣保留。應用市場的篩選是下拉選單，不在本單範圍。
+
+### 保留的 id、name、值與預設
+
+原本在原生控制項、自製遮罩或原生 `<dialog>` 上的 `id` 移到取代它的 Jelly 元素上（頁面腳本與 `scripts/acceptance/mermaid-editor.spec.mjs` 依賴這些 id）。伺服器輸出測試逐一檢查：
+
+- 開關 `<jelly-switch>`：`/admin/taxonomy` 的 `#fHide`（`name="hide_from_list"`）、`#fNoCascade`（`no_cascade`）、`#fPHidden`（`pcat_hidden`），三個預設不勾；`/admin/menus` 的 `#iNewTab`、`#iLoginOnly`（不勾）；`/admin/coupons` 的 `#fStack`、`#fMembers`（不勾）、`#fEnabled`（`checked`）；文章編輯器的 `#optComments`（`checked`）、`#optPinned`（不勾）；頁面編輯器的 `#optComments`（`checked`）。
+- 勾選框 `<jelly-checkbox size="sm">`：`#fShip`、`#fCold`（商品，預設由腳本設定）、`#rRestock`（訂單退款，不勾）、留言的 `#selectAll`（不勾）與 `#sheetApprove`（`checked`）、回收桶的 `#selectAll`、使用者的 `#selectAllUsers`、編輯器匯出的 `#exportFrontmatter`（不勾）。`/admin/account` 的 `#quietEnabled` 可以是勾選框或開關；修訂頁的 `#collapse` 可以是開關或勾選框，預設 `checked`。
+- 分段 `<jelly-segmented>`（不加 `size`），段的 `value` 依序為：折扣碼 `name="kind"` 預設 `value="percent"`：`percent,fixed,free_shipping,bogo`；`name="scope"` 預設 `all`：`all,category,product`；文章與頁面編輯器 `name="status"` 預設 `draft`：`draft,published`；商品編輯器 `name="status"`：`draft,active,archived`；訂單退款 `name="mode"` 預設 `full`：`full,partial`；留言 `#statusSeg` 預設 `pending`：`all,pending,approved,spam,trash`；回收桶 `#kindSeg` 預設 `all`：`all,post,page,product,comment`；修訂 `#modeSeg` 預設 `inline`：`inline,only,split`；分類頁的分段：`categories,tags,products`；選單「加入項目」：`page,category,post,tag,shop,custom`；使用者 `#roleTabs` 只要求存在（值不釘）。
+- 單選卡：`#inviteForm` 內一個 `<jelly-radio-group size="sm" label="…">`，`<jelly-radio name="role" size="sm">` 依序 `editor,author,admin`，只有 `editor` 帶 `checked`。`#editorExport` 內一個 `<jelly-radio-group size="sm" label="…">`，同一個 name 的 `<jelly-radio size="sm">` 依序 `jmd,md,html,zip,pdf`，只有 `jmd` 帶 `checked`；每張格式卡保留 `data-format="<格式>"`，點卡片等同點選。群組元素不得有 `value` 屬性。
+- 對話框 `<jelly-dialog>`（伺服器輸出不得帶 `open`）：`#batchSheet`（內含 `form#bf`）、留言 `#sheet`（內含 `form#sheetForm`）、`#uploadModal`（內含 `form#uploadForm`）、`#identityConfirm`、`#userDialog`、編輯器 `#editorShortcuts`、`#editorExport`、`#editorRestore`、串接頁 `#integrationDialog`。表單一律放在對話框裡面（打開時對話框會被移到 `<body>`）。選單設定與主題客製化由腳本建立，id 不釘，但表單 `#msName`、`#msLoc`、`[data-del]`、`[data-cancel]`、`#customizeForm` 保留。
+- 開啟的一般對話框要有可存取名稱（`label` 屬性或第一個標題），瀏覽器讀 shadow 內 `[role="dialog"]` 的 `aria-label`。
+
+### 尺寸與單選寫法
+
+- 後台每個 `<jelly-checkbox>`、`<jelly-radio-group>`、`<jelly-radio>` 開始標籤都寫 `size="sm"`；腳本建立的要 `setAttribute('size','sm')`（同一檔案裡找得到這個呼叫即可）。元素連上文件後 jelly.js 會把屬性改寫成正式值 `size="small"`，瀏覽器檢查接受 `sm` 或 `small`。`<jelly-switch>`、`<jelly-segmented>` 不得有 `size`。
+- 每個 `<jelly-radio>` 都要有 `name`。選取狀態只看單選本身的 `checked` 屬性：瀏覽器檢查同一個 name 的單選最多一個帶 `checked`，shadow 內 `[role="radio"]` 的 `aria-checked` 與屬性一致，而且帶 `checked` 的單選在 canvas 中心的像素與未選的不同（選取狀態真的畫出來）。
+
+### 瀏覽器檢查依賴的選擇器與操作
+
+- 分類：`#newBtn` → `#fName` → `#form jelly-switch[name="hide_from_list"]` 聚焦按空白鍵 → `#saveBtn`。
+- 折扣碼：`#newBtn` → `#cf jelly-segmented[name="kind"]` 內 `button[role="radio"][aria-checked="true"]` 聚焦後按右方向鍵，值變成 `fixed`，`#fFixed` 要出現（頁面要聽分段的 `change`）→ `#fCode`、`#fFixed`=120 → `#fStack` 聚焦按空白鍵 → `#saveBtn`。
+- 使用者邀請：`#inviteForm jelly-radio-group`、`#inviteForm jelly-radio[name="role"][value="editor"]` 聚焦後按下方向鍵，`author` 帶 `checked`、`editor` 不帶 → `#inviteEmail` → `#sendInvite`。
+- 商品：`jelly-checkbox#fShip`（新商品預設勾）、`jelly-checkbox#fCold`（預設不勾）、`jelly-segmented[name="status"]`；`#fTitle`、`#fPrice` → `#fShip` 聚焦按空白鍵 → `#saveBtn`。
+- 主題客製化：按鈕名稱 `客製化|Customize` → 開著的 `jelly-dialog` 內 `#customizeForm`，`jelly-checkbox[name="layout_sidebar"]`、`[name="layout_footer"]`，送出鈕 `#customizeForm button[type="submit"]`。
+- 折扣碼批次：`#batchOpen` 開啟，Esc、shadow 內的 `button.close`（右上 ✕）各關一次，焦點回到 `#batchOpen`；`#bPrefix`、`#bSize`、`#batchBtn` 送出後 `#batchOut` 出現且對話框仍開著。
+- 新增選單：`#newMenuBtn` 開啟，點背景（視窗座標 4,400）關閉、焦點回到 `#newMenuBtn`；在 `#msName` 按 Enter 送出，送出後對話框關閉。
+- 選單設定巢狀確認：`#menuList button[data-id]` → `#treeMount #menuSettings` → 對話框內 `[data-del]` 開 `Jelly.confirm` → Esc 只關確認框，外層對話框保持開著、未儲存的名稱還在、焦點回到 `[data-del]`、沒有 DELETE；再按一次 Esc 才關外層，焦點回到 `#menuSettings`。
+- 選單設定對話框內的表單保留 `#msName`、`[data-del]`、`[data-cancel]`；既有檢查「menus: Escape cancels the nested Jelly confirmation and preserves the menu editor」以 `jelly-dialog[open]:not([data-jelly-confirm]) form:has(#msName)` 找這個表單（主代理已把它從 `.modal-overlay.open form.mn-sheet-form` 改過來，斷言不變）。
+- 編輯器匯出：`[data-action="export"]` 開啟的 `jelly-dialog` id 必須是 `editorExport`；`jelly-radio[value="jmd"]` 聚焦後按右方向鍵，選到 `md`；點 `[data-format="html"]`、`[data-format="md"]`；`jelly-checkbox#exportFrontmatter` 聚焦按空白鍵；`#exportDownload`；Esc 關閉後焦點回到匯出按鈕。
+- 通知：媒體庫 `#mediaGrid .media-item button` 第一顆（複製網址）、主題卡片 `.theme-card` 內名稱 `啟用|Activate` 的按鈕、設定頁 `#googleEnabled`、`#googleClientID`、`#googleClientSecret`、`#googleSaveBtn`。
+
+### 送出內容（main `fc6ab71` 實測，替換後必須相同）
+
+欄位集合與值的型別逐一比對（多一個或少一個欄位都失敗）：
+
+- `POST /api/admin/coupons`：`label` string、`kind` string、`value` number、`buy_qty` number、`get_qty` number、`scope` string、`code` string、`min_subtotal` number、`usage_limit` null、`per_user_limit` null、`starts_at` null、`ends_at` null、`bound_email` string、`stackable_with_free_shipping` boolean、`members_only` boolean、`status` string、`targets` array。操作後的值：`kind:"fixed"`、`value:12000`（輸入 120）、`scope:"all"`、`stackable_with_free_shipping:true`、`members_only:false`、`status:"active"`、`targets:[]`。
+- `POST /api/admin/categories`：`name`、`slug`、`color`、`description`、`cover` string，`parent_id` null，`hide_from_list`、`no_cascade` boolean；按空白鍵後 `hide_from_list:true`、`no_cascade:false`。商品分類 `POST /api/admin/product-categories` 送 `{name, slug, description, parent_id, cover, hidden}`，`hidden` 是 boolean（伺服器守門測試）。
+- `POST /api/admin/products`：`title`、`slug`、`description`、`price`、`compare_at_price`、`status`、`seo_title`、`seo_description`、`seo_index`、`seo_ai` string，`low_stock_threshold` number，`requires_shipping`、`cold_chain` boolean，`images`、`categories`、`variants` array；取消「需要運送」後 `requires_shipping:false`、`cold_chain:false`、`status:"draft"`。
+- `POST /api/admin/users/invite`：只有 `email`、`role`、`note` 三個 string；選作者後 `role:"author"`、`note:""`。
+- `POST /api/admin/themes/<name>/settings`：`colors`、`layout`、`custom` 都是 JSON 字串。`layout` 裡勾選的版面欄位是布林 `true`，**未勾選的欄位不出現**（原本靠 `FormData` 省略未勾的 checkbox；`<jelly-checkbox>` 未勾時 `setFormValue(null)`，行為相同）。測試以攔截的設定 `{"sidebar":false,"footer":true}` 起始，勾 Sidebar、取消 Footer 後期望 `layout.sidebar === true` 且沒有 `footer` 鍵。
+- `POST /api/admin/coupons/generate`：`prefix` string、`size` number、`template` object；`template.usage_limit` 與 `per_user_limit` 為 1，其餘來自折扣碼表單。
+- `POST /api/admin/menus`：`{name, location}` 兩個 string。
+- 編輯器匯出：`GET /api/admin/posts/<id>/export?format=md&frontmatter=1`（查詢字串完全相同、順序相同）。
+
+### 通知
+
+- 原本 `alert()` 的流程改用 `Jelly.toast` 後，瀏覽器檢查要求：出現新的 `jelly-toaster .toast`，而且整個流程沒有任何 `dialog` 事件。種類由通知裡的 `.sr-tone` 文字判斷（`Success` 對應 `kind:'success'`、`Error` 對應 `kind:'error'`）：主題啟用成功是 success、失敗（攔截回 500）是 error；主題設定儲存是 success；OAuth 儲存失敗是 error；媒體複製網址在剪貼簿寫入成功時是 success。
+- 以 `?lang=zh-TW` 打開媒體庫與設定頁時，複製網址與 OAuth 儲存失敗的通知文字必須含中文字（原本寫死的英文改成 i18n 鍵）。測試不釘鍵名與文案。
+- 媒體庫的「複製網址」按鈕現在完全沒有作用（`onclick="copyUrl(${JSON.stringify(url)})"` 把雙引號放進雙引號屬性，屬性被截斷；刪除鈕同樣壞掉），點了既不提示也不複製。通知檢查要求按下後出現通知，所以實作時要一併修好這兩顆按鈕的事件綁定（只動 `media.html`）。
+
+### 上游 Jelly UI 1.1.0（`1b775385`）查證：`jelly-checkbox`、`jelly-radio-group`／`jelly-radio`、`jelly-dialog`
+
+原始碼 `src/components/{checkbox,radio,radio-group,dialog}/index.ts`、`src/anchor/modal.ts`、`src/utilities/size.ts`；自帶的 `jelly.js` 與原始碼一致（`jelly-radio-group` 的 `observedAttributes` 實測為 `["label","direction","size"]`）。下列行為另以真實元件在後台頁面實測（標「實測」）。
+
+`<jelly-checkbox>`
+
+- 屬性：`checked`、`indeterminate`、`disabled`、`label`、`value`（預設 `"on"`）、`name`、`size`、`variant`；`checked`／`indeterminate`／`value` 的 accessor 只在升級後存在，升級前指定會變成實例屬性（同開關）。沒有 `disabled` accessor：`el.disabled = true` 沒有作用，停用一律 `toggleAttribute('disabled', v)`。
+- 結構：shadow 裡是一個視覺隱藏的原生 `<input type="checkbox">` 包在 `<label>` 內，文字由預設 slot 提供；`label` 屬性變成內部 input 的 `aria-label`。主機的 `focus()` 轉給內部 input，主機本身不在 tab 順序裡。
+- 鍵盤：空白鍵切換（原生行為，實測）。點主機任何地方（方塊或文字）都會切換。
+- 事件：只在使用者操作時，主機發出 `change`（`CustomEvent`，`bubbles`、`composed`）；程式改屬性不發。內部原生 `change` 不會穿出 shadow。
+- 表單：form-associated；勾選時 `setFormValue(value)`，未勾 `setFormValue(null)`，所以 `FormData` 未勾時沒有這個鍵、勾選時是 `value`（預設 `"on"`，實測）。沒有 `formResetCallback`：`form.reset()` 不會還原 Jelly 勾選框與單選（例如 `users.html` 邀請送出後的 `form.reset()`），要自己重設屬性。
+- `indeterminate` 顯示橫線、內部 input 回報 mixed；使用者一點就清掉（可用於表格全選的部分選取）。
+- 尺寸：`size="sm"`（連上文件後改寫成 `small`）為 28px，預設 32px；尺寸由元件 shadow 樣式的 `:host([size=…])` 規則設定，主代理實測從外部設 `--jelly-checkbox-size` 無效。
+
+`<jelly-radio-group>`／`<jelly-radio>`
+
+- `<jelly-radio-group>` 只有 `label`（顯示為 legend 並成為群組的可存取名稱）、`direction`（`horizontal` 預設、`vertical`）、`size`（傳給沒有自訂 size 的子單選）；shadow 內 `.items` 帶 `role="radiogroup"`。**沒有 `name`、`value`，也不發 `change`**；`<jelly-radio-group value="a">` 不會選取任何單選。
+- `<jelly-radio>` 屬性：`checked`、`disabled`、`label`、`value`（預設 `"on"`）、`name`、`size`、`variant`。同一組是「同一個 root（文件或 shadow root）裡 `jelly-radio[name="…"]` 的全部」，與外層的 `<jelly-radio-group>` 無關，所以同一頁不同用途的單選要用不同的 name。
+- 選取：點單選的任何地方（控制點或文字）或按空白鍵、Enter，會選取它並移除同組其他單選的 `checked`，再由被選的單選發出 `change`（`bubbles`、`composed`；再點一次已選的也會發）。程式設 `checked` 屬性**不會**清掉同組其他單選，也不發事件：寫值時要對目標 `setAttribute('checked','')`、其他 `removeAttribute('checked')`。讀值：同組帶 `checked` 的單選的 `value`。
+- 鍵盤：←→（RTL 反向）與 ↑↓ 移動並選取，到底會繞回；Home、End；roving tabindex（被選的單選可 tab 到，沒有選取時是第一個未停用的）。實測 ↓ 從 editor 選到 author 並清掉 editor。
+- 表單：form-associated；被選時 `setFormValue(value)`，`FormData` 得到 `name=value`（實測）。沒有 `formResetCallback`。
+- 畫面：選取狀態畫在 canvas 上（薄荷色填滿），內部控制點 `aria-checked` 同步；實測選與未選的中心像素不同。
+
+`<jelly-dialog>`
+
+- 屬性：`open`、`label`（優先於第一個 `h1`／`h2`／`h3`／`[data-dialog-title]` 成為 `aria-label`，標題文字在打開當下讀取）。事件 `open`、`close`（`bubbles`、`composed`）。另有 `showModal()` 與 `open` accessor，但只在升級後存在。
+- 打開（加上 `open`）：記下當時的 `document.activeElement`，把元素移到 `<body>`（原位置留註解，關閉時移回），鎖捲動，把 `<body>` 下其他元素設成 `inert`，focus 到對話框本體（`tabindex=-1`，不是第一個欄位；要 focus 欄位得自己做）。因為會被移到 `<body>`：表單要放在對話框裡面；依賴祖先的 CSS（例如 `users.html` 的 `.accounts-page .modal-overlay …`）打開後不再套用。
+- 關閉：Esc（`document` 上的 `keydown`，且事件未被 `preventDefault`）、點背景（`.wrap` 本身）、shadow 內右上 `button.close`（`aria-label="Close"`，英文寫死；`layout.html` 只替 `Jelly.confirm` 在地化，一般對話框要比照）都會把 `open` 收起來：先跑 150ms 退場動畫再移除屬性；直接 `removeAttribute('open')` 則立即關閉。兩種方式都會把焦點還給打開時記下的元素並發出 `close`（實測 Esc、✕、點背景三種都關閉且焦點回到開啟按鈕）。
+- **巢狀對話框的 Esc**：每個開著的對話框都在 `document` 上各掛一個 Esc 監聽，先打開的先收到。實測一般對話框裡再開 `Jelly.confirm`，按一次 Esc 兩個都會關。瀏覽器檢查要求只關最上層（選單設定裡的刪除確認），實作要處理（例如在共用的 `Jelly.dialog` 只讓最上層的對話框處理 Esc），不能改上游。
+- 沒有 Enter 處理、沒有確認／取消概念；表單照原本的 `<form>` 送出。對話框開著時，外面的通知看得到但點不到（`inert`）。
+
+### 既有測試與既有缺陷（實作者不得改測試，由主代理處理）
+
+- `scripts/acceptance/jelly-ui.spec.mjs` 既有的「menus: Escape cancels the nested Jelly confirmation and preserves the menu editor」用 `.modal-overlay.open form.mn-sheet-form` 找選單設定，替換後一定失敗；本組的巢狀確認檢查涵蓋同一行為。`scripts/acceptance/mermaid-editor.spec.mjs` 依賴 `#editorExport`、`[data-format=html]`、`[data-format=pdf]`、`#editorExport [data-action=close]`，所以這些 id 與屬性要保留。
+- 商品「新增」時送 `requires_shipping:false` 會被存成 `true`（GORM 以欄位預設值取代零值；`core.Product` 的註解說用 `Select(...)` 可以避免，實際上不行），在本單之前就存在，屬於 Go 程式，不在本單範圍。守門測試因此只在「更新」路徑釘 `false`；瀏覽器檢查只比對送出的 JSON，不讀回儲存值。
+- 主題客製化的 `color_text` 欄位因名稱以 `_text` 結尾而被當成文字輸入框略過，`colors` 裡沒有 `text`；這是既有行為，測試不依賴它，也不要求修。
 
 ## 實作者的判斷邊界
 

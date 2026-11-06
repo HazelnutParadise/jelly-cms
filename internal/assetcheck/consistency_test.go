@@ -8,7 +8,8 @@ package assetcheck
 // the browser checks are JELLY_ONLY=consistency in scripts/acceptance/jelly-ui.spec.mjs.
 // Most of these tests are expected to fail now: the pages still use .toggle-switch, native checkboxes and
 // radios, alert(), .modal-overlay and native <dialog>. TestAdminNavigationTabsStayNavigation pins what must
-// not change and passes now. Do not edit these tests to match an implementation.
+// not change and passes now; TestAdminJellyChoiceControlsAreSmallAndNamed passes now only because no page has a
+// Jelly checkbox or radio yet. Do not edit these tests to match an implementation.
 
 import (
 	"os"
