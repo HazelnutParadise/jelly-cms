@@ -36,6 +36,7 @@ var enforcedPermissions = map[string]bool{
 	"http.fetch": true,
 	"store":      true,
 	"settings":   true,
+	"events":     true, // receive site events (orders, users, comments carry PII)
 }
 
 var (

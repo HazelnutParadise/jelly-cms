@@ -43,4 +43,4 @@
 
 ## 嵌入 Go 程式
 
-`Runtime.HasExtension(id, point)` 查詢實際回呼可用性，`Runtime.CallExtension(ctx, id, point, input)` 呼叫回呼。前者不取代網站層的資料庫啟用與權限檢查。舊的 `registerHook`／`CallHook` 事件行為保持相容。
+`Runtime.HasExtension(id, point)` 查詢實際回呼可用性，`Runtime.CallExtension(ctx, id, point, input)` 呼叫回呼。前者不取代網站層的資料庫啟用與權限檢查。事件鉤子（`registerHook`）與網站事件的派送見[外掛事件](plugin-events.md)。

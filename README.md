@@ -126,7 +126,7 @@ Jelly CMS 使用 JavaScript（QuickJS）作為外掛運行時，讓開發者可�
 
 宣告並獲准 `settings` 權限的外掛，可用 `JellyCMS.config` 或 `JellyCMS.settings` 讀寫 manifest 宣告的設定，值保存在資料庫，秘密欄位另行加密。沒有這項權限的舊外掛，其 `config` 保持程序內暫存行為。`JellyCMS.store` 需獲准 `store` 權限，資料按外掛 ID 隔離；`JellyCMS.http.fetch` 需獲准 `http.fetch`，只能連線到 manifest 的允許主機，並封鎖私有網路位址。
 
-後台系統工具、備份與換版的操作限制見[系統維運](docs/system-operations.md)，搜尋與儲存回呼契約見 [JavaScript 擴充點](docs/plugin-extensions.md)。目前驗收狀態見 [STATUS.md](STATUS.md)。
+後台系統工具、備份與換版的操作限制見[系統維運](docs/system-operations.md)，搜尋與儲存回呼契約見 [JavaScript 擴充點](docs/plugin-extensions.md)，網站事件的鉤子目錄見[外掛事件](docs/plugin-events.md)。目前驗收狀態見 [STATUS.md](STATUS.md)。
 
 若將 runtime 嵌入其他 Go 執行檔，必須在 `main` 最前面呼叫 `plugin.RunWorkerIfRequested()`，並在結束前呼叫 `Runtime.Close()`。一般伺服器入口已完成這項接線。
 
@@ -149,7 +149,8 @@ data/plugins/my-plugin/
   "version": "1.0.0",
   "description": "這是一個範例外掛",
   "author": "開發者名稱",
-  "entrypoint": "index.js"
+  "entrypoint": "index.js",
+  "permissions": [{ "name": "events" }]
 }
 ```
 
@@ -176,179 +177,20 @@ JellyCMS.config.set('setting_key', 'value');
 
 ### 可用的 Hook（鉤子）
 
-#### 生命週期鉤子
+鉤子在對應的資料庫交易提交後送出，HTTP 請求不等待外掛；每個回呼最多執行 1 秒。完整目錄、每個事件的 payload 欄位與排程發布規則見 [外掛事件](docs/plugin-events.md)。
 
-- **OnBoot**: 外掛載入完成後觸發
-  ```javascript
-  JellyCMS.registerHook('OnBoot', function(data) {
-      // data.plugin: 外掛 ID
-      // 觸發時機：外掛腳本執行完成後
-  });
-  ```
+| 分類 | 鉤子 |
+|---|---|
+| 生命週期 | `OnBoot`、`OnShutdown` |
+| 內容 | `OnPostSave`、`OnPostPublish`、`OnPostDelete`、`OnPostView` |
+| 商品 | `OnProductSave`、`OnProductDelete`、`OnProductView` |
+| 訂單與付款 | `OnOrderCreate`、`OnOrderUpdate`、`OnOrderPaid`、`OnOrderRefund`、`OnPaymentSuccess`、`OnPaymentFailed` |
+| 帳號 | `OnUserCreate`、`OnUserUpdate`、`OnUserDelete`、`OnUserLogin`、`OnUserLoginFailed`、`OnUserLogout` |
+| 留言 | `OnCommentCreate`、`OnCommentUpdate`、`OnCommentDelete` |
+| 附件 | `OnMediaUpload`、`OnMediaDelete` |
+| 主題與設定 | `OnThemeActivate`、`OnSettingsChange` |
 
-- **OnShutdown**: 外掛卸載前觸發
-  ```javascript
-  JellyCMS.registerHook('OnShutdown', function(data) {
-      // 觸發時機：外掛被卸載前，可用於清理資源
-  });
-  ```
-
-#### 請求鉤子
-
-- **OnRequest**: 每個 HTTP 請求處理前觸發
-  ```javascript
-  JellyCMS.registerHook('OnRequest', function(data) {
-      // data.path: 請求路徑
-      // data.method: HTTP 方法
-      // 觸發時機：路由處理前，可用於記錄、驗證、修改請求等
-  });
-  ```
-
-- **OnResponse**: 每個 HTTP 回應發送後觸發
-  ```javascript
-  JellyCMS.registerHook('OnResponse', function(data) {
-      // data.path: 請求路徑
-      // data.status: HTTP 狀態碼
-      // 觸發時機：回應已發送給客戶端後，可用於記錄、統計等
-  });
-  ```
-
-#### 內容鉤子
-
-- **OnPostSave**: 文章儲存到資料庫後觸發（新增或更新）
-  ```javascript
-  JellyCMS.registerHook('OnPostSave', function(data) {
-      // data.post: 文章物件（已儲存）
-      // data.action: 'create' 或 'update'
-      // 觸發時機：文章已成功儲存到資料庫後，可用於發送通知、更新快取等
-  });
-  ```
-
-- **OnPostDelete**: 文章從資料庫刪除後觸發
-  ```javascript
-  JellyCMS.registerHook('OnPostDelete', function(data) {
-      // data.post: 被刪除的文章物件
-      // 觸發時機：文章已從資料庫刪除後，可用於清理相關資料、發送通知等
-  });
-  ```
-
-- **OnPostView**: 文章被瀏覽時觸發（讀取前）
-  ```javascript
-  JellyCMS.registerHook('OnPostView', function(data) {
-      // data.post: 文章物件
-      // 觸發時機：文章被讀取並準備顯示前，可用於記錄瀏覽次數、推薦相關內容等
-  });
-  ```
-
-#### 產品鉤子
-
-- **OnProductSave**: 產品儲存到資料庫後觸發
-  ```javascript
-  JellyCMS.registerHook('OnProductSave', function(data) {
-      // data.product: 產品物件（已儲存）
-      // 觸發時機：產品已成功儲存到資料庫後，可用於更新庫存、發送通知等
-  });
-  ```
-
-- **OnProductDelete**: 產品從資料庫刪除後觸發
-  ```javascript
-  JellyCMS.registerHook('OnProductDelete', function(data) {
-      // data.product: 被刪除的產品物件
-      // 觸發時機：產品已從資料庫刪除後，可用於清理相關資料等
-  });
-  ```
-
-- **OnProductView**: 產品被瀏覽時觸發（讀取前）
-  ```javascript
-  JellyCMS.registerHook('OnProductView', function(data) {
-      // data.product: 產品物件
-      // 觸發時機：產品被讀取並準備顯示前，可用於記錄瀏覽次數、推薦相關產品等
-  });
-  ```
-
-#### 訂單鉤子
-
-- **OnOrderCreate**: 訂單建立並儲存到資料庫後觸發
-  ```javascript
-  JellyCMS.registerHook('OnOrderCreate', function(data) {
-      // data.order: 訂單物件（已建立）
-      // 觸發時機：訂單已成功建立並儲存到資料庫後，可用於發送確認 Email、更新庫存等
-  });
-  ```
-
-- **OnOrderUpdate**: 訂單狀態更新並儲存到資料庫後觸發
-  ```javascript
-  JellyCMS.registerHook('OnOrderUpdate', function(data) {
-      // data.order: 訂單物件（已更新）
-      // data.oldStatus: 舊狀態
-      // data.newStatus: 新狀態
-      // 觸發時機：訂單狀態已更新並儲存到資料庫後，可用於發送狀態變更通知等
-  });
-  ```
-
-- **OnOrderPaid**: 訂單付款完成後觸發
-  ```javascript
-  JellyCMS.registerHook('OnOrderPaid', function(data) {
-      // data.order: 訂單物件
-      // 觸發時機：訂單付款確認完成後，可用於發送收據、準備出貨等
-  });
-  ```
-
-#### 使用者鉤子
-
-- **OnUserLogin**: 使用者登入驗證成功後觸發
-  ```javascript
-  JellyCMS.registerHook('OnUserLogin', function(data) {
-      // data.user: 使用者物件
-      // 觸發時機：使用者通過驗證並建立 Session 後，可用於記錄登入日誌、發送通知等
-  });
-  ```
-
-- **OnUserLogout**: 使用者登出前觸發
-  ```javascript
-  JellyCMS.registerHook('OnUserLogout', function(data) {
-      // data.user: 使用者物件
-      // 觸發時機：Session 被清除前，可用於記錄登出日誌、清理暫存資料等
-  });
-  ```
-
-- **OnUserCreate**: 使用者建立並儲存到資料庫後觸發
-  ```javascript
-  JellyCMS.registerHook('OnUserCreate', function(data) {
-      // data.user: 新使用者物件（已建立）
-      // 觸發時機：使用者已成功建立並儲存到資料庫後，可用於發送歡迎 Email 等
-  });
-  ```
-
-#### 支付鉤子
-
-- **OnPaymentSuccess**: 支付成功並更新訂單狀態後觸發
-  ```javascript
-  JellyCMS.registerHook('OnPaymentSuccess', function(data) {
-      // data.order: 訂單物件
-      // data.payment: 支付資訊
-      // 觸發時機：支付驗證成功且訂單狀態已更新後，可用於發送收據、準備出貨等
-  });
-  ```
-
-- **OnPaymentFailed**: 支付失敗後觸發
-  ```javascript
-  JellyCMS.registerHook('OnPaymentFailed', function(data) {
-      // data.order: 訂單物件
-      // data.error: 錯誤訊息
-      // 觸發時機：支付驗證失敗或處理失敗後，可用於發送失敗通知、記錄錯誤等
-  });
-  ```
-
-#### 主題鉤子
-
-- **OnThemeActivate**: 主題啟用並載入完成後觸發
-  ```javascript
-  JellyCMS.registerHook('OnThemeActivate', function(data) {
-      // data.theme: 主題名稱
-      // 觸發時機：主題已成功啟用並載入後，可用於執行主題相關的初始化操作等
-  });
-  ```
+除了 `OnBoot`、`OnShutdown` 與後台動作，其他事件都需要在 `plugin.json` 宣告並由管理員核准 `events` 權限，因為訂單、帳號與留言事件帶有 email 與留言內容。沒有每個 HTTP 請求的鉤子：那會把每個請求的延遲綁在外掛上。
 
 ### 外掛範例
 
@@ -364,9 +206,9 @@ JellyCMS.registerHook('OnPostSave', function(data) {
     // 例如：發送 Email、更新快取、同步到其他系統等
 });
 
-// 在訂單付款完成時執行操作
+// 在訂單付款完成時執行操作（需要 events 權限）
 JellyCMS.registerHook('OnOrderPaid', function(data) {
-    JellyCMS.log.info('訂單已付款: ' + data.order.id);
+    JellyCMS.log.info('訂單已付款: ' + data.order.number);
     
     // 例如：發送確認 Email、更新庫存等
 });

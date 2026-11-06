@@ -38,6 +38,7 @@ var (
 // the active database for every request so installation can replace it.
 func ConfigurePluginHost(runtime *plugin.Runtime) {
 	setExtensionRuntime(runtime)
+	configurePluginEvents(runtime)
 	if runtime != nil {
 		runtime.SetHostHandler(handlePluginHostCall)
 	}
