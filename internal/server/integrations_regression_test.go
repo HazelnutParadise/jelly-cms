@@ -40,7 +40,7 @@ func TestIntegrationRegressionConcurrentGraceRotationsKeepAtMostTwoUsableKeys(t 
 			defer wg.Done()
 			<-start
 			results[i] = agtAdmin(h, adminToken, http.MethodPost,
-				fmt.Sprintf("/api/admin/agents/%d/rotate", created.Agent.ID),
+				fmt.Sprintf("/api/admin/integrations/%d/rotate", created.Agent.ID),
 				`{"mode":"grace","grace_minutes":30}`)
 		}(i)
 	}
@@ -142,7 +142,7 @@ func TestIntegrationRegressionRotationResponseKeepsItsOwnKeyIdentity(t *testing.
 	firstDone := make(chan agtResult, 1)
 	go func() {
 		firstDone <- agtAdmin(h, adminToken, http.MethodPost,
-			fmt.Sprintf("/api/admin/agents/%d/rotate", created.Agent.ID), `{"mode":"grace","grace_minutes":30}`)
+			fmt.Sprintf("/api/admin/integrations/%d/rotate", created.Agent.ID), `{"mode":"grace","grace_minutes":30}`)
 	}()
 	select {
 	case <-entered:
@@ -151,7 +151,7 @@ func TestIntegrationRegressionRotationResponseKeepsItsOwnKeyIdentity(t *testing.
 		t.Fatal("first rotation did not reach its post-commit key-view query")
 	}
 	second := agtAdmin(h, adminToken, http.MethodPost,
-		fmt.Sprintf("/api/admin/agents/%d/rotate", created.Agent.ID), `{"mode":"grace","grace_minutes":30}`)
+		fmt.Sprintf("/api/admin/integrations/%d/rotate", created.Agent.ID), `{"mode":"grace","grace_minutes":30}`)
 	close(release)
 	first := <-firstDone
 	for i, result := range []agtResult{first, second} {
@@ -182,7 +182,7 @@ func TestIntegrationRegressionRotationEmptyChunkedBodyDefaultsToImmediate(t *tes
 	} {
 		t.Run(tc.label, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost,
-				fmt.Sprintf("/api/admin/agents/%d/rotate", created.Agent.ID),
+				fmt.Sprintf("/api/admin/integrations/%d/rotate", created.Agent.ID),
 				io.NopCloser(strings.NewReader(tc.body)))
 			request.ContentLength = -1
 			request.Header.Set(echo.HeaderAccept, echo.MIMEApplicationJSON)
@@ -220,9 +220,9 @@ func TestIntegrationRegressionOwnerAvailabilityAndPersonalTokenCannotManage(t *t
 	personalToken := apiKeysSeedToken(t, h, personalOwner, "agent regression", []string{"admin"}, nil, nil)
 	apiKeysRunMigration(t, h)
 	for _, tc := range []struct{ method, path, body string }{
-		{http.MethodPost, "/api/admin/agents", agtCreateBody("personal token attempt", "posts.read")},
-		{http.MethodPost, fmt.Sprintf("/api/admin/agents/%d/rotate", created.Agent.ID), `{"mode":"immediate"}`},
-		{http.MethodDelete, fmt.Sprintf("/api/admin/agents/%d", created.Agent.ID), ""},
+		{http.MethodPost, "/api/admin/integrations", agtCreateBody("personal token attempt", "posts.read")},
+		{http.MethodPost, fmt.Sprintf("/api/admin/integrations/%d/rotate", created.Agent.ID), `{"mode":"immediate"}`},
+		{http.MethodDelete, fmt.Sprintf("/api/admin/integrations/%d", created.Agent.ID), ""},
 	} {
 		r := agtAdmin(h, personalToken, tc.method, tc.path, tc.body)
 		if r.code != http.StatusUnauthorized && r.code != http.StatusForbidden {
@@ -464,11 +464,11 @@ func TestIntegrationRegressionSettingsURLValidationMatchesAdminAndDoesNotWrite(t
 	}
 	bad := `{"permalink_post":"/archive/{unknown}"}`
 	for _, tc := range []struct{ label, method, path, bearer string }{
-		{"agent", http.MethodPut, "/api/v1/settings", integration.APIKey},
+		{"integration", http.MethodPut, "/api/v1/settings", integration.APIKey},
 		{"admin", http.MethodPost, "/api/admin/settings", adminToken},
 	} {
 		var r agtResult
-		if tc.label == "agent" {
+		if tc.label == "integration" {
 			r = agtDo(h, tc.method, tc.path, bad, tc.bearer, "")
 		} else {
 			r = agtAdmin(h, tc.bearer, tc.method, tc.path, bad)
@@ -519,7 +519,7 @@ func TestIntegrationRegressionAdminEventsFilterMultipleActionsAcrossHistory(t *t
 		event := core.IntegrationEvent{
 			At: at, ActorType: "user", ActorUserID: &ownerID,
 			IntegrationID: integrationID, IntegrationName: name, Action: action, Module: "integrations",
-			Method: http.MethodPost, Route: "/api/admin/agents/:id", Status: http.StatusOK,
+			Method: http.MethodPost, Route: "/api/admin/integrations/:id", Status: http.StatusOK,
 			Summary: json.RawMessage(`{"fixture":"action-filter-regression"}`),
 		}
 		if err := h.db.Create(&event).Error; err != nil {
@@ -538,7 +538,7 @@ func TestIntegrationRegressionAdminEventsFilterMultipleActionsAcrossHistory(t *t
 	}
 	seedEvent(b.Agent.ID, b.Agent.Name, "key.rotate", baseTime.Add(2*time.Hour))
 
-	query := url.Values{"agent_id": {fmt.Sprint(a.Agent.ID)}, "limit": {"2"}}
+	query := url.Values{"integration_id": {fmt.Sprint(a.Agent.ID)}, "limit": {"2"}}
 	query.Add("action", "key.rotate")
 	query.Add("action", "key.revoke")
 	query.Add("action", "") // Empty values are ignored while repeated actions remain meaningful.
@@ -555,7 +555,7 @@ func TestIntegrationRegressionAdminEventsFilterMultipleActionsAcrossHistory(t *t
 	}
 	cursor := *first.NextCursor
 	for pageNo := 1; pageNo < 3; pageNo++ {
-		pageQuery := url.Values{"agent_id": {fmt.Sprint(a.Agent.ID)}, "limit": {"2"}, "cursor": {cursor}}
+		pageQuery := url.Values{"integration_id": {fmt.Sprint(a.Agent.ID)}, "limit": {"2"}, "cursor": {cursor}}
 		pageQuery.Add("action", "key.rotate")
 		pageQuery.Add("action", "key.revoke")
 		pageQuery.Add("action", "")
@@ -589,12 +589,12 @@ func TestIntegrationRegressionAdminEventsFilterMultipleActionsAcrossHistory(t *t
 		t.Errorf("multi-action pagination returned %d unique events, want 5", len(seen))
 	}
 
-	singleQuery := url.Values{"agent_id": {fmt.Sprint(a.Agent.ID)}, "action": {"key.rotate"}, "limit": {"100"}}
+	singleQuery := url.Values{"integration_id": {fmt.Sprint(a.Agent.ID)}, "action": {"key.rotate"}, "limit": {"100"}}
 	single, _ := agtEvents(t, h, adminToken, singleQuery)
 	if single.Total != 3 || len(single.Items) != 3 {
 		t.Errorf("single action filter total/items=%d/%d, want 3/3", single.Total, len(single.Items))
 	}
-	duplicateQuery := url.Values{"agent_id": {fmt.Sprint(a.Agent.ID)}, "limit": {"100"}}
+	duplicateQuery := url.Values{"integration_id": {fmt.Sprint(a.Agent.ID)}, "limit": {"100"}}
 	duplicateQuery.Add("action", "key.rotate")
 	duplicateQuery.Add("action", "key.rotate")
 	duplicateQuery.Add("action", "")
@@ -602,21 +602,21 @@ func TestIntegrationRegressionAdminEventsFilterMultipleActionsAcrossHistory(t *t
 	if duplicate.Total != 3 || len(duplicate.Items) != 3 {
 		t.Errorf("duplicate action values inflated results: total/items=%d/%d, want 3/3", duplicate.Total, len(duplicate.Items))
 	}
-	unknownQuery := url.Values{"agent_id": {fmt.Sprint(a.Agent.ID)}, "action": {"key.future"}, "limit": {"100"}}
+	unknownQuery := url.Values{"integration_id": {fmt.Sprint(a.Agent.ID)}, "action": {"key.future"}, "limit": {"100"}}
 	unknown, _ := agtEvents(t, h, adminToken, unknownQuery)
 	if unknown.Total != 0 || len(unknown.Items) != 0 {
 		t.Errorf("unknown nonempty action filter returned total/items=%d/%d, want 0/0", unknown.Total, len(unknown.Items))
 	}
-	tooLong := url.Values{"agent_id": {fmt.Sprint(a.Agent.ID)}}
+	tooLong := url.Values{"integration_id": {fmt.Sprint(a.Agent.ID)}}
 	tooLong.Add("action", strings.Repeat("x", 33))
-	invalid := agtAdmin(h, adminToken, http.MethodGet, "/api/admin/agents/events?"+tooLong.Encode(), "")
+	invalid := agtAdmin(h, adminToken, http.MethodGet, "/api/admin/integrations/events?"+tooLong.Encode(), "")
 	agtExpectError(t, agtResult{code: invalid.code, body: invalid.body, header: invalid.header, panicked: invalid.panicked}, http.StatusBadRequest, "logs_filter_invalid", "agent event action filter over 32 characters")
 
 	var allCount int64
 	if err := h.db.Model(&core.IntegrationEvent{}).Where("integration_id = ?", a.Agent.ID).Count(&allCount).Error; err != nil {
 		t.Fatalf("count all agent events: %v", err)
 	}
-	emptyQuery := url.Values{"agent_id": {fmt.Sprint(a.Agent.ID)}, "action": {""}, "limit": {"100"}}
+	emptyQuery := url.Values{"integration_id": {fmt.Sprint(a.Agent.ID)}, "action": {""}, "limit": {"100"}}
 	empty, _ := agtEvents(t, h, adminToken, emptyQuery)
 	if int64(empty.Total) != allCount {
 		t.Errorf("empty action value was not ignored: total=%d, agent has %d events", empty.Total, allCount)
@@ -812,7 +812,7 @@ func TestIntegrationRegressionConcurrentDuplicateNamesReturnConflict(t *testing.
 		go func(i int) {
 			defer wg.Done()
 			<-start
-			createResults[i] = agtAdmin(h, adminToken, http.MethodPost, "/api/admin/agents", agtCreateBody(strings.ToUpper("same concurrent name"), "posts.read"))
+			createResults[i] = agtAdmin(h, adminToken, http.MethodPost, "/api/admin/integrations", agtCreateBody(strings.ToUpper("same concurrent name"), "posts.read"))
 		}(i)
 	}
 	close(start)
@@ -826,7 +826,7 @@ func TestIntegrationRegressionConcurrentDuplicateNamesReturnConflict(t *testing.
 				wins++
 			case http.StatusConflict:
 				conflicts++
-				agtExpectError(t, result, http.StatusConflict, "agent_name_taken", fmt.Sprintf("%s racer %d", label, i))
+				agtExpectError(t, result, http.StatusConflict, "integration_name_taken", fmt.Sprintf("%s racer %d", label, i))
 			default:
 				t.Errorf("%s racer %d returned %d, want %d or 409; body=%q", label, i, result.code, success, result.body)
 			}
@@ -845,7 +845,7 @@ func TestIntegrationRegressionConcurrentDuplicateNamesReturnConflict(t *testing.
 		go func(i int) {
 			defer wg.Done()
 			<-start
-			renameResults[i] = agtAdmin(h, adminToken, http.MethodPatch, fmt.Sprintf("/api/admin/agents/%d", ids[i]), `{"name":"Shared concurrent rename"}`)
+			renameResults[i] = agtAdmin(h, adminToken, http.MethodPatch, fmt.Sprintf("/api/admin/integrations/%d", ids[i]), `{"name":"Shared concurrent rename"}`)
 		}(i)
 	}
 	close(start)
@@ -868,12 +868,12 @@ func TestIntegrationRegressionConcurrentIntegrationPatchesDoNotResurrectPermissi
 
 	permissionDone := make(chan agtResult, 1)
 	go func() {
-		permissionDone <- agtAdmin(h, adminToken, http.MethodPatch, fmt.Sprintf("/api/admin/agents/%d", created.Agent.ID), `{"permissions":["media.read"]}`)
+		permissionDone <- agtAdmin(h, adminToken, http.MethodPatch, fmt.Sprintf("/api/admin/integrations/%d", created.Agent.ID), `{"permissions":["media.read"]}`)
 	}()
 	waitForIntegrationRegressionLockWaiters(t, h.db, 1)
 	nameDone := make(chan agtResult, 1)
 	go func() {
-		nameDone <- agtAdmin(h, adminToken, http.MethodPatch, fmt.Sprintf("/api/admin/agents/%d", created.Agent.ID), `{"name":"Patch lock winner"}`)
+		nameDone <- agtAdmin(h, adminToken, http.MethodPatch, fmt.Sprintf("/api/admin/integrations/%d", created.Agent.ID), `{"name":"Patch lock winner"}`)
 	}()
 	waitForIntegrationRegressionLockWaiters(t, h.db, 2)
 	if err := locker.Commit().Error; err != nil {

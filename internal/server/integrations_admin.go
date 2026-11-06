@@ -164,21 +164,21 @@ func loadIntegration(id uint) (core.Integration, error) {
 	return a, err
 }
 func integrationMissing(c echo.Context) error {
-	return writeAPIError(c, 404, "agent_not_found", "Agent not found", nil)
+	return writeAPIError(c, 404, "integration_not_found", "Integration not found", nil)
 }
 func listIntegrations(c echo.Context) error {
 	var rows []core.Integration
 	var total int64
 	q := data.DB.Model(&core.Integration{})
 	if err := q.Count(&total).Error; err != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to list agents", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to list integrations", nil)
 	}
 	if err := q.Order("created_at DESC, id DESC").Find(&rows).Error; err != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to list agents", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to list integrations", nil)
 	}
 	items, err := buildIntegrationViews(rows)
 	if err != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to list agents", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to list integrations", nil)
 	}
 	return c.JSON(200, map[string]any{"items": items, "total": total})
 }
@@ -192,11 +192,11 @@ func getIntegration(c echo.Context) error {
 		return integrationMissing(c)
 	}
 	if e != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to read agent", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to read integration", nil)
 	}
 	v, e := buildIntegrationView(a)
 	if e != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to read agent", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to read integration", nil)
 	}
 	return c.JSON(200, v)
 }
@@ -269,7 +269,7 @@ func createIntegration(c echo.Context) error {
 		if code == "permission_unknown" {
 			details = map[string]any{"unknown": unknownIntegrationPermissions(in.Permissions)}
 		}
-		return writeAPIError(c, 400, code, "Invalid agent fields", details)
+		return writeAPIError(c, 400, code, "Invalid integration fields", details)
 	}
 	plain, e := integration.GenerateKey()
 	if e != nil {
@@ -298,23 +298,23 @@ func createIntegration(c echo.Context) error {
 			return e
 		}
 		sum, _ := json.Marshal(map[string]any{"permissions": perms})
-		ev := core.IntegrationEvent{At: now, ActorType: "user", ActorUserID: owner, IntegrationID: a.ID, IntegrationName: a.Name, KeyID: &k.ID, KeyPrefix: k.Prefix, Action: "integration.create", Module: "integrations", Method: "POST", Route: "/api/admin/agents", Status: 201, IPMasked: maskedRealIP(c), Summary: sum, RequestID: requestIDFor(c)}
+		ev := core.IntegrationEvent{At: now, ActorType: "user", ActorUserID: owner, IntegrationID: a.ID, IntegrationName: a.Name, KeyID: &k.ID, KeyPrefix: k.Prefix, Action: "integration.create", Module: "integrations", Method: "POST", Route: "/api/admin/integrations", Status: 201, IPMasked: maskedRealIP(c), Summary: sum, RequestID: requestIDFor(c)}
 		return writeIntegrationEvent(tx, ev)
 	})
 	if errors.Is(e, errIntegrationNameTaken) || isIntegrationNameUniqueViolation(e) {
-		return writeAPIError(c, 409, "agent_name_taken", "An agent with this name already exists", nil)
+		return writeAPIError(c, 409, "integration_name_taken", "An integration with this name already exists", nil)
 	}
 	if e != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to create agent", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to create integration", nil)
 	}
 	v, e := buildIntegrationView(a)
 	if e != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to read agent", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to read integration", nil)
 	}
-	return c.JSON(201, map[string]any{"agent": v, "key": integrationKeyViewFor(k), "api_key": plain})
+	return c.JSON(201, map[string]any{"integration": v, "key": integrationKeyViewFor(k), "api_key": plain})
 }
 
-var errIntegrationNameTaken = errors.New("agent name taken")
+var errIntegrationNameTaken = errors.New("integration name taken")
 
 func isIntegrationNameUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
@@ -333,7 +333,7 @@ func patchIntegration(c echo.Context) error {
 	if in.Name != nil {
 		name := strings.TrimSpace(*in.Name)
 		if utf8.RuneCountInString(name) < 1 || utf8.RuneCountInString(name) > 80 {
-			return writeAPIError(c, 400, "name_invalid", "Invalid agent name", nil)
+			return writeAPIError(c, 400, "name_invalid", "Invalid integration name", nil)
 		}
 		in.Name = &name
 	}
@@ -401,25 +401,25 @@ func patchIntegration(c echo.Context) error {
 			}
 		}
 		sum, _ := json.Marshal(map[string]any{"old_permissions": old, "permissions": a.Permissions})
-		ev := core.IntegrationEvent{At: time.Now().UTC(), ActorType: "user", ActorUserID: userID(c), IntegrationID: a.ID, IntegrationName: a.Name, Action: "integration.update", Module: "integrations", Method: "PATCH", Route: "/api/admin/agents/:id", Status: 200, IPMasked: maskedRealIP(c), Summary: sum, RequestID: requestIDFor(c)}
+		ev := core.IntegrationEvent{At: time.Now().UTC(), ActorType: "user", ActorUserID: userID(c), IntegrationID: a.ID, IntegrationName: a.Name, Action: "integration.update", Module: "integrations", Method: "PATCH", Route: "/api/admin/integrations/:id", Status: 200, IPMasked: maskedRealIP(c), Summary: sum, RequestID: requestIDFor(c)}
 		return writeIntegrationEvent(tx, ev)
 	})
 	if errors.Is(e, gorm.ErrRecordNotFound) {
 		return integrationMissing(c)
 	}
 	if errors.Is(e, errIntegrationNameTaken) || isIntegrationNameUniqueViolation(e) {
-		return writeAPIError(c, 409, "agent_name_taken", "An agent with this name already exists", nil)
+		return writeAPIError(c, 409, "integration_name_taken", "An integration with this name already exists", nil)
 	}
 	if e != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to update agent", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to update integration", nil)
 	}
 	a, e = loadIntegration(id)
 	if e != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to read agent", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to read integration", nil)
 	}
 	v, e := buildIntegrationView(a)
 	if e != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to read agent", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to read integration", nil)
 	}
 	return c.JSON(200, v)
 }
@@ -541,7 +541,7 @@ func rotateIntegrationKey(c echo.Context) error {
 			}
 			return nil
 		}(), "revoked_key_prefixes": revoked})
-		ev := core.IntegrationEvent{At: now, ActorType: "user", ActorUserID: uid, IntegrationID: a.ID, IntegrationName: a.Name, KeyID: &newKey.ID, KeyPrefix: newKey.Prefix, Action: "key.rotate", Module: "integrations", Method: "POST", Route: "/api/admin/agents/:id/rotate", Status: 200, IPMasked: maskedRealIP(c), Summary: sum, RequestID: requestIDFor(c)}
+		ev := core.IntegrationEvent{At: now, ActorType: "user", ActorUserID: uid, IntegrationID: a.ID, IntegrationName: a.Name, KeyID: &newKey.ID, KeyPrefix: newKey.Prefix, Action: "key.rotate", Module: "integrations", Method: "POST", Route: "/api/admin/integrations/:id/rotate", Status: 200, IPMasked: maskedRealIP(c), Summary: sum, RequestID: requestIDFor(c)}
 		return writeIntegrationEvent(tx, ev)
 	})
 	if errors.Is(e, gorm.ErrRecordNotFound) {
@@ -552,7 +552,7 @@ func rotateIntegrationKey(c echo.Context) error {
 	}
 	v, e := buildIntegrationView(a)
 	if e != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to read agent", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to read integration", nil)
 	}
 	var previous any
 	if old != nil {
@@ -563,7 +563,7 @@ func rotateIntegrationKey(c echo.Context) error {
 			}
 		}
 	}
-	return c.JSON(200, map[string]any{"agent": v, "key": integrationKeyViewFor(newKey), "api_key": plain, "previous_key": previous})
+	return c.JSON(200, map[string]any{"integration": v, "key": integrationKeyViewFor(newKey), "api_key": plain, "previous_key": previous})
 }
 func revokeIntegrationKey(c echo.Context) error {
 	id, ok := integrationID(c)
@@ -591,7 +591,7 @@ func revokeIntegrationKey(c echo.Context) error {
 			k.RevokedAt = &now
 		}
 		sum, _ := json.Marshal(map[string]any{"key_id": k.ID, "key_prefix": k.Prefix})
-		ev := core.IntegrationEvent{At: time.Now().UTC(), ActorType: "user", ActorUserID: userID(c), IntegrationID: a.ID, IntegrationName: a.Name, KeyID: &k.ID, KeyPrefix: k.Prefix, Action: "key.revoke", Module: "integrations", Method: "POST", Route: "/api/admin/agents/:id/keys/:key_id/revoke", Status: 200, IPMasked: maskedRealIP(c), Summary: sum, RequestID: requestIDFor(c)}
+		ev := core.IntegrationEvent{At: time.Now().UTC(), ActorType: "user", ActorUserID: userID(c), IntegrationID: a.ID, IntegrationName: a.Name, KeyID: &k.ID, KeyPrefix: k.Prefix, Action: "key.revoke", Module: "integrations", Method: "POST", Route: "/api/admin/integrations/:id/keys/:key_id/revoke", Status: 200, IPMasked: maskedRealIP(c), Summary: sum, RequestID: requestIDFor(c)}
 		return writeIntegrationEvent(tx, ev)
 	})
 	if errors.Is(e, gorm.ErrRecordNotFound) {
@@ -610,11 +610,11 @@ func setIntegrationEnabled(c echo.Context, enabled bool) error {
 	}
 	var a core.Integration
 	action := "integration.disable"
-	route := "/api/admin/agents/:id/disable"
+	route := "/api/admin/integrations/:id/disable"
 	changes := map[string]any{"status": "disabled", "disabled_at": time.Now().UTC()}
 	if enabled {
 		action = "integration.enable"
-		route = "/api/admin/agents/:id/enable"
+		route = "/api/admin/integrations/:id/enable"
 		changes = map[string]any{"status": "active", "disabled_at": nil}
 	}
 	e := data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
@@ -634,15 +634,15 @@ func setIntegrationEnabled(c echo.Context, enabled bool) error {
 		return integrationMissing(c)
 	}
 	if e != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to update agent", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to update integration", nil)
 	}
 	a, e = loadIntegration(id)
 	if e != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to read agent", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to read integration", nil)
 	}
 	v, e := buildIntegrationView(a)
 	if e != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to read agent", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to read integration", nil)
 	}
 	return c.JSON(200, v)
 }
@@ -666,14 +666,14 @@ func deleteIntegration(c echo.Context) error {
 			return err
 		}
 		sum, _ := json.Marshal(map[string]any{})
-		ev := core.IntegrationEvent{At: now, ActorType: "user", ActorUserID: userID(c), IntegrationID: id, IntegrationName: a.Name, Action: "integration.delete", Module: "integrations", Method: "DELETE", Route: "/api/admin/agents/:id", Status: 204, IPMasked: maskedRealIP(c), Summary: sum, RequestID: requestIDFor(c)}
+		ev := core.IntegrationEvent{At: now, ActorType: "user", ActorUserID: userID(c), IntegrationID: id, IntegrationName: a.Name, Action: "integration.delete", Module: "integrations", Method: "DELETE", Route: "/api/admin/integrations/:id", Status: 204, IPMasked: maskedRealIP(c), Summary: sum, RequestID: requestIDFor(c)}
 		return writeIntegrationEvent(tx, ev)
 	})
 	if errors.Is(e, gorm.ErrRecordNotFound) {
 		return integrationMissing(c)
 	}
 	if e != nil {
-		return writeAPIError(c, 500, "internal_error", "Unable to delete agent", nil)
+		return writeAPIError(c, 500, "internal_error", "Unable to delete integration", nil)
 	}
 	return c.NoContent(204)
 }

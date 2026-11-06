@@ -40,6 +40,7 @@ func integrationRouteTable(tm *theme.Manager, rt *plugin.Runtime) []integrationR
 		{http.MethodGet, "", "", "Discover the API", nil, false, integrationRoutePublic, integrationDiscovery(tm, rt)},
 		{http.MethodGet, "/openapi.json", "", "Get the OpenAPI 3.1 document", nil, false, integrationRoutePublic, integrationOpenAPI(tm, rt)},
 		{http.MethodGet, "/me", "", "Get this integration and its effective permissions", nil, false, integrationRouteKey, integrationMe},
+		{http.MethodGet, "/me/events", integration.LogsRead, "List this integration's request events", adminRoles, false, integrationRouteKey, listIntegrationOwnEvents},
 		{http.MethodGet, "/logs", integration.LogsRead, "List this integration's request events", adminRoles, false, integrationRouteKey, listIntegrationOwnEvents},
 		{http.MethodGet, "/posts", integration.PostsRead, "List posts", contentRoles, false, integrationRouteKey, integrationPostList("post")},
 		{http.MethodGet, "/posts/:id", integration.PostsRead, "Get a post", contentRoles, false, integrationRouteKey, integrationTypeAndVersion("post", false, getPost)},
@@ -140,7 +141,7 @@ func integrationFallbackPermissionContext(tm *theme.Manager, rt *plugin.Runtime)
 }
 
 func registerIntegrationRoutes(e *echo.Echo, tm *theme.Manager, rt *plugin.Runtime, renderAdmin func(c echo.Context, file, active string) error) {
-	manage := e.Group("/api/admin/agents", auth.RequireRole(adminRoles...))
+	manage := e.Group("/api/admin/integrations", auth.RequireRole(adminRoles...))
 	manage.GET("", listIntegrations)
 	manage.GET("/events", listIntegrationAdminEvents)
 	manage.GET("/:id", getIntegration)
@@ -186,21 +187,10 @@ func registerIntegrationRoutes(e *echo.Echo, tm *theme.Manager, rt *plugin.Runti
 		return writeAPIError(c, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed", nil)
 	}, integrationErrorEnvelope, integrationFallbackPermissionContext(tm, rt), integrationKeyMiddleware, integrationRequestAudit, middleware.BodyLimit(globalBodyLimit))
 	pages := e.Group("/admin", auth.RequireAuth, integrationAdminPageGate)
-	pages.GET("/integrations", func(c echo.Context) error { return renderAdmin(c, "agents.html", "agents") })
-	pages.GET("/integrations/:id", func(c echo.Context) error { return renderAdmin(c, "agent_detail.html", "agents") })
-	// Ticket 24 moved the pages to /admin/integrations. The old paths redirect and keep the id and query string.
-	pages.GET("/agents", redirectToIntegrations)
-	pages.GET("/agents/:id", redirectToIntegrations)
-}
-
-func redirectToIntegrations(c echo.Context) error {
-	target := "/admin/integrations" + strings.TrimPrefix(c.Request().URL.Path, "/admin/agents")
-	if q := c.Request().URL.RawQuery; q != "" {
-		target += "?" + q
-	}
-	return c.Redirect(http.StatusFound, target)
+	pages.GET("/integrations", func(c echo.Context) error { return renderAdmin(c, "integrations.html", "integrations") })
+	pages.GET("/integrations/:id", func(c echo.Context) error { return renderAdmin(c, "integration_detail.html", "integrations") })
 }
 
 func init() {
-	RegisterNav(NavItem{Key: "agents", Section: "system", Label: "agents", Icon: "i-key", Href: "/admin/integrations", Order: 85, Roles: []string{"admin"}})
+	RegisterNav(NavItem{Key: "integrations", Section: "system", Label: "integrations", Icon: "i-key", Href: "/admin/integrations", Order: 85, Roles: []string{"admin"}})
 }

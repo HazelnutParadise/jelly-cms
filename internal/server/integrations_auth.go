@@ -73,7 +73,7 @@ func integrationKeyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			return deniedIntegrationKey(c, a, key, "key_revoked")
 		}
 		if a.Status != "active" {
-			return deniedIntegrationKey(c, a, key, "agent_disabled")
+			return deniedIntegrationKey(c, a, key, "integration_disabled")
 		}
 		var owner core.User
 		if a.OwnerID == nil || data.DB.WithContext(c.Request().Context()).First(&owner, *a.OwnerID).Error != nil || owner.Status != "active" {

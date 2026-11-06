@@ -54,7 +54,7 @@ func integrationErrorCodes() []map[string]any {
 	codes := []struct {
 		c string
 		s int
-	}{{"key_missing", 401}, {"key_invalid", 401}, {"key_revoked", 401}, {"key_expired", 401}, {"agent_disabled", 401}, {"owner_unavailable", 401}, {"permission_missing", 403}, {"owner_role_insufficient", 403}, {"forbidden", 403}, {"version_required", 400}, {"version_invalid", 400}, {"type_mismatch", 400}, {"logs_filter_invalid", 400}, {"bad_request", 400}, {"name_invalid", 400}, {"description_too_long", 400}, {"permissions_required", 400}, {"permission_unknown", 400}, {"rotation_mode_invalid", 400}, {"grace_out_of_range", 400}, {"not_found", 404}, {"agent_not_found", 404}, {"key_not_found", 404}, {"method_not_allowed", 405}, {"version_conflict", 409}, {"agent_name_taken", 409}, {"conflict", 409}, {"payload_too_large", 413}, {"internal_error", 500}, {"service_unavailable", 503}}
+	}{{"key_missing", 401}, {"key_invalid", 401}, {"key_revoked", 401}, {"key_expired", 401}, {"integration_disabled", 401}, {"owner_unavailable", 401}, {"permission_missing", 403}, {"owner_role_insufficient", 403}, {"forbidden", 403}, {"version_required", 400}, {"version_invalid", 400}, {"type_mismatch", 400}, {"logs_filter_invalid", 400}, {"bad_request", 400}, {"name_invalid", 400}, {"description_too_long", 400}, {"permissions_required", 400}, {"permission_unknown", 400}, {"rotation_mode_invalid", 400}, {"grace_out_of_range", 400}, {"not_found", 404}, {"integration_not_found", 404}, {"key_not_found", 404}, {"method_not_allowed", 405}, {"version_conflict", 409}, {"integration_name_taken", 409}, {"conflict", 409}, {"payload_too_large", 413}, {"internal_error", 500}, {"service_unavailable", 503}}
 	out := make([]map[string]any, 0, len(codes))
 	for _, v := range codes {
 		out = append(out, map[string]any{"code": v.c, "status": v.s, "description": integrationErrorDescription(v.c)})
@@ -71,10 +71,10 @@ func integrationConcurrency(rows []integrationRoute) map[string]any {
 	return map[string]any{"field": "base_updated_at", "applies_to": paths, "conflict_code": "version_conflict"}
 }
 func integrationErrorDescription(code string) string {
-	return map[string]string{"key_missing": "Bearer access key is required", "key_invalid": "Access key is invalid", "key_revoked": "Access key was revoked", "key_expired": "Access key expired", "agent_disabled": "Integration is disabled", "owner_unavailable": "Integration owner is unavailable", "permission_missing": "Access key lacks a required permission", "owner_role_insufficient": "Owner role cannot use this permission", "forbidden": "Access is forbidden", "version_required": "base_updated_at is required", "version_invalid": "base_updated_at is invalid", "type_mismatch": "Resource type does not match this endpoint", "logs_filter_invalid": "Event filter is invalid", "bad_request": "Request is invalid", "name_invalid": "Integration name is invalid", "description_too_long": "Integration description is too long", "permissions_required": "At least one permission is required", "permission_unknown": "Permission is unknown", "rotation_mode_invalid": "Key rotation mode is invalid", "grace_out_of_range": "Grace period is out of range", "not_found": "Endpoint was not found", "agent_not_found": "Integration was not found", "key_not_found": "Access key was not found", "method_not_allowed": "HTTP method is not allowed", "version_conflict": "Resource changed since it was read", "agent_name_taken": "Integration name is already in use", "conflict": "Request conflicts with current state", "payload_too_large": "Request body is too large", "internal_error": "Internal server error", "service_unavailable": "Service is unavailable"}[code]
+	return map[string]string{"key_missing": "Bearer access key is required", "key_invalid": "Access key is invalid", "key_revoked": "Access key was revoked", "key_expired": "Access key expired", "integration_disabled": "Integration is disabled", "owner_unavailable": "Integration owner is unavailable", "permission_missing": "Access key lacks a required permission", "owner_role_insufficient": "Owner role cannot use this permission", "forbidden": "Access is forbidden", "version_required": "base_updated_at is required", "version_invalid": "base_updated_at is invalid", "type_mismatch": "Resource type does not match this endpoint", "logs_filter_invalid": "Event filter is invalid", "bad_request": "Request is invalid", "name_invalid": "Integration name is invalid", "description_too_long": "Integration description is too long", "permissions_required": "At least one permission is required", "permission_unknown": "Permission is unknown", "rotation_mode_invalid": "Key rotation mode is invalid", "grace_out_of_range": "Grace period is out of range", "not_found": "Endpoint was not found", "integration_not_found": "Integration was not found", "key_not_found": "Access key was not found", "method_not_allowed": "HTTP method is not allowed", "version_conflict": "Resource changed since it was read", "integration_name_taken": "Integration name is already in use", "conflict": "Request conflicts with current state", "payload_too_large": "Request body is too large", "internal_error": "Internal server error", "service_unavailable": "Service is unavailable"}[code]
 }
 func integrationNotExposed() []map[string]string {
-	return []map[string]string{{"path": "/api/admin/comments*", "reason": "留言沒有對應的串接權限"}, {"path": "/api/admin/menus*", "reason": "選單沒有對應的串接權限"}, {"path": "/api/admin/categories* write", "reason": "分類寫入沒有對應的串接權限"}, {"path": "/api/admin/tags* write", "reason": "標籤寫入沒有對應的串接權限"}, {"path": "/api/admin/trash*", "reason": "回收桶沒有對應的串接權限"}, {"path": "/api/admin/posts/:id/revisions*", "reason": "文章版本沒有對應的串接權限"}, {"path": "/api/admin/payment/gateways*", "reason": "金流憑證不開放給串接"}, {"path": "/api/admin/oauth/providers*", "reason": "第三方憑證不開放給串接"}, {"path": "/api/admin/plugins/upload", "reason": "安裝外掛等於執行程式碼"}, {"path": "/api/admin/agents*", "reason": "串接不能管理串接"}}
+	return []map[string]string{{"path": "/api/admin/comments*", "reason": "留言沒有對應的串接權限"}, {"path": "/api/admin/menus*", "reason": "選單沒有對應的串接權限"}, {"path": "/api/admin/categories* write", "reason": "分類寫入沒有對應的串接權限"}, {"path": "/api/admin/tags* write", "reason": "標籤寫入沒有對應的串接權限"}, {"path": "/api/admin/trash*", "reason": "回收桶沒有對應的串接權限"}, {"path": "/api/admin/posts/:id/revisions*", "reason": "文章版本沒有對應的串接權限"}, {"path": "/api/admin/payment/gateways*", "reason": "金流憑證不開放給串接"}, {"path": "/api/admin/oauth/providers*", "reason": "第三方憑證不開放給串接"}, {"path": "/api/admin/plugins/upload", "reason": "安裝外掛等於執行程式碼"}, {"path": "/api/admin/integrations*", "reason": "串接不能管理串接"}}
 }
 func integrationOpenAPI(tm *theme.Manager, rt *plugin.Runtime) echo.HandlerFunc {
 	return func(c echo.Context) error {
@@ -218,16 +218,16 @@ func integrationSuccessSchema(r integrationRoute) map[string]any {
 			}),
 		}, "id", "name", "permissions", "effective_permissions", "key")
 	}
-	if path == "/logs" {
+	if path == "/logs" || path == "/me/events" {
 		item := integrationSchemaObject(map[string]any{
 			"id": integrationIntSchema(), "at": map[string]any{"type": "string", "format": "date-time"},
 			"actor_type": integrationStringSchema(), "actor_user_id": map[string]any{"type": []string{"integer", "null"}},
-			"agent_id": integrationIntSchema(), "agent_name": integrationStringSchema(), "key_id": map[string]any{"type": []string{"integer", "null"}},
+			"integration_id": integrationIntSchema(), "integration_name": integrationStringSchema(), "key_id": map[string]any{"type": []string{"integer", "null"}},
 			"key_prefix": integrationStringSchema(), "action": integrationStringSchema(), "module": integrationStringSchema(),
 			"method": integrationStringSchema(), "route": integrationStringSchema(), "status": integrationIntSchema(),
 			"ip_masked": integrationStringSchema(), "summary": map[string]any{"type": "object", "additionalProperties": true},
 			"correlation_id": integrationStringSchema(),
-		}, "id", "at", "actor_type", "agent_id", "agent_name", "action", "module", "method", "route", "status", "summary", "correlation_id")
+		}, "id", "at", "actor_type", "integration_id", "integration_name", "action", "module", "method", "route", "status", "summary", "correlation_id")
 		return integrationSchemaObject(map[string]any{"items": integrationArraySchema(item), "next_cursor": map[string]any{"type": []string{"string", "null"}}, "total": integrationIntSchema()}, "items", "next_cursor", "total")
 	}
 	if path == "/posts" || path == "/pages" {
@@ -402,7 +402,7 @@ func integrationQueryParameters(r integrationRoute) []any {
 			repeat     bool
 		}{name, desc, schema, repeat})
 	}
-	if r.Path == "/logs" {
+	if r.Path == "/logs" || r.Path == "/me/events" {
 		add("cursor", "Opaque cursor for the next page", integrationStringSchema(), false)
 		add("limit", "Number of rows from 1 to 100", map[string]any{"type": "integer", "minimum": 1, "maximum": 100}, false)
 		add("status", "Three-digit status or 2xx through 5xx", integrationStringSchema(), false)

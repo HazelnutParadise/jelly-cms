@@ -5,7 +5,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Error envelope shared by the agent API (docs/tickets/14-agent-api.md, 錯誤格式)
+// Error envelope shared by the machine API (ticket 14, 錯誤格式)
 // and the WebMCP work in issue #7:
 //
 //	{"code": "...", "message": "...", "details": {...}, "correlation_id": "req_..."}

@@ -807,7 +807,7 @@ go build -o recover-oauth ./cmd/recover-oauth
 
 ### 管理後台 API
 
-程式與 API 串接請在管理後台建立存取金鑰，並用 `Authorization: Bearer jly_…` 呼叫機器 API `/api/v1`。舊的 `/api/agent/v1` 已移除，不留別名：
+程式與 API 串接請在管理後台建立存取金鑰，並用 `Authorization: Bearer jly_…` 呼叫機器 API `/api/v1`：
 
 ```bash
 curl -H "Authorization: Bearer jly_xxxxxxxx" https://your-site.example/api/v1/posts

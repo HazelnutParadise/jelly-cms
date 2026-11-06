@@ -833,28 +833,28 @@ async function runAdmin(browser) {
     }
   });
 
-  await check('dialog: deleting an agent requires its exact name in the Jelly confirmation', async () => {
+  await check('dialog: deleting an integration requires its exact name in the Jelly confirmation', async () => {
     const page = await openPage(context, [baseOrigin]);
     await page.goto(`${base}/admin`);
     const name = `Jelly UI ${Date.now()}`;
-    const created = await page.request.post(`${base}/api/admin/agents`, {
+    const created = await page.request.post(`${base}/api/admin/integrations`, {
       data: { name, description: 'Browser confirmation fixture', permissions: ['posts.read'] },
       headers: { 'X-Jelly-CSRF': '1' },
     });
-    assert(created.ok(), `creating agent fixture: HTTP ${created.status()}`);
+    assert(created.ok(), `creating integration fixture: HTTP ${created.status()}`);
     const createdPayload = await created.json();
-    const agent = createdPayload.agent;
-    assert(agent?.id, 'creating the agent fixture must return an agent with an id');
+    const integration = createdPayload.integration;
+    assert(integration?.id, 'creating the integration fixture must return an integration with an id');
     const deleteStatuses = [];
-    await page.route(`**/api/admin/agents/${agent.id}`, async (route) => {
+    await page.route(`**/api/admin/integrations/${integration.id}`, async (route) => {
       if (route.request().method() !== 'DELETE') return route.continue();
       deleteStatuses.push(503);
-      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Injected agent delete failure' }) });
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'Injected integration delete failure' }) });
     });
     try {
-      await page.goto(`${base}/admin/agents/${agent.id}`);
-      await page.locator('#agentToggle').waitFor({ state: 'visible', timeout: 10000 });
-      const deleteButton = page.locator('#agentsContent > .agent-actions button').nth(2);
+      await page.goto(`${base}/admin/integrations/${integration.id}`);
+      await page.locator('#integrationToggle').waitFor({ state: 'visible', timeout: 10000 });
+      const deleteButton = page.locator('#integrationsContent > .integration-actions button').nth(2);
       const openDeleteConfirm = async () => {
         await deleteButton.click();
         const dialog = page.locator('jelly-dialog[open][data-jelly-confirm]');
@@ -866,30 +866,30 @@ async function runAdmin(browser) {
 
       let { dialog, input, confirm } = await openDeleteConfirm();
       await input.fill(`${name}x`);
-      assert(await confirm.isDisabled(), 'an incorrect agent name must keep deletion disabled');
+      assert(await confirm.isDisabled(), 'an incorrect integration name must keep deletion disabled');
       await input.fill(name);
-      assert(await confirm.isEnabled(), 'the exact agent name must enable deletion');
+      assert(await confirm.isEnabled(), 'the exact integration name must enable deletion');
       await dialog.locator('button[data-jelly-cancel]').click();
       await dialog.waitFor({ state: 'hidden', timeout: 5000 });
-      assert(deleteStatuses.length === 0, 'cancelling the agent confirmation must not send a delete request');
+      assert(deleteStatuses.length === 0, 'cancelling the integration confirmation must not send a delete request');
 
       for (let attempt = 1; attempt <= 2; attempt++) {
         ({ dialog, input, confirm } = await openDeleteConfirm());
         await input.fill(name);
         const [response] = await Promise.all([
-          page.waitForResponse((res) => res.request().method() === 'DELETE' && res.url().endsWith(`/api/admin/agents/${agent.id}`), { timeout: 5000 }),
+          page.waitForResponse((res) => res.request().method() === 'DELETE' && res.url().endsWith(`/api/admin/integrations/${integration.id}`), { timeout: 5000 }),
           confirm.click(),
         ]);
         assert(response.status() === 503, `simulated delete attempt ${attempt} returned HTTP ${response.status()}, want 503`);
-        const mainStatus = page.locator('#agentsStatus[role="status"]');
-        await page.waitForFunction(() => document.querySelector('#agentsStatus')?.textContent.includes('503'), null, { timeout: 5000 });
-        assert(await mainStatus.isVisible(), 'the failed delete message must be visible in the main agent page status');
+        const mainStatus = page.locator('#integrationsStatus[role="status"]');
+        await page.waitForFunction(() => document.querySelector('#integrationsStatus')?.textContent.includes('503'), null, { timeout: 5000 });
+        assert(await mainStatus.isVisible(), 'the failed delete message must be visible in the main integration page status');
         assert((await mainStatus.innerText()).includes('503'), 'the main page must identify the simulated HTTP failure');
         assert(await deleteButton.isEnabled(), 'the delete action must be available to retry after a failed request');
         assert(deleteStatuses.length === attempt, `expected ${attempt} intercepted delete attempt(s), found ${deleteStatuses.length}`);
       }
     } finally {
-      await page.request.delete(`${base}/api/admin/agents/${agent.id}`, { headers: { 'X-Jelly-CSRF': '1' } });
+      await page.request.delete(`${base}/api/admin/integrations/${integration.id}`, { headers: { 'X-Jelly-CSRF': '1' } });
       await page.close();
     }
   });
