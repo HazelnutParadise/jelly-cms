@@ -41,51 +41,40 @@ func integrationRouteTable(tm *theme.Manager, rt *plugin.Runtime) []integrationR
 		{http.MethodGet, "/openapi.json", "", "Get the OpenAPI 3.1 document", nil, false, integrationRoutePublic, integrationOpenAPI(tm, rt)},
 		{http.MethodGet, "/me", "", "Get this integration and its effective permissions", nil, false, integrationRouteKey, integrationMe},
 		{http.MethodGet, "/me/events", integration.LogsRead, "List this integration's request events", adminRoles, false, integrationRouteKey, listIntegrationOwnEvents},
-		{http.MethodGet, "/logs", integration.LogsRead, "List this integration's request events", adminRoles, false, integrationRouteKey, listIntegrationOwnEvents},
-		{http.MethodGet, "/posts", integration.PostsRead, "List posts", contentRoles, false, integrationRouteKey, integrationPostList("post")},
+		{http.MethodGet, "/posts", integration.PostsRead, "List posts", contentRoles, false, integrationRouteKey, integrationListContent("post")},
 		{http.MethodGet, "/posts/:id", integration.PostsRead, "Get a post", contentRoles, false, integrationRouteKey, integrationTypeAndVersion("post", false, getPost)},
-		{http.MethodGet, "/categories", integration.PostsRead, "List post categories", contentRoles, false, integrationRouteKey, listCategories},
-		{http.MethodGet, "/tags", integration.PostsRead, "List post tags", contentRoles, false, integrationRouteKey, listTags},
+		{http.MethodGet, "/categories", integration.PostsRead, "List post categories", contentRoles, false, integrationRouteKey, integrationListCategories},
+		{http.MethodGet, "/tags", integration.PostsRead, "List post tags", contentRoles, false, integrationRouteKey, integrationListTags},
 		{http.MethodPost, "/posts", integration.PostsWrite, "Create a post", contentRoles, false, integrationRouteKey, integrationTypeAndVersion("post", false, createPost)},
 		{http.MethodPut, "/posts/:id", integration.PostsWrite, "Update a post with base_updated_at", contentRoles, true, integrationRouteKey, integrationTypeAndVersion("post", true, updatePost)},
 		{http.MethodDelete, "/posts/:id", integration.PostsWrite, "Move a post to the trash", contentRoles, false, integrationRouteKey, integrationTypeAndVersion("post", false, deletePost)},
-		{http.MethodGet, "/pages", integration.PagesRead, "List pages", contentRoles, false, integrationRouteKey, integrationPostList("page")},
+		{http.MethodGet, "/pages", integration.PagesRead, "List pages", contentRoles, false, integrationRouteKey, integrationListContent("page")},
 		{http.MethodGet, "/pages/:id", integration.PagesRead, "Get a page", contentRoles, false, integrationRouteKey, integrationTypeAndVersion("page", false, getPost)},
 		{http.MethodPost, "/pages", integration.PagesWrite, "Create a page", editorRoles, false, integrationRouteKey, integrationTypeAndVersion("page", false, createPost)},
 		{http.MethodPut, "/pages/:id", integration.PagesWrite, "Update a page with base_updated_at", editorRoles, true, integrationRouteKey, integrationTypeAndVersion("page", true, updatePost)},
 		{http.MethodDelete, "/pages/:id", integration.PagesWrite, "Move a page to the trash", editorRoles, false, integrationRouteKey, integrationTypeAndVersion("page", false, deletePost)},
-		{http.MethodGet, "/media", integration.MediaRead, "List legacy media", contentRoles, false, integrationRouteKey, listLegacyMedia},
-		{http.MethodPost, "/media", integration.MediaWrite, "Upload legacy media", contentRoles, false, integrationRouteKey, handleLegacyMediaUpload},
-		{http.MethodPut, "/media/:filename", integration.MediaWrite, "Replace legacy media", contentRoles, false, integrationRouteKey, handleLegacyMediaReplace},
-		{http.MethodDelete, "/media/:filename", integration.MediaWrite, "Delete legacy media", contentRoles, false, integrationRouteKey, handleLegacyMediaDelete},
-		{http.MethodPost, "/media/rename", integration.MediaWrite, "Rename legacy media", contentRoles, false, integrationRouteKey, renameLegacyMedia},
-		{http.MethodGet, "/media/files", integration.MediaRead, "List media files", contentRoles, false, integrationRouteKey, handleMediaFileList},
+		{http.MethodGet, "/media/files", integration.MediaRead, "List media files", contentRoles, false, integrationRouteKey, integrationListMediaFiles},
 		{http.MethodPost, "/media/files", integration.MediaWrite, "Upload a media file", contentRoles, false, integrationRouteKey, handleMediaFileUpload},
 		{http.MethodPatch, "/media/files/:id", integration.MediaWrite, "Update media file metadata", contentRoles, false, integrationRouteKey, handleMediaFileUpdate},
 		{http.MethodDelete, "/media/files/:id", integration.MediaWrite, "Move a media file to trash", contentRoles, false, integrationRouteKey, handleMediaFileTrash},
 		{http.MethodPost, "/media/files/:id/replace", integration.MediaWrite, "Replace a media file", contentRoles, false, integrationRouteKey, handleMediaFileReplace},
-		{http.MethodGet, "/products", integration.ProductsRead, "List products", adminRoles, false, integrationRouteKey, adminProductsList},
+		{http.MethodGet, "/products", integration.ProductsRead, "List products", adminRoles, false, integrationRouteKey, integrationListProducts},
 		{http.MethodGet, "/products/:id", integration.ProductsRead, "Get a product", adminRoles, false, integrationRouteKey, adminProductsGet},
 		{http.MethodPost, "/products", integration.ProductsWrite, "Create a product", adminRoles, false, integrationRouteKey, adminProductsCreate},
 		{http.MethodPut, "/products/:id", integration.ProductsWrite, "Update a product with base_updated_at", adminRoles, true, integrationRouteKey, integrationTypeAndVersion("", true, adminProductsUpdate)},
 		{http.MethodDelete, "/products/:id", integration.ProductsWrite, "Move a product to the trash", adminRoles, false, integrationRouteKey, adminProductsDelete},
-		{http.MethodGet, "/orders", integration.OrdersRead, "List orders", adminRoles, false, integrationRouteKey, adminOrdersList},
+		{http.MethodGet, "/orders", integration.OrdersRead, "List orders", adminRoles, false, integrationRouteKey, integrationListOrders},
 		{http.MethodGet, "/orders/:id", integration.OrdersRead, "Get an order", adminRoles, false, integrationRouteKey, adminOrderGet},
-		{http.MethodGet, "/themes", integration.ThemesRead, "List themes", adminRoles, false, integrationRouteKey, func(c echo.Context) error { return listThemes(c, tm) }},
+		{http.MethodGet, "/themes", integration.ThemesRead, "List themes", adminRoles, false, integrationRouteKey, integrationListThemes},
 		{http.MethodGet, "/themes/:name/config", integration.ThemesRead, "Get theme configuration", adminRoles, false, integrationRouteKey, func(c echo.Context) error { return getThemeConfig(c, tm) }},
 		{http.MethodGet, "/themes/:name/settings", integration.ThemesRead, "Get theme settings", adminRoles, false, integrationRouteKey, func(c echo.Context) error { return getThemeSettings(c, tm) }},
 		{http.MethodPost, "/themes/activate", integration.ThemesWrite, "Activate a theme", adminRoles, false, integrationRouteKey, func(c echo.Context) error { return activateTheme(c, tm) }},
 		{http.MethodPost, "/themes/:name/settings", integration.ThemesWrite, "Save theme settings", adminRoles, false, integrationRouteKey, func(c echo.Context) error { return saveThemeSettings(c, tm) }},
-		{http.MethodGet, "/plugins", integration.PluginsRead, "List plugins", adminRoles, false, integrationRouteKey, listPlugins},
+		{http.MethodGet, "/plugins", integration.PluginsRead, "List plugins", adminRoles, false, integrationRouteKey, integrationListPlugins},
 		{http.MethodPost, "/plugins/:id/reload", integration.PluginsWrite, "Reload a plugin", adminRoles, false, integrationRouteKey, func(c echo.Context) error { return reloadPlugin(c, rt) }},
-		{http.MethodGet, "/settings", integration.SettingsRead, "Read masked system settings", adminRoles, false, integrationRouteKey, handleSettingsList},
-		{http.MethodPost, "/settings", integration.SettingsWrite, "Write system settings", adminRoles, false, integrationRouteKey, handleSettingsWrite},
+		{http.MethodGet, "/settings", integration.SettingsRead, "Read masked system settings", adminRoles, false, integrationRouteKey, integrationListSettings},
 		{http.MethodPut, "/settings", integration.SettingsWrite, "Write system settings", adminRoles, false, integrationRouteKey, handleSettingsWrite},
 	}
-}
-
-func integrationPostList(kind string) echo.HandlerFunc {
-	return func(c echo.Context) error { return integrationTypeAndVersion(kind, false, listPosts)(c) }
 }
 
 func integrationRoutePathMatches(pattern, path string) bool {
@@ -165,7 +154,7 @@ func registerIntegrationRoutes(e *echo.Echo, tm *theme.Manager, rt *plugin.Runti
 		if r.Permission != "" {
 			middlewares = append(middlewares, integrationPermissionMiddleware(r))
 		}
-		if (r.Path == "/media" && r.Method == http.MethodPost) || (r.Path == "/media/:filename" && r.Method == http.MethodPut) || (r.Path == "/media/files" && r.Method == http.MethodPost) || (r.Path == "/media/files/:id/replace" && r.Method == http.MethodPost) {
+		if (r.Path == "/media/files" && r.Method == http.MethodPost) || (r.Path == "/media/files/:id/replace" && r.Method == http.MethodPost) {
 			middlewares = append(middlewares, middleware.BodyLimit(uploadBodyLimit))
 		} else if r.Auth == integrationRouteKey {
 			middlewares = append(middlewares, middleware.BodyLimit(globalBodyLimit))

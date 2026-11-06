@@ -37,11 +37,27 @@ func publicAPIError(c echo.Context, status int, code, message string) error {
 }
 
 func registerPublicAPIRoutes(e *echo.Echo) {
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/api", apiIndex)
 	e.GET("/api/public", publicAPIOverview)
 	e.GET("/api/public/openapi.json", publicAPIOpenAPI)
 	e.GET("/api/public/posts", listPublicAPIPosts)
 	e.GET("/api/public/content/:slug", getPublicAPIContent)
 	e.GET("/api/public/site", getPublicAPISite)
+}
+
+// apiIndex answers GET /api with the APIs this site serves and who each one is for (ticket 27 R5).
+func apiIndex(c echo.Context) error {
+	c.Response().Header().Set("Cache-Control", "no-store")
+	return c.JSON(http.StatusOK, map[string]any{
+		"name": "Jelly CMS",
+		"apis": []map[string]any{
+			{"name": "v1", "audience": "machine", "auth": "access_key", "base_path": "/api/v1", "index_url": "/api/v1", "openapi_url": "/api/v1/openapi.json"},
+			{"name": "public", "audience": "anonymous", "auth": "none", "base_path": "/api/public", "index_url": "/api/public", "openapi_url": "/api/public/openapi.json"},
+			{"name": "shop", "audience": "anonymous", "auth": "none", "base_path": "/api/shop", "index_url": "/api/shop", "openapi_url": "/api/shop/openapi.json"},
+			{"name": "auth", "audience": "browser", "auth": "browser_session", "base_path": "/api/auth", "index_url": "/api/auth", "openapi_url": "/api/auth/openapi.json"},
+		},
+		"admin_api": map[string]any{"base_path": "/api/admin", "audience": "admin_ui", "auth": "browser_session", "note": "Private API of the admin screens; use /api/v1 with an access key instead."},
+	})
 }
 
 func listPublicAPIPosts(c echo.Context) error {
