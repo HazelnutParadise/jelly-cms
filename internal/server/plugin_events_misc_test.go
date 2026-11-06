@@ -23,7 +23,7 @@ import (
 )
 
 // Comment, media, theme, settings, outbox and plugin log event tests
-// (docs/tickets/27-plugin-events.md, 留言／附件／主題／設定／交易 rows of the
+// (docs/tickets/28-plugin-events.md, 留言／附件／主題／設定／交易 rows of the
 // acceptance table and the log tab). Helpers shared with the users file
 // (peuExactly, peuBase, peuWantAdmin, peuStrings, peuSettle) come from
 // plugin_events_users_test.go.

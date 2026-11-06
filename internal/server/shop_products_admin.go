@@ -170,9 +170,8 @@ func loadAdminProduct(tx *gorm.DB, p *core.Product) (adminProductView, error) {
 }
 
 func adminProductsList(c echo.Context) error {
-	db := data.DB.Model(&core.Product{})
 	status, q := c.QueryParam("status"), strings.TrimSpace(c.QueryParam("q"))
-	if status != "" && status != "all" && status != "active" && status != "draft" && status != "archived" && status != "out_of_stock" {
+	if !validAdminProductStatus(status) {
 		return productError(c, http.StatusBadRequest, "invalid status")
 	}
 	page, err := strconv.Atoi(c.QueryParam("page"))
@@ -195,22 +194,9 @@ func adminProductsList(c echo.Context) error {
 	if perPage > 100 {
 		perPage = 100
 	}
-	if q != "" {
-		pat := "%" + q + "%"
-		db = db.Where("title ILIKE ? OR slug ILIKE ? OR sku ILIKE ? OR EXISTS (SELECT 1 FROM product_variants pv WHERE pv.product_id = products.id AND pv.sku ILIKE ?)", pat, pat, pat, pat)
-	}
-	if status == "out_of_stock" {
-		db = db.Where("status = ? AND stock <= 0", "active")
-	} else if status != "" && status != "all" {
-		db = db.Where("status = ?", status)
-	}
-	var total int64
-	if err := db.Count(&total).Error; err != nil {
-		return productError(c, 500, "could not count products")
-	}
-	var products []core.Product
-	if err := db.Order("created_at DESC, id DESC").Limit(perPage).Offset((page - 1) * perPage).Find(&products).Error; err != nil {
-		return productError(c, 500, "could not load products")
+	items, total, err := queryAdminProducts(status, q, integrationPage{Page: page, PerPage: perPage})
+	if err != nil {
+		return productError(c, 500, err.Error())
 	}
 	counts := map[string]int64{}
 	for key, filter := range map[string]string{"all": "", "active": "status = 'active'", "draft": "status = 'draft'", "archived": "status = 'archived'", "out_of_stock": "status = 'active' AND stock <= 0"} {
@@ -224,6 +210,35 @@ func adminProductsList(c echo.Context) error {
 		}
 		counts[key] = count
 	}
+	return c.JSON(200, map[string]interface{}{"items": items, "total": total, "counts": counts, "page": page, "per_page": perPage})
+}
+
+// validAdminProductStatus reports whether status is an accepted product list filter; empty means no filter.
+func validAdminProductStatus(status string) bool {
+	return status == "" || status == "all" || status == "active" || status == "draft" || status == "archived" || status == "out_of_stock"
+}
+
+// queryAdminProducts returns one page of products with their variants and category ids, newest first.
+// The error text is the admin screen message for the step that failed.
+func queryAdminProducts(status, q string, p integrationPage) ([]adminProductView, int64, error) {
+	db := data.DB.Model(&core.Product{})
+	if q != "" {
+		pat := "%" + q + "%"
+		db = db.Where("title ILIKE ? OR slug ILIKE ? OR sku ILIKE ? OR EXISTS (SELECT 1 FROM product_variants pv WHERE pv.product_id = products.id AND pv.sku ILIKE ?)", pat, pat, pat, pat)
+	}
+	if status == "out_of_stock" {
+		db = db.Where("status = ? AND stock <= 0", "active")
+	} else if status != "" && status != "all" {
+		db = db.Where("status = ?", status)
+	}
+	var total int64
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, errors.New("could not count products")
+	}
+	var products []core.Product
+	if err := db.Order("created_at DESC, id DESC").Limit(p.PerPage).Offset((p.Page - 1) * p.PerPage).Find(&products).Error; err != nil {
+		return nil, 0, errors.New("could not load products")
+	}
 	items := make([]adminProductView, 0, len(products))
 	if len(products) > 0 {
 		ids := make([]uint, len(products))
@@ -232,7 +247,7 @@ func adminProductsList(c echo.Context) error {
 		}
 		var variants []core.ProductVariant
 		if err := data.DB.Where("product_id IN ?", ids).Order("position ASC, id ASC").Find(&variants).Error; err != nil {
-			return productError(c, 500, "could not load variants")
+			return nil, 0, errors.New("could not load variants")
 		}
 		byProduct := map[uint][]core.ProductVariant{}
 		for _, v := range variants {
@@ -243,25 +258,25 @@ func adminProductsList(c echo.Context) error {
 			CategoryID uint
 		}
 		if err := data.DB.Table("product_category_links").Select("product_id, category_id").Where("product_id IN ?", ids).Order("category_id").Scan(&links).Error; err != nil {
-			return productError(c, 500, "could not load product categories")
+			return nil, 0, errors.New("could not load product categories")
 		}
 		cats := map[uint][]uint{}
 		for _, l := range links {
 			cats[l.ProductID] = append(cats[l.ProductID], l.CategoryID)
 		}
-		for _, p := range products {
-			vs := byProduct[p.ID]
+		for _, prod := range products {
+			vs := byProduct[prod.ID]
 			if vs == nil {
 				vs = []core.ProductVariant{}
 			}
-			cs := cats[p.ID]
+			cs := cats[prod.ID]
 			if cs == nil {
 				cs = []uint{}
 			}
-			items = append(items, adminProductView{Product: p, Variants: vs, Categories: cs})
+			items = append(items, adminProductView{Product: prod, Variants: vs, Categories: cs})
 		}
 	}
-	return c.JSON(200, map[string]interface{}{"items": items, "total": total, "counts": counts, "page": page, "per_page": perPage})
+	return items, total, nil
 }
 
 func adminProductsGet(c echo.Context) error {

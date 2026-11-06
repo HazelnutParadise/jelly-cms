@@ -561,17 +561,26 @@ func reorderCategories(c echo.Context) error {
 }
 
 func listTags(c echo.Context) error {
+	tags, err := queryTags(c.QueryParam("q"))
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to load tags"})
+	}
+	return c.JSON(http.StatusOK, tags)
+}
+
+// queryTags lists tags whose name starts with q (all tags when q is empty), most used first.
+func queryTags(q string) ([]core.Tag, error) {
 	query := data.DB.Model(&core.Tag{})
-	if q := c.QueryParam("q"); q != "" {
+	if q != "" {
 		query = query.Where("name ILIKE ?", likeEscaper.Replace(q)+"%")
 	}
 	tags := make([]core.Tag, 0)
 	if err := query.Find(&tags).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to load tags"})
+		return nil, err
 	}
 	counts, err := termPostCounts(data.DB, "post_tags", "tag_id")
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to load tags"})
+		return nil, err
 	}
 	for i := range tags {
 		tags[i].PostCount = counts[tags[i].ID]
@@ -582,7 +591,7 @@ func listTags(c echo.Context) error {
 		}
 		return tags[i].Name < tags[j].Name
 	})
-	return c.JSON(http.StatusOK, tags)
+	return tags, nil
 }
 
 func createTag(c echo.Context) error {

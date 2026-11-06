@@ -2,7 +2,7 @@
 // saved, order paid, user logged in, ...) to subscribers such as the plugin
 // runtime bridge. Events are published after the transaction that produced
 // them commits: handlers stage events on the context outbox and the outbox is
-// flushed only when the transaction returns nil. See docs/tickets/27-plugin-events.md.
+// flushed only when the transaction returns nil. See docs/tickets/28-plugin-events.md.
 package events
 
 import (

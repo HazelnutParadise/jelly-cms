@@ -39,9 +39,18 @@ func renameLegacyMedia(c echo.Context) error {
 	return moveLegacyMedia(c, req.OldName, req.NewName)
 }
 func listThemes(c echo.Context, tm *theme.Manager) error {
-	entries, err := os.ReadDir("web/themes")
+	out, err := queryThemes()
 	if err != nil {
 		return err
+	}
+	return c.JSON(200, out)
+}
+
+// queryThemes lists the directory names under web/themes.
+func queryThemes() ([]string, error) {
+	entries, err := os.ReadDir("web/themes")
+	if err != nil {
+		return nil, err
 	}
 	var out []string
 	for _, e := range entries {
@@ -49,7 +58,7 @@ func listThemes(c echo.Context, tm *theme.Manager) error {
 			out = append(out, e.Name())
 		}
 	}
-	return c.JSON(200, out)
+	return out, nil
 }
 func activateTheme(c echo.Context, tm *theme.Manager) error {
 	var req struct {
@@ -128,9 +137,14 @@ func saveThemeSettings(c echo.Context, tm *theme.Manager) error {
 	return c.JSON(200, map[string]string{"message": "Settings saved"})
 }
 func listPlugins(c echo.Context) error {
+	return c.JSON(200, queryPlugins())
+}
+
+// queryPlugins reads the metadata of every plugin under data/plugins. An unreadable directory is an empty list.
+func queryPlugins() []map[string]any {
 	entries, err := os.ReadDir("data/plugins")
 	if err != nil {
-		return c.JSON(200, []any{})
+		return []map[string]any{}
 	}
 	var out []map[string]any
 	for _, e := range entries {
@@ -147,7 +161,7 @@ func listPlugins(c echo.Context) error {
 			out = append(out, map[string]any{"id": meta.ID, "name": meta.Name, "version": meta.Version, "description": meta.Description, "author": meta.Author})
 		}
 	}
-	return c.JSON(200, out)
+	return out
 }
 func reloadPlugin(c echo.Context, rt *plugin.Runtime) error {
 	if rt == nil {

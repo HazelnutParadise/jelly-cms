@@ -657,6 +657,25 @@ curl -H "Authorization: Bearer jly_xxxxxxxx" https://your-site.example/api/v1/po
 
 可用的主要路徑與各路徑需要的權限清單，請見 `GET /api/v1`；`GET /api/v1/me` 會回傳此存取金鑰目前的有效權限。
 
+清單端點回傳 `{"items": [...], "total": N, "page": P, "per_page": S}`。文章與頁面的清單項目是摘要，不含 `content` 與 `source`，要全文請呼叫 `GET /api/v1/posts/{id}`。`page` 預設 1、上限 1000000；`per_page` 預設 20、上限 100；不是整數或超出範圍回應 `400`（`code` 為 `bad_request`）。`GET /api/v1/me/events` 改用游標分頁，參數為 `cursor` 與 `limit`，回應的 `next_cursor` 帶入下一次的 `cursor`。
+
+```bash
+curl -H "Authorization: Bearer jly_xxxxxxxx" "https://your-site.example/api/v1/posts?page=2&per_page=10"
+```
+
+每個串接與每個來源 IP 都有每分鐘上限。超過時回應 `429`（`code` 為 `rate_limited`），並帶 `Retry-After` 標頭（秒），請等待該秒數後再重試，不要連續重試。計數器的預設值與環境變數如下，設為 `0` 即關閉該計數器：
+
+- 每個串接每分鐘 600 次：`JELLY_API_RATE_LIMIT_PER_INTEGRATION`
+- 每個來源 IP 每分鐘 60 次金鑰驗證失敗（金鑰格式錯誤或查無此金鑰）：`JELLY_API_RATE_LIMIT_AUTH_FAILURES_PER_IP`
+- 每個來源 IP 每分鐘 120 次公開說明端點請求（`GET /api/v1`、`GET /api/v1/openapi.json`）：`JELLY_API_RATE_LIMIT_PUBLIC_PER_IP`
+
+以下 `/api/v1` 下的路徑已移除，不留別名，各項的替代路徑如下：
+
+- `GET /logs`：已移除，請改用 `GET /me/events`
+- `GET /media`、`POST /media`：已移除，請改用 `GET /media/files`、`POST /media/files`
+- `PUT /media/{filename}`、`DELETE /media/{filename}`、`POST /media/rename`：已移除，請改用 `/media/files/{id}` 下的 `POST …/replace`（換檔）、`DELETE`（移到回收桶）與 `PATCH`（改名稱與中繼資料）
+- `POST /settings`：已移除，請改用 `PUT /settings`
+
 `/api/admin/*` 只給管理後台網頁使用，只接受網頁的登入 Cookie（`jwt_token` 或 Session）。帶有任何 `Authorization` 標頭的請求一律回 `401`，寫入還要帶 `X-Jelly-CSRF` 標頭；程式與 API 串接請用上方的存取金鑰呼叫 `/api/v1`。
 
 匿名要求回應 JSON `401`，不依賴 `Accept` 標頭；已登入但角色不符回應 `403`。商品、訂單、系統設定、金流、主題與外掛 API 僅允許管理員。內容與媒體 API 接受管理員、編輯者、作者，未知角色會被拒絕。作者的媒體所有權限制仍待完成，整體驗收狀態見 [STATUS.md](STATUS.md)。

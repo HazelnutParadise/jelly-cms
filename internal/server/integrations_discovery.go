@@ -44,7 +44,7 @@ func integrationDiscovery(tm *theme.Manager, rt *plugin.Runtime) echo.HandlerFun
 			}
 			permissions = append(permissions, map[string]any{"name": string(p), "description": permissionDescription(string(p)), "required_roles": roles, "endpoints": permEndpoints[string(p)]})
 		}
-		return c.JSON(200, map[string]any{"name": "Jelly CMS API", "version": "v1", "base_path": machineAPIBasePath, "openapi_url": machineAPIBasePath + "/openapi.json", "skill_path": "skills/jelly-cms/SKILL.md", "authentication": map[string]any{"type": "bearer", "header": "Authorization", "scheme": "Bearer", "key_prefix": "jly_", "how_to_get": "由管理員在 Jelly CMS 後台建立", "description": "Send the access key in the Authorization header as a Bearer token."}, "permissions": permissions, "endpoints": endpoints, "concurrency": integrationConcurrency(rows), "errors": map[string]any{"format": map[string]any{"code": "…", "message": "…", "details": map[string]any{}, "correlation_id": "req_…"}, "codes": integrationErrorCodes()}, "not_exposed": integrationNotExposed(), "examples": []map[string]any{{"title": "確認金鑰與有效權限", "request": "GET " + machineAPIBasePath + "/me", "response": map[string]any{"id": 1, "effective_permissions": []string{"posts.read"}}}, {"title": "以版本更新文章", "request": "PUT " + machineAPIBasePath + "/posts/1 with base_updated_at", "response": map[string]any{"updated_at": "RFC3339 timestamp"}}}})
+		return c.JSON(200, map[string]any{"name": "Jelly CMS API", "version": "v1", "base_path": machineAPIBasePath, "openapi_url": machineAPIBasePath + "/openapi.json", "skill_path": "skills/jelly-cms/SKILL.md", "authentication": map[string]any{"type": "bearer", "header": "Authorization", "scheme": "Bearer", "key_prefix": "jly_", "how_to_get": "由管理員在 Jelly CMS 後台建立", "description": "Send the access key in the Authorization header as a Bearer token."}, "permissions": permissions, "endpoints": endpoints, "concurrency": integrationConcurrency(rows), "errors": map[string]any{"format": map[string]any{"code": "…", "message": "…", "details": map[string]any{}, "correlation_id": "req_…"}, "codes": integrationErrorCodes()}, "not_exposed": integrationNotExposed(), "pagination": integrationPaginationDoc(), "examples": []map[string]any{{"title": "確認金鑰與有效權限", "request": "GET " + machineAPIBasePath + "/me", "response": map[string]any{"id": 1, "effective_permissions": []string{"posts.read"}}}, {"title": "以版本更新文章", "request": "PUT " + machineAPIBasePath + "/posts/1 with base_updated_at", "response": map[string]any{"updated_at": "RFC3339 timestamp"}}}})
 	}
 }
 func permissionDescription(p string) string {
@@ -54,7 +54,7 @@ func integrationErrorCodes() []map[string]any {
 	codes := []struct {
 		c string
 		s int
-	}{{"key_missing", 401}, {"key_invalid", 401}, {"key_revoked", 401}, {"key_expired", 401}, {"integration_disabled", 401}, {"owner_unavailable", 401}, {"permission_missing", 403}, {"owner_role_insufficient", 403}, {"forbidden", 403}, {"version_required", 400}, {"version_invalid", 400}, {"type_mismatch", 400}, {"logs_filter_invalid", 400}, {"bad_request", 400}, {"name_invalid", 400}, {"description_too_long", 400}, {"permissions_required", 400}, {"permission_unknown", 400}, {"rotation_mode_invalid", 400}, {"grace_out_of_range", 400}, {"not_found", 404}, {"integration_not_found", 404}, {"key_not_found", 404}, {"method_not_allowed", 405}, {"version_conflict", 409}, {"integration_name_taken", 409}, {"conflict", 409}, {"payload_too_large", 413}, {"internal_error", 500}, {"service_unavailable", 503}}
+	}{{"key_missing", 401}, {"key_invalid", 401}, {"key_revoked", 401}, {"key_expired", 401}, {"integration_disabled", 401}, {"owner_unavailable", 401}, {"permission_missing", 403}, {"owner_role_insufficient", 403}, {"forbidden", 403}, {"version_required", 400}, {"version_invalid", 400}, {"type_mismatch", 400}, {"logs_filter_invalid", 400}, {"bad_request", 400}, {"name_invalid", 400}, {"description_too_long", 400}, {"permissions_required", 400}, {"permission_unknown", 400}, {"rotation_mode_invalid", 400}, {"grace_out_of_range", 400}, {"not_found", 404}, {"integration_not_found", 404}, {"key_not_found", 404}, {"method_not_allowed", 405}, {"version_conflict", 409}, {"integration_name_taken", 409}, {"conflict", 409}, {"payload_too_large", 413}, {"rate_limited", 429}, {"internal_error", 500}, {"service_unavailable", 503}}
 	out := make([]map[string]any, 0, len(codes))
 	for _, v := range codes {
 		out = append(out, map[string]any{"code": v.c, "status": v.s, "description": integrationErrorDescription(v.c)})
@@ -71,11 +71,28 @@ func integrationConcurrency(rows []integrationRoute) map[string]any {
 	return map[string]any{"field": "base_updated_at", "applies_to": paths, "conflict_code": "version_conflict"}
 }
 func integrationErrorDescription(code string) string {
-	return map[string]string{"key_missing": "Bearer access key is required", "key_invalid": "Access key is invalid", "key_revoked": "Access key was revoked", "key_expired": "Access key expired", "integration_disabled": "Integration is disabled", "owner_unavailable": "Integration owner is unavailable", "permission_missing": "Access key lacks a required permission", "owner_role_insufficient": "Owner role cannot use this permission", "forbidden": "Access is forbidden", "version_required": "base_updated_at is required", "version_invalid": "base_updated_at is invalid", "type_mismatch": "Resource type does not match this endpoint", "logs_filter_invalid": "Event filter is invalid", "bad_request": "Request is invalid", "name_invalid": "Integration name is invalid", "description_too_long": "Integration description is too long", "permissions_required": "At least one permission is required", "permission_unknown": "Permission is unknown", "rotation_mode_invalid": "Key rotation mode is invalid", "grace_out_of_range": "Grace period is out of range", "not_found": "Endpoint was not found", "integration_not_found": "Integration was not found", "key_not_found": "Access key was not found", "method_not_allowed": "HTTP method is not allowed", "version_conflict": "Resource changed since it was read", "integration_name_taken": "Integration name is already in use", "conflict": "Request conflicts with current state", "payload_too_large": "Request body is too large", "internal_error": "Internal server error", "service_unavailable": "Service is unavailable"}[code]
+	return map[string]string{"key_missing": "Bearer access key is required", "key_invalid": "Access key is invalid", "key_revoked": "Access key was revoked", "key_expired": "Access key expired", "integration_disabled": "Integration is disabled", "owner_unavailable": "Integration owner is unavailable", "permission_missing": "Access key lacks a required permission", "owner_role_insufficient": "Owner role cannot use this permission", "forbidden": "Access is forbidden", "version_required": "base_updated_at is required", "version_invalid": "base_updated_at is invalid", "type_mismatch": "Resource type does not match this endpoint", "logs_filter_invalid": "Event filter is invalid", "bad_request": "Request is invalid", "name_invalid": "Integration name is invalid", "description_too_long": "Integration description is too long", "permissions_required": "At least one permission is required", "permission_unknown": "Permission is unknown", "rotation_mode_invalid": "Key rotation mode is invalid", "grace_out_of_range": "Grace period is out of range", "not_found": "Endpoint was not found", "integration_not_found": "Integration was not found", "key_not_found": "Access key was not found", "method_not_allowed": "HTTP method is not allowed", "version_conflict": "Resource changed since it was read", "integration_name_taken": "Integration name is already in use", "conflict": "Request conflicts with current state", "payload_too_large": "Request body is too large", "rate_limited": "Rate limit exceeded; retry after Retry-After seconds", "internal_error": "Internal server error", "service_unavailable": "Service is unavailable"}[code]
 }
 func integrationNotExposed() []map[string]string {
-	return []map[string]string{{"path": "/api/admin/comments*", "reason": "留言沒有對應的串接權限"}, {"path": "/api/admin/menus*", "reason": "選單沒有對應的串接權限"}, {"path": "/api/admin/categories* write", "reason": "分類寫入沒有對應的串接權限"}, {"path": "/api/admin/tags* write", "reason": "標籤寫入沒有對應的串接權限"}, {"path": "/api/admin/trash*", "reason": "回收桶沒有對應的串接權限"}, {"path": "/api/admin/posts/:id/revisions*", "reason": "文章版本沒有對應的串接權限"}, {"path": "/api/admin/payment/gateways*", "reason": "金流憑證不開放給串接"}, {"path": "/api/admin/oauth/providers*", "reason": "第三方憑證不開放給串接"}, {"path": "/api/admin/plugins/upload", "reason": "安裝外掛等於執行程式碼"}, {"path": "/api/admin/integrations*", "reason": "串接不能管理串接"}}
+	return []map[string]string{{"path": "/api/admin/comments*", "reason": "留言沒有對應的串接權限"}, {"path": "/api/admin/menus*", "reason": "選單沒有對應的串接權限"}, {"path": "/api/admin/categories* write", "reason": "分類寫入沒有對應的串接權限"}, {"path": "/api/admin/tags* write", "reason": "標籤寫入沒有對應的串接權限"}, {"path": "/api/admin/trash*", "reason": "回收桶沒有對應的串接權限"}, {"path": "/api/admin/posts/:id/revisions*", "reason": "文章版本沒有對應的串接權限"}, {"path": "/api/admin/payment/gateways*", "reason": "金流憑證不開放給串接"}, {"path": "/api/admin/oauth/providers*", "reason": "第三方憑證不開放給串接"}, {"path": "/api/admin/plugins/upload", "reason": "安裝外掛等於執行程式碼"}, {"path": "/api/admin/integrations*", "reason": "串接不能管理串接"}, {"path": "/api/admin/media", "reason": "檔名式媒體不開放，請用 /api/v1/media/files"}, {"path": "/api/admin/logs*", "reason": "系統日誌不開放，串接只能讀自己的 /api/v1/me/events"}}
 }
+
+// integrationPaginationDoc describes the two list styles of /api/v1 (ticket 27 R1).
+func integrationPaginationDoc() map[string]any {
+	return map[string]any{
+		"page_style": map[string]any{
+			"parameters": map[string]any{"page": "頁碼，預設 1，最大 1000000", "per_page": "每頁筆數，預設 20，最大 100"},
+			"endpoints":  []string{"/api/v1/posts", "/api/v1/pages", "/api/v1/products", "/api/v1/orders", "/api/v1/media/files"},
+			"envelope":   "{items, total, page, per_page}",
+		},
+		"cursor_style": map[string]any{
+			"parameters": map[string]any{"cursor": "上一頁回傳的 next_cursor，第一頁不帶", "limit": "每頁筆數，1 到 100"},
+			"endpoints":  []string{"/api/v1/me/events"},
+			"envelope":   "{items, next_cursor, total}",
+		},
+	}
+}
+
 func integrationOpenAPI(tm *theme.Manager, rt *plugin.Runtime) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		paths := map[string]any{}
@@ -200,10 +217,49 @@ func integrationProductInputSchema(includeVersion bool) map[string]any {
 	return integrationSchemaObject(props, "title")
 }
 
+// integrationPagedSchema is the paged envelope whose items are the given item schema.
+func integrationPagedSchema(item map[string]any) map[string]any {
+	return integrationSchemaObject(map[string]any{"items": integrationArraySchema(item), "total": integrationIntSchema(), "page": integrationIntSchema(), "per_page": integrationIntSchema()}, "items", "total", "page", "per_page")
+}
+
+// integrationCollectionSchema is the collection envelope whose items are the given item schema.
+func integrationCollectionSchema(item map[string]any) map[string]any {
+	return integrationSchemaObject(map[string]any{"items": integrationArraySchema(item), "total": integrationIntSchema()}, "items", "total")
+}
+
+// integrationContentSummarySchema describes the content summary; its keys come from integrationContentSummaryFields.
+func integrationContentSummarySchema() map[string]any {
+	resource, _ := integrationResourceSchema("post")["properties"].(map[string]any)
+	props := map[string]any{}
+	for _, name := range integrationContentSummaryFields() {
+		if schema, ok := resource[name]; ok {
+			props[name] = schema
+		} else {
+			props[name] = map[string]any{"type": "object"}
+		}
+	}
+	return integrationSchemaObject(props)
+}
+
+// integrationOrderSummarySchema describes the order summary; its keys come from integrationOrderSummaryFields.
+func integrationOrderSummarySchema() map[string]any {
+	all := map[string]any{
+		"id": integrationIntSchema(), "number": integrationStringSchema(), "email": integrationStringSchema(), "status": integrationStringSchema(),
+		"total_amount": integrationIntSchema(), "currency": integrationStringSchema(), "payment_provider": integrationStringSchema(), "payment_method": integrationStringSchema(),
+		"shipping": map[string]any{}, "created_at": map[string]any{"type": "string", "format": "date-time"},
+		"items": integrationArraySchema(integrationSchemaObject(map[string]any{"title": integrationStringSchema(), "variant_name": integrationStringSchema(), "quantity": integrationIntSchema()})),
+	}
+	props := map[string]any{}
+	for _, name := range integrationOrderSummaryFields() {
+		props[name] = all[name]
+	}
+	return integrationSchemaObject(props)
+}
+
 func integrationSuccessSchema(r integrationRoute) map[string]any {
 	path := r.Path
 	if path == "" {
-		return integrationSchemaObject(map[string]any{"name": integrationStringSchema(), "version": integrationStringSchema(), "base_path": integrationStringSchema(), "openapi_url": integrationStringSchema(), "skill_path": integrationStringSchema(), "authentication": map[string]any{"type": "object"}, "permissions": integrationArraySchema(map[string]any{"type": "object"}), "endpoints": integrationArraySchema(map[string]any{"type": "object"}), "concurrency": map[string]any{"type": "object"}, "errors": map[string]any{"type": "object"}, "not_exposed": integrationArraySchema(map[string]any{"type": "object"}), "examples": integrationArraySchema(map[string]any{"type": "object"})})
+		return integrationSchemaObject(map[string]any{"name": integrationStringSchema(), "version": integrationStringSchema(), "base_path": integrationStringSchema(), "openapi_url": integrationStringSchema(), "skill_path": integrationStringSchema(), "authentication": map[string]any{"type": "object"}, "permissions": integrationArraySchema(map[string]any{"type": "object"}), "endpoints": integrationArraySchema(map[string]any{"type": "object"}), "concurrency": map[string]any{"type": "object"}, "errors": map[string]any{"type": "object"}, "not_exposed": integrationArraySchema(map[string]any{"type": "object"}), "pagination": map[string]any{"type": "object"}, "examples": integrationArraySchema(map[string]any{"type": "object"})})
 	}
 	if path == "/openapi.json" {
 		return map[string]any{"type": "object", "additionalProperties": true}
@@ -218,7 +274,7 @@ func integrationSuccessSchema(r integrationRoute) map[string]any {
 			}),
 		}, "id", "name", "permissions", "effective_permissions", "key")
 	}
-	if path == "/logs" || path == "/me/events" {
+	if path == "/me/events" {
 		item := integrationSchemaObject(map[string]any{
 			"id": integrationIntSchema(), "at": map[string]any{"type": "string", "format": "date-time"},
 			"actor_type": integrationStringSchema(), "actor_user_id": map[string]any{"type": []string{"integer", "null"}},
@@ -235,7 +291,7 @@ func integrationSuccessSchema(r integrationRoute) map[string]any {
 		if r.Method == http.MethodPost || r.Method == http.MethodPut {
 			return integrationResourceSchema(kind)
 		}
-		return map[string]any{"type": []string{"array", "null"}, "items": integrationResourceSchema(kind)}
+		return integrationPagedSchema(integrationContentSummarySchema())
 	}
 	if path == "/posts/:id" || path == "/pages/:id" {
 		kind := "post"
@@ -248,26 +304,17 @@ func integrationSuccessSchema(r integrationRoute) map[string]any {
 		return integrationResourceSchema(kind)
 	}
 	if path == "/categories" {
-		return map[string]any{"type": []string{"array", "null"}, "items": map[string]any{"type": "object", "additionalProperties": true}}
+		return integrationCollectionSchema(map[string]any{"type": "object", "additionalProperties": true})
 	}
 	if path == "/tags" {
-		return integrationArraySchema(map[string]any{"type": "object", "additionalProperties": true})
-	}
-	if path == "/media" {
-		if r.Method == http.MethodGet {
-			return map[string]any{"type": []string{"array", "null"}, "items": integrationStringSchema()}
-		}
-		if r.Method == http.MethodPost {
-			return integrationSchemaObject(map[string]any{"url": integrationStringSchema()})
-		}
-		return integrationSchemaObject(map[string]any{"message": integrationStringSchema()})
+		return integrationCollectionSchema(map[string]any{"type": "object", "additionalProperties": true})
 	}
 	if strings.HasPrefix(path, "/media/files") {
 		if path == "/media/files" {
 			if r.Method == http.MethodPost {
 				return integrationMediaFileSchema()
 			}
-			return integrationSchemaObject(map[string]any{"items": integrationArraySchema(integrationMediaFileSchema()), "total": integrationIntSchema(), "page": integrationIntSchema(), "per_page": integrationIntSchema()})
+			return integrationPagedSchema(integrationMediaFileSchema())
 		}
 		if r.Method == http.MethodDelete {
 			return integrationSchemaObject(map[string]any{"trashed": map[string]any{"type": "boolean"}})
@@ -278,7 +325,7 @@ func integrationSuccessSchema(r integrationRoute) map[string]any {
 		if r.Method == http.MethodPost {
 			return integrationResourceSchema("product")
 		}
-		return integrationSchemaObject(map[string]any{"items": integrationArraySchema(integrationResourceSchema("product")), "total": integrationIntSchema(), "counts": map[string]any{"type": "object", "additionalProperties": integrationIntSchema()}, "page": integrationIntSchema(), "per_page": integrationIntSchema()})
+		return integrationPagedSchema(integrationResourceSchema("product"))
 	}
 	if path == "/products/:id" {
 		if r.Method == http.MethodDelete {
@@ -287,13 +334,13 @@ func integrationSuccessSchema(r integrationRoute) map[string]any {
 		return integrationResourceSchema("product")
 	}
 	if path == "/orders" {
-		return map[string]any{"type": "object", "properties": map[string]any{"items": integrationArraySchema(map[string]any{"type": "object", "additionalProperties": true}), "total": integrationIntSchema(), "counts": map[string]any{"type": "object", "additionalProperties": integrationIntSchema()}, "kpi": map[string]any{"type": "object", "additionalProperties": integrationIntSchema()}}}
+		return integrationPagedSchema(integrationOrderSummarySchema())
 	}
 	if path == "/orders/:id" {
 		return map[string]any{"type": "object", "additionalProperties": true}
 	}
 	if path == "/themes" {
-		return map[string]any{"type": []string{"array", "null"}, "items": integrationStringSchema()}
+		return integrationCollectionSchema(integrationStringSchema())
 	}
 	if path == "/themes/:name/config" {
 		return integrationSchemaObject(map[string]any{"name": integrationStringSchema(), "version": integrationStringSchema(), "description": integrationStringSchema(), "author": integrationStringSchema(), "parent": integrationStringSchema(), "colors": map[string]any{"type": "object"}, "layout": map[string]any{"type": "object"}, "custom_fields": integrationArraySchema(map[string]any{"type": "object"}), "webmcp_tools": map[string]any{}})
@@ -304,15 +351,15 @@ func integrationSuccessSchema(r integrationRoute) map[string]any {
 		}
 		return integrationSchemaObject(map[string]any{"theme_name": integrationStringSchema(), "colors": map[string]any{}, "layout": map[string]any{}, "custom": map[string]any{}})
 	}
-	if path == "/themes/activate" || path == "/plugins/:id/reload" || path == "/media/rename" || (path == "/media/:filename" && r.Method != http.MethodGet) || (path == "/products/:id" && r.Method == http.MethodDelete) {
+	if path == "/themes/activate" || path == "/plugins/:id/reload" || (path == "/products/:id" && r.Method == http.MethodDelete) {
 		return integrationSchemaObject(map[string]any{"message": integrationStringSchema()})
 	}
 	if path == "/plugins" {
-		return map[string]any{"type": []string{"array", "null"}, "items": map[string]any{"type": "object", "properties": map[string]any{"id": integrationStringSchema(), "name": integrationStringSchema(), "version": integrationStringSchema(), "description": integrationStringSchema(), "author": integrationStringSchema()}}}
+		return integrationCollectionSchema(map[string]any{"type": "object", "properties": map[string]any{"id": integrationStringSchema(), "name": integrationStringSchema(), "version": integrationStringSchema(), "description": integrationStringSchema(), "author": integrationStringSchema()}})
 	}
 	if path == "/settings" {
 		if r.Method == http.MethodGet {
-			return integrationArraySchema(integrationSchemaObject(map[string]any{"key": integrationStringSchema(), "value": integrationStringSchema()}))
+			return integrationCollectionSchema(integrationSchemaObject(map[string]any{"key": integrationStringSchema(), "value": integrationStringSchema()}))
 		}
 		return integrationSchemaObject(map[string]any{"message": integrationStringSchema()})
 	}
@@ -325,13 +372,27 @@ func integrationJSONMedia(schema any) map[string]any {
 func integrationErrorResponse(description string) map[string]any {
 	return map[string]any{"description": description, "content": map[string]any{"application/json": map[string]any{"schema": map[string]any{"$ref": "#/components/schemas/Error"}}}}
 }
+
+// integrationRateLimitedResponse declares the 429 of ticket 27 R4 with the four
+// headers a rate limited answer carries.
+func integrationRateLimitedResponse() map[string]any {
+	response := integrationErrorResponse("Rate limit exceeded")
+	response["headers"] = map[string]any{
+		"Retry-After":         map[string]any{"description": "Seconds to wait before retrying; the current window ends then.", "schema": map[string]any{"type": "integer", "minimum": 1}},
+		"RateLimit-Limit":     map[string]any{"description": "Requests allowed per 60-second window.", "schema": map[string]any{"type": "integer", "minimum": 1}},
+		"RateLimit-Remaining": map[string]any{"description": "Requests left in the current window; 0 on this response.", "schema": map[string]any{"type": "integer", "minimum": 0}},
+		"RateLimit-Reset":     map[string]any{"description": "Seconds until the current window ends.", "schema": map[string]any{"type": "integer", "minimum": 1}},
+	}
+	return response
+}
+
 func integrationOperationResponses(r integrationRoute) map[string]any {
 	status := "200"
 	description := "Successful response"
 	if r.Path == "/media/files" && r.Method == http.MethodPost {
 		status, description = "201", "Media file created"
 	}
-	responses := map[string]any{status: map[string]any{"description": description, "content": map[string]any{"application/json": map[string]any{"schema": integrationSuccessSchema(r)}}}, "400": integrationErrorResponse("Invalid request"), "404": integrationErrorResponse("Not found"), "405": integrationErrorResponse("Method not allowed"), "413": integrationErrorResponse("Request body is too large"), "500": integrationErrorResponse("Server error")}
+	responses := map[string]any{status: map[string]any{"description": description, "content": map[string]any{"application/json": map[string]any{"schema": integrationSuccessSchema(r)}}}, "400": integrationErrorResponse("Invalid request"), "404": integrationErrorResponse("Not found"), "405": integrationErrorResponse("Method not allowed"), "413": integrationErrorResponse("Request body is too large"), "429": integrationRateLimitedResponse(), "500": integrationErrorResponse("Server error")}
 	if r.Auth == integrationRouteKey {
 		responses["401"] = integrationErrorResponse("Invalid or missing access key")
 	}
@@ -371,9 +432,6 @@ func integrationRequestBody(r integrationRoute) map[string]any {
 	if strings.HasPrefix(r.Path, "/themes/") && strings.HasSuffix(r.Path, "/settings") {
 		return jsonBody(integrationSchemaObject(map[string]any{"colors": map[string]any{}, "layout": map[string]any{}, "custom": map[string]any{}}))
 	}
-	if r.Path == "/media/rename" {
-		return jsonBody(integrationSchemaObject(map[string]any{"old_name": integrationStringSchema(), "new_name": integrationStringSchema()}, "old_name", "new_name"))
-	}
 	if r.Path == "/media/files/:id" && r.Method == http.MethodPatch {
 		return jsonBody(integrationSchemaObject(map[string]any{"alt": integrationStringSchema(), "group_id": map[string]any{"type": []string{"integer", "null"}}}))
 	}
@@ -402,7 +460,7 @@ func integrationQueryParameters(r integrationRoute) []any {
 			repeat     bool
 		}{name, desc, schema, repeat})
 	}
-	if r.Path == "/logs" || r.Path == "/me/events" {
+	if r.Path == "/me/events" {
 		add("cursor", "Opaque cursor for the next page", integrationStringSchema(), false)
 		add("limit", "Number of rows from 1 to 100", map[string]any{"type": "integer", "minimum": 1, "maximum": 100}, false)
 		add("status", "Three-digit status or 2xx through 5xx", integrationStringSchema(), false)
@@ -412,6 +470,12 @@ func integrationQueryParameters(r integrationRoute) []any {
 		add("key_id", "Access key identifier", integrationIntSchema(), false)
 		add("since", "Inclusive RFC3339 start time", map[string]any{"type": "string", "format": "date-time"}, false)
 		add("until", "Exclusive RFC3339 end time", map[string]any{"type": "string", "format": "date-time"}, false)
+	}
+	if (r.Path == "/posts" || r.Path == "/pages") && r.Method == http.MethodGet {
+		add("page", "Page number", map[string]any{"type": "integer", "minimum": 1, "maximum": 1000000}, false)
+		add("per_page", "Rows per page", map[string]any{"type": "integer", "minimum": 1, "maximum": 100}, false)
+		add("status", "Exact status filter (draft or published)", integrationStringSchema(), false)
+		add("q", "Title substring, case-insensitive", integrationStringSchema(), false)
 	}
 	if r.Path == "/tags" {
 		add("q", "Tag name prefix", integrationStringSchema(), false)

@@ -3,7 +3,7 @@
 Epic：外觀與擴充
 User Story：使用 JavaScript 外掛擴充 CMS，熱重載不需重啟。
 Blocked by：無，安裝後整合依賴 01。
-Status：done（真實事件與後台持久化由工作單 27 完成）
+Status：done（真實事件與後台持久化由工作單 28 完成）
 
 ## 行為與邊界
 

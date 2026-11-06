@@ -45,7 +45,7 @@ jobs:
       - uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
-      - run: go test -race ./... -count=1 -timeout=1800s
+      - run: go test -race ./... -count=1 -timeout=2400s
       - name: Start NATS JetStream
         run: docker run -d --name jelly-ci-nats -p 54222:4222 nats:2-alpine -js
       - name: Wait for NATS

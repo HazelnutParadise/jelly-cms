@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-// Tests for the site event path (docs/tickets/27-plugin-events.md): Emit,
+// Tests for the site event path (docs/tickets/28-plugin-events.md): Emit,
 // Flush, the event filter, failure isolation, queue limits, hook snapshots,
 // registerHook warnings, the log sink and the hook catalogue. Every plugin runs
 // in a real worker subprocess. Log lines reach the tests through SetLogSink,

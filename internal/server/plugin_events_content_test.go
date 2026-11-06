@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Content event tests (docs/tickets/27-plugin-events.md, 文章與頁面 rows of the
+// Content event tests (docs/tickets/28-plugin-events.md, 文章與頁面 rows of the
 // acceptance table). Every request goes through the real HTTP stack; every
 // assertion waits for the runtime to flush before it reads a payload.
 //

@@ -20,4 +20,4 @@
 
 ## Follow-ups
 
-- 工作單 27 未接線的事件路徑：`PurgeExpiredTrash` 自動清除不發 `OnPostDelete`／`OnProductDelete`／`OnCommentDelete`（purge）；自動儲存、WXR 匯入與編輯器批次操作不發 `OnPostSave`；`createOAuthUser` 的 `OnUserCreate`（source oauth）沒有自動化測試。接線時沿用 `events.Transaction` 與 `stagePluginEvent`。
+- 工作單 28 未接線的事件路徑：`PurgeExpiredTrash` 自動清除不發 `OnPostDelete`／`OnProductDelete`／`OnCommentDelete`（purge）；自動儲存、WXR 匯入與編輯器批次操作不發 `OnPostSave`；`createOAuthUser` 的 `OnUserCreate`（source oauth）沒有自動化測試。接線時沿用 `events.Transaction` 與 `stagePluginEvent`。

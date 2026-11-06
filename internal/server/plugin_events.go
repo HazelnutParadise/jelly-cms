@@ -22,7 +22,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Plugin event bridge (docs/tickets/27-plugin-events.md).
+// Plugin event bridge (docs/tickets/28-plugin-events.md).
 //
 // Site code stages events with stagePluginEvent inside a transaction (or
 // publishes with publishPluginEvent after a standalone write). The bridge

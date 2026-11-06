@@ -15,7 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Shared fixture for the plugin event tests (docs/tickets/27-plugin-events.md).
+// Shared fixture for the plugin event tests (docs/tickets/28-plugin-events.md).
 //
 // The harness boots the isolated PostgreSQL site from newAccessHarness, adds a
 // real plugin runtime and loads one fixture plugin that registers every hook
