@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"strings"
 )
 
 // PluginMetadata defines the structure of a plugin.json file. The manifest v2
@@ -106,5 +107,21 @@ func KnownHooks() []Hook {
 // IsKnownHook reports whether name is in the catalogue or is an action hook
 // ("action:<id>") for an action meta declares.
 func IsKnownHook(meta PluginMetadata, name string) bool {
+	for _, hook := range knownHooks {
+		if string(hook) == name {
+			return true
+		}
+	}
+
+	actionID, ok := strings.CutPrefix(name, "action:")
+	if !ok || actionID == "" {
+		return false
+	}
+	for _, action := range meta.Actions {
+		if action.ID == actionID {
+			return true
+		}
+	}
+
 	return false
 }

@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // pluginIDPattern limits plugin ids to characters that are safe to use as a
@@ -28,7 +29,15 @@ type Runtime struct {
 	plugins     map[string]*pluginState
 	order       []string
 	hostHandler HostHandler
+	eventFilter EventFilter
 	closed      bool
+
+	// Event accounting, see events.go. pending counts queued and in-flight
+	// events for Flush, queuedBytes the payload bytes waiting, dispatches the
+	// hook requests sent to workers.
+	pending     atomic.Int64
+	queuedBytes atomic.Int64
+	dispatches  atomic.Uint64
 }
 
 // pluginState is the parent-side handle of one loaded plugin. execMu serialises
@@ -43,8 +52,20 @@ type pluginState struct {
 	execMu       sync.Mutex
 	extensionsMu sync.RWMutex
 	extensions   map[string]struct{}
+	hooksMu      sync.RWMutex
+	hooks        map[Hook]struct{}
 	closed       bool
 	invalid      bool
+
+	// Event queue of this plugin, see events.go. eventsMu guards the fields
+	// above it; failures and the dispatcher's view are touched only by the
+	// dispatcher goroutine.
+	eventsMu      sync.Mutex
+	events        chan eventItem
+	eventsDone    chan struct{}
+	eventsStopped bool
+	suspended     atomic.Bool
+	failures      int
 }
 
 // errRuntimeClosed reports a load or reload attempted on a closed runtime.
@@ -150,7 +171,7 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool, expected
 
 		return fmt.Errorf("load plugin %s: %w", meta.ID, err)
 	}
-	if err := validateExtensionSnapshot(meta, loadFrame.Extensions); err != nil {
+	if err := validateWorkerSnapshots(meta, loadFrame); err != nil {
 		worker.terminate()
 		return fmt.Errorf("load plugin %s: %w", meta.ID, err)
 	}
@@ -171,7 +192,7 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool, expected
 
 		return fmt.Errorf("boot plugin %s: %w", meta.ID, err)
 	}
-	if err := state.setExtensionSnapshot(meta, bootFrame.Extensions); err != nil {
+	if err := state.setSnapshots(meta, bootFrame); err != nil {
 		worker.terminate()
 		return fmt.Errorf("boot plugin %s: %w", meta.ID, err)
 	}
@@ -213,9 +234,9 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool, expected
 	}
 
 	if reload {
-		enqueuePluginLog(meta.ID, "info", fmt.Sprintf("reloaded version %s", meta.Version))
+		enqueuePluginNotice(meta.ID, "info", fmt.Sprintf("reloaded version %s", meta.Version))
 	} else {
-		enqueuePluginLog(meta.ID, "info", fmt.Sprintf("loaded version %s", meta.Version))
+		enqueuePluginNotice(meta.ID, "info", fmt.Sprintf("loaded version %s", meta.Version))
 	}
 
 	return nil
@@ -322,7 +343,7 @@ func (m *Runtime) Unload(ctx context.Context, pluginID string) error {
 
 	shutdownErr := state.shutdown(ctx, payload)
 
-	enqueuePluginLog(pluginID, "info", "unloaded")
+	enqueuePluginNotice(pluginID, "info", "unloaded")
 
 	if shutdownErr != nil {
 		enqueuePluginLog(pluginID, "error", fmt.Sprintf("shutdown failed: %v", shutdownErr))
@@ -427,6 +448,9 @@ func (m *Runtime) CallHook(hook Hook, data map[string]interface{}) {
 	}
 
 	for _, state := range m.states() {
+		if !state.hasHook(hook) {
+			continue
+		}
 		if err := state.dispatch(hook, payload); err != nil {
 			enqueuePluginLog(state.id, "error", err.Error())
 		}
@@ -437,6 +461,17 @@ func (m *Runtime) CallHook(hook Hook, data map[string]interface{}) {
 // atomically under the lock, so a concurrent Load cannot slip a new plugin in
 // after the snapshot. Shutdown hooks run without the lock. Close is idempotent.
 func (m *Runtime) Close() {
+	m.mu.RLock()
+	closing := m.closed
+	m.mu.RUnlock()
+	if !closing {
+		ctx, cancel := context.WithTimeout(context.Background(), eventCloseBudget)
+		if err := m.Flush(ctx); err != nil {
+			enqueueRuntimeLog(fmt.Sprintf("[Plugin runtime] %d queued events dropped at close\n", m.pending.Load()))
+		}
+		cancel()
+	}
+
 	m.mu.Lock()
 	if m.closed {
 		m.mu.Unlock()
@@ -505,25 +540,7 @@ func (s *pluginState) dispatch(hook Hook, payload []byte) error {
 		return nil
 	}
 
-	frame, err := s.runtime.requestWorker(context.Background(), s.worker, s.meta, workerRequest{
-		Op:      opHook,
-		Hook:    string(hook),
-		Payload: payload,
-	}, workerStepTimeout)
-	if err != nil {
-		if !s.worker.alive() {
-			s.invalid = true
-		}
-
-		return fmt.Errorf("hook %s: %w", hook, err)
-	}
-	if err := s.setExtensionSnapshot(s.meta, frame.Extensions); err != nil {
-		s.invalid = true
-		s.worker.terminate()
-		return err
-	}
-
-	return nil
+	return s.sendHook(context.Background(), hook, payload)
 }
 
 // call runs one hook and returns its error. A stopped or dead plugin answers
@@ -536,22 +553,31 @@ func (s *pluginState) call(ctx context.Context, hook Hook, payload []byte) error
 		return ErrPluginNotLoaded
 	}
 
+	return s.sendHook(ctx, hook, payload)
+}
+
+// sendHook sends one opHook request and applies the snapshots of its response.
+// It counts the request in HookDispatches. The caller holds execMu.
+func (s *pluginState) sendHook(ctx context.Context, hook Hook, payload []byte) error {
+	s.runtime.dispatches.Add(1)
+
 	frame, err := s.runtime.requestWorker(ctx, s.worker, s.meta, workerRequest{
 		Op:      opHook,
 		Hook:    string(hook),
 		Payload: payload,
 	}, workerStepTimeout)
+	if snapErr := s.applyResponse(frame); snapErr != nil {
+		s.invalid = true
+		s.worker.terminate()
+
+		return fmt.Errorf("hook %s: %w", hook, snapErr)
+	}
 	if err != nil {
 		if !s.worker.alive() {
 			s.invalid = true
 		}
 
 		return fmt.Errorf("hook %s: %w", hook, err)
-	}
-	if err := s.setExtensionSnapshot(s.meta, frame.Extensions); err != nil {
-		s.invalid = true
-		s.worker.terminate()
-		return err
 	}
 
 	return nil
@@ -560,6 +586,8 @@ func (s *pluginState) call(ctx context.Context, hook Hook, payload []byte) error
 // shutdown runs the OnShutdown hook of the plugin exactly once and reclaims its
 // worker.
 func (s *pluginState) shutdown(ctx context.Context, payload []byte) error {
+	s.stopEvents()
+
 	s.execMu.Lock()
 	defer s.execMu.Unlock()
 
@@ -583,6 +611,8 @@ func (s *pluginState) shutdown(ctx context.Context, payload []byte) error {
 
 // abort reclaims the worker without running JavaScript.
 func (s *pluginState) abort() {
+	s.stopEvents()
+
 	s.execMu.Lock()
 	defer s.execMu.Unlock()
 
