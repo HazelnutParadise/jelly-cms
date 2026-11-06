@@ -54,7 +54,7 @@ func integrationErrorCodes() []map[string]any {
 	codes := []struct {
 		c string
 		s int
-	}{{"key_missing", 401}, {"key_invalid", 401}, {"key_revoked", 401}, {"key_expired", 401}, {"integration_disabled", 401}, {"owner_unavailable", 401}, {"permission_missing", 403}, {"owner_role_insufficient", 403}, {"forbidden", 403}, {"version_required", 400}, {"version_invalid", 400}, {"type_mismatch", 400}, {"logs_filter_invalid", 400}, {"bad_request", 400}, {"name_invalid", 400}, {"description_too_long", 400}, {"permissions_required", 400}, {"permission_unknown", 400}, {"rotation_mode_invalid", 400}, {"grace_out_of_range", 400}, {"not_found", 404}, {"integration_not_found", 404}, {"key_not_found", 404}, {"method_not_allowed", 405}, {"version_conflict", 409}, {"integration_name_taken", 409}, {"conflict", 409}, {"payload_too_large", 413}, {"internal_error", 500}, {"service_unavailable", 503}}
+	}{{"key_missing", 401}, {"key_invalid", 401}, {"key_revoked", 401}, {"key_expired", 401}, {"integration_disabled", 401}, {"owner_unavailable", 401}, {"permission_missing", 403}, {"owner_role_insufficient", 403}, {"forbidden", 403}, {"version_required", 400}, {"version_invalid", 400}, {"type_mismatch", 400}, {"logs_filter_invalid", 400}, {"bad_request", 400}, {"name_invalid", 400}, {"description_too_long", 400}, {"permissions_required", 400}, {"permission_unknown", 400}, {"rotation_mode_invalid", 400}, {"grace_out_of_range", 400}, {"not_found", 404}, {"integration_not_found", 404}, {"key_not_found", 404}, {"method_not_allowed", 405}, {"version_conflict", 409}, {"integration_name_taken", 409}, {"conflict", 409}, {"payload_too_large", 413}, {"rate_limited", 429}, {"internal_error", 500}, {"service_unavailable", 503}}
 	out := make([]map[string]any, 0, len(codes))
 	for _, v := range codes {
 		out = append(out, map[string]any{"code": v.c, "status": v.s, "description": integrationErrorDescription(v.c)})
@@ -71,7 +71,7 @@ func integrationConcurrency(rows []integrationRoute) map[string]any {
 	return map[string]any{"field": "base_updated_at", "applies_to": paths, "conflict_code": "version_conflict"}
 }
 func integrationErrorDescription(code string) string {
-	return map[string]string{"key_missing": "Bearer access key is required", "key_invalid": "Access key is invalid", "key_revoked": "Access key was revoked", "key_expired": "Access key expired", "integration_disabled": "Integration is disabled", "owner_unavailable": "Integration owner is unavailable", "permission_missing": "Access key lacks a required permission", "owner_role_insufficient": "Owner role cannot use this permission", "forbidden": "Access is forbidden", "version_required": "base_updated_at is required", "version_invalid": "base_updated_at is invalid", "type_mismatch": "Resource type does not match this endpoint", "logs_filter_invalid": "Event filter is invalid", "bad_request": "Request is invalid", "name_invalid": "Integration name is invalid", "description_too_long": "Integration description is too long", "permissions_required": "At least one permission is required", "permission_unknown": "Permission is unknown", "rotation_mode_invalid": "Key rotation mode is invalid", "grace_out_of_range": "Grace period is out of range", "not_found": "Endpoint was not found", "integration_not_found": "Integration was not found", "key_not_found": "Access key was not found", "method_not_allowed": "HTTP method is not allowed", "version_conflict": "Resource changed since it was read", "integration_name_taken": "Integration name is already in use", "conflict": "Request conflicts with current state", "payload_too_large": "Request body is too large", "internal_error": "Internal server error", "service_unavailable": "Service is unavailable"}[code]
+	return map[string]string{"key_missing": "Bearer access key is required", "key_invalid": "Access key is invalid", "key_revoked": "Access key was revoked", "key_expired": "Access key expired", "integration_disabled": "Integration is disabled", "owner_unavailable": "Integration owner is unavailable", "permission_missing": "Access key lacks a required permission", "owner_role_insufficient": "Owner role cannot use this permission", "forbidden": "Access is forbidden", "version_required": "base_updated_at is required", "version_invalid": "base_updated_at is invalid", "type_mismatch": "Resource type does not match this endpoint", "logs_filter_invalid": "Event filter is invalid", "bad_request": "Request is invalid", "name_invalid": "Integration name is invalid", "description_too_long": "Integration description is too long", "permissions_required": "At least one permission is required", "permission_unknown": "Permission is unknown", "rotation_mode_invalid": "Key rotation mode is invalid", "grace_out_of_range": "Grace period is out of range", "not_found": "Endpoint was not found", "integration_not_found": "Integration was not found", "key_not_found": "Access key was not found", "method_not_allowed": "HTTP method is not allowed", "version_conflict": "Resource changed since it was read", "integration_name_taken": "Integration name is already in use", "conflict": "Request conflicts with current state", "payload_too_large": "Request body is too large", "rate_limited": "Rate limit exceeded; retry after Retry-After seconds", "internal_error": "Internal server error", "service_unavailable": "Service is unavailable"}[code]
 }
 func integrationNotExposed() []map[string]string {
 	return []map[string]string{{"path": "/api/admin/comments*", "reason": "留言沒有對應的串接權限"}, {"path": "/api/admin/menus*", "reason": "選單沒有對應的串接權限"}, {"path": "/api/admin/categories* write", "reason": "分類寫入沒有對應的串接權限"}, {"path": "/api/admin/tags* write", "reason": "標籤寫入沒有對應的串接權限"}, {"path": "/api/admin/trash*", "reason": "回收桶沒有對應的串接權限"}, {"path": "/api/admin/posts/:id/revisions*", "reason": "文章版本沒有對應的串接權限"}, {"path": "/api/admin/payment/gateways*", "reason": "金流憑證不開放給串接"}, {"path": "/api/admin/oauth/providers*", "reason": "第三方憑證不開放給串接"}, {"path": "/api/admin/plugins/upload", "reason": "安裝外掛等於執行程式碼"}, {"path": "/api/admin/integrations*", "reason": "串接不能管理串接"}, {"path": "/api/admin/media", "reason": "檔名式媒體不開放，請用 /api/v1/media/files"}, {"path": "/api/admin/logs*", "reason": "系統日誌不開放，串接只能讀自己的 /api/v1/me/events"}}
@@ -372,13 +372,27 @@ func integrationJSONMedia(schema any) map[string]any {
 func integrationErrorResponse(description string) map[string]any {
 	return map[string]any{"description": description, "content": map[string]any{"application/json": map[string]any{"schema": map[string]any{"$ref": "#/components/schemas/Error"}}}}
 }
+
+// integrationRateLimitedResponse declares the 429 of ticket 27 R4 with the four
+// headers a rate limited answer carries.
+func integrationRateLimitedResponse() map[string]any {
+	response := integrationErrorResponse("Rate limit exceeded")
+	response["headers"] = map[string]any{
+		"Retry-After":         map[string]any{"description": "Seconds to wait before retrying; the current window ends then.", "schema": map[string]any{"type": "integer", "minimum": 1}},
+		"RateLimit-Limit":     map[string]any{"description": "Requests allowed per 60-second window.", "schema": map[string]any{"type": "integer", "minimum": 1}},
+		"RateLimit-Remaining": map[string]any{"description": "Requests left in the current window; 0 on this response.", "schema": map[string]any{"type": "integer", "minimum": 0}},
+		"RateLimit-Reset":     map[string]any{"description": "Seconds until the current window ends.", "schema": map[string]any{"type": "integer", "minimum": 1}},
+	}
+	return response
+}
+
 func integrationOperationResponses(r integrationRoute) map[string]any {
 	status := "200"
 	description := "Successful response"
 	if r.Path == "/media/files" && r.Method == http.MethodPost {
 		status, description = "201", "Media file created"
 	}
-	responses := map[string]any{status: map[string]any{"description": description, "content": map[string]any{"application/json": map[string]any{"schema": integrationSuccessSchema(r)}}}, "400": integrationErrorResponse("Invalid request"), "404": integrationErrorResponse("Not found"), "405": integrationErrorResponse("Method not allowed"), "413": integrationErrorResponse("Request body is too large"), "500": integrationErrorResponse("Server error")}
+	responses := map[string]any{status: map[string]any{"description": description, "content": map[string]any{"application/json": map[string]any{"schema": integrationSuccessSchema(r)}}}, "400": integrationErrorResponse("Invalid request"), "404": integrationErrorResponse("Not found"), "405": integrationErrorResponse("Method not allowed"), "413": integrationErrorResponse("Request body is too large"), "429": integrationRateLimitedResponse(), "500": integrationErrorResponse("Server error")}
 	if r.Auth == integrationRouteKey {
 		responses["401"] = integrationErrorResponse("Invalid or missing access key")
 	}

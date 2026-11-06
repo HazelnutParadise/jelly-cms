@@ -143,12 +143,16 @@ func registerIntegrationRoutes(e *echo.Echo, tm *theme.Manager, rt *plugin.Runti
 	manage.POST("/:id/disable", disableIntegration, interactive)
 	manage.POST("/:id/enable", enableIntegration, interactive)
 	api := e.Group(machineAPIBasePath)
+	limiter := newIntegrationRateLimiterFromEnv()
 	for _, r := range integrationRouteTable(tm, rt) {
 		h := r.Handler
 		middlewares := []echo.MiddlewareFunc{integrationErrorEnvelope, integrationRoutePermissionContext(r.Permission)}
 		if r.Auth == integrationRouteKey {
-			middlewares = append(middlewares, integrationKeyMiddleware, integrationRequestAudit, withIntegrationKeyTouch)
+			middlewares = append(middlewares, limiter.limitAuthFailures, integrationKeyMiddleware, integrationRequestAudit, withIntegrationKeyTouch, limiter.limitPerIntegration)
 		} else {
+			if r.Path == "" || r.Path == "/openapi.json" {
+				middlewares = append(middlewares, limiter.limitPublic)
+			}
 			middlewares = append(middlewares, integrationRequestAudit)
 		}
 		if r.Permission != "" {
@@ -171,10 +175,10 @@ func registerIntegrationRoutes(e *echo.Echo, tm *theme.Manager, rt *plugin.Runti
 			}
 		}
 		return writeAPIError(c, http.StatusNotFound, "not_found", "API endpoint not found", nil)
-	}, integrationErrorEnvelope, integrationFallbackPermissionContext(tm, rt), integrationKeyMiddleware, integrationRequestAudit, middleware.BodyLimit(globalBodyLimit))
+	}, integrationErrorEnvelope, integrationFallbackPermissionContext(tm, rt), limiter.limitAuthFailures, integrationKeyMiddleware, integrationRequestAudit, limiter.limitPerIntegration, middleware.BodyLimit(globalBodyLimit))
 	api.Match([]string{http.MethodHead, http.MethodConnect, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions, http.MethodTrace}, "", func(c echo.Context) error {
 		return writeAPIError(c, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed", nil)
-	}, integrationErrorEnvelope, integrationFallbackPermissionContext(tm, rt), integrationKeyMiddleware, integrationRequestAudit, middleware.BodyLimit(globalBodyLimit))
+	}, integrationErrorEnvelope, integrationFallbackPermissionContext(tm, rt), limiter.limitAuthFailures, integrationKeyMiddleware, integrationRequestAudit, limiter.limitPerIntegration, middleware.BodyLimit(globalBodyLimit))
 	pages := e.Group("/admin", auth.RequireAuth, integrationAdminPageGate)
 	pages.GET("/integrations", func(c echo.Context) error { return renderAdmin(c, "integrations.html", "integrations") })
 	pages.GET("/integrations/:id", func(c echo.Context) error { return renderAdmin(c, "integration_detail.html", "integrations") })

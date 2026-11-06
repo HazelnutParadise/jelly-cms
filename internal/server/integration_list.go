@@ -239,19 +239,14 @@ func integrationListSettings(c echo.Context) error {
 	return c.JSON(http.StatusOK, integrationCollection(options))
 }
 
-// integrationListMediaFiles validates page and per_page strictly, then defers to
-// handleMediaFileList whose response shape is already the paged envelope. That handler
-// defaults per_page to 50; v1 defaults to 20 (ticket 27 R2), so the default is written
-// into a copy of the request that a fresh echo context serves: the original context has
-// already cached its query parameters in the i18n middleware.
+// integrationListMediaFiles validates page and per_page strictly (ticket 27 R2),
+// then answers the shared media list with those values. Passing the defaults as
+// arguments keeps the query untouched: the i18n middleware has already cached the
+// query parameters of this request, so rewriting the URL here would not be seen.
 func integrationListMediaFiles(c echo.Context) error {
-	if _, perr := integrationPageParams(c); perr != nil {
+	p, perr := integrationPageParams(c)
+	if perr != nil {
 		return perr.write(c)
 	}
-	req := c.Request().Clone(c.Request().Context())
-	if q := req.URL.Query(); q.Get("per_page") == "" {
-		q.Set("per_page", strconv.Itoa(integrationDefaultPerPage))
-		req.URL.RawQuery = q.Encode()
-	}
-	return handleMediaFileList(c.Echo().NewContext(req, c.Response()))
+	return listMediaFiles(c, p.Page, p.PerPage)
 }

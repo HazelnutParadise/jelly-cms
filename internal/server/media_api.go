@@ -1034,6 +1034,19 @@ func mediaIfNoneMatch(header, etag string) bool {
 // handleMediaFileList filters by policy, group, file name and trash state.
 // trashed=1 lists only trashed files. group_id=none lists the ungrouped ones.
 func handleMediaFileList(c echo.Context) error {
+	page, perPage := 1, mediaListDefaultPerPage
+	if n, err := strconv.Atoi(c.QueryParam("page")); err == nil && n > 0 {
+		page = n
+	}
+	if n, err := strconv.Atoi(c.QueryParam("per_page")); err == nil && n > 0 {
+		perPage = min(n, mediaListMaxPerPage)
+	}
+	return listMediaFiles(c, page, perPage)
+}
+
+// listMediaFiles answers the paged media list for already validated page and
+// perPage values. handleMediaFileList and the v1 handler share it.
+func listMediaFiles(c echo.Context, page, perPage int) error {
 	ctx := c.Request().Context()
 	apply := func(tx *gorm.DB) (*gorm.DB, *mediaFailure) {
 		tx = tx.Table("media_files").Where("policy_id IN (SELECT id FROM media_policies WHERE purpose = ? AND deleted_at IS NULL)", mediaPurposeMedia)
@@ -1064,13 +1077,6 @@ func handleMediaFileList(c echo.Context) error {
 			tx = tx.Where(`filename ILIKE ? ESCAPE '\'`, "%"+mediaLikeEscaper.Replace(q)+"%")
 		}
 		return tx, nil
-	}
-	page, perPage := 1, mediaListDefaultPerPage
-	if n, err := strconv.Atoi(c.QueryParam("page")); err == nil && n > 0 {
-		page = n
-	}
-	if n, err := strconv.Atoi(c.QueryParam("per_page")); err == nil && n > 0 {
-		perPage = min(n, mediaListMaxPerPage)
 	}
 	countQ, fail := apply(mediaDB(ctx))
 	if fail != nil {
