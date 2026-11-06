@@ -106,10 +106,14 @@ type Product struct {
 	// Shop columns (ticket 07, migration 0008). Migration 0008 adds the same
 	// columns with the same defaults, so the two definitions must stay equal.
 	//
-	// Caution for writers: a field with a default tag and a zero value is
-	// omitted from INSERT, so the database default wins. Create a product with
-	// RequiresShipping=false (or LowStockThreshold=0) through Select(...) so the
-	// explicit zero value is stored.
+	// Caution for writers: GORM's Create replaces a zero value of a field with a
+	// default tag by that tag's default, and writes the replaced value back to the
+	// struct. Select(...) or Omit(...) does not prevent this. So a product created
+	// with RequiresShipping=false or LowStockThreshold=0 is stored as true / 5
+	// unless the zero value is written again after Create. The create and
+	// duplicate paths in internal/server/shop_products_admin.go do this with
+	// saveShopFlagsExplicitly, in the same transaction. Keep the default tags:
+	// AutoMigrate uses them to set the column defaults.
 	CompareAtPrice    int64           `json:"compare_at_price" gorm:"not null;default:0"` // 0 = no compare price
 	LowStockThreshold int             `json:"low_stock_threshold" gorm:"not null;default:5"`
 	RequiresShipping  bool            `json:"requires_shipping" gorm:"not null;default:true"`

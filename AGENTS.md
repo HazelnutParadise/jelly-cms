@@ -17,8 +17,3 @@
 - 頁面不得從 CDN 或任何外部網址載入腳本、樣式、字型或圖示；第三方前端套件只能以建置後的檔案自帶在 `web/` 下，每個套件附 `LICENSE` 與 `VERSION`（版本、來源 commit、建置日期），取得與重建的腳本放在 `scripts/vendor/`。
 - 每次發版前依 `docs/release-checklist.md` 把所有自帶套件更新到最新版、重跑驗收，再打版本。
 - 部署與破壞性遷移須另有明確授權。
-
-## Follow-ups
-
-- 新增商品時把「需要運送」設成 false 仍存成 true：`core.Product` 的運送布林欄位帶 GORM `default:true`，建立時 false 被當成零值換成預設值，模型上「用 `Select` 可避免」的註解不成立；更新路徑正常。需先寫失敗的整合測試再修根因，並檢查 `internal/core` 其他 `default:true` 的布林欄位。工作單 26 的 `TestProductShippingFlagsStayTheSame` 因此只在更新路徑釘 false。
-- `scripts/acceptance/webmcp-edges.spec.mjs` 的 `setSwitchThroughUI` 仍把 `#webmcpEnabled` 當原生勾選框（檢查 `type === 'checkbox'`、用 `.checked`、`check()`／`uncheck()`），但它從工作單 12 起就是 `<jelly-switch>`，這幾項會失敗。改成以 `checked` 屬性讀取、點開關切換，斷言意圖不變。
