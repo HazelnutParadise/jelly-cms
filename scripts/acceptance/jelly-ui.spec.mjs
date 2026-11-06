@@ -449,7 +449,7 @@ async function runAdmin(browser) {
     const page = await openPage(context, [baseOrigin]);
     // Hold jelly.js back so the call below is certain to happen before the module has run. The server-side
     // "toast" template and early page scripts call Jelly.toast while the page is still parsing.
-    await page.route('**/admin/assets/jelly-ui/jelly.js', async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
+    await page.route(/\/admin\/assets\/jelly-ui\/jelly\.js(\?|$)/, async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
     await page.goto(`${base}/admin`, { waitUntil: 'commit' });
     await page.waitForFunction(() => window.Jelly && typeof window.Jelly.toast === 'function', null, { timeout: 10000 });
     const early = await page.evaluate(() => { const early = !customElements.get('jelly-toaster'); window.Jelly.toast('Queued early', { kind: 'info' }); return early; });
@@ -566,7 +566,7 @@ async function runAdmin(browser) {
 
   await check('dialog: a confirmation requested before jelly-dialog upgrades still opens and resolves', async () => {
     const page = await openPage(context, [baseOrigin]);
-    await page.route('**/admin/assets/jelly-ui/jelly.js', async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
+    await page.route(/\/admin\/assets\/jelly-ui\/jelly\.js(\?|$)/, async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
     await page.goto(`${base}/admin`, { waitUntil: 'commit' });
     await page.waitForFunction(() => window.Jelly && typeof window.Jelly.confirm === 'function', null, { timeout: 10000 });
     const beforeUpgrade = await page.evaluate(() => {
@@ -586,7 +586,7 @@ async function runAdmin(browser) {
 
   await check('toast: dismissing a queued toast prevents it from appearing after Jelly UI loads', async () => {
     const page = await openPage(context, [baseOrigin]);
-    await page.route('**/admin/assets/jelly-ui/jelly.js', async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
+    await page.route(/\/admin\/assets\/jelly-ui\/jelly\.js(\?|$)/, async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
     await page.goto(`${base}/admin`, { waitUntil: 'commit' });
     await page.waitForFunction(() => window.Jelly && typeof window.Jelly.toast === 'function', null, { timeout: 10000 });
     const early = await page.evaluate(() => {
@@ -788,7 +788,7 @@ async function runAdmin(browser) {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ settings: { payment_ecpay_enabled: 'true', payment_ecpay_test_mode: 'false' } }) });
       } else await route.continue();
     });
-    await page.route('**/admin/assets/jelly-ui/jelly.js', async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
+    await page.route(/\/admin\/assets\/jelly-ui\/jelly\.js(\?|$)/, async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
     await page.goto(`${base}/admin/settings/payment?lang=zh-TW`, { waitUntil: 'commit' });
     await page.locator('#ecpayEnabled').waitFor({ state: 'attached', timeout: 5000 });
     await page.waitForFunction(() => {
@@ -1813,7 +1813,7 @@ async function runConsistency(browser) {
 
     await check('consistency: Escape in a confirmation over the menu settings jelly-dialog closes only the confirmation', async () => {
       const page = await consistencyPage(context);
-      await page.goto(`${base}/admin`);
+      await page.goto(`${base}/admin`, { waitUntil: 'networkidle' });
       const made = await apiJSON(page, 'POST', '/api/admin/menus', { name: `JUI nested ${stamp}` });
       assert(made.ok && made.body?.id, `creating the menu fixture: HTTP ${made.status}`);
       const deletes = [];

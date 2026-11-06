@@ -62,7 +62,7 @@ try {
     await page.locator('#editorSource .cm-content').click(); await page.keyboard.press(process.platform==='darwin'?'Meta+A':'Control+A'); await page.keyboard.insertText(editedSource);
     assert(await page.evaluate(()=>window.JellyEditor?.getValue())===editedSource,'CodeMirror did not replace the complete source with the expected valid diagram');
     await page.locator('button[data-view=preview]').click(); await page.locator('#editorPreview figure.jc-mermaid svg.pele').waitFor({ timeout: 10000 });
-    await page.locator('label').filter({ has: page.locator('input[name=status][value=published]') }).locator('span').click();
+    await page.locator('jelly-segmented[name=status] button[role=radio]').filter({ hasText: /^(Published|已發布)$/ }).click();
     const publishResponse=page.waitForResponse(response=>response.url().includes(`/api/admin/posts/${created.id}`)&&response.request().method()==='PUT');
     await page.locator('button[data-action=save]').click();
     const publishResult=await publishResponse;

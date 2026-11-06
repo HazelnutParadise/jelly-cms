@@ -21,3 +21,4 @@
 ## Follow-ups
 
 - 新增商品時把「需要運送」設成 false 仍存成 true：`core.Product` 的運送布林欄位帶 GORM `default:true`，建立時 false 被當成零值換成預設值，模型上「用 `Select` 可避免」的註解不成立；更新路徑正常。需先寫失敗的整合測試再修根因，並檢查 `internal/core` 其他 `default:true` 的布林欄位。工作單 26 的 `TestProductShippingFlagsStayTheSame` 因此只在更新路徑釘 false。
+- `scripts/acceptance/webmcp-edges.spec.mjs` 的 `setSwitchThroughUI` 仍把 `#webmcpEnabled` 當原生勾選框（檢查 `type === 'checkbox'`、用 `.checked`、`check()`／`uncheck()`），但它從工作單 12 起就是 `<jelly-switch>`，這幾項會失敗。改成以 `checked` 屬性讀取、點開關切換，斷言意圖不變。
