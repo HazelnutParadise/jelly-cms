@@ -8,9 +8,27 @@ import (
 	"strings"
 	"time"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+// customerEventUserPayload is the "user" object of OnUserCreate: id, username,
+// display_name, email, role, status, provider, created_at. It never carries
+// the password. core cannot import the server or auth packages, so the shape
+// is repeated here.
+func customerEventUserPayload(user User) map[string]any {
+	return map[string]any{
+		"id":           user.ID,
+		"username":     user.Username,
+		"display_name": user.DisplayName,
+		"email":        user.Email,
+		"role":         user.Role,
+		"status":       user.Status,
+		"provider":     user.Provider,
+		"created_at":   user.CreatedAt.UTC().Format(time.RFC3339),
+	}
+}
 
 // EnsureCustomer finds the user with this email, or creates a dormant customer
 // account. Existing accounts are returned unchanged.
@@ -61,6 +79,11 @@ func EnsureCustomer(tx *gorm.DB, email, phone string) (User, error) {
 			}
 			if result.RowsAffected == 1 {
 				user = candidate
+				events.Stage(tx.Statement.Context, events.Event{Name: "OnUserCreate", Payload: map[string]any{
+					"user":          customerEventUserPayload(user),
+					"source":        "checkout",
+					"actor_user_id": nil,
+				}})
 				return nil
 			}
 			// A conflict can be either an email race or a username collision.

@@ -16,6 +16,8 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -169,7 +171,7 @@ type adminUserPatch struct {
 }
 
 func updateAdminUser(db *gorm.DB, actorID, targetID uint, patch adminUserPatch) error {
-	return db.Transaction(func(tx *gorm.DB) error {
+	return events.Transaction(dbContext(db), db, func(tx *gorm.DB) error {
 		admins, err := activeAdminsForUpdate(tx)
 		if err != nil {
 			return err
@@ -242,7 +244,29 @@ func updateAdminUserLocked(tx *gorm.DB, activeAdmins []core.User, actorID uint, 
 	if len(updates) == 0 {
 		return nil
 	}
-	return tx.Model(&core.User{}).Where("id = ?", user.ID).Updates(updates).Error
+	if err := tx.Model(&core.User{}).Where("id = ?", user.ID).Updates(updates).Error; err != nil {
+		return err
+	}
+	var updated core.User
+	if err := tx.First(&updated, user.ID).Error; err != nil {
+		return err
+	}
+	changes := make([]string, 0, 3)
+	if patch.Role != nil {
+		changes = append(changes, "role")
+	}
+	if patch.DisplayName != nil {
+		changes = append(changes, "display_name")
+	}
+	if patch.Status != nil {
+		changes = append(changes, "status")
+	}
+	stagePluginEvent(tx.Statement.Context, plugin.HookOnUserUpdate, map[string]any{
+		"user":          userEventPayload(updated),
+		"changes":       changes,
+		"actor_user_id": actorID,
+	})
+	return nil
 }
 
 func countUserContent(tx *gorm.DB, userID uint) (userContentCounts, error) {
@@ -268,7 +292,7 @@ func (e userContentReassignRequiredError) Unwrap() error { return errUserReassig
 
 func deleteUser(db *gorm.DB, actorID, targetID, reassignTo uint) (userContentCounts, error) {
 	var counts userContentCounts
-	err := db.Transaction(func(tx *gorm.DB) error {
+	err := events.Transaction(dbContext(db), db, func(tx *gorm.DB) error {
 		admins, err := activeAdminsForUpdate(tx)
 		if err != nil {
 			return err
@@ -341,7 +365,19 @@ func deleteUserLocked(tx *gorm.DB, activeAdmins []core.User, actorID uint, user 
 	if err := tx.Model(&core.Revision{}).Where("user_id = ?", user.ID).Update("user_id", nil).Error; err != nil {
 		return err
 	}
-	return tx.Delete(&core.User{}, user.ID).Error
+	if err := tx.Delete(&core.User{}, user.ID).Error; err != nil {
+		return err
+	}
+	stagePluginEvent(tx.Statement.Context, plugin.HookOnUserDelete, map[string]any{
+		"user": map[string]any{
+			"id":       user.ID,
+			"username": user.Username,
+			"email":    user.Email,
+			"role":     user.Role,
+		},
+		"actor_user_id": actorID,
+	})
+	return nil
 }
 
 type bulkUserSkipped struct {
@@ -364,7 +400,7 @@ func bulkUpdateUsers(db *gorm.DB, actorID uint, ids []uint, action, role string)
 		}
 		seen[id] = true
 
-		err := db.Transaction(func(tx *gorm.DB) error {
+		err := events.Transaction(dbContext(db), db, func(tx *gorm.DB) error {
 			admins, err := activeAdminsForUpdate(tx)
 			if err != nil {
 				return err
@@ -484,7 +520,7 @@ func createUserInvitation(db *gorm.DB, actorID uint, email, role, note string) (
 		return link, err
 	}
 	expires := time.Now().UTC().Add(7 * 24 * time.Hour)
-	err = db.Transaction(func(tx *gorm.DB) error {
+	err = events.Transaction(dbContext(db), db, func(tx *gorm.DB) error {
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtext(?))", "user-invite-email:"+email).Error; err != nil {
 			return err
 		}
@@ -514,6 +550,11 @@ func createUserInvitation(db *gorm.DB, actorID uint, email, role, note string) (
 		if err := tx.Create(&invite).Error; err != nil {
 			return err
 		}
+		stagePluginEvent(tx.Statement.Context, plugin.HookOnUserCreate, map[string]any{
+			"user":          userEventPayload(user),
+			"source":        "invite",
+			"actor_user_id": actorID,
+		})
 		link.UserID = user.ID
 		return nil
 	})
@@ -661,7 +702,7 @@ func validUsername(username string) bool {
 }
 
 func consumeInvitation(db *gorm.DB, raw, username, displayName, passwordHash string) error {
-	return db.Transaction(func(tx *gorm.DB) error {
+	return events.Transaction(dbContext(db), db, func(tx *gorm.DB) error {
 		var candidate core.UserInvite
 		err := tx.
 			Where("token_hash = ? AND kind = 'invite' AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?",
@@ -713,7 +754,26 @@ func consumeInvitation(db *gorm.DB, raw, username, displayName, passwordHash str
 			return err
 		}
 		now := time.Now().UTC()
-		return tx.Model(&core.UserInvite{}).Where("id = ?", invite.ID).Update("accepted_at", now).Error
+		if err := tx.Model(&core.UserInvite{}).Where("id = ?", invite.ID).Update("accepted_at", now).Error; err != nil {
+			return err
+		}
+		var updated core.User
+		if err := tx.First(&updated, user.ID).Error; err != nil {
+			return err
+		}
+		changes := []string{"status"}
+		if username != "" {
+			changes = append(changes, "username")
+		}
+		if displayName != "" {
+			changes = append(changes, "display_name")
+		}
+		stagePluginEvent(tx.Statement.Context, plugin.HookOnUserUpdate, map[string]any{
+			"user":          userEventPayload(updated),
+			"changes":       changes,
+			"actor_user_id": nil,
+		})
+		return nil
 	})
 }
 

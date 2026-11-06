@@ -36,6 +36,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/queue"
 	"github.com/HazelnutParadise/jelly-cms/internal/safehttp"
 	"github.com/HazelnutParadise/jelly-cms/internal/settings"
@@ -1340,6 +1341,11 @@ func handleLegacyMediaUpload(c echo.Context) error {
 	if err != nil {
 		return mediaStoreError(c, err)
 	}
+	publishPluginEvent(plugin.HookOnMediaUpload, map[string]any{
+		"file":   mediaEventPayload(row),
+		"source": "upload",
+		"actor":  pluginEventActor(c),
+	})
 	file := mediaFileJSON(row, policy.Driver)
 	return c.JSON(http.StatusOK, map[string]string{"url": file["url"].(string)})
 }
@@ -1541,6 +1547,11 @@ func handleMediaFileUpload(c echo.Context) error {
 	if err != nil {
 		return mediaStoreError(c, err)
 	}
+	publishPluginEvent(plugin.HookOnMediaUpload, map[string]any{
+		"file":   mediaEventPayload(row),
+		"source": "upload",
+		"actor":  pluginEventActor(c),
+	})
 	return c.JSON(http.StatusCreated, mediaFileJSON(row, policy.Driver))
 }
 
@@ -1607,7 +1618,8 @@ func handleMediaFileTrash(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]any{"code": "not_found", "error": "File not found"})
 	}
-	if _, err := loadMediaFile(ctx, id); err != nil {
+	before, err := loadMediaFile(ctx, id)
+	if err != nil {
 		return fileLoadError(c, err)
 	}
 	now := time.Now()
@@ -1619,6 +1631,15 @@ func handleMediaFileTrash(c echo.Context) error {
 	if res.RowsAffected == 0 {
 		return c.JSON(http.StatusNotFound, map[string]any{"code": "not_found", "error": "File not found"})
 	}
+	publishPluginEvent(plugin.HookOnMediaDelete, map[string]any{
+		"file": map[string]any{
+			"id":       before.ID,
+			"path":     before.Path,
+			"filename": before.Filename,
+			"mime":     before.Mime,
+		},
+		"actor": pluginEventActor(c),
+	})
 	syslog.Audit(ctx, infraActor(c), "media.file.trash", map[string]any{"file_id": id})
 	return c.JSON(http.StatusOK, map[string]any{"trashed": true})
 }
@@ -1796,6 +1817,13 @@ func fetchMediaURL(ctx context.Context, policy mediaPolicyRow, raw string, maxBy
 		log.Printf("media: store fetched file: %v", err)
 		return res
 	}
+	// fetchMediaURL also runs from the media job queue, where there is no echo
+	// context; the actor travels as an id and the bridge fills in "actor".
+	publishPluginEvent(plugin.HookOnMediaUpload, map[string]any{
+		"file":          mediaEventPayload(row),
+		"source":        "fetch",
+		"actor_user_id": actor,
+	})
 	res.Status = "stored"
 	res.File = &row
 	return res

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -383,7 +386,17 @@ func restoreTrash(c echo.Context) error {
 	if !ok || !trashAllowed(user, kind) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Item not found"})
 	}
-	err = data.DB.Transaction(func(tx *gorm.DB) error {
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
+		// The trashed post is read before the update: the restore rewrites
+		// updated_at, and the publish announcement depends on the old value.
+		var before *core.Post
+		if (kind == "post" || kind == "page") && pluginEventsPostWanted() {
+			var row core.Post
+			if err := trashedRows(tx, kind, user, id).Preload("Categories").Preload("Tags").First(&row).Error; err != nil {
+				return err
+			}
+			before = &row
+		}
 		updates := map[string]any{"deleted_at": nil, "deleted_by_id": nil}
 		if kind != "comment" {
 			var trashed string
@@ -413,7 +426,7 @@ func restoreTrash(c echo.Context) error {
 		if result.RowsAffected == 0 {
 			return gorm.ErrRecordNotFound
 		}
-		return nil
+		return stageRestoreEvents(c, tx, kind, id, before)
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Item not found"})
@@ -437,8 +450,8 @@ func deleteTrashItem(c echo.Context) error {
 	if !ok || !trashAllowed(user, kind) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Item not found"})
 	}
-	err = data.DB.Transaction(func(tx *gorm.DB) error {
-		return purgeTrashed(tx, user, kind, id)
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
+		return purgeTrashedStaged(c, tx, user, kind, id)
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Item not found"})
@@ -459,20 +472,98 @@ func isForeignKeyViolation(err error) bool {
 	return errors.As(err, &pgErr) && pgErr.Code == "23503"
 }
 
+// stageRestoreEvents stages the event of a restored row on tx: OnPostSave
+// (restore) and, when the restore makes the post publicly readable for the
+// first time, OnPostPublish (trigger save) for posts and pages; OnProductSave
+// (restore) for products and OnCommentUpdate (from trash) for comments. before
+// is the trashed post as it was before the restore; nil means no plugin listens
+// for post events and nothing is read.
+func stageRestoreEvents(c echo.Context, tx *gorm.DB, kind string, id uint, before *core.Post) error {
+	ctx := tx.Statement.Context
+	switch kind {
+	case "post", "page":
+		if before == nil {
+			return nil
+		}
+		var post core.Post
+		if err := tx.Preload("Categories").Preload("Tags").First(&post, id).Error; err != nil {
+			return err
+		}
+		stagePostEvents(c, tx, *before, post, "restore", time.Now())
+	case "product":
+		var product core.Product
+		if err := tx.First(&product, id).Error; err != nil {
+			return err
+		}
+		stagePluginEvent(ctx, plugin.HookOnProductSave, map[string]any{"action": "restore", "product": productEventPayload(product), "actor": pluginEventActor(c)})
+	case "comment":
+		var row core.Comment
+		if err := tx.Unscoped().First(&row, id).Error; err != nil {
+			return err
+		}
+		stagePluginEvent(ctx, plugin.HookOnCommentUpdate, map[string]any{"comment": commentEventPayload(row), "from": "trash", "to": row.Status, "actor": pluginEventActor(c)})
+	}
+	return nil
+}
+
+// purgeTrashedStaged permanently removes one trashed row like purgeTrashed and
+// stages the matching purge event on tx. The event object is read before the
+// row is removed; a failed purge leaves nothing staged because the transaction
+// rolls back.
+func purgeTrashedStaged(c echo.Context, tx *gorm.DB, user *core.User, kind string, id uint) error {
+	hook, payload, err := trashPurgeEvent(tx, user, kind, id)
+	if err != nil {
+		return err
+	}
+	if err := purgeTrashed(tx, user, kind, id); err != nil {
+		return err
+	}
+	payload["actor"] = pluginEventActor(c)
+	stagePluginEvent(tx.Statement.Context, hook, payload)
+	return nil
+}
+
+// trashPurgeEvent returns the hook and the payload, without actor, that a purge
+// of one trashed row reports.
+func trashPurgeEvent(tx *gorm.DB, user *core.User, kind string, id uint) (plugin.Hook, map[string]any, error) {
+	switch kind {
+	case "post", "page":
+		var post core.Post
+		if err := trashedRows(tx, kind, user, id).Select("id", "type", "slug", "title", "author_id").Take(&post).Error; err != nil {
+			return "", nil, err
+		}
+		summary := postEventSummary(post)
+		delete(summary, "author_id")
+		return plugin.HookOnPostDelete, map[string]any{"action": "purge", "post": summary}, nil
+	case "product":
+		var product core.Product
+		if err := trashedRows(tx, kind, user, id).Take(&product).Error; err != nil {
+			return "", nil, err
+		}
+		return plugin.HookOnProductDelete, map[string]any{"action": "purge", "product": productEventSummary(product)}, nil
+	default:
+		var row core.Comment
+		if err := trashedRows(tx, kind, user, id).Select("id", "post_id").Take(&row).Error; err != nil {
+			return "", nil, err
+		}
+		return plugin.HookOnCommentDelete, map[string]any{"comment": map[string]any{"id": row.ID, "post_id": row.PostID}}, nil
+	}
+}
+
 func emptyTrash(c echo.Context) error {
 	user, err := currentUser(c)
 	if err != nil {
 		return err
 	}
 	deleted := 0
-	err = data.DB.Transaction(func(tx *gorm.DB) error {
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
 		for _, kind := range trashVisibleKinds(user) {
 			var ids []uint
 			if err := trashListQuery(tx, kind, user, "").Pluck("id", &ids).Error; err != nil {
 				return err
 			}
 			for _, id := range ids {
-				if err := purgeTrashed(tx, user, kind, id); err != nil {
+				if err := purgeTrashedStaged(c, tx, user, kind, id); err != nil {
 					return err
 				}
 				deleted++

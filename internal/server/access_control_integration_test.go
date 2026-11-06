@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -17,12 +18,14 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/config"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/i18n"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
 	goi18n "github.com/nicksnyder/go-i18n/v2/i18n"
@@ -91,6 +94,10 @@ func newAccessHarness(t *testing.T) *accessHarness {
 	data.DB = db
 	config.GlobalConfig = &config.Config{Database: config.DatabaseConfig{Host: accessTestHost, Port: accessTestPort, User: accessTestUser, Password: accessTestPass, Name: dbName, Timezone: "UTC"}}
 	t.Cleanup(func() {
+		// Plugin log lines are written to system_logs by background goroutines
+		// (plugin log queue, then the server forwarder). Drain both before the
+		// global database is swapped back, or the writer races the swap.
+		drainPluginLogPipelines(t)
 		data.DB, config.GlobalConfig, i18n.Bundle = previousDB, previousConfig, previousBundle
 		accessCloseDB(db)
 	})
@@ -752,4 +759,18 @@ func accessMultipartBody(t *testing.T, field, filename, content string) (string,
 		t.Fatalf("close multipart body: %v", err)
 	}
 	return w.FormDataContentType(), body.Bytes()
+}
+
+// drainPluginLogPipelines waits for queued plugin log lines to reach the
+// system log so a later swap of data.DB cannot race the writer goroutine.
+func drainPluginLogPipelines(t *testing.T) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := plugin.FlushLogs(ctx); err != nil {
+		t.Logf("flush plugin log queue: %v", err)
+	}
+	if err := flushPluginLogForwarder(ctx); err != nil {
+		t.Logf("flush plugin log forwarder: %v", err)
+	}
 }

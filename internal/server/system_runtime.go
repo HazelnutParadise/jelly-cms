@@ -745,6 +745,7 @@ func (rt *systemRuntime) schedule() {
 		{Name: "notifications.dispatch", Spec: "* * * * *", Queue: queue.QueueSchedule, Kind: "notifications.dispatch"},
 		{Name: "notifications.prune", Spec: "23 3 * * *", Queue: queue.QueueSchedule, Kind: "notifications.prune"},
 		{Name: "redirects.check_targets", Spec: "37 4 * * *", Queue: queue.QueueSchedule, Kind: "redirects.check_targets"},
+		{Name: "posts.publish_due", Spec: "* * * * *", Queue: queue.QueueSchedule, Kind: "posts.publish_due"},
 	}
 	if err := schedule.New(systemQueueAdapter{runtime: rt}, jobs...).RunWithDB(rt.ctx, rt.db); err != nil && rt.ctx.Err() == nil {
 		log.Printf("system schedule: %v", err)
@@ -984,6 +985,10 @@ func init() {
 		return notify.Prune(ctx, db, time.Now().UTC())
 	})
 	RegisterSystemJobHandler("redirects.check_targets", checkRedirectTargets)
+	RegisterSystemJobHandler("posts.publish_due", func(ctx context.Context, db *gorm.DB, _ queue.Job) error {
+		_, err := publishDuePosts(ctx, db, time.Now())
+		return err
+	})
 }
 
 func shouldRestartAfterUpdateJob(job queue.Job) bool {

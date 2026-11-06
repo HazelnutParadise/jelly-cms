@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"gorm.io/gorm"
 )
 
@@ -128,6 +129,20 @@ func (s *OrderService) Transition(tx *gorm.DB, orderID uint, from, to string, ac
 	}
 	if err := tx.Create(&ev).Error; err != nil {
 		return err
+	}
+	// Thin events: the plugin bridge loads the order summary and actor after commit.
+	// Callers must run Transition inside events.Transaction, otherwise Stage drops them.
+	var actorValue any
+	if actor != nil {
+		actorValue = *actor
+	}
+	events.Stage(tx.Statement.Context, events.Event{Name: "OnOrderUpdate", Payload: map[string]any{
+		"order_id": orderID, "from": from, "to": to, "note": note, "actor_user_id": actorValue,
+	}})
+	if to == OrderStatusPaid {
+		events.Stage(tx.Statement.Context, events.Event{Name: "OnOrderPaid", Payload: map[string]any{
+			"order_id": orderID, "actor_user_id": actorValue,
+		}})
 	}
 	return nil
 }

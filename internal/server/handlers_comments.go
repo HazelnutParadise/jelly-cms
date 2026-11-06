@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"net/http"
 	"net/mail"
@@ -15,6 +16,8 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
 	"github.com/microcosm-cc/bluemonday"
@@ -452,7 +455,21 @@ func createPublicComment(c echo.Context) error {
 	if status == "pending" && OnCommentPending != nil {
 		OnCommentPending(comment)
 	}
+	var actor any
+	if signedIn {
+		actor = pluginEventActor(c)
+	}
+	publishPluginEvent(plugin.HookOnCommentCreate, map[string]any{
+		"comment": commentEventPayload(comment),
+		"post":    commentEventPostRef(post),
+		"actor":   actor,
+	})
 	return c.JSON(http.StatusCreated, map[string]any{"id": comment.ID, "status": comment.Status})
+}
+
+// commentEventPostRef is the "post" object of comment events: id, slug, title.
+func commentEventPostRef(post core.Post) map[string]any {
+	return map[string]any{"id": post.ID, "slug": post.Slug, "title": post.Title}
 }
 
 // Admin moderation.
@@ -677,6 +694,21 @@ func commentAction(action string) echo.HandlerFunc {
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to load comment"})
 		}
+		to := map[string]string{"approve": "approved", "unapprove": "pending", "spam": "spam", "trash": "trash"}[action]
+		from := row.Status
+		if action == "restore" {
+			from, to = "trash", saved.Status
+		}
+		// Approving an approved comment (and the like) changes nothing, so it
+		// announces nothing.
+		if from != to {
+			publishPluginEvent(plugin.HookOnCommentUpdate, map[string]any{
+				"comment": commentEventPayload(saved.Comment),
+				"from":    from,
+				"to":      to,
+				"actor":   pluginEventActor(c),
+			})
+		}
 		return c.JSON(http.StatusOK, saved)
 	}
 }
@@ -710,6 +742,13 @@ func bulkCommentAction(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Too many ids"})
 	}
 
+	// Read the rows the action will touch with the same conditions as the
+	// write, so every event can name the status it moved from.
+	targets, err := bulkCommentTargets(in.Action, ids)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to update comments"})
+	}
+
 	var result *gorm.DB
 	switch in.Action {
 	case "approve", "unapprove", "spam":
@@ -734,7 +773,66 @@ func bulkCommentAction(c echo.Context) error {
 	if result.Error != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to update comments"})
 	}
+	publishBulkCommentEvents(c, in.Action, targets)
 	return c.JSON(http.StatusOK, map[string]int64{"updated": result.RowsAffected})
+}
+
+// bulkCommentTargets returns the rows a bulk action with action will write.
+// Unknown actions return no rows; the caller rejects them.
+func bulkCommentTargets(action string, ids []uint) ([]core.Comment, error) {
+	var rows []core.Comment
+	var err error
+	switch action {
+	case "approve", "unapprove", "spam", "trash":
+		err = data.DB.Where("id IN ?", ids).Find(&rows).Error
+	case "restore", "delete":
+		err = data.DB.Unscoped().Where("id IN ? AND deleted_at IS NOT NULL", ids).Find(&rows).Error
+	}
+	return rows, err
+}
+
+// publishBulkCommentEvents publishes one event per row the bulk action wrote:
+// OnCommentDelete for "delete", OnCommentUpdate otherwise. Restore keeps the
+// stored status, so its "to" is the row's own status.
+func publishBulkCommentEvents(c echo.Context, action string, targets []core.Comment) {
+	actor := pluginEventActor(c)
+	for _, row := range targets {
+		if action == "delete" {
+			publishPluginEvent(plugin.HookOnCommentDelete, map[string]any{
+				"comment": map[string]any{"id": row.ID, "post_id": row.PostID},
+				"actor":   actor,
+			})
+			continue
+		}
+		from, to := row.Status, ""
+		switch action {
+		case "approve":
+			to = "approved"
+		case "unapprove":
+			to = "pending"
+		case "spam":
+			to = "spam"
+		case "trash":
+			to = "trash"
+		case "restore":
+			from, to = "trash", row.Status
+		}
+		if from == to {
+			continue
+		}
+		// The payload carries the stored status, except for approve, unapprove
+		// and spam where the stored status is the new one. A trashed row keeps
+		// its status; "trash" is only the to value.
+		if action != "trash" {
+			row.Status = to
+		}
+		publishPluginEvent(plugin.HookOnCommentUpdate, map[string]any{
+			"comment": commentEventPayload(row),
+			"from":    from,
+			"to":      to,
+			"actor":   actor,
+		})
+	}
 }
 
 func replyComment(c echo.Context) error {
@@ -778,21 +876,46 @@ func replyComment(c echo.Context) error {
 		IP:        clipRunes(c.RealIP(), 64),
 		UserAgent: clipRunes(c.Request().UserAgent(), 255),
 	}
+	var post core.Post
+	if err := data.DB.Unscoped().First(&post, parent.PostID).Error; err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to load comment"})
+	}
 	// A staff reply shows the thread, so a pending parent is approved in the
-	// same transaction as the reply insert.
-	err = data.DB.Transaction(func(tx *gorm.DB) error {
+	// same transaction as the reply insert. Events are published after commit.
+	parentApproved := false
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
 		if err := tx.Create(&reply).Error; err != nil {
 			return err
 		}
 		if parent.Status == "pending" {
-			return tx.Model(&core.Comment{}).
+			res := tx.Model(&core.Comment{}).
 				Where("id = ? AND status = ?", parent.ID, "pending").
-				Update("status", "approved").Error
+				Update("status", "approved")
+			if res.Error != nil {
+				return res.Error
+			}
+			parentApproved = res.RowsAffected > 0
 		}
 		return nil
 	})
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to save reply"})
+	}
+	actor := pluginEventActor(c)
+	publishPluginEvent(plugin.HookOnCommentCreate, map[string]any{
+		"comment": commentEventPayload(reply),
+		"post":    commentEventPostRef(post),
+		"actor":   actor,
+	})
+	if parentApproved {
+		from := parent.Status
+		parent.Status = "approved"
+		publishPluginEvent(plugin.HookOnCommentUpdate, map[string]any{
+			"comment": commentEventPayload(parent),
+			"from":    from,
+			"to":      "approved",
+			"actor":   actor,
+		})
 	}
 	saved, err := loadAdminComment(reply.ID)
 	if err != nil {
@@ -857,8 +980,15 @@ func deleteCommentPermanently(c echo.Context) error {
 	if !row.DeletedAt.Valid {
 		return c.JSON(http.StatusConflict, map[string]string{"error": "Move the comment to trash before deleting it"})
 	}
-	if err := data.DB.Unscoped().Where("id = ? AND deleted_at IS NOT NULL", id).Delete(&core.Comment{}).Error; err != nil {
+	result := data.DB.Unscoped().Where("id = ? AND deleted_at IS NOT NULL", id).Delete(&core.Comment{})
+	if result.Error != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Unable to delete comment"})
+	}
+	if result.RowsAffected > 0 {
+		publishPluginEvent(plugin.HookOnCommentDelete, map[string]any{
+			"comment": map[string]any{"id": row.ID, "post_id": row.PostID},
+			"actor":   pluginEventActor(c),
+		})
 	}
 	return c.JSON(http.StatusOK, map[string]string{"message": "Deleted"})
 }

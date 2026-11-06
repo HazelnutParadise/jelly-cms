@@ -22,8 +22,10 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/config"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"github.com/HazelnutParadise/jelly-cms/internal/notify"
 	"github.com/HazelnutParadise/jelly-cms/internal/payment"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -213,7 +215,7 @@ func shopCheckoutHandler(c echo.Context) error {
 	}
 	var result shopCheckoutResponse
 	replayed := false
-	err = data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
 		lockedCart, err := shopLockOwnedCart(tx, cart, principal)
 		if err != nil {
 			return err
@@ -473,6 +475,22 @@ func shopCheckoutHandler(c echo.Context) error {
 			if err := core.Redeem(tx, coupon.ID, order.ID, couponUserID, input.Email); err != nil {
 				return err
 			}
+		}
+		// OnOrderCreate is staged here, before the zero-total transition below,
+		// so plugins see the order as created (pending) and then OnOrderUpdate
+		// and OnOrderPaid in the order the site produced them.
+		if pluginEventsWanted(plugin.HookOnOrderCreate) {
+			var createdItems []core.OrderItem
+			if err := tx.Where("order_id = ?", order.ID).Order("id").Find(&createdItems).Error; err != nil {
+				return err
+			}
+			var createdActor any
+			if authUser != nil {
+				createdActor = map[string]any{"id": authUser.ID, "username": authUser.Username, "role": authUser.Role}
+			}
+			stagePluginEvent(tx.Statement.Context, plugin.HookOnOrderCreate, map[string]any{
+				"order": orderEventPayload(order, createdItems), "actor": createdActor,
+			})
 		}
 		redirectURL, instructions := "/checkout/done/"+order.Number+"?t="+url.QueryEscape(accessToken), ""
 		if total > 0 {

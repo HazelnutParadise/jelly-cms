@@ -1,11 +1,14 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
@@ -22,7 +25,7 @@ func softDeleteProduct(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Product not found"})
 	}
-	err = data.DB.Transaction(func(tx *gorm.DB) error {
+	err = events.Transaction(context.WithoutCancel(c.Request().Context()), data.DB, func(tx *gorm.DB) error {
 		var product core.Product
 		if err := tx.Where("id = ?", id).Take(&product).Error; err != nil {
 			return err
@@ -33,7 +36,13 @@ func softDeleteProduct(c echo.Context) error {
 		}).Error; err != nil {
 			return err
 		}
-		return tx.Delete(&product).Error
+		if err := tx.Delete(&product).Error; err != nil {
+			return err
+		}
+		stagePluginEvent(tx.Statement.Context, plugin.HookOnProductDelete, map[string]any{
+			"action": "trash", "product": productEventPayload(product), "actor": pluginEventActor(c),
+		})
+		return nil
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Product not found"})

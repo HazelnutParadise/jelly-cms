@@ -20,6 +20,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"github.com/HazelnutParadise/jelly-cms/internal/syslog"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -159,7 +160,7 @@ func Set(ctx context.Context, actor uint, kv map[string]string) error {
 		}
 		stored[key] = value
 	}
-	err := data.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err := events.Transaction(ctx, data.DB, func(tx *gorm.DB) error {
 		for _, key := range keys {
 			opt := core.Option{Key: key, Value: stored[key]}
 			err := tx.Clauses(clause.OnConflict{
@@ -170,6 +171,11 @@ func Set(ctx context.Context, actor uint, kv map[string]string) error {
 				return fmt.Errorf("save %s: %w", key, err)
 			}
 		}
+		// Only key names travel with the event, never the stored values.
+		events.Stage(tx.Statement.Context, events.Event{Name: "OnSettingsChange", Payload: map[string]any{
+			"keys":          keys,
+			"actor_user_id": actor,
+		}})
 		return nil
 	})
 	if err != nil {

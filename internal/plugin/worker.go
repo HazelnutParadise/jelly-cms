@@ -213,6 +213,7 @@ func runWorkerProcess() int {
 
 		response.OK = response.Error == ""
 		response.Extensions = state.registeredExtensions()
+		response.Hooks = state.registeredHooks()
 
 		if err := writeOutput(response); err != nil {
 			state.release()

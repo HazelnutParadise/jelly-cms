@@ -60,8 +60,12 @@ type workerFrame struct {
 	Result     json.RawMessage `json:"result,omitempty"`
 	Undefined  bool            `json:"undefined,omitempty"`
 	Extensions []string        `json:"extensions,omitempty"`
-	Level      string          `json:"level,omitempty"`
-	Message    string          `json:"message,omitempty"`
+	// Hooks lists the hook names the worker has registered, deduplicated in
+	// first-registration order. It is always sent, so an empty list means
+	// "none" and a missing (nil) list means "no snapshot in this frame".
+	Hooks   []string `json:"hooks"`
+	Level   string   `json:"level,omitempty"`
+	Message string   `json:"message,omitempty"`
 }
 
 // workerRequest is one length-prefixed JSON message sent to a worker.

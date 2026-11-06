@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	datapkg "github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/markup"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -259,6 +261,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		if err != nil {
 			return err
 		}
+		stagePostViewEvent(c, post)
 		post.Content, err = publicPostContent(ctx, db, post)
 		if err != nil {
 			return err
@@ -408,6 +411,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		if err != nil {
 			return err
 		}
+		stagePostViewEvent(c, page)
 		page.Content, err = publicPostContent(ctx, db, page)
 		if err != nil {
 			return err
@@ -521,6 +525,28 @@ func dynamicDataForContent(db *gorm.DB, content string) (markup.DynamicData, err
 		data.ItemsByKey[key] = items
 	}
 	return data, nil
+}
+
+// stagePostViewEvent publishes OnPostView for a public GET of a post or page.
+// The event goes out only after the response is written and only when it
+// succeeded; HEAD requests never report a view.
+func stagePostViewEvent(c echo.Context, post core.Post) {
+	if c.Request().Method != http.MethodGet || !pluginEventsWanted(plugin.HookOnPostView) {
+		return
+	}
+	path := c.Request().URL.Path
+	signedIn := commentViewerSignedIn(c)
+	summary := postEventSummary(post)
+	// echo runs After functions after every Write, so a body written in
+	// several chunks would report the view once per chunk without the Once.
+	var once sync.Once
+	c.Response().After(func() {
+		once.Do(func() {
+			if c.Response().Status < 400 {
+				publishPluginEvent(plugin.HookOnPostView, map[string]any{"post": summary, "path": path, "signed_in": signedIn})
+			}
+		})
+	})
 }
 
 func expandPublicBlocks(ctx context.Context, db *gorm.DB, content string) (string, error) {

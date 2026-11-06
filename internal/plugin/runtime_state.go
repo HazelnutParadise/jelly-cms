@@ -72,6 +72,11 @@ type workerJS struct {
 
 	hooks  map[Hook][]*qjs.Value
 	config map[string]*qjs.Value
+	// hookNames keeps the registered hook names in first-registration order.
+	hookNames []string
+	// warnedHooks holds the unknown hook names already warned about, so each
+	// name produces one registration warning per worker.
+	warnedHooks map[string]struct{}
 
 	extensions        map[string]*qjs.Value
 	activeExtensions  map[string]int
@@ -346,9 +351,34 @@ func (s *workerJS) onRegisterHook(this *qjs.This) (*qjs.Value, error) {
 	}
 
 	hook := Hook(name)
+	if _, registered := s.hooks[hook]; !registered {
+		s.hookNames = append(s.hookNames, name)
+	}
+	if !IsKnownHook(s.metadata, name) {
+		s.warnUnknownHook(name)
+	}
 	s.hooks[hook] = append(s.hooks[hook], callback.Clone())
 
 	return this.Context().NewUndefined(), nil
+}
+
+// warnUnknownHook logs a registration of a name the site never dispatches. The
+// callback is still stored, so an explicit CallHook or Invoke keeps working.
+func (s *workerJS) warnUnknownHook(name string) {
+	if _, warned := s.warnedHooks[name]; warned {
+		return
+	}
+	if s.warnedHooks == nil {
+		s.warnedHooks = make(map[string]struct{})
+	}
+	s.warnedHooks[name] = struct{}{}
+	s.log("warn", fmt.Sprintf("hook %q is not dispatched by this site", name))
+}
+
+// registeredHooks returns the registered hook names. The result is never nil,
+// so the frame reports an empty list rather than "no snapshot".
+func (s *workerJS) registeredHooks() []string {
+	return append(make([]string, 0, len(s.hookNames)), s.hookNames...)
 }
 
 // onRegisterExtension accepts callbacks only for shipped points declared by

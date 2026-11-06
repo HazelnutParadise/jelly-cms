@@ -9,10 +9,13 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/money"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -516,6 +519,21 @@ func shopProductPage(tm *theme.Manager) echo.HandlerFunc {
 				return echo.NewHTTPError(404)
 			}
 			return echo.NewHTTPError(500, "could not load product")
+		}
+		if c.Request().Method == http.MethodGet && pluginEventsWanted(plugin.HookOnProductView) {
+			summary := productEventSummary(product)
+			path := c.Request().URL.Path
+			viewer, viewerErr := auth.GetCurrentUser(c)
+			signedIn := viewerErr == nil && viewer != nil
+			// Once per response: echo runs After functions after every Write.
+			var once sync.Once
+			c.Response().After(func() {
+				once.Do(func() {
+					if c.Response().Status < 400 {
+						publishPluginEvent(plugin.HookOnProductView, map[string]any{"product": summary, "path": path, "signed_in": signedIn})
+					}
+				})
+			})
 		}
 		var variants []core.ProductVariant
 		if err := data.DB.Where("product_id = ? AND status = ?", product.ID, "active").Order("position,id").Find(&variants).Error; err != nil {

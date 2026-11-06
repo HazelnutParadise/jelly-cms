@@ -17,3 +17,7 @@
 - 頁面不得從 CDN 或任何外部網址載入腳本、樣式、字型或圖示；第三方前端套件只能以建置後的檔案自帶在 `web/` 下，每個套件附 `LICENSE` 與 `VERSION`（版本、來源 commit、建置日期），取得與重建的腳本放在 `scripts/vendor/`。
 - 每次發版前依 `docs/release-checklist.md` 把所有自帶套件更新到最新版、重跑驗收，再打版本。
 - 部署與破壞性遷移須另有明確授權。
+
+## Follow-ups
+
+- 工作單 28 未接線的事件路徑：`PurgeExpiredTrash` 自動清除不發 `OnPostDelete`／`OnProductDelete`／`OnCommentDelete`（purge）；自動儲存、WXR 匯入與編輯器批次操作不發 `OnPostSave`；`createOAuthUser` 的 `OnUserCreate`（source oauth）沒有自動化測試。接線時沿用 `events.Transaction` 與 `stagePluginEvent`。

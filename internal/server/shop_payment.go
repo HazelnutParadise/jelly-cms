@@ -16,6 +16,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"github.com/HazelnutParadise/jelly-cms/internal/money"
 	"github.com/HazelnutParadise/jelly-cms/internal/payment"
 	"github.com/HazelnutParadise/jelly-cms/internal/theme"
@@ -433,7 +434,7 @@ func shopSandboxSimulate(c echo.Context) error {
 		Amount: verified.Amount, Currency: verified.Currency,
 		DedupeKey: verified.DedupeKey, Payload: verified.RawData,
 	}
-	err = data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
 		return payment.Finalize(tx, "sandbox", cb)
 	})
 	if err != nil {

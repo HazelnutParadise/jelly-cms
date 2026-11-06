@@ -12,6 +12,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"github.com/HazelnutParadise/jelly-cms/internal/payment"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -127,7 +128,7 @@ func HandlePaymentCallback(c echo.Context) error {
 		paidAt := callback.PaidAt
 		verified.PaidAt = &paidAt
 	}
-	err = data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
 		return payment.Finalize(tx, gatewayName, verified)
 	})
 	if err != nil {

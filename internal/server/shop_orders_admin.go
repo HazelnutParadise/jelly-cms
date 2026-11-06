@@ -15,8 +15,10 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/auth"
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"github.com/HazelnutParadise/jelly-cms/internal/notify"
 	"github.com/HazelnutParadise/jelly-cms/internal/payment"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/goccy/go-json"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -366,7 +368,7 @@ func adminOrderUpdateStatus(c echo.Context) error {
 	actorID := getCurrentUserID(c)
 
 	var order core.Order
-	err = data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, id).Error; err != nil {
 			return err
 		}
@@ -654,7 +656,7 @@ func adminOrderRefund(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid idempotency key"})
 	}
 	actorID := getCurrentUserID(c)
-	err = data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+	err = events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
 		var order core.Order
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, id).Error; err != nil {
 			return err
@@ -788,6 +790,11 @@ func applyOrderRefund(tx *gorm.DB, c echo.Context, order *core.Order, actorID *u
 	}); err != nil {
 		return fmt.Errorf("notify refund: %w", err)
 	}
+	// order.RefundedTotal and order.Status already hold the values committed with this refund.
+	stagePluginEvent(tx.Statement.Context, plugin.HookOnOrderRefund, map[string]any{
+		"order": orderEventPayload(*order, nil), "amount": amount, "reason": reason, "restock": restock,
+		"actor": pluginEventActor(c),
+	})
 	return nil
 }
 
@@ -800,7 +807,7 @@ func adminOrderMarkPaid(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "not found"})
 	}
 	actorID := getCurrentUserID(c)
-	err := data.DB.WithContext(c.Request().Context()).Transaction(func(tx *gorm.DB) error {
+	err := events.Transaction(c.Request().Context(), data.DB, func(tx *gorm.DB) error {
 		var order core.Order
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, id).Error; err != nil {
 			return err

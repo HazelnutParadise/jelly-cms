@@ -74,16 +74,16 @@ func (m *Runtime) CallExtension(ctx context.Context, pluginID, point string, inp
 		Extension: point,
 		Payload:   input,
 	}, remaining)
+	if snapErr := state.applyResponse(frame); snapErr != nil {
+		state.invalid = true
+		state.worker.terminate()
+		return nil, snapErr
+	}
 	if err != nil {
 		if !state.worker.alive() {
 			state.invalid = true
 		}
 		return nil, fmt.Errorf("call extension %s for plugin %s: %w", point, pluginID, err)
-	}
-	if err := state.setExtensionSnapshot(state.meta, frame.Extensions); err != nil {
-		state.invalid = true
-		state.worker.terminate()
-		return nil, err
 	}
 	if len(frame.Result) == 0 || len(frame.Result) > maxExtensionBytes || !json.Valid(frame.Result) || jsonDepth(frame.Result) > 64 {
 		state.invalid = true
@@ -135,6 +135,30 @@ func validateExtensionSnapshot(meta PluginMetadata, points []string) error {
 		}
 		seen[point] = struct{}{}
 	}
+	return nil
+}
+
+// applyResponse records the extension and hook snapshots a worker response
+// carries. A transport failure has no response frame and leaves them alone.
+func (s *pluginState) applyResponse(frame workerFrame) error {
+	if frame.ID == 0 {
+		return nil
+	}
+
+	return s.setSnapshots(s.meta, frame)
+}
+
+// setSnapshots validates and then applies the extension and hook snapshots of
+// one response. Nothing is applied when either one is invalid.
+func (s *pluginState) setSnapshots(meta PluginMetadata, frame workerFrame) error {
+	if err := validateWorkerSnapshots(meta, frame); err != nil {
+		return err
+	}
+	if err := s.setExtensionSnapshot(meta, frame.Extensions); err != nil {
+		return err
+	}
+	s.setHookSnapshot(frame.Hooks)
+
 	return nil
 }
 

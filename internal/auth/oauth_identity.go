@@ -11,6 +11,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"github.com/markbates/goth"
 	"gorm.io/gorm"
 )
@@ -163,7 +164,11 @@ func loadOAuthIdentityUser(db *gorm.DB, userID uint) (*core.User, error) {
 
 func createOAuthUser(db *gorm.DB, profile goth.User, username string) (*core.User, error) {
 	var user core.User
-	err := db.Transaction(func(tx *gorm.DB) error {
+	ctx := context.Background()
+	if db.Statement != nil && db.Statement.Context != nil {
+		ctx = db.Statement.Context
+	}
+	err := events.Transaction(ctx, db, func(tx *gorm.DB) error {
 		defaultRole := "author"
 		var configuredRole string
 		if err := tx.Model(&core.Option{}).Where("key = ?", "oauth_default_role").Select("value").Scan(&configuredRole).Error; err != nil {
@@ -192,6 +197,11 @@ func createOAuthUser(db *gorm.DB, profile goth.User, username string) (*core.Use
 		if err := tx.Create(&identity).Error; err != nil {
 			return err
 		}
+		events.Stage(tx.Statement.Context, events.Event{Name: "OnUserCreate", Payload: map[string]any{
+			"user":          authUserPayload(user),
+			"source":        "oauth",
+			"actor_user_id": nil,
+		}})
 		return nil
 	})
 	if err != nil {

@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"encoding/json"
+	"strings"
 )
 
 // PluginMetadata defines the structure of a plugin.json file. The manifest v2
@@ -33,42 +34,94 @@ type Manager interface {
 	GetPlugin(pluginID string) (*PluginMetadata, error)
 }
 
-// Hook defines an extension point.
+// Hook names an event the site dispatches to plugins through
+// JellyCMS.registerHook. The catalogue below is the complete list the site
+// dispatches; docs/tickets/28-plugin-events.md and docs/plugin-events.md
+// describe when each fires and what the payload carries. KnownHooks returns
+// the list for validation and documentation.
 type Hook string
 
 const (
-	// Lifecycle Hooks
-	HookOnBoot     Hook = "OnBoot"     // Called when plugin is loaded
-	HookOnShutdown Hook = "OnShutdown" // Called when plugin is unloaded
+	// Lifecycle hooks.
+	HookOnBoot     Hook = "OnBoot"     // Plugin loaded and its entry script ran
+	HookOnShutdown Hook = "OnShutdown" // Plugin about to be unloaded
 
-	// Request Hooks
-	HookOnRequest  Hook = "OnRequest"  // Called on each HTTP request (before processing)
-	HookOnResponse Hook = "OnResponse" // Called on each HTTP response (after processing)
+	// Content hooks (posts and pages).
+	HookOnPostSave    Hook = "OnPostSave"    // Created, updated, restored from trash or from a revision
+	HookOnPostPublish Hook = "OnPostPublish" // First became publicly readable (save or schedule)
+	HookOnPostDelete  Hook = "OnPostDelete"  // Moved to trash or purged
+	HookOnPostView    Hook = "OnPostView"    // Public GET of a post or page
 
-	// Content Hooks
-	HookOnPostSave   Hook = "OnPostSave"   // Called when a post is saved (created or updated)
-	HookOnPostDelete Hook = "OnPostDelete" // Called when a post is deleted
-	HookOnPostView   Hook = "OnPostView"   // Called when a post is viewed
+	// Product hooks.
+	HookOnProductSave   Hook = "OnProductSave"   // Created, updated, duplicated or restored
+	HookOnProductDelete Hook = "OnProductDelete" // Moved to trash or purged
+	HookOnProductView   Hook = "OnProductView"   // Public GET of a product page
 
-	// Product Hooks
-	HookOnProductSave   Hook = "OnProductSave"   // Called when a product is saved
-	HookOnProductDelete Hook = "OnProductDelete" // Called when a product is deleted
-	HookOnProductView   Hook = "OnProductView"   // Called when a product is viewed
+	// Order and payment hooks.
+	HookOnOrderCreate    Hook = "OnOrderCreate"    // Checkout committed an order
+	HookOnOrderUpdate    Hook = "OnOrderUpdate"    // Any order status transition
+	HookOnOrderPaid      Hook = "OnOrderPaid"      // Order transitioned to paid
+	HookOnOrderRefund    Hook = "OnOrderRefund"    // Admin refund recorded
+	HookOnPaymentSuccess Hook = "OnPaymentSuccess" // Verified gateway callback paid the order
+	HookOnPaymentFailed  Hook = "OnPaymentFailed"  // Verified gateway callback reported a failure
 
-	// Order Hooks
-	HookOnOrderCreate Hook = "OnOrderCreate" // Called when an order is created
-	HookOnOrderUpdate Hook = "OnOrderUpdate" // Called when an order status is updated
-	HookOnOrderPaid   Hook = "OnOrderPaid"   // Called when an order is paid
+	// User hooks.
+	HookOnUserCreate      Hook = "OnUserCreate"      // User row created (invite, OAuth, checkout)
+	HookOnUserUpdate      Hook = "OnUserUpdate"      // Role, status or display name changed; invite accepted
+	HookOnUserDelete      Hook = "OnUserDelete"      // User deleted by an admin
+	HookOnUserLogin       Hook = "OnUserLogin"       // Login succeeded
+	HookOnUserLoginFailed Hook = "OnUserLoginFailed" // Password login failed
+	HookOnUserLogout      Hook = "OnUserLogout"      // Logout revoked a login
 
-	// User Hooks
-	HookOnUserLogin  Hook = "OnUserLogin"  // Called when a user logs in
-	HookOnUserLogout Hook = "OnUserLogout" // Called when a user logs out
-	HookOnUserCreate Hook = "OnUserCreate" // Called when a user is created
+	// Comment hooks.
+	HookOnCommentCreate Hook = "OnCommentCreate" // Public comment or admin reply stored
+	HookOnCommentUpdate Hook = "OnCommentUpdate" // Status changed (approve, unapprove, spam, trash, restore)
+	HookOnCommentDelete Hook = "OnCommentDelete" // Comment purged
 
-	// Payment Hooks
-	HookOnPaymentSuccess Hook = "OnPaymentSuccess" // Called when payment succeeds
-	HookOnPaymentFailed  Hook = "OnPaymentFailed"  // Called when payment fails
+	// Media hooks.
+	HookOnMediaUpload Hook = "OnMediaUpload" // Attachment stored (upload, fetch, legacy upload)
+	HookOnMediaDelete Hook = "OnMediaDelete" // Attachment moved to trash
 
-	// Theme Hooks
-	HookOnThemeActivate Hook = "OnThemeActivate" // Called when a theme is activated
+	// Theme and settings hooks.
+	HookOnThemeActivate  Hook = "OnThemeActivate"  // Theme switched
+	HookOnSettingsChange Hook = "OnSettingsChange" // settings.Set wrote keys
 )
+
+// knownHooks is the dispatch catalogue in documentation order.
+var knownHooks = []Hook{
+	HookOnBoot, HookOnShutdown,
+	HookOnPostSave, HookOnPostPublish, HookOnPostDelete, HookOnPostView,
+	HookOnProductSave, HookOnProductDelete, HookOnProductView,
+	HookOnOrderCreate, HookOnOrderUpdate, HookOnOrderPaid, HookOnOrderRefund, HookOnPaymentSuccess, HookOnPaymentFailed,
+	HookOnUserCreate, HookOnUserUpdate, HookOnUserDelete, HookOnUserLogin, HookOnUserLoginFailed, HookOnUserLogout,
+	HookOnCommentCreate, HookOnCommentUpdate, HookOnCommentDelete,
+	HookOnMediaUpload, HookOnMediaDelete,
+	HookOnThemeActivate, HookOnSettingsChange,
+}
+
+// KnownHooks returns a copy of the hook catalogue the site dispatches.
+func KnownHooks() []Hook {
+	return append([]Hook(nil), knownHooks...)
+}
+
+// IsKnownHook reports whether name is in the catalogue or is an action hook
+// ("action:<id>") for an action meta declares.
+func IsKnownHook(meta PluginMetadata, name string) bool {
+	for _, hook := range knownHooks {
+		if string(hook) == name {
+			return true
+		}
+	}
+
+	actionID, ok := strings.CutPrefix(name, "action:")
+	if !ok || actionID == "" {
+		return false
+	}
+	for _, action := range meta.Actions {
+		if action.ID == actionID {
+			return true
+		}
+	}
+
+	return false
+}
