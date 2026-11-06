@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -31,39 +32,9 @@ func adminOrdersList(c echo.Context) error {
 	if data.DB == nil {
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "service unavailable"})
 	}
-	db := data.DB.WithContext(c.Request().Context()).Model(&core.Order{})
-	status, q := strings.TrimSpace(c.QueryParam("status")), strings.TrimSpace(c.QueryParam("q"))
-	email := strings.TrimSpace(c.QueryParam("email"))
-	from, to := strings.TrimSpace(c.QueryParam("from")), strings.TrimSpace(c.QueryParam("to"))
-	if date := strings.TrimSpace(c.QueryParam("date")); date != "" && from == "" && to == "" {
-		from, to = date, date
-	}
-	if status != "" && status != "all" {
-		if !isValidShopOrderStatus(status) {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid status"})
-		}
-		db = db.Where("status = ?", status)
-	}
-	if email != "" {
-		db = db.Where("lower(email) LIKE ?", "%"+strings.ToLower(email)+"%")
-	}
-	if q != "" {
-		pat := "%" + q + "%"
-		db = db.Where("number ILIKE ? OR email ILIKE ? OR phone ILIKE ? OR COALESCE(shipping::text,'') ILIKE ?", pat, pat, pat, pat)
-	}
-	if from != "" {
-		start, err := time.Parse("2006-01-02", from)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid from date"})
-		}
-		db = db.Where("created_at >= ?", start)
-	}
-	if to != "" {
-		end, err := time.Parse("2006-01-02", to)
-		if err != nil || (from != "" && to < from) {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid to date"})
-		}
-		db = db.Where("created_at < ?", end.AddDate(0, 0, 1))
+	f := adminOrderFiltersFromQuery(c)
+	if _, message := adminOrderFilterProblem(f); message != "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": message})
 	}
 	page, err := parsePositiveQueryInt(c.QueryParam("page"), 1, 1_000_000)
 	if err != nil {
@@ -73,12 +44,8 @@ func adminOrdersList(c echo.Context) error {
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid per_page"})
 	}
-	var total int64
-	if err := db.Count(&total).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "could not list orders"})
-	}
-	var orders []core.Order
-	if err := db.Preload("Items").Order("created_at DESC, id DESC").Offset((page - 1) * perPage).Limit(perPage).Find(&orders).Error; err != nil {
+	orders, total, err := queryAdminOrders(c.Request().Context(), f, integrationPage{Page: page, PerPage: perPage})
+	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "could not list orders"})
 	}
 	items := make([]map[string]interface{}, 0, len(orders))
@@ -121,6 +88,81 @@ func adminOrdersList(c echo.Context) error {
 		"items": items, "total": total, "counts": counts,
 		"kpi": map[string]interface{}{"revenue_30d": revenue30d, "orders_30d": int(orders30d), "pending": int(pending), "avg_order": avgOrder},
 	})
+}
+
+// adminOrderFilters are the order list filters after trimming. A single date is folded into From and To.
+type adminOrderFilters struct {
+	Status, Q, Email, From, To string
+}
+
+// adminOrderFiltersFromQuery reads the order list filters from the query string.
+func adminOrderFiltersFromQuery(c echo.Context) adminOrderFilters {
+	f := adminOrderFilters{
+		Status: strings.TrimSpace(c.QueryParam("status")), Q: strings.TrimSpace(c.QueryParam("q")),
+		Email: strings.TrimSpace(c.QueryParam("email")), From: strings.TrimSpace(c.QueryParam("from")), To: strings.TrimSpace(c.QueryParam("to")),
+	}
+	if date := strings.TrimSpace(c.QueryParam("date")); date != "" && f.From == "" && f.To == "" {
+		f.From, f.To = date, date
+	}
+	return f
+}
+
+// adminOrderFilterProblem returns the query parameter and the admin screen message of the first
+// invalid filter, or empty strings when every filter is valid.
+func adminOrderFilterProblem(f adminOrderFilters) (string, string) {
+	if f.Status != "" && f.Status != "all" && !isValidShopOrderStatus(f.Status) {
+		return "status", "invalid status"
+	}
+	if f.From != "" {
+		if _, err := time.Parse("2006-01-02", f.From); err != nil {
+			return "from", "invalid from date"
+		}
+	}
+	if f.To != "" {
+		if _, err := time.Parse("2006-01-02", f.To); err != nil || (f.From != "" && f.To < f.From) {
+			return "to", "invalid to date"
+		}
+	}
+	return "", ""
+}
+
+// queryAdminOrders returns one page of orders with their items, newest first, and the number of
+// matching orders. The filters must already pass adminOrderFilterProblem.
+func queryAdminOrders(ctx context.Context, f adminOrderFilters, p integrationPage) ([]core.Order, int64, error) {
+	db := data.DB.WithContext(ctx).Model(&core.Order{})
+	if f.Status != "" && f.Status != "all" {
+		db = db.Where("status = ?", f.Status)
+	}
+	if f.Email != "" {
+		db = db.Where("lower(email) LIKE ?", "%"+strings.ToLower(f.Email)+"%")
+	}
+	if f.Q != "" {
+		pat := "%" + f.Q + "%"
+		db = db.Where("number ILIKE ? OR email ILIKE ? OR phone ILIKE ? OR COALESCE(shipping::text,'') ILIKE ?", pat, pat, pat, pat)
+	}
+	if f.From != "" {
+		start, err := time.Parse("2006-01-02", f.From)
+		if err != nil {
+			return nil, 0, err
+		}
+		db = db.Where("created_at >= ?", start)
+	}
+	if f.To != "" {
+		end, err := time.Parse("2006-01-02", f.To)
+		if err != nil {
+			return nil, 0, err
+		}
+		db = db.Where("created_at < ?", end.AddDate(0, 0, 1))
+	}
+	var total int64
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var orders []core.Order
+	if err := db.Preload("Items").Order("created_at DESC, id DESC").Offset((p.Page - 1) * p.PerPage).Limit(p.PerPage).Find(&orders).Error; err != nil {
+		return nil, 0, err
+	}
+	return orders, total, nil
 }
 
 func shopOrderStatusesForAdmin() []string {

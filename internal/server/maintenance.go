@@ -117,7 +117,7 @@ func maintenanceMiddleware(tm *theme.Manager) echo.MiddlewareFunc {
 }
 
 func maintenanceBypass(path string, user *core.User) bool {
-	if path == "/login" ||
+	if path == "/login" || path == "/api" ||
 		pathOrSubtree(path, machineAPIBasePath) ||
 		pathOrSubtree(path, "/auth") ||
 		pathOrSubtree(path, "/admin") ||

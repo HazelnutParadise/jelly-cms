@@ -18,19 +18,28 @@ import (
 // handleSettingsList returns every option. Values of secret keys are opened
 // and masked by settings.DisplayValue; nothing is returned in plaintext.
 func handleSettingsList(c echo.Context) error {
-	if data.DB == nil {
+	options, err := querySettings(c)
+	if err != nil {
 		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+	}
+	return c.JSON(http.StatusOK, options)
+}
+
+// querySettings returns every visible option with secret values masked.
+func querySettings(c echo.Context) ([]core.Option, error) {
+	if data.DB == nil {
+		return nil, errors.New("database unavailable")
 	}
 	var options []core.Option
 	if err := data.DB.WithContext(c.Request().Context()).
 		Where("key NOT LIKE ? ESCAPE E'\\\\' AND key <> ?", indexNowPendingOptionLikePattern(), queueSwitchJournalKey).
 		Find(&options).Error; err != nil {
-		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "Service unavailable"})
+		return nil, err
 	}
 	for i := range options {
 		options[i].Value = settings.DisplayValue(options[i].Key, options[i].Value)
 	}
-	return c.JSON(http.StatusOK, options)
+	return options, nil
 }
 
 // handleSettingsWrite stores registered keys through settings.Set, which

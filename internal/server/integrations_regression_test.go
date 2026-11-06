@@ -381,7 +381,7 @@ func TestIntegrationRegressionKeyIDLogFilterPreservesTotalCursorAndIsolation(t *
 		if cursor != "" {
 			q.Set("cursor", cursor)
 		}
-		r := agtDo(h, http.MethodGet, "/api/v1/logs?"+q.Encode(), "", a.APIKey, "")
+		r := agtDo(h, http.MethodGet, "/api/v1/me/events?"+q.Encode(), "", a.APIKey, "")
 		if r.code != http.StatusOK {
 			t.Fatalf("key_id log filter returned %d: %s", r.code, r.body)
 		}
@@ -781,9 +781,13 @@ func TestIntegrationRegressionSettingsMixedTypesRejectAndSecretMasksMatchAdmin(t
 		if readIntegration.code != http.StatusOK || readAdmin.code != http.StatusOK {
 			t.Fatalf("read settings for secret %q returned agent=%d admin=%d", secret, readIntegration.code, readAdmin.code)
 		}
-		var integrationOptions, adminOptions []core.Option
-		agtDecode(t, readIntegration, &integrationOptions, "agent secret settings")
+		var integrationEnvelope struct {
+			Items []core.Option `json:"items"`
+		}
+		var adminOptions []core.Option
+		agtDecode(t, readIntegration, &integrationEnvelope, "agent secret settings")
 		agtDecode(t, readAdmin, &adminOptions, "admin secret settings")
+		integrationOptions := integrationEnvelope.Items
 		value := func(options []core.Option) string {
 			for _, o := range options {
 				if o.Key == "oauth_google_client_secret" {
@@ -1146,8 +1150,10 @@ func TestIntegrationRegressionDiscoveryAndOpenAPISchemasMatchHandlers(t *testing
 		{"/api/v1/posts", "get"}, {"/api/v1/pages", "get"},
 	} {
 		listSchema := responseSchema(collection.path, collection.method)
-		listItems, _ := listSchema["items"].(map[string]any)
-		itemProps, _ := listItems["properties"].(map[string]any)
+		listProps, _ := listSchema["properties"].(map[string]any)
+		listItems, _ := listProps["items"].(map[string]any)
+		itemSchema, _ := listItems["items"].(map[string]any)
+		itemProps, _ := itemSchema["properties"].(map[string]any)
 		for _, field := range []string{"id", "title"} {
 			if itemProps[field] == nil {
 				t.Errorf("%s list item schema omits %q: %v", collection.path, field, listItems)
@@ -1175,15 +1181,11 @@ func TestIntegrationRegressionDiscoveryAndOpenAPISchemasMatchHandlers(t *testing
 		}
 	}
 	themes := responseSchema("/api/v1/themes", "get")
-	items, _ := themes["items"].(map[string]any)
-	isArray := themes["type"] == "array"
-	if types, ok := themes["type"].([]any); ok {
-		for _, typ := range types {
-			isArray = isArray || typ == "array"
-		}
-	}
-	if !isArray || items["type"] != "string" {
-		t.Errorf("GET /themes success schema=%v, want array or nullable array of strings", themes)
+	themeProps, _ := themes["properties"].(map[string]any)
+	themeItems, _ := themeProps["items"].(map[string]any)
+	themeItem, _ := themeItems["items"].(map[string]any)
+	if themes["type"] != "object" || themeItems["type"] != "array" || themeItem["type"] != "string" {
+		t.Errorf("GET /themes success schema=%v, want an object envelope whose properties.items.items is a string", themes)
 	}
 	activation := responseSchema("/api/v1/themes/activate", "post")
 	properties, _ := activation["properties"].(map[string]any)

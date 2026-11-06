@@ -52,15 +52,15 @@ func integrationKeyMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		raw, problem := integrationCredential(c)
 		if problem != "" {
-			return writeAPIError(c, 401, problem, "A valid access key is required", nil)
+			return integrationAuthRejected(c, problem, "A valid access key is required")
 		}
 		var key core.IntegrationKey
 		if err := data.DB.WithContext(c.Request().Context()).Where("key_hash = ?", integration.HashKey(raw)).First(&key).Error; err != nil {
-			return writeAPIError(c, 401, "key_invalid", "Invalid access key", nil)
+			return integrationAuthRejected(c, "key_invalid", "Invalid access key")
 		}
 		var a core.Integration
 		if err := data.DB.WithContext(c.Request().Context()).Unscoped().First(&a, key.IntegrationID).Error; err != nil {
-			return writeAPIError(c, 401, "key_revoked", "Access key is no longer valid", nil)
+			return integrationAuthRejected(c, "key_revoked", "Access key is no longer valid")
 		}
 		if key.RevokedAt != nil {
 			return deniedIntegrationKey(c, a, key, "key_revoked")
@@ -102,7 +102,7 @@ func deniedIntegrationKey(c echo.Context, a core.Integration, key core.Integrati
 		return writeAPIError(c, http.StatusInternalServerError, "internal_error", "Internal server error", nil)
 	}
 	finalizePendingIntegrationRequest(record, http.StatusUnauthorized, ev.Summary, ev.RequestID, a.ID, key.ID, ev.IPMasked)
-	return writeAPIError(c, 401, code, "Access key is not currently usable", nil)
+	return integrationAuthRejected(c, code, "Access key is not currently usable")
 }
 
 func integrationPermissionMiddleware(route integrationRoute) echo.MiddlewareFunc {
@@ -331,7 +331,7 @@ func integrationErrorEnvelope(next echo.HandlerFunc) echo.HandlerFunc {
 		body := rec.Body.Bytes()
 		var parsed map[string]json.RawMessage
 		if status >= 400 {
-			code := map[int]string{400: "bad_request", 401: "key_invalid", 403: "forbidden", 404: "not_found", 405: "method_not_allowed", 409: "conflict", 413: "payload_too_large", 500: "internal_error", 503: "service_unavailable"}[status]
+			code := map[int]string{400: "bad_request", 401: "key_invalid", 403: "forbidden", 404: "not_found", 405: "method_not_allowed", 409: "conflict", 413: "payload_too_large", 429: "rate_limited", 500: "internal_error", 503: "service_unavailable"}[status]
 			if code == "" {
 				code = fmt.Sprintf("http_%d", status)
 			}

@@ -3,7 +3,7 @@ package server
 // Acceptance tests for ticket 14 (docs/tickets/14-integration-api.md): the integration-facing API under
 // /api/v1. Slots: A3 (key and permission middleware, reused /api/admin handlers, type scoping,
 // base_updated_at version guard, error envelope and request id, settings masking, maintenance bypass),
-// A4 (discovery index and OpenAPI 3.1 document from one route table), A5 (GET /logs) and A7 (the Integration
+// A4 (discovery index and OpenAPI 3.1 document from one route table), A5 (GET /me/events) and A7 (the Integration
 // Skill file). The contract is the 契約 section of the ticket plus its 「測試另外釘下的約定」; helpers
 // live in integration_keys_integration_test.go.
 //
@@ -157,7 +157,7 @@ func TestIntegrationDiscoveryIndexNeedsNoKey(t *testing.T) {
 		"products.write": {"PUT /api/v1/products/{id}"},
 		"orders.read":    {"GET /api/v1/orders"},
 		"settings.read":  {"GET /api/v1/settings"},
-		"logs.read":      {"GET /api/v1/logs"},
+		"logs.read":      {"GET /api/v1/me/events"},
 	}
 	for perm, wants := range mustList {
 		have := map[string]bool{}
@@ -788,9 +788,9 @@ func TestIntegrationLogsListOwnEventsWithCursor(t *testing.T) {
 
 	fetch := func(query url.Values) (agtEventPage, agtResult) {
 		t.Helper()
-		r := agtDo(h, http.MethodGet, "/api/v1/logs?"+query.Encode(), "", a.APIKey, ip)
+		r := agtDo(h, http.MethodGet, "/api/v1/me/events?"+query.Encode(), "", a.APIKey, ip)
 		if r.code != http.StatusOK {
-			t.Fatalf("GET /logs?%s returned %d, want 200; body=%q", query.Encode(), r.code, r.body)
+			t.Fatalf("GET /me/events?%s returned %d, want 200; body=%q", query.Encode(), r.code, r.body)
 		}
 		var page agtEventPage
 		agtDecode(t, r, &page, "agent logs")
@@ -894,13 +894,13 @@ func TestIntegrationLogsListOwnEventsWithCursor(t *testing.T) {
 	} {
 		q, _ := url.ParseQuery(query)
 		if page, _ := fetch(q); page.Total != want {
-			t.Errorf("GET /logs?%s total=%d, want %d", query, page.Total, want)
+			t.Errorf("GET /me/events?%s total=%d, want %d", query, page.Total, want)
 		}
 	}
 	for _, bad := range []string{"limit=0", "limit=101", "status=abc", "since=yesterday", "cursor=%21%21not-a-cursor"} {
-		agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/logs?"+bad, "", a.APIKey, ip), http.StatusBadRequest, "logs_filter_invalid", "GET /logs?"+bad)
+		agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/me/events?"+bad, "", a.APIKey, ip), http.StatusBadRequest, "logs_filter_invalid", "GET /me/events?"+bad)
 	}
-	env := agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/logs", "", c.APIKey, ""), http.StatusForbidden, "permission_missing", "GET /logs without logs.read")
+	env := agtExpectError(t, agtDo(h, http.MethodGet, "/api/v1/me/events", "", c.APIKey, ""), http.StatusForbidden, "permission_missing", "GET /me/events without logs.read")
 	if missing, _ := env.Details["missing_permissions"].([]any); len(missing) != 1 || missing[0] != "logs.read" {
 		t.Errorf("details.missing_permissions=%v, want [logs.read]", env.Details["missing_permissions"])
 	}
@@ -928,10 +928,12 @@ func TestIntegrationSettingsReadMasksSecrets(t *testing.T) {
 			t.Errorf("GET /settings exposes %s in clear text", k)
 		}
 	}
-	var options []core.Option
-	agtDecode(t, r, &options, "settings")
+	var envelope struct {
+		Items []core.Option `json:"items"`
+	}
+	agtDecode(t, r, &envelope, "settings")
 	values := map[string]string{}
-	for _, o := range options {
+	for _, o := range envelope.Items {
 		values[o.Key] = o.Value
 	}
 	for k, want := range map[string]string{

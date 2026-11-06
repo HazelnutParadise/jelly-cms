@@ -76,6 +76,8 @@ func newHTTPErrorHandler(tm *theme.Manager) echo.HTTPErrorHandler {
 				codeName = "key_invalid"
 			case http.StatusConflict:
 				codeName = "conflict"
+			case http.StatusTooManyRequests:
+				codeName = "rate_limited"
 			}
 			_ = writeAPIError(c, code, codeName, message, nil)
 			return
