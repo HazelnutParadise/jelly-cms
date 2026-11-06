@@ -21,3 +21,4 @@
 ## Follow-ups
 
 - `internal/plugin` 的 `TestRuntimeCallsPluginHooksAndPreservesThemOnFailedReload` 偶發失敗：`manager_test.go:91` 的 `Unload()` 回 `worker exited during shutdown`（`worker_process.go:434`），發生在 `JELLY_TEST_POSTGRES=1 go test ./... -count=1` 各套件並行時；單獨重跑該測試 5 次與整個套件 1 次都通過。需查 worker 送出 shutdown 結果與行程結束之間的競態，先寫能穩定重現的測試再修根因。
+- 工作單 27 未接線的事件路徑：`PurgeExpiredTrash` 自動清除不發 `OnPostDelete`／`OnProductDelete`／`OnCommentDelete`（purge）；自動儲存、WXR 匯入與編輯器批次操作不發 `OnPostSave`；`createOAuthUser` 的 `OnUserCreate`（source oauth）沒有自動化測試。接線時沿用 `events.Transaction` 與 `stagePluginEvent`。

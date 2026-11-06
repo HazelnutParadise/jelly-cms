@@ -3,7 +3,7 @@
 Epic：外觀與擴充
 User Story：外掛開發者註冊鉤子後，文章、商品、訂單、付款、帳號、留言、附件、主題與設定的真實操作會把事件交給外掛。
 Blocked by：02（runtime 與重載已完成）。
-Status：in_progress
+Status：implemented（驗收結果見文末）
 
 ## 痛點
 
@@ -182,3 +182,10 @@ func Transaction(ctx context.Context, db *gorm.DB, fn func(tx *gorm.DB) error) e
 | H 文件 | `README.md`, `docs/plugin-extensions.md`（連結）, `docs/plugin-events.md`（新） | 鉤子目錄與 payload |
 
 測試檔：`internal/events/events_test.go`、`internal/plugin/events_test.go`、`internal/server/plugin_events_harness_test.go`（共用）、`internal/server/plugin_events_content_test.go`、`internal/server/plugin_events_shop_test.go`、`internal/server/plugin_events_users_test.go`、`internal/server/plugin_events_misc_test.go`。實作者不得修改測試檔。
+
+## 驗證紀錄
+
+- 測試先於實作：七個測試檔（`internal/events/events_test.go`、`internal/plugin/events_test.go`、`internal/server/plugin_events_{harness,content,shop,users,misc}_test.go`）在空格子上全部失敗（server 21 個整合案例、plugin 13 個、events 6 個），實作後全部通過。
+- 實作過程中修正的規格偏差：零元結帳的 `OnOrderCreate` 帶建立當下的 `pending` 狀態，付款由 `OnOrderUpdate`／`OnOrderPaid` 表示（原測試要求帶提交後的 paid 快照，改回真實狀態）；`TestPluginEventsContentWithoutEventsPermission` 的 `reset` 原本會清掉第二個外掛的載入日誌，調整順序。
+- 已知未接線的寫入路徑：`PurgeExpiredTrash`（保留期限到期自動清除）不發 `OnPostDelete purge`；自動儲存、WXR 匯入、批次操作不發 `OnPostSave`。記在 AGENTS.md Follow-ups。
+- 完整套件、gofmt、go vet、獨立對抗式審查與 CI 結果見 STATUS.md 的本工作單條目。
