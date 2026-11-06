@@ -284,6 +284,14 @@ Blocked by：12 零 CDN 與 Jelly UI（已合併，Jelly UI 1.1.0 釘 `1b775385`
 - 商品「新增」時送 `requires_shipping:false` 會被存成 `true`（GORM 以欄位預設值取代零值；`core.Product` 的註解說用 `Select(...)` 可以避免，實際上不行），在本單之前就存在，屬於 Go 程式，不在本單範圍。守門測試因此只在「更新」路徑釘 `false`；瀏覽器檢查只比對送出的 JSON，不讀回儲存值。
 - 主題客製化的 `color_text` 欄位因名稱以 `_text` 結尾而被當成文字輸入框略過，`colors` 裡沒有 `text`；這是既有行為，測試不依賴它，也不要求修。
 
+### 〈資料與相容〉四條的瀏覽器檢查
+
+- 表單重設（`consistency: the integration create form resets …`）：只用 `#integrationCreate` 內的 `input[name="name"]`、`jelly-checkbox[name="permission"]` 與送出鈕 `#integrationCreate button[data-mutation]`。A 建立成功後，按「我已複製，關閉」（名稱 `我已複製，關閉|I have copied it, close`）關掉 `jelly-dialog#integrationDialog`，再數 `jelly-checkbox[name="permission"][checked]` 必須為 0。B 不以回應判斷，而是 `waitForRequest` 等 5 秒：main 在一項權限都沒勾時**不送出請求**，而是在 `#integrationCreate .integration-error` 顯示「請至少選擇一項權限」（`/至少選擇一項權限|at least one permission/`）。所以「什麼都不勾」在 main 上有兩種可觀察結果，檢查兩種都接受：若送出了請求，`permissions` 必須是 `[]`；若沒有請求，錯誤文字必須是一勾權限訊息。A、B 建立的串接在結束時以 `DELETE /api/admin/integrations/:id` 清除。
+- 拖曳超出邊界（`consistency: the coupon batch sheet ignores …`）：面板位置取自 `jelly-dialog` 的 shadow `[part="dialog"]` 的 `getBoundingClientRect()`，開啟後等 400 ms（150 ms 動畫結束）再量。背景點擊座標的算法：依序取面板左外 24 px、右外 24 px、上外 24 px、下外 24 px、(8, 8)、(視窗寬−8, 視窗高−8)，取第一個落在視窗內且不在面板內的點。拖曳以 `page.mouse.down()` 按在 `#bPrefix` 的中心，`mouse.move(…, { steps: 10 })` 移到背景點後 `mouse.up()`，等 400 ms，`jelly-dialog#batchSheet[open]` 必須仍有 1 個；之後單純 `mouse.click` 同一背景點，對話框要關閉，焦點回到 `#batchOpen`。
+- main 上點背景不關的對話框（`consistency: dialogs that do not close …`）：每段獨立執行，失敗全部收集後才報告。(a) 建立串接後的一次性金鑰：`jelly-dialog#integrationDialog` 內的 `#integrationSecret`，文字必須以 `jly_` 開頭，點背景後文字不變。(b) `客製化|Customize` 按鈕開啟 `jelly-dialog#customizeModal`，`#customizeForm` 內第一個可見的 `input[type="text"]` 先 `fill` 標記字串，點背景後值不變，Esc 後焦點回到客製化按鈕。(c) 在 `/admin/posts/new` 載入前，把草稿寫進 `localStorage`，鍵為 `jelly.editor.<使用者>.draft.0`，`<使用者>` 與 `editor.js` 相同（`window.JellyEditorUser` 的 `ID`、`id`、`Username`、`username`，都沒有則 `self`）；重新載入後等 `jelly-dialog#editorRestore[open]`，測完移除該鍵。(d) `/admin/settings/crawlers` 的 `[data-action="add-ai-rule"]` 開啟 `jelly-dialog.sys-dialog`，`input[name="user_agent"]` 填入的值點背景後必須仍在，Esc 後焦點回到開啟鈕。四段都要求「點背景後仍開著」，Esc 關閉的斷言也在同一段。
+- 忙碌時換篩選（`consistency: changing the notification filter …`）：`page.route` 攔 `GET /api/account/notifications?…`，回固定一筆未讀「留言」通知（id 9000001）與計數，並記下每次請求的 `category` 與 `Date.now()`；攔 `POST /api/account/notifications/9000001/read`，延遲 1.5 秒後回 500，失敗時間取自這個處理函式。點 `#notificationList [data-mark-read]` 後立刻點 `#notificationFilters` 內名稱符合 `訂單|Orders` 的 `button[role="radio"]`；`jelly-segment[value="orders"]` 的主機本身不可見，不能直接點。失敗後 5 秒內必須有 `category=orders` 的清單請求，且 `#notificationFilters` 的 `value` 為 `orders`。固定的 500 只列入允許的頁面問題。
+- 搜尋時的期間分段（`consistency: clicking the selected period segment …`）：`#q` 填入 `JUIQ<時間戳>`，等 `GET /api/admin/coupons?q=…` 回應；再點 `#segs button[role="radio"][aria-checked="true"]`（目前期間，預設 `active`）。必須送出一個不帶 `q`、`status` 等於目前期間的 `GET /api/admin/coupons`，而且 `#q` 的值為空。
+
 ## 實作者的判斷邊界
 
 可以自己決定：

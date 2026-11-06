@@ -1379,6 +1379,49 @@ async function apiJSON(page, method, url, data) {
   return { ok: response.ok(), status: response.status(), body };
 }
 
+// The panel of an open <jelly-dialog> (its shadow part="dialog") in viewport coordinates.
+async function panelOf(dialog) {
+  return dialog.evaluate((el) => {
+    const r = el.shadowRoot?.querySelector('[part="dialog"]')?.getBoundingClientRect();
+    return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
+  });
+}
+
+// A point of the backdrop: inside the viewport and outside the panel. It waits 400 ms first so the
+// 150 ms open animation has finished and the panel is measured where it rests.
+async function backdropPoint(page, dialog, what) {
+  await page.waitForTimeout(400);
+  const rect = await panelOf(dialog);
+  assert(rect, `${what}: the open dialog has no panel to measure`);
+  const { width, height } = page.viewportSize();
+  const midX = (rect.left + rect.right) / 2, midY = (rect.top + rect.bottom) / 2;
+  const candidates = [[rect.left - 24, midY], [rect.right + 24, midY], [midX, rect.top - 24], [midX, rect.bottom + 24], [8, 8], [width - 8, height - 8]];
+  const outside = candidates.find(([x, y]) => x > 0 && x < width && y > 0 && y < height && (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom));
+  assert(outside, `${what}: no point of the backdrop is visible outside the ${Math.round(rect.right - rect.left)}×${Math.round(rect.bottom - rect.top)} panel`);
+  return { x: outside[0], y: outside[1] };
+}
+
+async function clickBackdrop(page, dialog, what) {
+  const point = await backdropPoint(page, dialog, what);
+  await page.mouse.click(point.x, point.y);
+}
+
+// After an action: the dialog selector must still match exactly one open element.
+async function staysOpen(page, selector, what) {
+  await page.waitForTimeout(400);
+  assert(await page.locator(`${selector}[open]`).count() === 1, `${what} closed the dialog; it must stay open`);
+}
+
+// Submits the inline create form on /admin/integrations. Resolves with the response (or throws when none comes).
+async function submitIntegrationCreate(page) {
+  const [response] = await Promise.all([
+    page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/admin/integrations', { timeout: 10000 }),
+    page.locator('#integrationCreate button[data-mutation]').click(),
+  ]);
+  const body = await response.json().catch(() => null);
+  return { ok: response.ok(), status: response.status(), body };
+}
+
 async function runConsistency(browser) {
   if (!adminPassword) throw new Error('set JELLY_ADMIN_PASSWORD (and JELLY_ADMIN_USER) for the consistency checks');
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -1902,6 +1945,221 @@ async function runConsistency(browser) {
         }
       }
       assert(failures.length === 0, failures.join('\n'));
+    });
+
+    await check('consistency: the integration create form resets after a create: no permission stays ticked, and the next create sends no permission it did not ask for', async () => {
+      const page = await consistencyPage(context);
+      const made = [];
+      try {
+        await page.goto(`${base}/admin/integrations`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-checkbox', 'jelly-dialog');
+        const form = await need(page, '#integrationCreate', 'the create integration card');
+        await page.locator('#integrationCreate input[name="name"]').fill(`JUI reset A ${stamp}`);
+        const first = await need(page, '#integrationCreate jelly-checkbox[name="permission"]', 'a permission checkbox in the create form');
+        await first.click();
+        assert(await first.evaluate((el) => el.hasAttribute('checked')), 'the first permission did not tick');
+        const created = await submitIntegrationCreate(page);
+        assert(created.ok && created.body?.integration?.id, `creating integration A: HTTP ${created.status}`);
+        made.push(created.body.integration.id);
+        await page.getByRole('button', { name: /我已複製，關閉|I have copied it, close/ }).click();
+        await page.waitForFunction(() => !document.querySelector('jelly-dialog#integrationDialog[open]'), null, { timeout: 5000 });
+        const stillTicked = await form.locator('jelly-checkbox[name="permission"][checked]').count();
+        assert(stillTicked === 0, `after a successful create ${stillTicked} permission checkbox(es) in the create form are still ticked; the form must return to its first state`);
+
+        await page.locator('#integrationCreate input[name="name"]').fill(`JUI reset B ${stamp}`);
+        const posted = page.waitForRequest((r) => r.method() === 'POST' && new URL(r.url()).pathname === '/api/admin/integrations', { timeout: 5000 }).catch(() => null);
+        await page.locator('#integrationCreate button[data-mutation]').click();
+        const request = await posted;
+        if (request) {
+          // main never sends a create with no permission ticked (it shows the one-permission message), so any request must carry []
+          const body = request.postDataJSON();
+          assert(JSON.stringify(body.permissions) === '[]', `the second create sent permissions ${JSON.stringify(body.permissions)}; with none ticked the payload has permissions []`);
+          const json = await (await request.response())?.json().catch(() => null);
+          if (json?.integration?.id) made.push(json.integration.id);
+        } else {
+          // main never sends a create with no permission ticked: it shows the one-permission message instead
+          const feedback = await page.locator('#integrationCreate .integration-error').innerText();
+          assert(/至少選擇一項權限|at least one permission/i.test(feedback), `the second create sent no request and the form says "${feedback}"; want the one-permission message`);
+        }
+        assertCleanPage(page);
+      } finally {
+        for (const id of made) await apiJSON(page, 'DELETE', `/api/admin/integrations/${id}`);
+        await page.close();
+      }
+    });
+
+    await check('consistency: the coupon batch sheet ignores a press inside it that is released on the backdrop, and a plain backdrop click still closes it', async () => {
+      const page = await consistencyPage(context);
+      try {
+        await page.goto(`${base}/admin/coupons`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-dialog');
+        const opener = page.locator('#batchOpen');
+        await opener.click();
+        const dialog = await openedJellyDialog(page, 'the coupon batch sheet');
+        const field = await need(page, 'jelly-dialog[open] #bPrefix', 'the batch prefix field inside the dialog');
+        const box = await field.boundingBox();
+        assert(box, 'the batch prefix field has no box to press');
+        const point = await backdropPoint(page, dialog, 'the coupon batch sheet');
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(point.x, point.y, { steps: 10 });
+        await page.mouse.up();
+        await staysOpen(page, 'jelly-dialog#batchSheet', 'pressing inside the sheet and releasing on the backdrop');
+        await clickBackdrop(page, dialog, 'the coupon batch sheet');
+        await closedAndFocusReturned(page, opener, 'a plain backdrop click', 'the coupon batch sheet');
+        assertCleanPage(page);
+      } finally {
+        await page.close();
+      }
+    });
+
+    await check('consistency: dialogs that do not close on a backdrop click on main stay open on one and still close with Escape', async () => {
+      const page = await consistencyPage(context);
+      const made = [];
+      try {
+        const failures = [];
+        const part = async (label, fn) => { try { await fn(); } catch (e) { failures.push(`${label}: ${e.message}`); } };
+        await part('(a) the one-time key dialog', async () => {
+          await page.goto(`${base}/admin/integrations`, { waitUntil: 'networkidle' });
+          await jellyReady(page, 'jelly-checkbox', 'jelly-dialog');
+          await page.locator('#integrationCreate input[name="name"]').fill(`JUI key ${stamp}`);
+          await need(page, '#integrationCreate jelly-checkbox[name="permission"]', 'a permission checkbox in the create form');
+          await page.locator('#integrationCreate jelly-checkbox[name="permission"]').first().click();
+          const created = await submitIntegrationCreate(page);
+          assert(created.ok && created.body?.integration?.id, `creating the integration for the key dialog: HTTP ${created.status}`);
+          made.push(created.body.integration.id);
+          await page.waitForSelector('jelly-dialog#integrationDialog[open] #integrationSecret', { timeout: 5000 }).catch(() => { throw new Error('(a) the one-time key dialog did not open with the key'); });
+          const key = await page.locator('#integrationSecret').innerText();
+          assert(key.startsWith('jly_'), `(a) the one-time key starts with ${key.slice(0, 6)}, want jly_`);
+          await clickBackdrop(page, page.locator('jelly-dialog#integrationDialog'), '(a) the one-time key dialog');
+          await staysOpen(page, 'jelly-dialog#integrationDialog', '(a) a backdrop click on the one-time key dialog');
+          assert(await page.locator('#integrationSecret').innerText() === key, '(a) the key text changed or disappeared after a backdrop click');
+          await page.keyboard.press('Escape');
+          await page.waitForFunction(() => !document.querySelector('jelly-dialog#integrationDialog[open]'), null, { timeout: 5000 })
+            .catch(() => { throw new Error('(a) Escape did not close the one-time key dialog'); });
+        });
+
+        await part('(b) the theme customizer', async () => {
+          await page.goto(`${base}/admin/themes`, { waitUntil: 'networkidle' });
+          await jellyReady(page, 'jelly-dialog', 'jelly-toaster');
+          const customizeOpener = page.getByRole('button', { name: /客製化|Customize/ }).first();
+          await customizeOpener.click();
+          const customizer = await openedJellyDialog(page, '(b) the theme customizer');
+          const sentinel = `JUI backdrop ${stamp}`;
+          const value = await need(page, 'jelly-dialog[open] #customizeForm input[type="text"]:visible', '(b) a text field inside the theme customizer');
+          await value.fill(sentinel);
+          await clickBackdrop(page, customizer, '(b) the theme customizer');
+          await staysOpen(page, 'jelly-dialog#customizeModal', '(b) a backdrop click on the theme customizer');
+          assert(await value.inputValue() === sentinel, '(b) the edited theme value was lost after a backdrop click');
+          await page.keyboard.press('Escape');
+          await closedAndFocusReturned(page, customizeOpener, 'Escape', '(b) the theme customizer');
+        });
+
+        await part('(c) the editor autosave-restore prompt', async () => {
+          await page.goto(`${base}/admin/posts/new`, { waitUntil: 'networkidle' });
+          const draftKey = await page.evaluate(() => {
+            const user = window.JellyEditorUser || {};
+            return 'jelly.editor.' + (user.ID || user.id || user.Username || user.username || 'self') + '.draft.0';
+          });
+          try {
+            await page.evaluate(([k, title]) => localStorage.setItem(k, JSON.stringify({ title, source: 'Restore fixture.', excerpt: '', draft: null, at: Date.now(), base: null })), [draftKey, `JUI restore ${stamp}`]);
+            await page.reload({ waitUntil: 'networkidle' });
+            await page.waitForSelector('jelly-dialog#editorRestore[open]', { timeout: 5000 }).catch(() => { throw new Error('(c) the autosave restore prompt did not open for a local draft'); });
+            await clickBackdrop(page, page.locator('jelly-dialog#editorRestore'), '(c) the autosave restore prompt');
+            await staysOpen(page, 'jelly-dialog#editorRestore', '(c) a backdrop click on the autosave restore prompt');
+            assert(await page.locator('#restoreAutosave').isVisible(), '(c) the restore button is gone after a backdrop click');
+            await page.keyboard.press('Escape');
+            await page.waitForFunction(() => !document.querySelector('jelly-dialog#editorRestore[open]'), null, { timeout: 5000 })
+              .catch(() => { throw new Error('(c) Escape did not close the autosave restore prompt'); });
+          } finally {
+            await page.evaluate((k) => localStorage.removeItem(k), draftKey).catch(() => {});
+          }
+        });
+
+        await part('(d) the custom crawler rule form', async () => {
+          await page.goto(`${base}/admin/settings/crawlers`, { waitUntil: 'networkidle' });
+          await jellyReady(page, 'jelly-dialog');
+          const ruleOpener = page.locator('[data-action="add-ai-rule"]').first();
+          await ruleOpener.click();
+          const ruleDialog = await openedJellyDialog(page, '(d) the custom crawler rule form');
+          const agent = await need(page, 'jelly-dialog[open] input[name="user_agent"]', '(d) the user agent field of the custom rule');
+          await agent.fill(`JUIBot-${stamp}`);
+          await clickBackdrop(page, ruleDialog, '(d) the custom crawler rule form');
+          await staysOpen(page, 'jelly-dialog.sys-dialog', '(d) a backdrop click on the custom crawler rule form');
+          assert(await agent.inputValue() === `JUIBot-${stamp}`, '(d) the typed user agent was lost after a backdrop click');
+          await page.keyboard.press('Escape');
+          await closedAndFocusReturned(page, ruleOpener, 'Escape', '(d) the custom crawler rule form');
+        });
+
+        assert(failures.length === 0, failures.join('\n'));
+        assertCleanPage(page);
+      } finally {
+        for (const id of made) await apiJSON(page, 'DELETE', `/api/admin/integrations/${id}`);
+        await page.close();
+      }
+    });
+
+    await check('consistency: changing the notification filter while a mark-read request is in flight reloads the list for the new category once that request fails', async () => {
+      const page = await consistencyPage(context);
+      const fixtureID = 9000001;
+      const listed = [];
+      let failedAt = 0;
+      try {
+        const fixture = { items: [{ id: fixtureID, kind: 'comment.pending', category: 'comments', params: { message: `JUI fixture ${stamp}` }, read_at: null, created_at: new Date().toISOString() }], counts: { all: 1, unread: 1, comments: 1, orders: 0, system: 0, security: 0 } };
+        await page.route(/\/api\/account\/notifications\?/, (route) => {
+          listed.push({ category: new URL(route.request().url()).searchParams.get('category') || '', at: Date.now() });
+          route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture) });
+        });
+        // The mark-read request takes about 1.5 s and then fails with 500 (the list is not refreshed by a failure).
+        await page.route(`**/api/account/notifications/${fixtureID}/read`, async (route) => {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          failedAt = Date.now();
+          await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'JUI forced failure' }) });
+        });
+        await page.goto(`${base}/admin/notifications`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-segmented', 'jelly-switch');
+        const markRead = await need(page, '#notificationList [data-mark-read]', 'a Mark read button in the list');
+        await markRead.click();
+        // Change the filter while the mark-read request is still in flight (the segment is chosen by its value).
+        await page.locator('#notificationFilters button[role="radio"]', { hasText: /訂單|Orders/ }).first().click();
+        // The request fails, then the list must be requested again for orders within 5 s.
+        const waitingFrom = Date.now();
+        while (!failedAt && Date.now() - waitingFrom < 10000) await new Promise((r) => setTimeout(r, 100));
+        assert(failedAt, 'the mark-read request never reached the server');
+        while (Date.now() - failedAt < 5000 && !listed.some((l) => l.category === 'orders' && l.at >= failedAt)) await new Promise((r) => setTimeout(r, 100));
+        const reload = listed.find((l) => l.category === 'orders' && l.at >= failedAt);
+        const since = listed.filter((l) => l.at >= failedAt).map((l) => l.category || 'all');
+        assert(reload, `no list request for category=orders within 5 s after the failed mark-read (list requests after it: ${since.length ? since.join(', ') : 'none'}); the list did not reload for the new filter`);
+        const selected = await page.locator('#notificationFilters').getAttribute('value');
+        assert(selected === 'orders', `the filter shows ${selected}, want orders`);
+        assertCleanPage(page, [new RegExp(`HTTP 500: .*/api/account/notifications/${fixtureID}/read`)]);
+      } finally {
+        await page.close();
+      }
+    });
+
+    await check('consistency: clicking the selected period segment while a search is typed clears the search and reloads that period without q', async () => {
+      const page = await consistencyPage(context);
+      try {
+        await page.goto(`${base}/admin/coupons`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-segmented');
+        const period = await page.locator('#segs').getAttribute('value');
+        const query = `JUIQ${stamp}`;
+        await Promise.all([
+          page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/admin/coupons' && new URL(r.url()).searchParams.get('q') === query, { timeout: 5000 }),
+          page.fill('#q', query),
+        ]);
+        const listed = page.waitForRequest((r) => r.method() === 'GET' && new URL(r.url()).pathname === '/api/admin/coupons' && !new URL(r.url()).searchParams.has('q'), { timeout: 5000 }).catch(() => null);
+        await page.locator('#segs button[role="radio"][aria-checked="true"]').click();
+        const request = await listed;
+        assert(request, `clicking the selected period (${period}) sent no list request without q; the search is still on screen`);
+        const params = new URL(request.url()).searchParams;
+        assert(params.get('status') === period, `the list request asked status=${params.get('status')}, want status=${period}`);
+        assert(await page.locator('#q').inputValue() === '', 'clicking the selected period did not clear the search box');
+        assertCleanPage(page);
+      } finally {
+        await page.close();
+      }
     });
   } finally {
     for (const cleanup of cleanups.reverse()) await cleanup().catch(() => {});
