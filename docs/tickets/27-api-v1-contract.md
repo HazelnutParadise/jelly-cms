@@ -73,7 +73,8 @@ Blocked by：24（`/api/v1` 改名，已合併）。專案沒有任何已部署�
 - 環境變數是每分鐘次數的整數；`0` 關閉該計數器（不計數、不回 429、不送 `RateLimit-*`）；無法解析或負數用預設值。
 - 計數器存在 `internal/cache` memory store 的 `ratelimit` 命名空間，鍵不帶視窗戳；每次 `Incr` 的 TTL 是「到本分鐘結束的剩餘秒數」，最少 1 秒（無條件進位）。視窗到期項目自然消失，不需要清掃。
 - 429 的回應：錯誤信封 `code = "rate_limited"`、`message = "Rate limit exceeded"`、`details = {"scope": "integration"|"auth_failures"|"public", "limit": N, "window_seconds": 60, "retry_after": 秒}`；標頭 `Retry-After`（距視窗結束的整數秒，最少 1）、`RateLimit-Limit`、`RateLimit-Remaining`（`0`）、`RateLimit-Reset`（同 `Retry-After`）。
-- 串接計數器開啟時，金鑰驗證通過後的所有回應（2xx、4xx、5xx）都帶 `RateLimit-Limit`、`RateLimit-Remaining`、`RateLimit-Reset`；標頭在呼叫下一層之前就設好。
+- 串接計數器開啟時，金鑰驗證通過後的所有回應（2xx、4xx、5xx）都帶 `RateLimit-Limit`、`RateLimit-Remaining`、`RateLimit-Reset`；標頭在呼叫下一層之前就設好。只有 429 帶 `Retry-After`，403 等其他回應不帶。計數器關閉（`0`）時不送這三個標頭。
+- `withIntegrationKeyTouch` 只在 2xx 更新 `last_used_at`，所以 429 不會更新；中介層順序維持「金鑰驗證 → 稽核 → 更新最後使用 → 串接限流 → 權限」。
 - 這三個標頭沿用業界常見的三欄位寫法，`Reset` 是距視窗結束的秒數；文件不宣稱對應 IETF 草案（現行草案是 `RateLimit` 與 `RateLimit-Policy` 兩個結構化欄位，之後要加是純增量）。
 - 限流一律用 `writeAPIError` 回應；`integrationErrorEnvelope` 的狀態碼對映表與 `errors.go` 對 `/api/v1` 的對映表都補 `429 → rate_limited`，避免外層冒出的 429 變成 `http_429` 或 `internal_error`。
 - 金鑰驗證中介層以 `c.Set("integration.auth_failure", code)` 告訴外層失敗原因，失敗來源計數器讀這個旗標而不是嗅狀態碼。
