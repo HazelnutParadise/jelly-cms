@@ -6,11 +6,6 @@
     .tx-layout { display: grid; grid-template-columns: minmax(0, 1fr) 22.5rem; gap: 1.5rem; align-items: start; }
     .tx-main { min-width: 0; }
     .tx-toolbar { display: flex; align-items: center; gap: .625rem; flex-wrap: wrap; margin-bottom: .75rem; }
-    .tx-seg { display: inline-flex; gap: .2rem; padding: .2rem; background: var(--surface-mid); border-radius: var(--r-sm); }
-    .tx-seg button { display: inline-flex; align-items: center; gap: .4rem; min-height: 1.9rem; padding: 0 .75rem; background: transparent; border: 0; border-radius: var(--r-sm); font-size: .8125rem; font-weight: 700; color: var(--muted); cursor: pointer; white-space: nowrap; transition: background-color .12s ease, color .12s ease; }
-    .tx-seg button:hover { color: var(--ink); }
-    .tx-seg button[aria-selected="true"] { background: var(--ink); color: var(--surface); }
-    .tx-seg .icon { width: .875rem; height: .875rem; }
     .tx-filter { display: flex; align-items: center; gap: .5rem; margin-left: auto; width: 13.75rem; min-height: 2rem; padding: 0 .65rem; background: var(--field); border-radius: var(--r-sm); color: var(--muted); }
     .tx-filter .icon { width: .875rem; height: .875rem; }
     .tx-filter input[type="search"] { flex: 1; min-width: 0; min-height: 0; padding: 0; border: 0; box-shadow: none; background: transparent; font-size: .8125rem; color: var(--ink); }
@@ -64,6 +59,7 @@
     .tx-swatch[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink); }
     .tx-toggle { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
     .tx-toggle > span:first-child { font-size: .84375rem; font-weight: 600; }
+    .tx-toggle jelly-switch { flex: 0 0 auto; }
     .tx-toggle small { display: block; font-weight: 400; font-size: .75rem; color: var(--muted); }
     .tx-actions { display: flex; align-items: center; gap: .5rem; margin-top: .25rem; flex-wrap: wrap; }
     .tx-actions .tx-del { margin-left: auto; color: color-mix(in srgb, var(--error) 80%, var(--ink)); }
@@ -87,7 +83,7 @@
     @media (max-width: 700px) {
         .tx-c-slug { display: none; }
         .tx-table td { padding: .6rem .4rem; }
-        .tx-seg { flex-wrap: wrap; max-width: 100%; box-sizing: border-box; }
+        .tx-toolbar .seg-scroll { flex: 1 1 100%; }
     }
 </style>
 {{end}}
@@ -104,16 +100,18 @@
 <div class="tx-layout">
     <section class="tx-main" aria-label="{{.T.taxonomy}}">
         <div class="tx-toolbar">
-            <div class="tx-seg" role="tablist" aria-label="{{.T.taxonomy}}">
-                <button type="button" role="tab" id="tabCategories" aria-selected="true" aria-controls="txList" data-tab="categories"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg>{{.T.txCategories}} <b id="countCategories">-</b></button>
-                <button type="button" role="tab" id="tabTags" aria-selected="false" aria-controls="txList" data-tab="tags" tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-tag"/></svg>{{.T.txTags}} <b id="countTags">-</b></button>
-                <button type="button" role="tab" id="tabProducts" aria-selected="false" aria-controls="txList" data-tab="products" tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-box"/></svg><span id="tabProductsText"></span> <b id="countProducts">-</b></button>
+            <div class="seg-scroll">
+                <jelly-segmented id="txTabs" name="taxonomy" value="categories" label="{{.T.taxonomy}}">
+                    <jelly-segment value="categories">{{.T.txCategories}}</jelly-segment>
+                    <jelly-segment value="tags">{{.T.txTags}}</jelly-segment>
+                    <jelly-segment value="products">{{if eq .Lang "en"}}Product categories{{else}}商品分類{{end}}</jelly-segment>
+                </jelly-segmented>
             </div>
             <label class="tx-filter"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="filter" placeholder="{{.T.txFilter}}" aria-label="{{.T.txFilter}}" autocomplete="off"></label>
             <button type="button" class="btn btn-secondary btn-sm tx-sortbtn" id="sortBtn" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="#i-drag"/></svg><span id="sortBtnText">{{.T.txReorder}}</span></button>
         </div>
 
-        <div id="txList" role="tabpanel" aria-live="polite" aria-busy="true">{{template "state-loading" dict "text" .T.loading "skeleton" true}}</div>
+        <div id="txList" aria-live="polite" aria-busy="true">{{template "state-loading" dict "text" .T.loading "skeleton" true}}</div>
         <p class="tx-note" id="txNote" hidden><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><span id="txNoteText"></span></p>
         <div class="tx-note tx-pnote" id="txProductNote" hidden><svg class="icon" aria-hidden="true"><use href="#i-box"/></svg><span><b id="txProductNoteTitle"></b><br><span id="txProductNoteText"></span></span></div>
         <div class="tx-chips" id="txChips" hidden>
@@ -155,18 +153,18 @@
                 <label class="label" for="fCover">{{.T.txCover}}</label>
                 <input type="text" id="fCover" name="cover" inputmode="url" placeholder="/uploads/cover.jpg">
             </div>
-            <label class="tx-toggle toggle-switch" data-for="pcat">
+            <div class="tx-toggle" data-for="pcat">
                 <span><span id="pHiddenLabel"></span><small id="pHiddenHint"></small></span>
-                <input type="checkbox" id="fPHidden" name="pcat_hidden"><span class="slider" aria-hidden="true"></span>
-            </label>
-            <label class="tx-toggle toggle-switch" data-for="category">
+                <jelly-switch id="fPHidden" name="pcat_hidden"></jelly-switch>
+            </div>
+            <div class="tx-toggle" data-for="category">
                 <span>{{.T.txHideFromList}}<small>{{.T.txHideFromListHint}}</small></span>
-                <input type="checkbox" id="fHide" name="hide_from_list"><span class="slider" aria-hidden="true"></span>
-            </label>
-            <label class="tx-toggle toggle-switch" data-for="category">
+                <jelly-switch id="fHide" name="hide_from_list" label="{{.T.txHideFromList}}"></jelly-switch>
+            </div>
+            <div class="tx-toggle" data-for="category">
                 <span>{{.T.txNoCascade}}<small>{{.T.txNoCascadeHint}}</small></span>
-                <input type="checkbox" id="fNoCascade" name="no_cascade"><span class="slider" aria-hidden="true"></span>
-            </label>
+                <jelly-switch id="fNoCascade" name="no_cascade" label="{{.T.txNoCascade}}"></jelly-switch>
+            </div>
             <div class="tx-actions">
                 <button type="submit" class="btn btn-primary" id="saveBtn"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg><span>{{.T.txSave}}</span></button>
                 <a class="btn btn-secondary" id="viewBtn" href="/" target="_blank" rel="noopener" hidden><svg class="icon" aria-hidden="true"><use href="#i-external"/></svg>{{.T.txViewSite}}</a>
@@ -318,14 +316,11 @@
     }
 
     function draw() {
-        $('countCategories').textContent = loadError ? '-' : cats.length;
-        $('countTags').textContent = loadError ? '-' : tags.length;
-        $('countProducts').textContent = pLoadError ? '-' : pcats.length;
-        document.querySelectorAll('.tx-seg button').forEach(b => {
-            const on = b.dataset.tab === tab;
-            b.setAttribute('aria-selected', on ? 'true' : 'false');
-            b.tabIndex = on ? 0 : -1;
-        });
+        const seg = $('txTabs');
+        Jelly.segmentText(seg, 'categories', T.categories + ' ' + (loadError ? '-' : cats.length));
+        Jelly.segmentText(seg, 'tags', T.tags + ' ' + (loadError ? '-' : tags.length));
+        Jelly.segmentText(seg, 'products', TP.tab + ' ' + (pLoadError ? '-' : pcats.length));
+        if (seg.getAttribute('value') !== tab) seg.setAttribute('value', tab);
         $('newBtnText').textContent = tab === 'categories' ? T.createCategory : tab === 'products' ? TP.create : T.newTag;
         const filtering = $('filter').value.trim() !== '';
         const sortBtn = $('sortBtn');
@@ -510,9 +505,9 @@
         f.slug.value = item ? item.slug : '';
         f.description.value = item ? (item.description || '') : '';
         f.cover.value = item && (isCat || isP) ? (item.cover || '') : '';
-        f.hide_from_list.checked = !!(item && item.hide_from_list);
-        f.no_cascade.checked = !!(item && item.no_cascade);
-        f.pcat_hidden.checked = !!(item && isP && item.hidden);
+        $('fHide').toggleAttribute('checked', !!(item && item.hide_from_list));
+        $('fNoCascade').toggleAttribute('checked', !!(item && item.no_cascade));
+        $('fPHidden').toggleAttribute('checked', !!(item && isP && item.hidden));
         f.querySelectorAll('[data-for]').forEach(n => { n.hidden = !n.dataset.for.split(' ').includes(sel.kind); });
         const prefix = isCat ? '/c/' : isP ? '/shop/c/' : '/t/';
         $('slugPrefix').textContent = prefix;
@@ -576,13 +571,13 @@
         const isCat = sel.kind === 'category';
         const isP = sel.kind === 'pcat';
         const body = isP
-            ? { name, slug: f.slug.value.trim() || slugify(name), description: f.description.value.trim(), parent_id: f.parent_id.value ? +f.parent_id.value : null, cover: f.cover.value.trim(), hidden: f.pcat_hidden.checked }
+            ? { name, slug: f.slug.value.trim() || slugify(name), description: f.description.value.trim(), parent_id: f.parent_id.value ? +f.parent_id.value : null, cover: f.cover.value.trim(), hidden: $('fPHidden').hasAttribute('checked') }
             : { name, slug: f.slug.value.trim() || slugify(name), color: currentColor(), description: f.description.value.trim() };
         if (isCat) {
             body.parent_id = f.parent_id.value ? +f.parent_id.value : null;
             body.cover = f.cover.value.trim();
-            body.hide_from_list = f.hide_from_list.checked;
-            body.no_cascade = f.no_cascade.checked;
+            body.hide_from_list = $('fHide').hasAttribute('checked');
+            body.no_cascade = $('fNoCascade').hasAttribute('checked');
         }
         const base = isCat ? '/api/admin/categories' : isP ? '/api/admin/product-categories' : '/api/admin/tags';
         const creating = sel.id == null;
@@ -604,15 +599,7 @@
     $('newBtn').addEventListener('click', () => { openPanel(null, $('newBtn')); });
     $('panelClose').addEventListener('click', closePanel);
     $('backdrop').addEventListener('click', closePanel);
-    document.querySelectorAll('.tx-seg button').forEach(b => {
-        b.addEventListener('click', () => setTab(b.dataset.tab));
-        b.addEventListener('keydown', (e) => {
-            if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-            const order = ['categories', 'tags', 'products'];
-            const next = order[(order.indexOf(b.dataset.tab) + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length];
-            setTab(next); $({ categories: 'tabCategories', tags: 'tabTags', products: 'tabProducts' }[next]).focus();
-        });
-    });
+    $('txTabs').addEventListener('change', (e) => setTab(e.detail && e.detail.value || $('txTabs').getAttribute('value')));
     $('filter').addEventListener('input', () => { if ($('filter').value.trim() && sortMode) sortMode = false; render(); });
     $('sortBtn').addEventListener('click', () => { sortMode = !sortMode; render(); });
 
@@ -847,10 +834,10 @@
         }
     });
 
-    $('tabProductsText').textContent = TP.tab;
     $('txProductNoteTitle').textContent = TP.twoTreesTitle;
     $('txProductNoteText').textContent = TP.twoTreesText;
     $('pHiddenLabel').textContent = TP.hidden;
+    $('fPHidden').setAttribute('label', TP.hidden);
     $('pHiddenHint').textContent = TP.hiddenHint;
     (function () {
         const tpl = $('tplEmptyProducts').content;

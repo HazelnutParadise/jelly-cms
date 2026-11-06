@@ -71,11 +71,11 @@
     </div>
     <aside class="sa-side">
         <div class="sa-field"><span class="label" id="lStatus"></span>
-            <div class="segmented" role="radiogroup" aria-labelledby="lStatus" id="statusSeg">
-                <label><input type="radio" name="status" value="draft"><span data-l="ps_draft"></span></label>
-                <label><input type="radio" name="status" value="active"><span data-l="ps_active"></span></label>
-                <label><input type="radio" name="status" value="archived"><span data-l="ps_archived"></span></label>
-            </div>
+            <jelly-segmented id="statusSeg" class="compact" name="status" value="draft">
+                <jelly-segment value="draft" data-l="ps_draft"></jelly-segment>
+                <jelly-segment value="active" data-l="ps_active"></jelly-segment>
+                <jelly-segment value="archived" data-l="ps_archived"></jelly-segment>
+            </jelly-segmented>
         </div>
         <div class="sa-field" data-field><label for="fSlug" id="lSlug"></label><div class="sa-slug"><span>/shop/p/</span><input type="text" id="fSlug" maxlength="255" spellcheck="false"></div><small class="hint" id="slugHint"></small></div>
         <div class="sa-field"><span class="label" id="lCats"></span>
@@ -84,8 +84,8 @@
         </div>
         <div class="sa-field"><span class="label" id="lShip"></span>
             <div class="sa-checks" role="group" aria-labelledby="lShip">
-                <label><input type="checkbox" id="fShip"><span id="lShipReq"></span></label>
-                <label><input type="checkbox" id="fCold"><span id="lCold"></span></label>
+                <jelly-checkbox size="sm" id="fShip"><span id="lShipReq"></span></jelly-checkbox>
+                <jelly-checkbox size="sm" id="fCold"><span id="lCold"></span></jelly-checkbox>
             </div>
         </div>
         <button type="button" class="btn btn-text sa-danger-link" id="delBtn" hidden><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg><span></span></button>
@@ -167,6 +167,7 @@
     $('fCompare').placeholder = t('comparePh');
     $('fTitle').placeholder = t('title');
     document.querySelectorAll('#statusSeg [data-l]').forEach(s => { s.textContent = t(s.dataset.l); });
+    $('statusSeg').setAttribute('label', t('status'));
     document.querySelectorAll('#mdTools [data-md]').forEach(b => { const l = t({ bold: 'mdBold', list: 'mdList', link: 'mdLink' }[b.dataset.md]); b.setAttribute('aria-label', l); b.title = l; });
     $('variantHead').innerHTML = ['vName', 'vSku', 'vPrice', 'vCompare', 'vStock'].map(k => '<th' + (k === 'vPrice' || k === 'vCompare' || k === 'vStock' ? ' class="sa-num"' : '') + '>' + esc(t(k)) + '</th>').join('') + '<th class="actions"><span class="sr-only"></span></th>';
 
@@ -274,10 +275,10 @@
         if (!rows.length) { $('cats').innerHTML = '<span class="muted" style="font-size:.8125rem">' + esc(t('catsEmpty')) + '</span>'; return; }
         $('cats').innerHTML = rows.map(({ n, depth }) => {
             const count = n.product_count != null ? n.product_count : n.count;
-            return '<label style="padding-left:' + (depth * 1.5) + 'rem"><input type="checkbox" value="' + (+n.id) + '"' + (selectedCats.has(+n.id) ? ' checked' : '') + '><span>' + esc(n.name) + '</span>' + (count != null ? '<span class="count">' + (+count) + '</span>' : '') + '</label>';
+            return '<div class="sa-cat" style="padding-left:' + (depth * 1.5) + 'rem"><jelly-checkbox size="sm" value="' + (+n.id) + '"' + (selectedCats.has(+n.id) ? ' checked' : '') + '>' + esc(n.name) + '</jelly-checkbox>' + (count != null ? '<span class="count">' + (+count) + '</span>' : '') + '</div>';
         }).join('');
     }
-    $('cats').addEventListener('change', (e) => { if (e.target.type === 'checkbox') { const v = +e.target.value; e.target.checked ? selectedCats.add(v) : selectedCats.delete(v); setDirty(true); } });
+    $('cats').addEventListener('change', (e) => { if (e.target.closest && e.target.closest('.sa-cat')) { const v = +e.target.getAttribute('value'); e.target.hasAttribute('checked') ? selectedCats.add(v) : selectedCats.delete(v); setDirty(true); } });
     async function loadCats() {
         try {
             const data = await SA.api('GET', '/api/admin/product-categories');
@@ -318,13 +319,13 @@
         $('fCompare').value = p.compare_at_price ? SA.toInput(p.compare_at_price) : '';
         $('fThreshold').value = p.low_stock_threshold == null ? '5' : String(p.low_stock_threshold);
         $('fSlug').value = p.slug || '';
-        $('fShip').checked = p.requires_shipping !== false;
-        $('fCold').checked = !!p.cold_chain;
+        $('fShip').toggleAttribute('checked', p.requires_shipping !== false);
+        $('fCold').toggleAttribute('checked', !!p.cold_chain);
         $('fSeoTitle').value = p.seo_title || '';
         $('fSeoDesc').value = p.seo_description || '';
         fillSEO(p);
         const status = ['draft', 'active', 'archived'].includes(p.status) ? p.status : 'draft';
-        form.querySelector('input[name="status"][value="' + status + '"]').checked = true;
+        $('statusSeg').setAttribute('value', status);
         let imgs = p.images;
         if (typeof imgs === 'string') { try { imgs = JSON.parse(imgs); } catch (e) { imgs = []; } }
         images = (Array.isArray(imgs) ? imgs : []).map(x => SA.safeUrl(typeof x === 'string' ? x : x && x.url)).filter(Boolean);
@@ -387,9 +388,9 @@
         const body = {
             title, slug: $('fSlug').value.trim() || slugify(title), description: $('fDesc').value,
             price: price.text, compare_at_price: compare.empty ? '' : compare.text,
-            status: (form.querySelector('input[name="status"]:checked') || { value: 'draft' }).value,
+            status: ['draft', 'active', 'archived'].includes($('statusSeg').getAttribute('value')) ? $('statusSeg').getAttribute('value') : 'draft',
             low_stock_threshold: threshold.empty ? 5 : threshold.value,
-            requires_shipping: $('fShip').checked, cold_chain: $('fCold').checked,
+            requires_shipping: $('fShip').hasAttribute('checked'), cold_chain: $('fCold').hasAttribute('checked'),
             images: images.slice(), categories: [...selectedCats], variants: vs,
             seo_title: $('fSeoTitle').value.trim(), seo_description: $('fSeoDesc').value.trim()
         };

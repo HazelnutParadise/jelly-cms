@@ -3,10 +3,8 @@
 <style>
 .notification-page{min-width:0}
 .notification-page .notification-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
-.notification-page .notification-filters{display:flex;gap:.35rem;overflow-x:auto;padding:.25rem;background:var(--surface-low);border-radius:var(--r-sm);margin:.8rem 0}
-.notification-page .notification-filters button{min-height:2.4rem;padding:.35rem .8rem;border:0;border-radius:var(--r-sm);background:transparent;color:var(--muted);font:inherit;font-weight:700;white-space:nowrap;cursor:pointer}
-.notification-page .notification-filters button[aria-pressed=true]{background:var(--ink);color:var(--surface)}
-.notification-page .notification-filters b{margin-left:.25rem}
+.notification-page .notification-filters{display:flex;align-items:center;gap:.5rem 1rem;flex-wrap:wrap;margin:.8rem 0}
+.notification-page .notification-filters jelly-switch{--jelly-label:var(--ink);font-weight:700}
 .notification-page .notification-list{display:grid;gap:.65rem}
 .notification-page .notification-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.7rem 1rem;padding:1rem;background:var(--surface);border-radius:var(--r-md);box-shadow:inset 0 0 0 1px var(--outline)}
 .notification-page .notification-card.unread{box-shadow:inset 3px 0 0 var(--primary),inset 0 0 0 1px var(--outline)}
@@ -34,14 +32,18 @@
         </div>
         <button class="btn btn-secondary" id="readAll" type="button" disabled>{{if eq .Lang "en"}}Mark filtered as read{{else}}將目前篩選全部標為已讀{{end}}</button>
     </header>
-    <nav class="notification-filters" id="notificationFilters" aria-label="{{if eq .Lang "en"}}Notification filters{{else}}通知篩選{{end}}">
-        <button type="button" data-category="" aria-pressed="true">{{if eq .Lang "en"}}All{{else}}全部{{end}} <b data-count="all">—</b></button>
-        <button type="button" data-category="comments" aria-pressed="false">{{if eq .Lang "en"}}Comments{{else}}留言{{end}} <b data-count="comments">—</b></button>
-        <button type="button" data-category="orders" aria-pressed="false">{{if eq .Lang "en"}}Orders{{else}}訂單{{end}} <b data-count="orders">—</b></button>
-        <button type="button" data-category="system" aria-pressed="false">{{if eq .Lang "en"}}System{{else}}系統{{end}} <b data-count="system">—</b></button>
-        <button type="button" data-category="security" aria-pressed="false">{{if eq .Lang "en"}}Security{{else}}安全{{end}} <b data-count="security">—</b></button>
-        <button type="button" id="unreadOnly" aria-pressed="false">{{if eq .Lang "en"}}Unread{{else}}未讀{{end}} <b data-count="unread">—</b></button>
-    </nav>
+    <div class="notification-filters">
+        <div class="seg-scroll">
+            <jelly-segmented id="notificationFilters" name="category" value="all" label="{{if eq .Lang "en"}}Notification filters{{else}}通知篩選{{end}}">
+                <jelly-segment value="all">{{if eq .Lang "en"}}All{{else}}全部{{end}}</jelly-segment>
+                <jelly-segment value="comments">{{if eq .Lang "en"}}Comments{{else}}留言{{end}}</jelly-segment>
+                <jelly-segment value="orders">{{if eq .Lang "en"}}Orders{{else}}訂單{{end}}</jelly-segment>
+                <jelly-segment value="system">{{if eq .Lang "en"}}System{{else}}系統{{end}}</jelly-segment>
+                <jelly-segment value="security">{{if eq .Lang "en"}}Security{{else}}安全{{end}}</jelly-segment>
+            </jelly-segmented>
+        </div>
+        <jelly-switch id="unreadOnly" label="{{if eq .Lang "en"}}Unread only{{else}}只看未讀{{end}}">{{if eq .Lang "en"}}Unread{{else}}未讀{{end}} <b data-count="unread">—</b></jelly-switch>
+    </div>
     <p class="notification-status" id="notificationStatus" role="status" aria-live="polite"></p>
     <div class="alert alert-danger" id="notificationError" role="alert" hidden></div>
     <div class="alert alert-danger" id="moderationPermissionError" role="alert" hidden><span id="moderationPermissionErrorText"></span> <button class="btn btn-secondary btn-sm" id="retryModerationPermission" type="button">{{if eq .Lang "en"}}Retry{{else}}重試{{end}}</button></div>
@@ -60,6 +62,7 @@
     const $ = (id) => document.getElementById(id);
     const root = $('notificationPage');
     const state = { category: '', unread: false, before: '', busy: false, items: [], counts: {}, hasMore: false, canModerate: false };
+    const filterNames = { all: en ? 'All' : '全部', comments: en ? 'Comments' : '留言', orders: en ? 'Orders' : '訂單', system: en ? 'System' : '系統', security: en ? 'Security' : '安全' };
     const categoryNames = { comments: en ? 'Comments' : '留言', orders: en ? 'Orders' : '訂單', system: en ? 'System' : '系統', security: en ? 'Security' : '安全' };
     const kinds = {
         'comment.pending': en ? 'A comment is waiting for review' : '有留言等待審核',
@@ -192,7 +195,17 @@
             const key = el.dataset.count;
             el.textContent = Number.isFinite(Number(state.counts[key])) ? String(state.counts[key]) : '0';
         });
+        // 分類篩選是 <jelly-segmented>：只在數字變了才改段的文字（Jelly.segmentText）。
+        Object.keys(filterNames).forEach((key) => {
+            Jelly.segmentText($('notificationFilters'), key, filterNames[key] + ' ' + (Number.isFinite(Number(state.counts[key])) ? String(state.counts[key]) : '0'));
+        });
         $('readAll').disabled = state.busy || Number(state.counts.unread || 0) === 0;
+    }
+    // 結束忙碌：每條會設 busy 的路徑（成功、失敗、沒有更新資料）都經過這裡。載入中換了篩選（分段與開關不能停用）
+    // 就在這裡依新的篩選重新載入，畫面上選取的篩選與清單才會一致。
+    function endBusy() {
+        state.busy = false; root.setAttribute('aria-busy', 'false');
+        if (state.reload) { state.reload = false; state.before = ''; state.items = []; load(false); }
     }
     async function load(append) {
         if (state.busy) return;
@@ -216,8 +229,9 @@
             $('notificationError').textContent = message; $('notificationError').hidden = false; $('retryNotifications').hidden = false;
             setStatus(message, true);
         } finally {
-            state.busy = false; root.setAttribute('aria-busy', 'false'); $('notificationLoading').hidden = true;
+            $('notificationLoading').hidden = true;
             $('readAll').disabled = Number(state.counts.unread || 0) === 0;
+            endBusy();
         }
     }
     async function loadModerationPermission() {
@@ -236,17 +250,18 @@
             renderItems(state.items, false);
         }
     }
-    $('notificationFilters').addEventListener('click', (event) => {
-        const button = event.target.closest('button[data-category]');
-        if (!button || state.busy) return;
-        state.category = button.dataset.category;
-        root.querySelectorAll('button[data-category]').forEach((el) => el.setAttribute('aria-pressed', String(el === button)));
+    function filterChanged() {
+        if (state.busy) { state.reload = true; return; }
         state.before = ''; state.items = []; load(false);
+    }
+    $('notificationFilters').addEventListener('change', (event) => {
+        const value = (event.detail && event.detail.value) || $('notificationFilters').getAttribute('value');
+        state.category = value === 'all' ? '' : value;
+        filterChanged();
     });
-    $('unreadOnly').addEventListener('click', () => {
-        if (state.busy) return;
-        state.unread = !state.unread;
-        $('unreadOnly').setAttribute('aria-pressed', String(state.unread)); state.before = ''; state.items = []; load(false);
+    $('unreadOnly').addEventListener('change', () => {
+        state.unread = $('unreadOnly').hasAttribute('checked');
+        filterChanged();
     });
     async function pendingCommentIDs(postID) {
         const perPage = 100;
@@ -305,7 +320,7 @@
             } catch (error) {
                 moderationError = errorText(error.response, error);
             }
-            state.busy = false; root.setAttribute('aria-busy', 'false');
+            endBusy();
             if (updated > 0) await load(false);
             if (moderationError) setStatus((updated ? (en ? 'Approved ' + updated + ' comments before the error. ' : '錯誤前已核准 ' + updated + ' 則留言。') : '') + moderationError, true);
             else if (updated === 0 && action === 'approve') setStatus(en ? 'There are no pending comments for this post.' : '此文章目前沒有待審留言。', false);
@@ -319,9 +334,10 @@
         state.busy = true; root.setAttribute('aria-busy', 'true'); button.disabled = true;
         try {
             await request('/api/account/notifications/' + id + '/read', { method: 'POST', headers: { 'Accept': 'application/json', 'X-Jelly-CSRF': '1' } });
-            state.busy = false; root.setAttribute('aria-busy', 'false'); await load(false);
+            endBusy(); await load(false);
         } catch (error) {
-            state.busy = false; root.setAttribute('aria-busy', 'false'); button.disabled = false;
+            button.disabled = false;
+            endBusy();
             setStatus(errorText(error.response, error), true);
         }
     });
@@ -331,7 +347,7 @@
         state.busy = true; root.setAttribute('aria-busy', 'true'); $('readAll').disabled = true;
         try {
             const result = await request('/api/account/notifications/read-all' + query, { method: 'POST', headers: { 'Accept': 'application/json', 'X-Jelly-CSRF': '1' } });
-            state.busy = false; root.setAttribute('aria-busy', 'false');
+            endBusy();
             await load(false);
             if ($('notificationError').hidden) {
                 const updated = result && Number(result.updated);
@@ -340,8 +356,8 @@
                     : (en ? 'Notifications marked as read.' : '通知已標為已讀。'), false);
             }
         } catch (error) {
-            state.busy = false; root.setAttribute('aria-busy', 'false');
             setStatus(errorText(error.response, error), true); $('readAll').disabled = false;
+            endBusy();
         }
     });
     $('retryNotifications').addEventListener('click', () => load(false));

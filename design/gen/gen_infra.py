@@ -27,8 +27,8 @@ main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-column
           <div class="card" style="display:flex;flex-direction:column;gap:14px">
             <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">快取</b><span class="chip ok" style="margin-left:auto">Redis · 已連線 · 0.4 ms</span></div>
             <div style="display:flex;flex-direction:column;gap:6px">
-              <label class="opt"><span class="cb" style="margin-top:2px"></span><span><b>記憶體（預設）</b><div class="h">不用設定。多台主機時各自一份，彼此不同步。</div></span></label>
-              <label class="opt on"><span class="cb on" style="margin-top:2px"></span><span><b>Redis / Valkey</b><div class="h">頁面、物件、工作階段共用一份，多台主機也一致。</div></span></label>
+              <label class="opt"><span class="rd j" style="margin-top:2px"></span><span><b>記憶體（預設）</b><div class="h">不用設定。多台主機時各自一份，彼此不同步。</div></span></label>
+              <label class="opt on"><span class="rd j on" style="margin-top:2px"></span><span><b>Redis / Valkey</b><div class="h">頁面、物件、工作階段共用一份，多台主機也一致。</div></span></label>
             </div>
             <div><span class="lbl">連線</span><div style="display:flex;gap:8px;align-items:center"><input class="ul" type="text" value="redis://cache.internal:6379/0" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><button class="btn t s" type="button">{I("refresh",14)}測試</button></div><div style="font-size:12px;color:#5F6470;margin-top:6px">密碼放環境變數 <span class="kbd">JELLY_CACHE_URL</span> 也可以，這裡會顯示「由環境變數設定」而不是明碼。</div></div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
@@ -38,10 +38,10 @@ main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-column
             </div>
             <div>
               <span class="lbl">快取什麼、放多久</span>
-              <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label>前台頁面</label><div class="h">發布、改主題、改選單時自動清。</div></div><div class="c"><div class="seg"><span>關</span><span>1 分</span><span class="on">10 分</span><span>1 小時</span></div></div></div>
-              <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label>物件（設定、選單、分類樹、商品）</label></div><div class="c"><div class="seg"><span>關</span><span class="on">自動</span></div></div></div>
-              <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label>工作階段（登入狀態、購物車）</label><div class="h">改後端時現有登入會失效。</div></div><div class="c"><div class="seg"><span>PostgreSQL</span><span class="on">Redis</span></div></div></div>
-              <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label>限流計數（登入失敗、API）</label></div><div class="c"><div class="seg"><span>記憶體</span><span class="on">Redis</span></div></div></div>
+              <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label>前台頁面</label><div class="h">發布、改主題、改選單時自動清。</div></div><div class="c"><div class="seg j"><span>關</span><span>1 分</span><span class="on">10 分</span><span>1 小時</span></div></div></div>
+              <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label>物件（設定、選單、分類樹、商品）</label></div><div class="c"><div class="seg j"><span>關</span><span class="on">自動</span></div></div></div>
+              <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label>工作階段（登入狀態、購物車）</label><div class="h">改後端時現有登入會失效。</div></div><div class="c"><div class="seg j"><span>PostgreSQL</span><span class="on">Redis</span></div></div></div>
+              <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label>限流計數（登入失敗、API）</label></div><div class="c"><div class="seg j"><span>記憶體</span><span class="on">Redis</span></div></div></div>
             </div>
             <div style="display:flex;gap:8px"><button class="btn t" type="button">{I("trash")}清除頁面快取</button><button class="btn t" type="button">{I("trash")}全部清除</button><span style="font-size:12px;color:#5F6470;align-self:center;margin-left:auto">上次清除：今天 09:12（發布文章）</span></div>
           </div>
@@ -50,11 +50,11 @@ main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-column
           <div class="card" style="display:flex;flex-direction:column;gap:14px">
             <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">背景工作佇列</b><span class="chip ok" style="margin-left:auto">PostgreSQL · 2 個工作者</span></div>
             <div style="display:flex;flex-direction:column;gap:6px">
-              <label class="opt on"><span class="cb on" style="margin-top:2px"></span><span><b>PostgreSQL（預設）</b><div class="h">用資料庫當佇列，不用多裝東西。每秒幾十件以內很夠。</div></span></label>
-              <label class="opt"><span class="cb" style="margin-top:2px"></span><span><b>Redis Streams</b><div class="h">跟上面的 Redis 共用連線。量大、要多台工作者時用。</div></span></label>
-              <label class="opt"><span class="cb" style="margin-top:2px"></span><span><b>NATS JetStream</b><div class="h">要和別的系統互通事件時用；RabbitMQ、Kafka 由外掛提供。</div></span></label>
+              <label class="opt on"><span class="rd j on" style="margin-top:2px"></span><span><b>PostgreSQL（預設）</b><div class="h">用資料庫當佇列，不用多裝東西。每秒幾十件以內很夠。</div></span></label>
+              <label class="opt"><span class="rd j" style="margin-top:2px"></span><span><b>Redis Streams</b><div class="h">跟上面的 Redis 共用連線。量大、要多台工作者時用。</div></span></label>
+              <label class="opt"><span class="rd j" style="margin-top:2px"></span><span><b>NATS JetStream</b><div class="h">要和別的系統互通事件時用；RabbitMQ、Kafka 由外掛提供。</div></span></label>
             </div>
-            <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label>工作者數量</label><div class="h">同一個程序裡跑；設 0 則這台只收件不處理（多台時給專門的那台跑）。</div></div><div class="c"><div class="seg"><span>0</span><span>1</span><span class="on">2</span><span>4</span><span>8</span></div></div></div>
+            <div class="srow" style="grid-template-columns:minmax(0,1fr) auto"><div><label>工作者數量</label><div class="h">同一個程序裡跑；設 0 則這台只收件不處理（多台時給專門的那台跑）。</div></div><div class="c"><div class="seg j"><span>0</span><span>1</span><span class="on">2</span><span>4</span><span>8</span></div></div></div>
             <div>
               <div class="q" style="border-top:0;font-size:11px;font-weight:700;color:#5F6470;letter-spacing:.06em;text-transform:uppercase"><span>佇列</span><span style="text-align:right">等待</span><span style="text-align:right">處理中</span><span style="text-align:right">失敗</span><span></span></div>
               <div class="q"><span><b>郵件</b><div class="h">訂單通知、邀請</div></span><span class="n">3</span><span class="n">1</span><span class="n" style="color:#B9BCC6">0</span><span><span class="chip ok">正常</span></span></div>

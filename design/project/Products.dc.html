@@ -35,6 +35,18 @@ td.a,th.a{text-align:right}tr:hover td{background:#F5F5F7}.mono{font-family:ui-m
 input[type=checkbox]{width:16px;height:16px;accent-color:#E8285B;margin:0}
 .stk{display:inline-flex;align-items:center;gap:6px}.stk i{width:48px;height:5px;background:#EDEEF1;border-radius:0 3px 0 3px;position:relative;overflow:hidden}.stk i b{position:absolute;left:0;top:0;bottom:0;background:#13C2A3}
 @media(max-width:700px){tbody td:first-child{min-width:12rem}td.a .btn{opacity:1}}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}
+.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span,.seg.j a{min-height:30px;padding:0 14px;border-radius:999px}
+.seg.j span.on,.seg.j a.on{background:#15161A;color:#fff;box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
+.jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
+.jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470;z-index:2}
+.jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.cb.j,.rd.j{--cb:28px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3)}.rd.j{border-radius:50%}
+.cb.j.on,.rd.j.on{background:#13C2A3}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Cpath d='M6.2 14.2l5.2 5.4L21.9 7.4' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.357);height:calc(var(--cb)*.357);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 </style>
 </helmet>
 <div style="width: 100%; min-height: 100vh; display: flex; flex-wrap: wrap; background: #fff">
@@ -70,7 +82,7 @@ input[type=checkbox]{width:16px;height:16px;accent-color:#E8285B;margin:0}
 
     <main style="padding: 16px 24px 32px; display: flex; flex-direction: column; gap: 12px">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap">
-        <div style="display: flex; align-items: center; gap: 16px"><h1 class="d" style="font-size: 26px">商品</h1><nav class="seg" aria-label="狀態"><a href="Products.dc.html" class="on">全部 42</a><a href="Products.dc.html">上架 33</a><a href="Products.dc.html">草稿 4</a><a href="Products.dc.html">缺貨 3</a><a href="Products.dc.html">下架 2</a></nav></div>
+        <div style="display: flex; align-items: center; gap: 16px"><h1 class="d" style="font-size: 26px">商品</h1><nav class="seg j" aria-label="狀態"><a href="Products.dc.html" class="on">全部 42</a><a href="Products.dc.html">上架 33</a><a href="Products.dc.html">草稿 4</a><a href="Products.dc.html">缺貨 3</a><a href="Products.dc.html">下架 2</a></nav></div>
         <div style="display: flex; align-items: center; gap: 6px"><label for="ps" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">搜尋商品</label><div style="position: relative"><svg class="ic" style="position: absolute; left: 10px; top: 10px; color: #5F6470" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg><input id="ps" type="text" placeholder="搜尋商品名稱或 SKU" style="width: 240px; min-height: 36px; padding: 0 12px 0 34px; border: 0; background: #F3F3F5; border-radius: 0 9px 0 9px; font: inherit; box-sizing: border-box"></div><a class="btn p" href="ProductEditor.dc.html"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>新商品</a></div>
       </div>
       <!-- 缺貨提醒：一條，不是彈窗 -->

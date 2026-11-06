@@ -33,7 +33,18 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .kbd{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:#fff;padding:1px 5px;border-radius:0 5px 0 5px;color:#5F6470}
 .ul{width:100%;min-height:32px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mark{display:inline-block;width:22px;height:26px;object-fit:contain}
-input[type=checkbox]{width:16px;height:16px;accent-color:#E8285B;margin:0}
+.tg.j{width:46px;height:26px;border-radius:13px}.tg.j:after{top:3px;right:3px;width:20px;height:20px;border-radius:50%;box-shadow:0 1px 2px rgba(21,22,26,.3),0 4px 10px -3px rgba(21,22,26,.28)}
+.tg.j.off:after{right:auto;left:3px}
+.seg.j{padding:4px;gap:2px;background:#EDEEF1;border-radius:999px}.seg.j span,.seg.j a{min-height:30px;padding:0 14px;border-radius:999px}
+.seg.j span.on,.seg.j a.on{background:#15161A;color:#fff;box-shadow:0 3px 8px -3px rgba(21,22,26,.45)}
+.jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
+.jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470;z-index:2}
+.jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.cb.j,.rd.j{--cb:28px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3)}.rd.j{border-radius:50%}
+.cb.j.on,.rd.j.on{background:#13C2A3}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Cpath d='M6.2 14.2l5.2 5.4L21.9 7.4' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.357);height:calc(var(--cb)*.357);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 </style>
 </helmet>
 <div style="width: 100%; min-height: 100vh; display: flex; flex-wrap: wrap; background: #fff">
@@ -71,7 +82,7 @@ input[type=checkbox]{width:16px;height:16px;accent-color:#E8285B;margin:0}
     <main style="flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; padding: 16px 24px 32px; align-items: start">
       <section style="display: flex; flex-direction: column; gap: 12px; min-width: 0">
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap">
-          <div style="display: flex; align-items: center; gap: 16px"><h1 class="d" style="font-size: 26px">附件</h1><nav class="seg" aria-label="類型"><a href="Media.dc.html" class="on">全部 84</a><a href="Media.dc.html">圖片 71</a><a href="Media.dc.html">文件 9</a><a href="Media.dc.html">其他 4</a></nav></div>
+          <div style="display: flex; align-items: center; gap: 16px"><h1 class="d" style="font-size: 26px">附件</h1><nav class="seg j" aria-label="類型"><a href="Media.dc.html" class="on">全部 84</a><a href="Media.dc.html">圖片 71</a><a href="Media.dc.html">文件 9</a><a href="Media.dc.html">其他 4</a></nav></div>
           <div style="display: flex; align-items: center; gap: 6px"><span style="color: #5F6470; font-size: 13px">已用 184 MB</span><button class="btn t i" type="button" aria-label="格狀"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg></button><button class="btn x i" type="button" aria-label="列表"><svg class="ic" viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h1M4 12h1M4 18h1"/></svg></button></div>
         </div>
         <p style="font-size:13px;color:#5F6470">從網址抓檔會排入背景處理並顯示各檔工作編號。<a href="Infra.dc.html#sys-jobs">查看工作並刷新狀態</a></p>
@@ -82,18 +93,18 @@ input[type=checkbox]{width:16px;height:16px;accent-color:#E8285B;margin:0}
         <!-- 拖放上傳區：平常只是一條細線，拖進來才展開 -->
         <div style="padding: 10px 14px; border: 1.5px dashed #D9DBE0; border-radius: 0 10px 0 10px; color: #5F6470; font-size: 13px; display: flex; align-items: center; gap: 8px"><svg class="ic" viewBox="0 0 24 24"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>把檔案拖到這裡，或貼上剪貼簿的圖片。單檔上限 20 MB。</div>
         <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px">
-          <div class="tile sel"><div class="thumb" style="background: #15161A; color: #fff">hero.jpg</div><div class="name">hero.jpg</div><input type="checkbox" checked aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
-          <div class="tile"><div class="thumb" style="background: #DDE7FF; color: #1C47B8">arch.png</div><div class="name">arch.png</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
-          <div class="tile"><div class="thumb" style="background: #DCF3E9; color: #0F6A45">team.webp</div><div class="name">team-2026.webp</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
-          <div class="tile"><div class="thumb">PDF</div><div class="name">brochure.pdf</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
-          <div class="tile"><div class="thumb">SVG</div><div class="name">logo.svg</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
-          <div class="tile"><div class="thumb" style="background: #FCF0C8; color: #7A5200">cover.jpg</div><div class="name">cover-oct.jpg</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
-          <div class="tile"><div class="thumb" style="background: #FADEDA; color: #9C2318">shot-1.png</div><div class="name">shot-1.png</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
-          <div class="tile"><div class="thumb" style="background: #DDE7FF; color: #1C47B8">shot-2.png</div><div class="name">shot-2.png</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
-          <div class="tile"><div class="thumb">ZIP</div><div class="name">plugin-seo.zip</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
-          <div class="tile"><div class="thumb" style="background: #DCF3E9; color: #0F6A45">icon.png</div><div class="name">icon-512.png</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
-          <div class="tile"><div class="thumb" style="background: #15161A; color: #fff">dark.jpg</div><div class="name">dark-hero.jpg</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
-          <div class="tile"><div class="thumb">MP4</div><div class="name">demo.mp4</div><input type="checkbox" aria-label="選取" style="position: absolute; left: 8px; top: 8px"></div>
+          <div class="tile sel"><div class="thumb" style="background: #15161A; color: #fff">hero.jpg</div><div class="name">hero.jpg</div><span class="cb j on" style="position: absolute; left: 8px; top: 8px"></span></div>
+          <div class="tile"><div class="thumb" style="background: #DDE7FF; color: #1C47B8">arch.png</div><div class="name">arch.png</div><span class="cb j" style="position: absolute; left: 8px; top: 8px"></span></div>
+          <div class="tile"><div class="thumb" style="background: #DCF3E9; color: #0F6A45">team.webp</div><div class="name">team-2026.webp</div><span class="cb j" style="position: absolute; left: 8px; top: 8px"></span></div>
+          <div class="tile"><div class="thumb">PDF</div><div class="name">brochure.pdf</div><span class="cb j" style="position: absolute; left: 8px; top: 8px"></span></div>
+          <div class="tile"><div class="thumb">SVG</div><div class="name">logo.svg</div><span class="cb j" style="position: absolute; left: 8px; top: 8px"></span></div>
+          <div class="tile"><div class="thumb" style="background: #FCF0C8; color: #7A5200">cover.jpg</div><div class="name">cover-oct.jpg</div><span class="cb j" style="position: absolute; left: 8px; top: 8px"></span></div>
+          <div class="tile"><div class="thumb" style="background: #FADEDA; color: #9C2318">shot-1.png</div><div class="name">shot-1.png</div><span class="cb j" style="position: absolute; left: 8px; top: 8px"></span></div>
+          <div class="tile"><div class="thumb" style="background: #DDE7FF; color: #1C47B8">shot-2.png</div><div class="name">shot-2.png</div><span class="cb j" style="position: absolute; left: 8px; top: 8px"></span></div>
+          <div class="tile"><div class="thumb">ZIP</div><div class="name">plugin-seo.zip</div><span class="cb j" style="position: absolute; left: 8px; top: 8px"></span></div>
+          <div class="tile"><div class="thumb" style="background: #DCF3E9; color: #0F6A45">icon.png</div><div class="name">icon-512.png</div><span class="cb j" style="position: absolute; left: 8px; top: 8px"></span></div>
+          <div class="tile"><div class="thumb" style="background: #15161A; color: #fff">dark.jpg</div><div class="name">dark-hero.jpg</div><span class="cb j" style="position: absolute; left: 8px; top: 8px"></span></div>
+          <div class="tile"><div class="thumb">MP4</div><div class="name">demo.mp4</div><span class="cb j" style="position: absolute; left: 8px; top: 8px"></span></div>
         </div>
         <div style="display: flex; align-items: center; gap: 12px; color: #5F6470; font-size: 13px"><span>1–24，共 84</span><a class="btn t s i" href="Media.dc.html" aria-label="上一頁" style="margin-left: auto"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12H4M10 6l-6 6 6 6"/></svg></a><b style="color: #15161A">1 / 4</b><a class="btn t s i" href="Media.dc.html" aria-label="下一頁"><svg class="ic" viewBox="0 0 24 24"><path d="M4 12h16M14 6l6 6-6 6"/></svg></a></div>
       </section>

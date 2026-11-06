@@ -2,14 +2,6 @@
 {{define "styles"}}
 <style>
     .cm-bar { display: flex; align-items: center; gap: .6rem .75rem; flex-wrap: wrap; margin-bottom: .75rem; }
-    .cm-seg { display: inline-flex; flex-wrap: wrap; gap: .2rem; padding: .2rem; background: var(--surface-mid); border-radius: var(--r-sm); }
-    .cm-seg button { display: inline-flex; align-items: center; gap: .4rem; min-height: 1.9rem; padding: 0 .75rem; border: 0; background: transparent; font: inherit; font-size: .8125rem; font-weight: 700; color: var(--muted); border-radius: var(--r-sm); cursor: pointer; white-space: nowrap; transition: background-color .12s ease, color .12s ease; }
-    .cm-seg button:hover { color: var(--ink); }
-    .cm-seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
-    .cm-seg button:focus-visible { outline: 3px solid var(--secondary); outline-offset: 1px; }
-    .cm-seg b { font-variant-numeric: tabular-nums; }
-    .cm-seg button[data-status="pending"] b { color: color-mix(in srgb, var(--warning) 80%, var(--ink)); }
-    .cm-seg button[data-status="pending"][aria-pressed="true"] b { color: var(--warning); }
     .cm-tools { display: flex; align-items: center; gap: .5rem; margin-left: auto; flex-wrap: wrap; }
     .cm-field { display: flex; align-items: center; gap: .5rem; min-height: 2.125rem; padding: 0 .65rem; background: var(--surface-mid); border-radius: var(--r-sm); color: var(--muted); font-size: .8125rem; }
     .cm-field:focus-within { box-shadow: inset 0 0 0 2px var(--secondary); }
@@ -25,13 +17,6 @@
     .cm-bulk .count { color: var(--muted); }
     .cm-bulk .hint { margin: 0 0 0 auto; display: block; }
     .cm-bulk .hint .kbd { margin: 0 .1rem; }
-
-    .cm-cb { appearance: none; -webkit-appearance: none; width: 1rem; height: 1rem; min-height: 0; padding: 0; margin: 0; flex: 0 0 auto; vertical-align: middle; background: var(--surface); border: 0; border-radius: 0 .3125rem 0 .3125rem; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink) 30%, var(--surface)); cursor: pointer; position: relative; }
-    .cm-cb:hover { box-shadow: inset 0 0 0 1.5px var(--ink); }
-    .cm-cb:checked, .cm-cb:indeterminate { background: var(--ink); box-shadow: none; }
-    .cm-cb:checked::after { content: ""; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px; border: solid var(--surface); border-width: 0 2px 2px 0; transform: rotate(45deg); }
-    .cm-cb:indeterminate::after { content: ""; position: absolute; left: 3px; top: 7px; width: 10px; height: 2px; background: var(--surface); }
-    .cm-cb:focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; }
 
     .cm-table { table-layout: auto; }
     .cm-table th.sel, .cm-table td.sel { width: 2.25rem; padding-right: 0; }
@@ -66,9 +51,9 @@
     .cm-sheet .quote .where { color: var(--muted); font-size: .75rem; margin-top: .25rem; }
     .cm-sheet textarea { min-height: 9rem; }
     .cm-sheet .opts { display: flex; gap: .5rem 1rem; flex-wrap: wrap; margin-top: .75rem; }
-    .cm-sheet .modal-header { position: relative; padding-right: 2.75rem; }
-    .cm-sheet .modal-header h2 { overflow-wrap: anywhere; }
-    .cm-sheet #sheetClose { position: absolute; right: -.5rem; top: -.25rem; }
+    #sheet { --jelly-dialog-width: min(30rem, 100%); }
+    .cm-sheet .opts jelly-checkbox { --jelly-label: var(--ink); }
+    .cm-bulk jelly-checkbox, .cm-table td.sel jelly-checkbox { vertical-align: middle; }
 
     [hidden] { display: none !important; }
     .cm-sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -109,12 +94,14 @@
 </div>
 
 <div class="cm-bar">
-    <div class="cm-seg" id="statusSeg" role="group" aria-label="{{.T.status}}">
-        <button type="button" data-status="all" aria-pressed="false">{{.T.cmAll}} <b data-count="all">-</b></button>
-        <button type="button" data-status="pending" aria-pressed="true">{{.T.cmPending}} <b data-count="pending">-</b></button>
-        <button type="button" data-status="approved" aria-pressed="false">{{.T.cmApproved}} <b data-count="approved">-</b></button>
-        <button type="button" data-status="spam" aria-pressed="false">{{.T.cmSpam}} <b data-count="spam">-</b></button>
-        <button type="button" data-status="trash" aria-pressed="false">{{.T.cmTrash}} <b data-count="trash">-</b></button>
+    <div class="seg-scroll">
+        <jelly-segmented id="statusSeg" name="status" value="pending" label="{{.T.status}}">
+            <jelly-segment value="all">{{.T.cmAll}}</jelly-segment>
+            <jelly-segment value="pending">{{.T.cmPending}}</jelly-segment>
+            <jelly-segment value="approved">{{.T.cmApproved}}</jelly-segment>
+            <jelly-segment value="spam">{{.T.cmSpam}}</jelly-segment>
+            <jelly-segment value="trash">{{.T.cmTrash}}</jelly-segment>
+        </jelly-segmented>
     </div>
     <div class="cm-tools">
         <label class="cm-field search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="q" placeholder="{{.T.cmSearchPlaceholder}}" aria-label="{{.T.cmSearchLabel}}" autocomplete="off"></label>
@@ -123,7 +110,7 @@
 </div>
 
 <div class="cm-bulk" id="bulkBar">
-    <input class="cm-cb" type="checkbox" id="selectAll" aria-label="{{.T.cmSelectAll}}">
+    <jelly-checkbox size="sm" id="selectAll" label="{{.T.cmSelectAll}}"></jelly-checkbox>
     <span class="count" id="bulkCount"></span>
     <button class="btn btn-secondary btn-sm" type="button" data-bulk="approve" disabled><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>{{.T.cmApprove}}</button>
     <button class="btn btn-secondary btn-sm" type="button" data-bulk="spam" disabled><svg class="icon" aria-hidden="true"><use href="#cm-i-ban"/></svg>{{.T.cmSpamAct}}</button>
@@ -160,11 +147,10 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="sheet" aria-hidden="true">
-    <form class="modal-content cm-sheet" id="sheetForm" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+<jelly-dialog id="sheet">
+    <form class="cm-sheet" id="sheetForm">
         <div class="modal-header">
             <h2 id="sheetTitle"></h2>
-            <button class="btn btn-text btn-sm btn-icon" type="button" id="sheetClose" aria-label="{{.T.close}}"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
         </div>
         <div class="quote" id="sheetQuote">
             <b id="sheetWho"></b>：<span id="sheetText"></span>
@@ -173,14 +159,14 @@
         <label for="sheetBody" class="cm-sr">{{.T.cmColBody}}</label>
         <textarea id="sheetBody" rows="6" maxlength="5000" required></textarea>
         <div class="opts" id="sheetOpts">
-            <label class="inline"><input class="cm-cb" type="checkbox" id="sheetApprove" checked>{{.T.cmReplyApproveToo}}</label>
+            <jelly-checkbox size="sm" id="sheetApprove" checked>{{.T.cmReplyApproveToo}}</jelly-checkbox>
         </div>
         <div class="modal-footer">
             <button class="btn btn-primary" type="submit" id="sheetSubmit"><svg class="icon" aria-hidden="true"><use href="#i-undo"/></svg><span></span></button>
             <button class="btn btn-secondary" type="button" id="sheetCancel"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>{{.T.cancel}}</button>
         </div>
     </form>
-</div>
+</jelly-dialog>
 {{end}}
 {{define "scripts"}}
 <script>
@@ -198,6 +184,7 @@
         failed: {{.T.cmActionFailed}}, needBody: {{.T.cmNeedBody}}, editUnsupported: {{.T.cmEditUnsupported}},
         confirmDelete: {{.T.cmConfirmDelete}}, confirmBulkDelete: {{.T.cmConfirmBulkDelete}},
         justNow: {{.T.cmJustNow}}, deletedPost: {{.T.cmDeletedPost}},
+        segments: { all: {{.T.cmAll}}, pending: {{.T.cmPending}}, approved: {{.T.cmApproved}}, spam: {{.T.cmSpam}}, trash: {{.T.cmTrash}} },
         empty: { all: {{.T.cmEmptyAll}}, pending: {{.T.cmEmptyPending}}, approved: {{.T.cmEmptyApproved}}, spam: {{.T.cmEmptySpam}}, trash: {{.T.cmEmptyTrash}}, search: {{.T.cmEmptySearch}} }
     };
     var LANG = {{.Lang}};
@@ -318,13 +305,12 @@
     }
 
     function updateCounts() {
+        // 狀態篩選是 <jelly-segmented>：只在數字變了才改段的文字（Jelly.segmentText），選取跟著 state.status。
+        var seg = $('statusSeg');
         STATUSES.forEach(function (s) {
-            var b = document.querySelector('[data-count="' + s + '"]');
-            if (b) b.textContent = state.counts[s] != null ? state.counts[s] : '-';
+            Jelly.segmentText(seg, s, T.segments[s] + ' ' + (state.counts[s] != null ? state.counts[s] : '-'));
         });
-        document.querySelectorAll('#statusSeg button').forEach(function (b) {
-            b.setAttribute('aria-pressed', String(b.dataset.status === state.status));
-        });
+        if (seg.getAttribute('value') !== state.status) seg.setAttribute('value', state.status);
         var pend = state.counts.pending || 0;
         var all = $('approveAll');
         all.disabled = pend === 0;
@@ -381,11 +367,11 @@
         if (state.selected[it.id]) tr.classList.add('is-selected');
 
         var td = el('td', 'sel');
-        var cb = el('input', 'cm-cb');
-        cb.type = 'checkbox';
+        var cb = el('jelly-checkbox');
+        cb.setAttribute('size', 'sm');
         cb.dataset.select = it.id;
-        cb.checked = !!state.selected[it.id];
-        cb.setAttribute('aria-label', it.name);
+        cb.toggleAttribute('checked', !!state.selected[it.id]);
+        cb.setAttribute('label', it.name);
         td.appendChild(cb);
         tr.appendChild(td);
 
@@ -476,8 +462,8 @@
         var n = ids.length;
         $('bulkCount').textContent = fmt(T.selected, { n: n });
         var all = $('selectAll');
-        all.checked = n > 0 && n === state.items.length;
-        all.indeterminate = n > 0 && n < state.items.length;
+        all.toggleAttribute('checked', n > 0 && n === state.items.length);
+        all.toggleAttribute('indeterminate', n > 0 && n < state.items.length);
         var trashView = state.status === 'trash';
         document.querySelectorAll('[data-bulk]').forEach(function (b) {
             var k = b.dataset.bulk;
@@ -492,7 +478,7 @@
         if (r) {
             r.classList.toggle('is-selected', on);
             var cb = r.querySelector('[data-select]');
-            if (cb) cb.checked = on;
+            if (cb) cb.toggleAttribute('checked', on);
         }
         updateBulk();
     }
@@ -554,13 +540,14 @@
 
     /* ---------- 回覆 / 編輯 側頁 ---------- */
     var sheet = $('sheet'), sheetBody = $('sheetBody');
+    // 回覆與編輯是 <jelly-dialog>：Esc、點背景、右上 ✕ 與「取消」都關閉，焦點回到打開它的按鈕（Jelly.dialog）。
     function openSheet(mode, it) {
-        sheetState = { mode: mode, item: it, opener: document.activeElement };
+        sheetState = { mode: mode, item: it };
         var reply = mode === 'reply';
         $('sheetTitle').textContent = reply ? fmt(T.replyTo, { name: it.name }) : T.editTitle;
         $('sheetQuote').hidden = !reply;
         $('sheetOpts').hidden = !reply || it.status === 'approved';
-        $('sheetApprove').checked = true;
+        $('sheetApprove').toggleAttribute('checked', true);
         if (reply) {
             $('sheetWho').textContent = it.name;
             $('sheetText').textContent = it.body.length > 140 ? it.body.slice(0, 140) + '…' : it.body;
@@ -569,18 +556,14 @@
         sheetBody.value = reply ? '' : it.body;
         sheetBody.placeholder = reply ? T.replyPlaceholder : T.editPlaceholder;
         $('sheetSubmit').querySelector('span').textContent = reply ? T.send : T.save;
-        sheet.classList.add('open');
-        sheet.setAttribute('aria-hidden', 'false');
-        sheetBody.focus();
+        sheet.setAttribute('label', $('sheetTitle').textContent);
+        Jelly.dialog(sheet, { focus: sheetBody });
     }
     function closeSheet() {
         if (!sheetState) return;
-        sheet.classList.remove('open');
-        sheet.setAttribute('aria-hidden', 'true');
-        var op = sheetState.opener;
-        sheetState = null;
-        if (op && op.focus && document.contains(op)) op.focus();
+        Jelly.closeDialog(sheet);
     }
+    sheet.addEventListener('close', function () { sheetState = null; });
     function submitSheet(e) {
         e.preventDefault();
         if (!sheetState) return;
@@ -591,7 +574,7 @@
         var job;
         if (s.mode === 'reply') {
             job = api('POST', '/api/admin/comments/' + it.id + '/reply', { body: body }).then(function () {
-                if (it.status !== 'approved' && $('sheetApprove').checked) return api('POST', '/api/admin/comments/' + it.id + '/approve');
+                if (it.status !== 'approved' && $('sheetApprove').hasAttribute('checked')) return api('POST', '/api/admin/comments/' + it.id + '/approve');
             }).then(function () { toast(T.doneReply, { kind: 'success' }); });
         } else {
             job = api('PUT', '/api/admin/comments/' + it.id, { body: body }).then(function () { toast(T.doneEdit, { kind: 'success' }); });
@@ -608,13 +591,11 @@
     }
 
     /* ---------- 事件 ---------- */
-    document.querySelectorAll('#statusSeg button').forEach(function (b) {
-        b.addEventListener('click', function () {
-            state.status = b.dataset.status;
-            state.page = 1;
-            state.focusId = 0;
-            load();
-        });
+    $('statusSeg').addEventListener('change', function (e) {
+        state.status = (e.detail && e.detail.value) || $('statusSeg').getAttribute('value');
+        state.page = 1;
+        state.focusId = 0;
+        load();
     });
     var qTimer;
     $('q').addEventListener('input', function (e) {
@@ -626,14 +607,15 @@
     $('nextPage').addEventListener('click', function () { state.page++; load({ quiet: true }); });
     $('approveAll').addEventListener('click', approveAllPending);
     $('selectAll').addEventListener('change', function (e) {
-        state.items.forEach(function (it) { toggleSelect(it.id, e.target.checked); });
+        var on = $('selectAll').hasAttribute('checked');
+        state.items.forEach(function (it) { toggleSelect(it.id, on); });
     });
     document.querySelectorAll('[data-bulk]').forEach(function (b) {
         b.addEventListener('click', function () { bulk(b.dataset.bulk); });
     });
     tbody.addEventListener('change', function (e) {
         var cb = e.target.closest('[data-select]');
-        if (cb) toggleSelect(Number(cb.dataset.select), cb.checked);
+        if (cb) toggleSelect(Number(cb.dataset.select), cb.hasAttribute('checked'));
     });
     tbody.addEventListener('click', function (e) {
         var row = e.target.closest('tr');
@@ -646,20 +628,9 @@
         if (a === 'reply' || a === 'edit') openSheet(a, it); else act(a, it);
     });
     $('sheetForm').addEventListener('submit', submitSheet);
-    $('sheetClose').addEventListener('click', closeSheet);
     $('sheetCancel').addEventListener('click', closeSheet);
-    sheet.addEventListener('mousedown', function (e) { if (e.target === sheet) closeSheet(); });
     sheet.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeSheet(); return; }
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { submitSheet(e); return; }
-        if (e.key === 'Tab') {
-            var f = Array.prototype.slice.call(sheet.querySelectorAll('button, textarea, input')).filter(function (x) { return !x.disabled && x.offsetParent !== null; });
-            if (!f.length) return;
-            var i = f.indexOf(document.activeElement);
-            var next = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
-            e.preventDefault();
-            f[next].focus();
-        }
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) submitSheet(e);
     });
 
     document.addEventListener('keydown', function (e) {

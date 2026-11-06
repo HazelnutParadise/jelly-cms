@@ -38,6 +38,12 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
 .jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
 .jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.jd.st{position:relative;left:auto;top:auto;transform:none;width:auto;text-align:left}
+.cb.j,.rd.j{--cb:28px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3)}.rd.j{border-radius:50%}
+.cb.j.on,.rd.j.on{background:#13C2A3}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;width:auto;height:auto;border:0;transform:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Cpath d='M6.2 14.2l5.2 5.4L21.9 7.4' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.357);height:calc(var(--cb)*.357);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 .ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
 .cube{position:absolute;border-radius:0 26% 0 26%}
@@ -166,24 +172,24 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
         <span class="lbl">上傳處理</span>
         <div class="srow"><div><label>WebP 擴充處理器</label><div class="h">轉檔需安裝 media.processor 外掛，內建保留原始格式。</div></div><div class="c"><span class="chip nd">需要外掛</span></div></div>
         <div class="srow"><div><label>縮圖尺寸</label><div class="h">主題可以再要求別的尺寸。</div></div><div class="c"><span class="chip nd">320</span><span class="chip nd">768</span><span class="chip nd">1280</span><span class="chip nd">1920</span><button class="btn x s" type="button"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div></div>
-        <div class="srow"><div><label>移除照片的位置資訊（EXIF GPS）</label></div><div class="c"><span class="tg"></span></div></div>
-        <div class="srow"><div><label>單檔上限</label></div><div class="c"><div class="seg"><span>10 MB</span><span class="on">20 MB</span><span>64 MB</span></div></div></div>
+        <div class="srow"><div><label>移除照片的位置資訊（EXIF GPS）</label></div><div class="c"><span class="tg j"></span></div></div>
+        <div class="srow"><div><label>單檔上限</label></div><div class="c"><div class="seg j"><span>10 MB</span><span class="on">20 MB</span><span>64 MB</span></div></div></div>
         <div class="srow"><div><label>從網址抓檔</label><div class="h">貼一個或多個網址，排入背景下載後顯示各檔工作編號，可到工作列表刷新結果。</div></div><div class="c"><button class="btn t s" type="button"><svg class="ic" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg>從網址加入</button></div></div>
       </div>
     </section>
     <aside class="card" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">編輯：Cloudflare R2 · 圖片</b></div>
       <div><span class="lbl">名稱</span><input class="ul" type="text" value="Cloudflare R2 · 圖片"></div>
-      <div><span class="lbl">類型</span><div class="seg" style="margin-top:6px"><span>本機</span><span class="on">S3 相容</span></div></div>
+      <div><span class="lbl">類型</span><div class="seg j" style="margin-top:6px"><span>本機</span><span class="on">S3 相容</span></div></div>
       <div><span class="lbl">Endpoint</span><input class="ul" type="text" value="https://<account>.r2.cloudflarestorage.com" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">Bucket</span><input class="ul" type="text" value="jelly-media"></div><div><span class="lbl">Region</span><input class="ul" type="text" value="auto"></div></div>
       <div><label for="s3-access">Access key</label><input id="s3-access" class="ul" type="password" autocomplete="new-password" placeholder="已設定，留空保留"></div>
       <div><label for="s3-secret">Secret key</label><input id="s3-secret" class="ul" type="password" autocomplete="new-password" placeholder="已設定，留空保留"></div>
       <div><label for="s3-token">Session token（選填）</label><input id="s3-token" class="ul" type="password" autocomplete="new-password" placeholder="留空保留"></div>
-      <label><input type="checkbox">清除全部已儲存的 S3 憑證</label><p style="font-size:12px;color:#5F6470">憑證只顯示遮罩，留空保留；新憑證的 Access key 與 Secret key 必須成對填寫。本機與外掛策略不顯示 S3 設定，既有策略類型固定。</p>
+      <label style="display:flex;align-items:center;gap:8px"><span class="cb j"></span>清除全部已儲存的 S3 憑證</label><p style="font-size:12px;color:#5F6470">憑證只顯示遮罩，留空保留；新憑證的 Access key 與 Secret key 必須成對填寫。本機與外掛策略不顯示 S3 設定，既有策略類型固定。</p>
       <div><span class="lbl">用途（附件 / 備份）</span><input class="ul" type="text" value="media" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
       <div><span class="lbl">路徑前綴</span><input class="ul" type="text" value="images/" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
-      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">新上傳預設用這個<span class="tg off"></span></label>
+      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">新上傳預設用這個<span class="tg j off"></span></label>
       <div style="display:flex;gap:8px"><button class="btn p" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 4v5h8V4M8 20v-6h8v6"/></svg>儲存</button><button class="btn t" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>測試連線</button><button class="btn x i" type="button" aria-label="刪除" style="margin-left:auto;color:#9C2318"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg></button></div>
       <div style="font-size:12px;color:#5F6470;line-height:1.6">還有檔案的策略不能刪除，先搬到相同用途的其他策略；搬移先排入背景處理並顯示工作編號，可到<a href="Infra.dc.html#sys-jobs">工作列表</a>刷新確認完成後，再重新讀取檔案數。</div>
     </aside>
@@ -192,7 +198,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
   
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1040}}'>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1060}}'>
 class Component extends DCLogic {
   renderVals() { return {}; }
 }

@@ -41,7 +41,7 @@ def preference_rows():
     rows = []
     for event, channels in PREFERENCE_EVENTS:
         cells = "".join(
-            f'<td style="text-align:center"><span class="cb{" on" if enabled else ""}" role="checkbox" aria-checked="{str(enabled).lower()}" aria-label="{event} · {channel}"></span></td>'
+            f'<td style="text-align:center"><span class="cb j{" on" if enabled else ""}" role="checkbox" aria-checked="{str(enabled).lower()}" aria-label="{event} · {channel}"></span></td>'
             for channel, enabled in zip(("站內", "Email", "Webhook"), channels)
         )
         rows.append(f"<tr><td>{event}</td>{cells}</tr>")
@@ -55,7 +55,7 @@ def profile_preferences():
       <div><label for="profileWebhook">Webhook 網址（僅 HTTPS）</label><input id="profileWebhook" class="ul" type="url" placeholder="https://…" autocomplete="url"></div>
       <fieldset style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
         <legend class="lbl">勿擾時段</legend>
-        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="profileQuietEnabled">啟用勿擾時段</label>
+        <label style="display:flex;align-items:center;gap:8px"><span class="cb j"></span>啟用勿擾時段</label>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
           <div><label for="profileQuietStart">開始</label><input id="profileQuietStart" class="ul" type="time"></div>
           <div><label for="profileQuietEnd">結束</label><input id="profileQuietEnd" class="ul" type="time"></div>
@@ -66,7 +66,7 @@ def profile_preferences():
 
 
 profile_title, profile_css, profile_width, profile_height, profile_body = pages["Profile"]
-profile_height = max(profile_height, 2560)
+profile_height = max(profile_height, 2570)
 profile_anchor = '      <div>\n        <div class="lbl" style="margin-bottom:4px">密碼與安全</div>'
 if profile_anchor not in profile_body:
     raise RuntimeError("Profile generator anchor changed; refusing to update the board")
@@ -86,7 +86,7 @@ B["Notifications"] = ("後台 · 通知中心", CSS, 1440, 1000, admin("", ["通
   f'<button class="btn t" type="button">{I("check")}全部標為已讀</button><a class="btn t" href="Notifications.dc.html">{I("settings")}通知設定</a>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start">
     <section>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div class="seg"><span class="on">全部 <b>12</b></span><span>未讀 <b style="color:#E8285B">4</b></span><span>留言</span><span>訂單</span><span>系統</span><span>安全</span></div></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div class="seg j"><span class="on">全部 <b>12</b></span><span>留言</span><span>訂單</span><span>系統</span><span>安全</span></div><label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600"><span class="tg j off"></span>未讀 <b style="color:#E8285B">4</b></label></div>
       {nrow("comment","#F5B800;color:#3A2E00","2 則新留言待審","阿凱、Mei 在「零失敗焦糖布丁」留言。","5 分鐘前",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="Comments.dc.html">{I("eye",12)}去審核</a><button class="btn x s" type="button">{I("check",12)}全部核准</button></div>')}
       {nrow("cart","#E8285B","新訂單 JL-2026-0417 · NT$ 880","Ting 下單，信用卡已付款。","16:02",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="OrderDetail.dc.html">{I("arrow-r",12)}看訂單</a></div>')}
       {nrow("alert","#9C2318","外掛「SEO Boost」載入失敗","v1.4.0 與目前版本不相容，已自動停用。網站照常運作。","15:40",True,f'<div style="display:flex;gap:6px;margin-top:8px"><a class="btn t s" href="PluginDetail.dc.html">{I("plug",12)}看外掛</a><a class="btn x s" href="Logs.dc.html">{I("terminal",12)}日誌</a></div>')}
@@ -105,7 +105,7 @@ B["Notifications"] = ("後台 · 通知中心", CSS, 1440, 1000, admin("", ["通
       <div><label for="notificationWebhook">Webhook 網址（僅 HTTPS）</label><input id="notificationWebhook" class="ul" type="url" placeholder="https://…" autocomplete="url"><div style="font-size:12px;color:#5F6470;margin-top:6px">Webhook 目的地與勿擾時段可在個人帳號通知偏好設定。Email 走佇列寄出；SMTP 在「設定 › 郵件與通知」。</div></div>
       <fieldset style="border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
         <legend class="lbl">勿擾時段</legend>
-        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="quietEnabled">啟用勿擾時段</label>
+        <label style="display:flex;align-items:center;gap:8px"><span class="cb j"></span>啟用勿擾時段</label>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div><label for="quietStart">開始</label><input id="quietStart" class="ul" type="time"></div>
           <div><label for="quietEnd">結束</label><input id="quietEnd" class="ul" type="time"></div>
@@ -144,7 +144,7 @@ B["Tokens"] = ("後台 · 個人帳號 · API 權杖", CSS, 1440, 1000, admin(""
   </main>'''))
 
 # ---------- 附件 › 儲存策略與分組 ----------
-B["MediaPolicies"] = ("後台 · 附件 · 儲存策略與分組", CSS, 1440, 1040, admin("media", ["內容","附件","儲存策略"],
+B["MediaPolicies"] = ("後台 · 附件 · 儲存策略與分組", CSS, 1440, 1060, admin("media", ["內容","附件","儲存策略"],
   f'<a class="btn t" href="Media.dc.html">{I("arrow-l")}回附件庫</a><button class="btn p" type="button">{I("plus")}新增策略</button>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start">
     <section style="display:flex;flex-direction:column;gap:24px">
@@ -170,24 +170,24 @@ B["MediaPolicies"] = ("後台 · 附件 · 儲存策略與分組", CSS, 1440, 10
         <span class="lbl">上傳處理</span>
         <div class="srow"><div><label>WebP 擴充處理器</label><div class="h">轉檔需安裝 media.processor 外掛，內建保留原始格式。</div></div><div class="c"><span class="chip nd">需要外掛</span></div></div>
         <div class="srow"><div><label>縮圖尺寸</label><div class="h">主題可以再要求別的尺寸。</div></div><div class="c"><span class="chip nd">320</span><span class="chip nd">768</span><span class="chip nd">1280</span><span class="chip nd">1920</span><button class="btn x s" type="button">{I("plus",12)}</button></div></div>
-        <div class="srow"><div><label>移除照片的位置資訊（EXIF GPS）</label></div><div class="c"><span class="tg"></span></div></div>
-        <div class="srow"><div><label>單檔上限</label></div><div class="c"><div class="seg"><span>10 MB</span><span class="on">20 MB</span><span>64 MB</span></div></div></div>
+        <div class="srow"><div><label>移除照片的位置資訊（EXIF GPS）</label></div><div class="c"><span class="tg j"></span></div></div>
+        <div class="srow"><div><label>單檔上限</label></div><div class="c"><div class="seg j"><span>10 MB</span><span class="on">20 MB</span><span>64 MB</span></div></div></div>
         <div class="srow"><div><label>從網址抓檔</label><div class="h">貼一個或多個網址，排入背景下載後顯示各檔工作編號，可到工作列表刷新結果。</div></div><div class="c"><button class="btn t s" type="button">{I("download",12)}從網址加入</button></div></div>
       </div>
     </section>
     <aside class="card" style="position:sticky;top:16px;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">編輯：Cloudflare R2 · 圖片</b></div>
       <div><span class="lbl">名稱</span><input class="ul" type="text" value="Cloudflare R2 · 圖片"></div>
-      <div><span class="lbl">類型</span><div class="seg" style="margin-top:6px"><span>本機</span><span class="on">S3 相容</span></div></div>
+      <div><span class="lbl">類型</span><div class="seg j" style="margin-top:6px"><span>本機</span><span class="on">S3 相容</span></div></div>
       <div><span class="lbl">Endpoint</span><input class="ul" type="text" value="https://<account>.r2.cloudflarestorage.com" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">Bucket</span><input class="ul" type="text" value="jelly-media"></div><div><span class="lbl">Region</span><input class="ul" type="text" value="auto"></div></div>
       <div><label for="s3-access">Access key</label><input id="s3-access" class="ul" type="password" autocomplete="new-password" placeholder="已設定，留空保留"></div>
       <div><label for="s3-secret">Secret key</label><input id="s3-secret" class="ul" type="password" autocomplete="new-password" placeholder="已設定，留空保留"></div>
       <div><label for="s3-token">Session token（選填）</label><input id="s3-token" class="ul" type="password" autocomplete="new-password" placeholder="留空保留"></div>
-      <label><input type="checkbox">清除全部已儲存的 S3 憑證</label><p style="font-size:12px;color:#5F6470">憑證只顯示遮罩，留空保留；新憑證的 Access key 與 Secret key 必須成對填寫。本機與外掛策略不顯示 S3 設定，既有策略類型固定。</p>
+      <label style="display:flex;align-items:center;gap:8px"><span class="cb j"></span>清除全部已儲存的 S3 憑證</label><p style="font-size:12px;color:#5F6470">憑證只顯示遮罩，留空保留；新憑證的 Access key 與 Secret key 必須成對填寫。本機與外掛策略不顯示 S3 設定，既有策略類型固定。</p>
       <div><span class="lbl">用途（附件 / 備份）</span><input class="ul" type="text" value="media" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
       <div><span class="lbl">路徑前綴</span><input class="ul" type="text" value="images/" style="font-family:ui-monospace,Menlo,monospace;font-size:12px"></div>
-      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">新上傳預設用這個<span class="tg off"></span></label>
+      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">新上傳預設用這個<span class="tg j off"></span></label>
       <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("refresh")}測試連線</button><button class="btn x i" type="button" aria-label="刪除" style="margin-left:auto;color:#9C2318">{I("trash")}</button></div>
       <div style="font-size:12px;color:#5F6470;line-height:1.6">還有檔案的策略不能刪除，先搬到相同用途的其他策略；搬移先排入背景處理並顯示工作編號，可到<a href="Infra.dc.html#sys-jobs">工作列表</a>刷新確認完成後，再重新讀取檔案數。</div>
     </aside>
@@ -196,13 +196,13 @@ B["MediaPolicies"] = ("後台 · 附件 · 儲存策略與分組", CSS, 1440, 10
 # ---------- 應用市場 ----------
 def app(color, ic, name, by, desc, meta, btn):
     return f'<div class="app"><div style="display:flex;gap:10px;align-items:center"><span class="ico" style="background:{color}">{I(ic,20)}</span><div><h3>{name}</h3><div style="font-size:11.5px;color:#5F6470">{by}</div></div></div><p>{desc}</p><div style="display:flex;align-items:center;gap:8px;margin-top:auto"><span style="font-size:11.5px;color:#5F6470">{meta}</span><span style="margin-left:auto">{btn}</span></div></div>'
-B["AppStore"] = ("後台 · 應用市場", CSS, 1440, 1030, admin("plugins", ["外觀","應用市場"],
+B["AppStore"] = ("後台 · 應用市場", CSS, 1440, 1050, admin("plugins", ["外觀","應用市場"],
   f'<button class="btn t" type="button">{I("upload")}上傳 .zip</button><button class="btn t" type="button">{I("link")}從網址安裝</button>',
   f'''<main style="padding:16px 24px 32px;display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div class="seg"><span class="on">{I("plug",13)}外掛 <b>86</b></span><span>{I("theme",13)}主題 <b>41</b></span><span>{I("refresh",13)}可更新 <b style="color:#E8285B">2</b></span><span>{I("check",13)}已安裝 <b>7</b></span></div>
+      <div class="seg j"><span class="on">{I("plug",13)}外掛 <b>86</b></span><span>{I("theme",13)}主題 <b>41</b></span><span>{I("refresh",13)}可更新 <b style="color:#E8285B">2</b></span><span>{I("check",13)}已安裝 <b>7</b></span></div>
       <label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:260px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="找外掛或主題" aria-label="搜尋" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label>
-      <div class="seg"><span class="on">全部</span><span>官方</span><span>編輯器</span><span>儲存</span><span>搜尋</span><span>留言</span><span>SEO</span><span>通知</span><span>內容類型</span><span>商店</span></div>
+      <div class="seg j"><span class="on">全部</span><span>官方</span><span>編輯器</span><span>儲存</span><span>搜尋</span><span>留言</span><span>SEO</span><span>通知</span><span>內容類型</span><span>商店</span></div>
     </div>
     <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:#FCF0C8;color:#7A5200;border-radius:0 10px 0 10px;font-size:13px">{I("alert",16)}<span><b>2 個已安裝的外掛有新版本</b>：Meilisearch 搜尋 1.3 → 1.4、S3 儲存 2.0 → 2.1。更新前會自動備份它們的設定。</span><button class="btn s" type="button" style="margin-left:auto">{I("refresh",12)}全部更新</button></div>
     <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
@@ -220,13 +220,13 @@ B["AppStore"] = ("後台 · 應用市場", CSS, 1440, 1030, admin("plugins", ["�
       {app("#E8285B","box","WooCommerce 匯入","Jelly 官方 · 遷移","把商品、訂單、顧客搬過來。","v0.5 預覽","<button class='btn s' type='button'>"+I("download",12)+"安裝</button>")}
     </div>
     <p style="font-size:13px;color:#5F6470">重新整理目錄會排入背景處理並顯示工作編號，請到<a href="Infra.dc.html#sys-jobs">工作列表</a>刷新確認結果。</p>
-    <div class="card" style="display:flex;flex-direction:column;gap:10px"><b>安裝前確認</b><span class="chip nd">Meilisearch 搜尋 · 1.4</span><span class="mono">net.fetch · content.read</span><label style="font-size:13px"><input type="checkbox"> 我同意授予以上權限</label><div><button class="btn p" type="button">安裝</button><button class="btn t" type="button">取消</button></div></div>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px"><b>安裝前確認</b><span class="chip nd">Meilisearch 搜尋 · 1.4</span><span class="mono">net.fetch · content.read</span><label style="display:flex;align-items:center;gap:8px;font-size:13px"><span class="cb j"></span>我同意授予以上權限</label><div><button class="btn p" type="button">安裝</button><button class="btn t" type="button">取消</button></div></div>
     <div style="display:flex;align-items:center;gap:10px;font-size:12px;color:#5F6470">{I("shield",14)}<span>官方外掛有簽章。市場、網址與 ZIP 安裝都先顯示名稱、版本與權限，勾選同意後才安裝。所有外掛跑在 QuickJS 隔離裡，掛了不影響網站。</span></div>
   </main>'''))
 
 # ---------- 外掛詳情與擴充設定 ----------
 B["PluginDetail"] = ("後台 · 外掛詳情", CSS, 1440, 1000, admin("plugins", ["外觀","外掛","Meilisearch 搜尋"],
-  f'<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">啟用<span class="tg"></span></label><button class="btn t" type="button">{I("refresh")}重新載入</button><button class="btn p" type="button">{I("refresh")}更新到 1.4</button>',
+  f'<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">啟用<span class="tg j"></span></label><button class="btn t" type="button">{I("refresh")}重新載入</button><button class="btn p" type="button">{I("refresh")}更新到 1.4</button>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start">
     <section>
       <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px"><span style="width:56px;height:56px;background:#2F6BFF;color:#fff;display:grid;place-items:center;border-radius:0 16px 0 16px">{I("search",26)}</span><div><h1 class="d" style="font-size:22px">Meilisearch 搜尋</h1><div style="font-size:12.5px;color:#5F6470">Jelly 官方 · v1.3.2 → <b style="color:#E8285B">1.4.0 可更新</b> · 執行中 · 記憶體 18 MB · 今天被呼叫 4,120 次</div></div></div>
@@ -235,7 +235,7 @@ B["PluginDetail"] = ("後台 · 外掛詳情", CSS, 1440, 1000, admin("plugins",
         <div class="srow"><div><label>Meilisearch 網址</label></div><div class="c"><input class="ul" type="text" value="http://search.internal:7700" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></div></div>
         <div class="srow"><div><label>API 金鑰</label></div><div class="c"><input class="ul" type="password" placeholder="••••1234，留空保留"></div></div>
         <div class="srow"><div><label>索引內容</label></div><div class="c"><span class="chip nd">文章</span><span class="chip nd">頁面</span><span class="chip nd">商品</span><span class="chip nd" style="opacity:.5">留言</span></div></div>
-        <div class="srow"><div><label>錯字容忍</label><div class="h">「焦塘布丁」也找得到焦糖布丁。</div></div><div class="c"><span class="tg"></span></div></div>
+        <div class="srow"><div><label>錯字容忍</label><div class="h">「焦塘布丁」也找得到焦糖布丁。</div></div><div class="c"><span class="tg j"></span></div></div>
         <div class="srow"><div><label>重建索引</label><div class="h">上次 10/20 03:05 · 1,318 筆 · 12 秒</div></div><div class="c"><button class="btn t s" type="button">{I("refresh",12)}立刻重建</button></div></div>
         <div style="display:flex;gap:8px;margin-top:14px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("refresh")}測試連線</button><button class="btn x" type="button" style="margin-left:auto">{I("undo")}重設為預設值</button></div>
       </div>
@@ -277,7 +277,7 @@ B["PluginDetail"] = ("後台 · 外掛詳情", CSS, 1440, 1000, admin("plugins",
   </main>'''))
 
 # ---------- 設定 › 閱讀與網址 + 程式碼注入 ----------
-B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", CSS, 1440, 1510, admin("settings", ["系統","設定","閱讀與網址"],
+B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", CSS, 1440, 1520, admin("settings", ["系統","設定","閱讀與網址"],
   f'<button class="btn t" type="button">{I("undo")}還原</button><button class="btn p" type="button">{I("save")}儲存</button>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:32px;align-items:start">
     {settings_nav("閱讀與網址")}
@@ -285,16 +285,16 @@ B["SettingsRoutes"] = ("後台 · 設定 · 閱讀與網址、程式碼注入", 
       <div>
         <div class="lbl" style="margin-bottom:4px">網址結構</div>
         <div class="srow"><div><label>文章網址</label><div class="h">改了會自動幫舊網址建 301 轉址。</div></div><div class="c"><select class="ul"><option>/post/{{slug}}</option><option>/{{year}}/{{month}}/{{slug}}</option><option>/{{year}}/{{slug}}</option><option>/{{category}}/{{slug}}</option><option>/archives/{{slug}}</option></select></div></div>
-        <div class="srow"><div><label>網址別名怎麼產生</label></div><div class="c"><div class="seg"><span class="on">從標題（拼音／英文）</span><span>時間戳</span><span>短亂碼</span></div></div></div>
+        <div class="srow"><div><label>網址別名怎麼產生</label></div><div class="c"><div class="seg j"><span class="on">從標題（拼音／英文）</span><span>時間戳</span><span>短亂碼</span></div></div></div>
         <div class="srow"><div><label>分類 / 標籤 / 作者 / 月份 前綴</label></div><div class="c" style="gap:4px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"><input class="ul" type="text" value="/c/" style="width:64px"><input class="ul" type="text" value="/t/" style="width:64px"><input class="ul" type="text" value="/author/" style="width:84px"><input class="ul" type="text" value="/archive/" style="width:90px"></div></div>
         <div class="srow"><div><label>預覽</label></div><div class="c" style="font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:#5F6470;justify-content:flex-start;flex-direction:column;align-items:flex-start;gap:2px"><span>example.com/post/caramel-pudding</span><span>example.com/c/recipes/desserts</span><span>example.com/t/gelatin</span></div></div>
       </div>
       <div>
         <div class="lbl" style="margin-bottom:4px">列表</div>
-        <div class="srow"><div><label>首頁顯示</label></div><div class="c"><div class="seg"><span class="on">最新文章</span><span>指定頁面</span></div></div></div>
+        <div class="srow"><div><label>首頁顯示</label></div><div class="c"><div class="seg j"><span class="on">最新文章</span><span>指定頁面</span></div></div></div>
         <div class="srow"><div><label>每頁幾篇（首頁 / 分類標籤 / 作者 / 搜尋）</label></div><div class="c" style="gap:4px"><input class="ul" type="text" value="10" style="width:48px;text-align:center"><input class="ul" type="text" value="10" style="width:48px;text-align:center"><input class="ul" type="text" value="10" style="width:48px;text-align:center"><input class="ul" type="text" value="10" style="width:48px;text-align:center"></div></div>
         <div class="srow"><div><label>摘要</label><div class="h">沒手寫摘要時自動取幾個字。</div></div><div class="c"><input class="ul" type="text" value="110" style="width:64px;text-align:center"></div></div>
-        <div class="srow"><div><label>RSS / Atom</label><div class="h">/feed.xml、每個分類與作者也有自己的 feed。</div></div><div class="c"><div class="seg"><span class="on">全文</span><span>摘要</span><span>關</span></div></div></div>
+        <div class="srow"><div><label>RSS / Atom</label><div class="h">/feed.xml、每個分類與作者也有自己的 feed。</div></div><div class="c"><div class="seg j"><span class="on">全文</span><span>摘要</span><span>關</span></div></div></div>
         <div class="srow"><div><label>Sitemap 與 robots.txt</label><div class="h">自動產生，變更後 ping 搜尋引擎（IndexNow）。</div></div><div class="c"><span class="tg j"></span></div></div>
         <div class="srow"><div><label>讓搜尋引擎索引這個站</label><div class="h">關掉會加 noindex，測試站用。</div></div><div class="c"><span class="tg j"></span></div></div>
       </div>
@@ -335,11 +335,11 @@ def coupon_row(code, label, offer, cond, used, limit, pct, period, dim=False, no
             f'<td>{offer}</td><td style="color:#5F6470">{cond}</td><td><b class="mono">{used}</b> / {limit or "不限"}{bar}</td><td style="color:#5F6470">{period}</td>'
             f'<td class="act"><button class="btn x s i" type="button" aria-label="編輯 {code}">{I("edit")}</button><button class="btn x s i" type="button" aria-label="複製 {code}">{I("copy")}</button><button class="btn x s i" type="button" aria-label="刪除 {code}">{I("trash")}</button></td></tr>')
 
-B["Coupons"] = ("後台 · 折扣碼", CSS, 1440, 1280, admin("coupons", ["商店","折扣碼"],
+B["Coupons"] = ("後台 · 折扣碼", CSS, 1440, 1320, admin("coupons", ["商店","折扣碼"],
   f'<button class="btn t" type="button">{I("list")}批次產生</button><button class="btn p" type="button">{I("plus")}新增折扣碼</button>',
   f'''<main style="padding:16px 24px 32px;display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:24px;align-items:start">
     <section>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on">進行中 <b>4</b></span><span>排程 1</span><span>已結束 8</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="找代碼（跨分段搜尋）" aria-label="找代碼" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg j"><span class="on">進行中 <b>4</b></span><span>排程 1</span><span>已結束 8</span></div><label style="display:flex;align-items:center;gap:8px;background:#F3F3F5;border-radius:0 9px 0 9px;padding:0 10px;min-height:32px;width:220px;color:#5F6470;font-size:13px;margin-left:auto">{I("search",14)}<input type="text" placeholder="找代碼（跨分段搜尋）" aria-label="找代碼" style="border:0;background:transparent;font:inherit;flex:1;min-width:0"></label></div>
       <table><thead><tr><th>代碼</th><th>優惠</th><th>條件</th><th>用量</th><th>期間</th><th></th></tr></thead><tbody>
         {coupon_row("MOON15","中秋預購","85 折","分類（1 項） · 滿 NT$1,000",41,300,14,"09/01–09/20")}
         {coupon_row("FREESHIP","免運","免運費","全店 · 滿 NT$800",212,None,0,"長期")}
@@ -365,22 +365,22 @@ B["Coupons"] = ("後台 · 折扣碼", CSS, 1440, 1280, admin("coupons", ["商�
       <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">編輯：MOON15</b><span class="chip ok" style="margin-left:auto">進行中</span></div>
       <div><span class="lbl">代碼</span><div style="display:flex;gap:8px;align-items:center"><input class="ul" type="text" value="MOON15" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:16px;letter-spacing:.04em"><button class="btn t s" type="button">{I("refresh",12)}隨機</button></div><div style="font-size:12px;color:#5F6470;margin-top:4px">英數字、- 與 _；用過的代碼不能改。</div></div>
       <div><span class="lbl">名稱（只在後台）</span><input class="ul" type="text" value="中秋預購"></div>
-      <div><span class="lbl">類型</span><div class="seg" style="margin-top:6px"><span class="on">百分比</span><span>固定金額</span><span>免運</span><span>買 X 送 Y</span></div></div>
+      <div><span class="lbl">類型</span><div class="seg j" style="margin-top:6px"><span class="on">百分比</span><span>固定金額</span><span>免運</span><span>買 X 送 Y</span></div></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">折扣</span><div style="display:flex;align-items:center;gap:6px"><input class="ul mono" type="text" value="15" style="text-align:right"><span style="color:#5F6470">%</span></div></div><div><span class="lbl">最低消費 (NT$)</span><input class="ul mono" type="text" value="1000"></div></div>
       <div style="border:1.5px dashed #B9BCC6;border-radius:0 12px 0 12px;padding:12px;display:flex;flex-direction:column;gap:10px">
         <div style="display:flex;align-items:center;gap:8px"><span class="chip info nd">買 X 送 Y</span><span style="font-size:12px;color:#5F6470">類型選「買 X 送 Y」時取代上面的折扣欄</span></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">買幾件</span><input class="ul mono" type="text" value="3"></div><div><span class="lbl">送幾件</span><input class="ul mono" type="text" value="1"></div></div>
         <div style="font-size:12px;color:#5F6470">同一適用範圍的商品，每買足件數就送最便宜的件數；贈品不另算運費。</div>
       </div>
-      <div><span class="lbl">適用</span><div class="seg" style="margin-top:6px"><span>全店</span><span class="on">分類</span><span>指定商品</span></div>
-        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:13px;font-weight:600"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" style="accent-color:#E8285B;width:16px;height:16px;margin:0">果凍</label><label style="display:flex;align-items:center;gap:8px;padding-left:20px"><input type="checkbox" style="accent-color:#E8285B;width:16px;height:16px;margin:0">水果</label><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" checked style="accent-color:#E8285B;width:16px;height:16px;margin:0">禮盒</label></div>
+      <div><span class="lbl">適用</span><div class="seg j" style="margin-top:6px"><span>全店</span><span class="on">分類</span><span>指定商品</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:13px;font-weight:600"><label style="display:flex;align-items:center;gap:8px"><span class="cb j"></span>果凍</label><label style="display:flex;align-items:center;gap:8px;padding-left:20px"><span class="cb j"></span>水果</label><label style="display:flex;align-items:center;gap:8px"><span class="cb j on"></span>禮盒</label></div>
         <div style="font-size:12px;color:#5F6470;margin-top:6px">選「指定商品」時改成搜尋商品並加入。</div></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">總次數上限</span><input class="ul mono" type="text" value="300"></div><div><span class="lbl">每人次數</span><input class="ul mono" type="text" placeholder="不限"></div></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">開始</span><input class="ul mono" type="text" value="2026/09/01 00:00"></div><div><span class="lbl">結束</span><input class="ul mono" type="text" value="2026/09/20 23:59"></div></div>
       <div><span class="lbl">只限這個 Email（選填）</span><input class="ul" type="text" placeholder="name@example.com"></div>
-      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">可與免運碼疊加<span class="tg"></span></label>
-      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">只給會員<span class="tg off"></span></label>
-      <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:600"><span>啟用<span style="display:block;font-size:12px;font-weight:400;color:#5F6470">停用後顧客無法套用，已用過的紀錄保留。</span></span><span class="tg"></span></label>
+      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">可與免運碼疊加<span class="tg j"></span></label>
+      <label style="display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:600">只給會員<span class="tg j off"></span></label>
+      <label style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:600"><span>啟用<span style="display:block;font-size:12px;font-weight:400;color:#5F6470">停用後顧客無法套用，已用過的紀錄保留。</span></span><span class="tg j"></span></label>
       <div style="display:flex;gap:8px"><button class="btn p" type="button">{I("save")}儲存</button><button class="btn t" type="button">{I("eye")}在結帳頁預覽</button></div>
       <div style="border:1.5px dashed #B9BCC6;border-radius:0 12px 0 12px;padding:12px;display:flex;flex-direction:column;gap:10px">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><span class="lbl">試算小計 (NT$)</span><input class="ul mono" type="text" value="1200"></div><div><span class="lbl">件數</span><input class="ul mono" type="text" value="2"></div></div>

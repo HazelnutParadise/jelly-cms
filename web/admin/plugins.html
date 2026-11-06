@@ -20,7 +20,7 @@
         <p class="page-description">{{.T.noPluginsDesc}}</p>
     </div>
     <div class="page-actions">
-        <button class="btn btn-primary" type="button" onclick="document.getElementById('uploadModal').classList.add('open')"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>{{.T.uploadPlugin}}</button>
+        <button class="btn btn-primary" type="button" id="uploadOpen"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>{{.T.uploadPlugin}}</button>
     </div>
 </div>
 
@@ -29,8 +29,7 @@
 </div>
 
 {{/* Upload sheet */}}
-<div id="uploadModal" class="modal-overlay">
-    <div class="modal-content">
+<jelly-dialog id="uploadModal" label="{{.T.uploadPluginTitle}}">
         <div class="modal-header">
             <div class="label">{{.T.plugins}}</div>
             <h2>{{.T.uploadPluginTitle}}</h2>
@@ -44,11 +43,10 @@
             <div id="uploadStatus"></div>
             <div class="modal-footer">
                 <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>{{.T.upload}}</button>
-                <button type="button" class="btn btn-text" onclick="document.getElementById('uploadModal').classList.remove('open')"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>{{.T.cancel}}</button>
+                <button type="button" class="btn btn-text" id="uploadCancel"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>{{.T.cancel}}</button>
             </div>
         </form>
-    </div>
-</div>
+</jelly-dialog>
 {{end}}
 {{define "scripts"}}
 <script>
@@ -129,16 +127,19 @@
             });
 
             if (res.ok) {
-                alert(T.pluginReloaded);
+                Jelly.toast(T.pluginReloaded, { kind: 'success' });
             } else {
-                const err = await res.json();
-                alert(T.reloadFailed + ': ' + (err.error || 'Unknown error'));
+                const err = await res.json().catch(() => ({}));
+                Jelly.toast(T.reloadFailed, { kind: 'error', detail: err.error || 'Unknown error' });
             }
         } catch (err) {
-            alert(T.reloadFailed + ': ' + err.message);
+            Jelly.toast(T.reloadFailed, { kind: 'error', detail: err.message });
         }
     }
 
+    // 上傳是 <jelly-dialog>：Esc、右上 ✕ 與「取消」都關閉，點背景不關（選好的檔案不會因誤點消失），焦點回到「上傳插件」按鈕。
+    document.getElementById('uploadOpen').addEventListener('click', (e) => Jelly.dialog(document.getElementById('uploadModal'), { opener: e.currentTarget, focus: '#pluginFile', dismissOnBackdrop: false }));
+    document.getElementById('uploadCancel').addEventListener('click', () => Jelly.closeDialog(document.getElementById('uploadModal')));
     document.getElementById('uploadForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -155,7 +156,7 @@
             if (res.ok) {
                 statusDiv.innerHTML = '<div class="alert alert-success">' + T.uploadSuccess + '</div>';
                 setTimeout(() => {
-                    document.getElementById('uploadModal').classList.remove('open');
+                    Jelly.closeDialog(document.getElementById('uploadModal'));
                     document.getElementById('uploadForm').reset();
                     statusDiv.innerHTML = '';
                     loadPlugins();

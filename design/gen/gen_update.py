@@ -60,9 +60,9 @@ bin_main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template-co
         </div>
         <div>
           <div class="lbl" style="margin-bottom:4px">更新設定</div>
-          <div class="srow"><div><label>自動檢查新版本</label><div class="h">每天一次向 api.github.com 問最新 release，只送出版本號與作業系統。</div></div><div class="c"><span class="tg"></span></div></div>
-          <div class="srow"><div><label>頻道</label><div class="h">預覽版會提前拿到功能，但可能有 bug。</div></div><div class="c"><div class="seg"><span class="on">穩定版</span><span>預覽版</span></div></div></div>
-          <div class="srow"><div><label>有新版本時</label><div class="h">自動更新只在半夜執行，且一定先備份。</div></div><div class="c"><div class="seg"><span class="on">只提醒我</span><span>寄 Email</span><span>自動更新（03:00）</span></div></div></div>
+          <div class="srow"><div><label>自動檢查新版本</label><div class="h">每天一次向 api.github.com 問最新 release，只送出版本號與作業系統。</div></div><div class="c"><span class="tg j"></span></div></div>
+          <div class="srow"><div><label>頻道</label><div class="h">預覽版會提前拿到功能，但可能有 bug。</div></div><div class="c"><div class="seg j"><span class="on">穩定版</span><span>預覽版</span></div></div></div>
+          <div class="srow"><div><label>有新版本時</label><div class="h">自動更新只在半夜執行，且一定先備份。</div></div><div class="c"><div class="seg j"><span class="on">只提醒我</span><span>寄 Email</span><span>自動更新（03:00）</span></div></div></div>
           <div class="srow"><div><label>保留舊版執行檔</label><div class="h">出問題時可以在這裡一鍵退回。</div></div><div class="c"><span style="font-size:13px;color:#5F6470">0.9.3、0.9.2</span><button class="btn t s" type="button">{I("undo",14)}退回 0.9.3</button></div></div>
         </div>
       </section>
@@ -77,7 +77,7 @@ docker_main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template
           <div class="card" style="display:flex;flex-direction:column;gap:12px">
             <div style="display:flex;align-items:center;gap:8px"><span class="stripe" style="width:40px"></span><b style="font-size:15px">這台是容器，更新要換映像</b></div>
             <p style="margin:0;font-size:13px;color:#5F6470;line-height:1.6">容器裡換掉執行檔，重建容器就不見了，所以這裡不提供「更新」按鈕。請用你部署的方式把映像換成 <b class="mono" style="color:#15161A">0.9.4</b>，啟動時會自動跑遷移。先備份資料庫。</p>
-            <div class="seg" style="align-self:flex-start"><span class="on">Docker</span><span>Docker Compose</span><span>Kubernetes</span><span>Zeabur / Railway</span></div>
+            <div class="seg j" style="align-self:flex-start"><span class="on">Docker</span><span>Docker Compose</span><span>Kubernetes</span><span>Zeabur / Railway</span></div>
             <div class="cmd"><span><b>$</b> docker pull ghcr.io/hazelnutparadise/jelly-cms:0.9.4</span><button class="btn t s i" type="button" aria-label="複製">{I("copy",14)}</button></div>
             <div class="cmd"><span><b>$</b> docker stop jelly &amp;&amp; docker rm jelly<br><b>$</b> docker run -d --name jelly --env-file .env -v jelly-data:/data -p 8080:8080 ghcr.io/hazelnutparadise/jelly-cms:0.9.4</span><button class="btn t s i" type="button" aria-label="複製">{I("copy",14)}</button></div>
             <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#F5F5F7;border-radius:0 9px 0 9px;font-size:12.5px;color:#3A3D45">{I("alert",16)}<span>用 <span class="kbd">latest</span> 標籤的話，只要 pull 再重建就好，但建議鎖版本號，才知道自己跑的是什麼。</span></div>
@@ -99,9 +99,9 @@ docker_main = f'''<main style="padding:16px 24px 32px;display:grid;grid-template
         </div>
         <div>
           <div class="lbl" style="margin-bottom:4px">更新設定</div>
-          <div class="srow"><div><label>自動檢查新版本</label><div class="h">每天一次向 api.github.com 問最新 release，只送出版本號與作業系統。</div></div><div class="c"><span class="tg"></span></div></div>
-          <div class="srow"><div><label>頻道</label></div><div class="c"><div class="seg"><span class="on">穩定版</span><span>預覽版</span></div></div></div>
-          <div class="srow"><div><label>有新版本時</label><div class="h">容器沒有自動更新選項。</div></div><div class="c"><div class="seg"><span class="on">只提醒我</span><span>寄 Email</span></div></div></div>
+          <div class="srow"><div><label>自動檢查新版本</label><div class="h">每天一次向 api.github.com 問最新 release，只送出版本號與作業系統。</div></div><div class="c"><span class="tg j"></span></div></div>
+          <div class="srow"><div><label>頻道</label></div><div class="c"><div class="seg j"><span class="on">穩定版</span><span>預覽版</span></div></div></div>
+          <div class="srow"><div><label>有新版本時</label><div class="h">容器沒有自動更新選項。</div></div><div class="c"><div class="seg j"><span class="on">只提醒我</span><span>寄 Email</span></div></div></div>
         </div>
       </section>
     </main>'''

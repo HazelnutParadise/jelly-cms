@@ -1056,5 +1056,21 @@
     "sys_s3CredentialsHint": "S3 fields appear only for S3 storage. Saved credentials are masked; leave them blank to keep them. Clear removes all saved credentials.",
     "sys_s3CredentialsPair": "Enter both an access key and a secret key for new S3 credentials.",
     "errorNotFoundBody": "This piece of jelly rolled under the table. The address may be mistyped, or the post has been moved.",
-    "searchQueryTooLong": "Search terms must be 100 characters or fewer."
+    "searchQueryTooLong": "Search terms must be 100 characters or fewer.",
+    "ed2ExportFormat": "Format",
+    "mediaUploadFile": "Upload file",
+    "mediaCopyUrl": "Copy URL",
+    "mediaUrlCopied": "URL copied",
+    "mediaCopyFailed": "Could not copy the URL",
+    "mediaDeleteTitle": "Delete {name}? This cannot be undone.",
+    "mediaDeleteFailed": "Delete failed",
+    "mediaRenameFailed": "Rename failed",
+    "mediaUploadFailed": "Upload failed",
+    "mediaEmptyTitle": "No files yet",
+    "mediaEmptyText": "Upload an image or document to get started.",
+    "oauthGoogleSaved": "Google OAuth settings saved",
+    "oauthGithubSaved": "GitHub OAuth settings saved",
+    "oauthSaveFailed": "OAuth settings were not saved",
+    "oauthTryAgain": "Please try again.",
+    "themeConfigLoadFailed": "Could not load the theme configuration"
 }

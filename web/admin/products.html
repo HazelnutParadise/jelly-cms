@@ -3,7 +3,7 @@
 {{define "content"}}
 <div class="sa-head">
     <h1>{{.T.products}}</h1>
-    <div class="sa-seg" id="segs" role="group" aria-label="{{.T.status}}"></div>
+    <div class="seg-scroll"><jelly-segmented id="segs" name="status" value="all" label="{{.T.status}}"></jelly-segmented></div>
     <span class="sa-grow"></span>
     <label class="sa-search"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><input type="search" id="q" autocomplete="off" enterkeyhint="search"></label>
     <a href="/admin/products/new" class="btn btn-primary" id="newBtn"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span></span></a>
@@ -48,9 +48,13 @@
     $('onlyOut').textContent = t('onlyOut');
 
     function segLabel(s) { return s === 'all' ? t('all') : t('ps_' + s); }
+    // 狀態篩選是 <jelly-segmented>：段只建一次，之後只在數字變了才改文字（Jelly.segmentText），選取跟著 st.status。
+    $('segs').innerHTML = SEGS.map(s => '<jelly-segment value="' + s + '">' + esc(segLabel(s)) + '</jelly-segment>').join('');
+    $('segs').addEventListener('change', (e) => { st.status = (e.detail && e.detail.value) || $('segs').getAttribute('value'); st.page = 1; load(); });
     function renderSegs() {
-        $('segs').innerHTML = SEGS.map(s => '<button type="button" data-s="' + s + '" aria-pressed="' + (st.status === s) + '">' + esc(segLabel(s)) + (counts[s] != null ? ' <b>' + (+counts[s]) + '</b>' : '') + '</button>').join('');
-        $('segs').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { st.status = b.dataset.s; st.page = 1; load(); }));
+        const seg = $('segs');
+        SEGS.forEach(s => Jelly.segmentText(seg, s, segLabel(s) + (counts[s] != null ? ' ' + (+counts[s]) : '')));
+        if (seg.getAttribute('value') !== st.status) seg.setAttribute('value', st.status);
     }
 
     // 規格與庫存：列表顯示最低售價、總庫存，任一規格不高於門檻就標低庫存

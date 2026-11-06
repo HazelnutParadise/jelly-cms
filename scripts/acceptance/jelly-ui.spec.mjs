@@ -20,7 +20,8 @@
 // Run it only against a dedicated fresh acceptance database: the checks create temporary fixtures and the
 // shop settings interactions save through /api/admin/shop/settings. Never point it at production data.
 // The design canvas check starts a static server on design/project and needs design/project/fonts/
-// (run scripts/vendor/fonts.sh). JELLY_ONLY=admin|public|design runs one group. JELLY_SCREENSHOT_DIR enables
+// (run scripts/vendor/fonts.sh). JELLY_ONLY=admin|public|design|consistency runs one group; consistency is the
+// ticket 26 group (docs/tickets/26-jelly-ui-consistency.md, slot 26-B). JELLY_SCREENSHOT_DIR enables
 // the bounded 24-image locale/width/theme visual matrix. Exit code 1 on any failure.
 
 import http from 'node:http';
@@ -448,7 +449,7 @@ async function runAdmin(browser) {
     const page = await openPage(context, [baseOrigin]);
     // Hold jelly.js back so the call below is certain to happen before the module has run. The server-side
     // "toast" template and early page scripts call Jelly.toast while the page is still parsing.
-    await page.route('**/admin/assets/jelly-ui/jelly.js', async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
+    await page.route(/\/admin\/assets\/jelly-ui\/jelly\.js(\?|$)/, async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
     await page.goto(`${base}/admin`, { waitUntil: 'commit' });
     await page.waitForFunction(() => window.Jelly && typeof window.Jelly.toast === 'function', null, { timeout: 10000 });
     const early = await page.evaluate(() => { const early = !customElements.get('jelly-toaster'); window.Jelly.toast('Queued early', { kind: 'info' }); return early; });
@@ -565,7 +566,7 @@ async function runAdmin(browser) {
 
   await check('dialog: a confirmation requested before jelly-dialog upgrades still opens and resolves', async () => {
     const page = await openPage(context, [baseOrigin]);
-    await page.route('**/admin/assets/jelly-ui/jelly.js', async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
+    await page.route(/\/admin\/assets\/jelly-ui\/jelly\.js(\?|$)/, async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
     await page.goto(`${base}/admin`, { waitUntil: 'commit' });
     await page.waitForFunction(() => window.Jelly && typeof window.Jelly.confirm === 'function', null, { timeout: 10000 });
     const beforeUpgrade = await page.evaluate(() => {
@@ -585,7 +586,7 @@ async function runAdmin(browser) {
 
   await check('toast: dismissing a queued toast prevents it from appearing after Jelly UI loads', async () => {
     const page = await openPage(context, [baseOrigin]);
-    await page.route('**/admin/assets/jelly-ui/jelly.js', async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
+    await page.route(/\/admin\/assets\/jelly-ui\/jelly\.js(\?|$)/, async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
     await page.goto(`${base}/admin`, { waitUntil: 'commit' });
     await page.waitForFunction(() => window.Jelly && typeof window.Jelly.toast === 'function', null, { timeout: 10000 });
     const early = await page.evaluate(() => {
@@ -787,7 +788,7 @@ async function runAdmin(browser) {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ settings: { payment_ecpay_enabled: 'true', payment_ecpay_test_mode: 'false' } }) });
       } else await route.continue();
     });
-    await page.route('**/admin/assets/jelly-ui/jelly.js', async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
+    await page.route(/\/admin\/assets\/jelly-ui\/jelly\.js(\?|$)/, async (route) => { await new Promise((r) => setTimeout(r, 2500)); await route.continue(); });
     await page.goto(`${base}/admin/settings/payment?lang=zh-TW`, { waitUntil: 'commit' });
     await page.locator('#ecpayEnabled').waitFor({ state: 'attached', timeout: 5000 });
     await page.waitForFunction(() => {
@@ -914,7 +915,7 @@ async function runAdmin(browser) {
       await row.click();
       await page.locator('#treeMount #menuSettings').waitFor({ state: 'visible', timeout: 5000 });
       await page.locator('#treeMount #menuSettings').click();
-      const form = page.locator('.modal-overlay.open form.mn-sheet-form');
+      const form = page.locator('jelly-dialog[open]:not([data-jelly-confirm]) form:has(#msName)');
       await form.waitFor({ state: 'visible', timeout: 5000 });
       const nameInput = form.locator('#msName');
       const unsavedName = `${name} unsaved edit`;
@@ -1225,6 +1226,948 @@ async function runAdmin(browser) {
   await context.close();
 }
 
+// ---------------------------------------------------------------------------------------------------------
+// Ticket 26 (docs/tickets/26-jelly-ui-consistency.md), slot 26-B: JELLY_ONLY=consistency. Every admin page
+// shows only Jelly UI selection controls and dialogs, keyboard operation works on the replaced controls, the
+// requests the pages send keep the same JSON fields and value types (expected bodies recorded on main
+// fc6ab71 before the replacement), notices that used alert() are Jelly toasts, and nothing overflows at
+// 390px in light or dark. These checks are expected to fail until slot 26-C lands; each failure names the
+// legacy control it found. Fixtures (a draft post, a menu, coupons, a category, a product) are created
+// through the admin API and removed again.
+
+// The pages of 〈逐頁清單〉 with the Jelly elements each must show once loaded (inner arrays are "any of").
+// '{post}' is replaced by the id of a draft post fixture.
+const consistencyPages = [
+  { path: '/admin/taxonomy', need: ['jelly-switch', 'jelly-segmented'] },
+  { path: '/admin/menus', need: ['jelly-switch', 'jelly-segmented'] },
+  { path: '/admin/coupons', need: ['jelly-switch', 'jelly-segmented'] },
+  { path: '/admin/posts/new', need: ['jelly-switch', 'jelly-segmented', 'jelly-checkbox', 'jelly-radio'] },
+  { path: '/admin/posts/{post}', need: ['jelly-switch', 'jelly-segmented', 'jelly-checkbox', 'jelly-radio'] },
+  { path: '/admin/posts/{post}/revisions', need: ['jelly-segmented', ['jelly-switch', 'jelly-checkbox']] },
+  { path: '/admin/pages/new', need: ['jelly-switch', 'jelly-segmented', 'jelly-radio'] },
+  { path: '/admin/products/new', need: ['jelly-segmented', 'jelly-checkbox'] },
+  { path: '/admin/products', need: ['jelly-segmented'] },
+  { path: '/admin/orders', need: ['jelly-segmented'] },
+  { path: '/admin/comments', need: ['jelly-segmented', 'jelly-checkbox'] },
+  { path: '/admin/trash', need: ['jelly-segmented', 'jelly-checkbox'] },
+  { path: '/admin/users', need: ['jelly-segmented', 'jelly-checkbox', 'jelly-radio-group', 'jelly-radio'] },
+  { path: '/admin/media', need: [] },
+  { path: '/admin/plugins', need: [] },
+  { path: '/admin/themes', need: [] },
+  { path: '/admin/account?tab=notifications', need: [['jelly-checkbox', 'jelly-switch']] },
+  { path: '/admin/integrations', need: ['jelly-checkbox'] },
+  { path: '/admin/settings/auth', need: ['jelly-switch'] },
+  { path: '/admin/logs', need: ['jelly-checkbox'] },
+];
+
+// Page-context helpers, passed as source so each evaluate can use them.
+const describeSource = `(el) => {
+  if (!el) return 'nothing';
+  const cls = typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\\s+/).join('.') : '';
+  const attrs = ['name', 'type', 'value'].filter((a) => el.getAttribute(a) !== null).map((a) => '[' + a + '=' + el.getAttribute(a) + ']').join('');
+  return el.localName + (el.id ? '#' + el.id : '') + cls + attrs;
+}`;
+
+async function consistencyPage(context, width = 1280) {
+  const page = await openPage(context, [baseOrigin]);
+  page.nativeDialogs = [];
+  page.on('dialog', (dialog) => {
+    page.nativeDialogs.push(`${dialog.type()}(${JSON.stringify(dialog.message())})`);
+    dialog.dismiss().catch(() => {});
+  });
+  await page.setViewportSize({ width, height: 800 });
+  return page;
+}
+
+// Fails with a message that names what the page shows instead (the legacy control), when there is one.
+async function need(page, selector, what, legacySelector) {
+  const locator = page.locator(selector).first();
+  try {
+    await locator.waitFor({ state: 'attached', timeout: 5000 });
+  } catch {
+    let legacy = '';
+    if (legacySelector) {
+      legacy = await page.evaluate(({ sel, src }) => {
+        const describe = eval(src);
+        const found = [...document.querySelectorAll(sel)].slice(0, 4).map(describe);
+        return found.length ? `; the page still shows ${found.join(', ')}` : '';
+      }, { sel: legacySelector, src: describeSource }).catch(() => '');
+    }
+    throw new Error(`${what}: nothing matches ${selector} on ${new URL(page.url()).pathname}${legacy}`);
+  }
+  return locator;
+}
+
+function problemsExcept(page, expected = []) {
+  return problemsOf(page).filter((p) => !expected.some((re) => re.test(p)));
+}
+
+function assertCleanPage(page, expected = []) {
+  assert(page.nativeDialogs.length === 0, `the page opened browser dialogs: ${page.nativeDialogs.join(', ')}; use Jelly.toast / Jelly.confirm`);
+  const problems = problemsExcept(page, expected);
+  assert(problems.length === 0, `unexpected page problems:\n${problems.join('\n')}`);
+}
+
+// The JSON shape of a value: every key mapped to string, number, boolean, null, array or object.
+function shapeOf(value) {
+  const kind = (v) => v === null ? 'null' : Array.isArray(v) ? 'array' : typeof v;
+  return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, kind(v)]));
+}
+
+function assertShape(label, body, expected) {
+  const got = shapeOf(body);
+  const keys = (o) => Object.keys(o).sort().join(',');
+  assert(keys(got) === keys(expected), `${label}: fields changed\n  sent:     ${keys(got)}\n  expected: ${keys(expected)}`);
+  const wrong = Object.keys(expected).filter((k) => got[k] !== expected[k]).map((k) => `${k} is ${got[k]}, want ${expected[k]}`);
+  assert(wrong.length === 0, `${label}: value types changed: ${wrong.join('; ')}`);
+}
+
+// The pressed state of a Jelly switch, checkbox or radio is its checked attribute (ticket 12 〈上游事實〉 6).
+const isChecked = (locator) => locator.evaluate((el) => el.hasAttribute('checked'));
+
+async function toastAfter(page, action, what) {
+  const before = await page.locator('jelly-toaster .toast').count();
+  await action();
+  try {
+    await page.waitForFunction((n) => (document.querySelector('jelly-toaster')?.shadowRoot?.querySelectorAll('.toast').length || 0) > n, before, { timeout: 5000 });
+  } catch {
+    throw new Error(`${what}: no Jelly toast appeared${page.nativeDialogs.length ? `; the page used ${page.nativeDialogs.join(', ')} instead` : ' and no browser dialog either (the action did nothing)'}`);
+  }
+  const toast = page.locator('jelly-toaster .toast').last();
+  return { text: (await toast.innerText()).trim(), tone: (await toast.locator('.sr-tone').innerText().catch(() => '')).replace(/:$/, '') };
+}
+
+// After the opener was clicked: exactly one open <jelly-dialog> (not counting Jelly.confirm) and no
+// hand-made .modal-overlay or native <dialog> on screen. Returns the open dialog.
+async function openedJellyDialog(page, what) {
+  const state = await page.waitForFunction((src) => {
+    const describe = eval(src);
+    const jelly = [...document.querySelectorAll('jelly-dialog[open]:not([data-jelly-confirm])')];
+    const legacy = [
+      ...[...document.querySelectorAll('.modal-overlay')].filter((el) => getComputedStyle(el).display !== 'none' && !el.hidden),
+      ...document.querySelectorAll('dialog[open]'),
+    ];
+    if (!jelly.length && !legacy.length) return null;
+    return {
+      jelly: jelly.length,
+      legacy: legacy.map(describe),
+      names: jelly.map((d) => d.shadowRoot?.querySelector('[role="dialog"]')?.getAttribute('aria-label') || ''),
+    };
+  }, describeSource, { timeout: 5000 }).then((handle) => handle.jsonValue()).catch(() => null);
+  assert(state, `${what}: nothing opened`);
+  assert(state.jelly === 1 && state.legacy.length === 0,
+    `${what}: want one open <jelly-dialog> and no hand-made overlay or native <dialog>; found ${state.jelly} open <jelly-dialog>${state.legacy.length ? ` and ${state.legacy.join(', ')}` : ''}`);
+  assert(state.names[0].trim(), `${what}: the open <jelly-dialog> has no accessible name (give it a label attribute or a heading)`);
+  return page.locator('jelly-dialog[open]:not([data-jelly-confirm])');
+}
+
+async function closedAndFocusReturned(page, opener, how, what) {
+  try {
+    await page.waitForFunction(() => !document.querySelector('jelly-dialog[open]:not([data-jelly-confirm])'), null, { timeout: 5000 });
+  } catch {
+    throw new Error(`${what}: ${how} did not close the <jelly-dialog>`);
+  }
+  const focus = await page.evaluate((src) => eval(src)(document.activeElement), describeSource);
+  assert(await opener.evaluate((el) => el === document.activeElement || el.contains(document.activeElement)),
+    `${what}: after ${how} the focus is on ${focus}, want the button that opened the dialog`);
+}
+
+async function apiJSON(page, method, url, data) {
+  const response = await page.request.fetch(`${base}${url}`, { method, data, headers: { 'X-Jelly-CSRF': '1' } });
+  let body = null;
+  try { body = await response.json(); } catch { body = null; }
+  return { ok: response.ok(), status: response.status(), body };
+}
+
+// The panel of an open <jelly-dialog> (its shadow part="dialog") in viewport coordinates.
+async function panelOf(dialog) {
+  return dialog.evaluate((el) => {
+    const r = el.shadowRoot?.querySelector('[part="dialog"]')?.getBoundingClientRect();
+    return r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null;
+  });
+}
+
+// A point of the backdrop: inside the viewport and outside the panel. It waits 400 ms first so the
+// 150 ms open animation has finished and the panel is measured where it rests.
+async function backdropPoint(page, dialog, what) {
+  await page.waitForTimeout(400);
+  const rect = await panelOf(dialog);
+  assert(rect, `${what}: the open dialog has no panel to measure`);
+  const { width, height } = page.viewportSize();
+  const midX = (rect.left + rect.right) / 2, midY = (rect.top + rect.bottom) / 2;
+  const candidates = [[rect.left - 24, midY], [rect.right + 24, midY], [midX, rect.top - 24], [midX, rect.bottom + 24], [8, 8], [width - 8, height - 8]];
+  const outside = candidates.find(([x, y]) => x > 0 && x < width && y > 0 && y < height && (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom));
+  assert(outside, `${what}: no point of the backdrop is visible outside the ${Math.round(rect.right - rect.left)}×${Math.round(rect.bottom - rect.top)} panel`);
+  return { x: outside[0], y: outside[1] };
+}
+
+async function clickBackdrop(page, dialog, what) {
+  const point = await backdropPoint(page, dialog, what);
+  await page.mouse.click(point.x, point.y);
+}
+
+// After an action: the dialog selector must still match exactly one open element.
+async function staysOpen(page, selector, what) {
+  await page.waitForTimeout(400);
+  assert(await page.locator(`${selector}[open]`).count() === 1, `${what} closed the dialog; it must stay open`);
+}
+
+// Submits the inline create form on /admin/integrations. Resolves with the response (or throws when none comes).
+async function submitIntegrationCreate(page) {
+  const [response] = await Promise.all([
+    page.waitForResponse((r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/admin/integrations', { timeout: 10000 }),
+    page.locator('#integrationCreate button[data-mutation]').click(),
+  ]);
+  const body = await response.json().catch(() => null);
+  return { ok: response.ok(), status: response.status(), body };
+}
+
+async function runConsistency(browser) {
+  if (!adminPassword) throw new Error('set JELLY_ADMIN_PASSWORD (and JELLY_ADMIN_USER) for the consistency checks');
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: baseOrigin }).catch(() => {});
+  await login(context);
+  const stamp = Date.now().toString().slice(-8);
+  const setup = await context.newPage();
+  await setup.goto(`${base}/admin`);
+  const post = await apiJSON(setup, 'POST', '/api/admin/posts', { title: `Jelly consistency ${stamp}`, status: 'draft', content: 'Consistency fixture.' });
+  if (!post.ok || !post.body?.id) throw new Error(`creating the draft post fixture: HTTP ${post.status}`);
+  const postID = post.body.id;
+  const cleanups = [async () => { await apiJSON(setup, 'DELETE', `/api/admin/posts/${postID}`); }];
+  const pagePath = (p) => p.replace('{post}', String(postID));
+
+  try {
+    await check('consistency: every listed admin page shows Jelly controls and no native checkbox/radio, .toggle-switch, role="switch", .modal-overlay or <dialog>', async () => {
+      const failures = [];
+      for (const item of consistencyPages) {
+        const page = await consistencyPage(context);
+        const path = pagePath(item.path);
+        const status = await visit(page, base + path);
+        if (status !== 200) { failures.push(`${path}: HTTP ${status}`); await page.close(); continue; }
+        await jellyReady(page, 'jelly-toaster');
+        await page.waitForTimeout(300);
+        const found = await page.evaluate(({ needs, src }) => {
+          const describe = eval(src);
+          const shown = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+          // Light DOM only: a Jelly checkbox keeps its own native input inside its shadow root, which is fine.
+          // #editorPreview holds the post's rendered content, whose task lists are not admin controls.
+          const native = [...document.querySelectorAll('input[type="checkbox"], input[type="radio"]')].filter((el) => !el.closest('#editorPreview'));
+          const list = (sel) => [...document.querySelectorAll(sel)].filter((el) => !el.closest('#editorPreview'));
+          return {
+            native: native.map((el) => describe(el) + (shown(el) ? ' (visible)' : ' (hidden)')),
+            toggles: list('.toggle-switch').map(describe),
+            switches: list('[role="switch"]').map(describe),
+            overlays: list('.modal-overlay').map(describe),
+            dialogs: list('dialog').map(describe),
+            missing: needs.filter((anyOf) => !(Array.isArray(anyOf) ? anyOf : [anyOf]).some((tag) => document.querySelector(tag)))
+              .map((anyOf) => (Array.isArray(anyOf) ? anyOf : [anyOf]).map((tag) => `<${tag}>`).join(' or ')),
+          };
+        }, { needs: item.need, src: describeSource });
+        const show = (items) => items.slice(0, 4).join(', ') + (items.length > 4 ? `, … ${items.length - 4} more` : '');
+        if (found.native.length) failures.push(`${path}: ${found.native.length} native checkbox/radio (${found.native.filter((d) => d.endsWith('(visible)')).length} visible): ${show(found.native)}`);
+        if (found.toggles.length) failures.push(`${path}: .toggle-switch: ${show(found.toggles)}`);
+        if (found.switches.length) failures.push(`${path}: hand-made role="switch": ${show(found.switches)}`);
+        if (found.overlays.length) failures.push(`${path}: .modal-overlay: ${show(found.overlays)}`);
+        if (found.dialogs.length) failures.push(`${path}: native <dialog>: ${show(found.dialogs)}`);
+        if (found.missing.length) failures.push(`${path}: missing ${found.missing.join(', ')}`);
+        for (const problem of problemsOf(page)) failures.push(`${path}: ${problem}`);
+        if (page.nativeDialogs.length) failures.push(`${path}: browser dialogs on load: ${page.nativeDialogs.join(', ')}`);
+        await page.close();
+      }
+      assert(failures.length === 0, failures.join('\n'));
+    });
+
+    await check('consistency: Jelly checkboxes and radios are size="sm", switches and segmented controls keep the default size, and a checked radio is visibly selected', async () => {
+      const failures = [];
+      for (const path of ['/admin/users', '/admin/products/new', `/admin/posts/${postID}`, '/admin/comments', '/admin/trash']) {
+        const page = await consistencyPage(context);
+        await visit(page, base + path);
+        await jellyReady(page, 'jelly-toaster');
+        await page.waitForTimeout(800); // let the pop animation of a selected control settle
+        const report = await page.evaluate(() => {
+          const out = { count: 0, problems: [] };
+          const id = (el) => el.localName + (el.id ? '#' + el.id : '') + (el.getAttribute('name') ? `[name=${el.getAttribute('name')}]` : '') + (el.getAttribute('value') ? `[value=${el.getAttribute('value')}]` : '');
+          for (const el of document.querySelectorAll('jelly-checkbox, jelly-radio, jelly-radio-group')) {
+            out.count++;
+            // jelly.js rewrites size="sm" to its canonical size="small" once the element is connected.
+            if (!['sm', 'small'].includes(el.getAttribute('size'))) out.problems.push(`${id(el)} size=${JSON.stringify(el.getAttribute('size'))}, want "sm"`);
+          }
+          for (const el of document.querySelectorAll('jelly-switch, jelly-segmented')) {
+            if (el.hasAttribute('size')) out.problems.push(`${id(el)} has size=${JSON.stringify(el.getAttribute('size'))}; switches and segmented controls keep the default size`);
+          }
+          const groups = new Map();
+          for (const radio of document.querySelectorAll('jelly-radio')) {
+            const name = radio.getAttribute('name') || '';
+            if (!name) out.problems.push(`${id(radio)} has no name; radios join a group by name`);
+            if (!groups.has(name)) groups.set(name, []);
+            groups.get(name).push(radio);
+          }
+          // A chosen radio is the one with the checked attribute; its inner control must report it and its
+          // canvas must paint differently from an unchosen sibling (the group element has no value upstream).
+          const centre = (radio) => {
+            const canvas = radio.shadowRoot?.querySelector('canvas');
+            if (!canvas || !canvas.width) return null;
+            const ctx = canvas.getContext('2d');
+            const box = radio.shadowRoot.querySelector('[data-jelly-box]')?.getBoundingClientRect();
+            const host = canvas.getBoundingClientRect();
+            const x = box ? Math.round((box.left + box.width / 2 - host.left) * canvas.width / host.width) : Math.round(canvas.width / 2);
+            const y = box ? Math.round((box.top + box.height / 2 - host.top) * canvas.height / host.height) : Math.round(canvas.height / 2);
+            return [...ctx.getImageData(x, y, 1, 1).data].join(',');
+          };
+          for (const [name, radios] of groups) {
+            const chosen = radios.filter((r) => r.hasAttribute('checked'));
+            if (chosen.length > 1) out.problems.push(`radio group ${name}: ${chosen.length} radios carry checked`);
+            for (const radio of radios) {
+              const aria = radio.shadowRoot?.querySelector('[role="radio"]')?.getAttribute('aria-checked');
+              if (aria !== String(radio.hasAttribute('checked'))) out.problems.push(`${id(radio)}: checked attribute ${radio.hasAttribute('checked')} but the control reports aria-checked=${aria}`);
+            }
+            const other = radios.find((r) => !r.hasAttribute('checked'));
+            if (chosen[0] && other && chosen[0].getClientRects().length && other.getClientRects().length) {
+              const a = centre(chosen[0]), b = centre(other);
+              if (a !== null && a === b) out.problems.push(`radio group ${name}: the checked ${id(chosen[0])} paints the same as ${id(other)} (${a}); the selection is not visible`);
+            }
+          }
+          return out;
+        });
+        if (report.count === 0) failures.push(`${path}: no <jelly-checkbox>, <jelly-radio-group> or <jelly-radio> to check`);
+        for (const problem of report.problems) failures.push(`${path}: ${problem}`);
+        await page.close();
+      }
+      assert(failures.length === 0, failures.join('\n'));
+    });
+
+    await check('consistency: a category flag switch toggles with Space and the save sends the same JSON booleans', async () => {
+      const page = await consistencyPage(context);
+      let createdID = null;
+      try {
+        await page.goto(`${base}/admin/taxonomy`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-switch');
+        await page.click('#newBtn');
+        await page.locator('#fName').waitFor({ state: 'visible', timeout: 5000 });
+        await page.fill('#fName', `JUI cat ${stamp}`);
+        const hide = await need(page, '#form jelly-switch[name="hide_from_list"]', 'the 不在列表顯示 flag', '#form input[name="hide_from_list"]');
+        const cascade = await need(page, '#form jelly-switch[name="no_cascade"]', 'the 不併入上層 flag', '#form input[name="no_cascade"]');
+        assert(!(await isChecked(hide)) && !(await isChecked(cascade)), 'a new category must start with both flags off');
+        await hide.focus();
+        await page.keyboard.press('Space');
+        assert(await isChecked(hide), 'Space did not turn the hide_from_list switch on');
+        const [request] = await Promise.all([
+          page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith('/api/admin/categories'), { timeout: 5000 }),
+          page.click('#saveBtn'),
+        ]);
+        const body = request.postDataJSON();
+        createdID = (await (await request.response())?.json().catch(() => null))?.id ?? null;
+        assertShape('POST /api/admin/categories', body, {
+          name: 'string', slug: 'string', color: 'string', description: 'string', parent_id: 'null', cover: 'string',
+          hide_from_list: 'boolean', no_cascade: 'boolean',
+        });
+        assert(body.hide_from_list === true && body.no_cascade === false, `flags sent hide_from_list=${body.hide_from_list} no_cascade=${body.no_cascade}, want true and false`);
+        assertCleanPage(page);
+      } finally {
+        if (createdID) await apiJSON(page, 'DELETE', `/api/admin/categories/${createdID}`);
+        await page.close();
+      }
+    });
+
+    await check('consistency: the coupon type segmented control moves with the arrow keys and the create request keeps its fields and types', async () => {
+      const page = await consistencyPage(context);
+      let createdID = null;
+      try {
+        await page.goto(`${base}/admin/coupons`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-segmented', 'jelly-switch');
+        await page.click('#newBtn');
+        await page.locator('#fCode').waitFor({ state: 'visible', timeout: 5000 });
+        const kind = await need(page, '#cf jelly-segmented[name="kind"]', 'the coupon 類型 choice', '#cf input[name="kind"]');
+        await need(page, '#cf jelly-segmented[name="scope"]', 'the coupon 適用 choice', '#cf input[name="scope"]');
+        assert(await kind.getAttribute('value') === 'percent', `a new coupon starts as ${await kind.getAttribute('value')}, want percent`);
+        await kind.locator('button[role="radio"][aria-checked="true"]').focus();
+        await page.keyboard.press('ArrowRight');
+        assert(await kind.getAttribute('value') === 'fixed', `ArrowRight moved the type to ${await kind.getAttribute('value')}, want fixed`);
+        await page.locator('#fFixed').waitFor({ state: 'visible', timeout: 3000 }).catch(() => { throw new Error('choosing 固定金額 by keyboard did not show the amount field (the page must listen to the segmented change event)'); });
+        await page.fill('#fCode', `JUIC${stamp}`);
+        await page.fill('#fFixed', '120');
+        const stack = await need(page, '#fStack', 'the 可與免運疊加 switch');
+        assert(await stack.evaluate((el) => el.localName) === 'jelly-switch', '#fStack is not a <jelly-switch>');
+        await stack.focus();
+        await page.keyboard.press('Space');
+        assert(await isChecked(stack), 'Space did not turn the stackable switch on');
+        const [request] = await Promise.all([
+          page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith('/api/admin/coupons'), { timeout: 5000 }),
+          page.click('#saveBtn'),
+        ]);
+        const body = request.postDataJSON();
+        createdID = (await (await request.response())?.json().catch(() => null))?.id ?? null;
+        assertShape('POST /api/admin/coupons', body, {
+          label: 'string', kind: 'string', value: 'number', buy_qty: 'number', get_qty: 'number', scope: 'string', code: 'string',
+          min_subtotal: 'number', usage_limit: 'null', per_user_limit: 'null', starts_at: 'null', ends_at: 'null', bound_email: 'string',
+          stackable_with_free_shipping: 'boolean', members_only: 'boolean', status: 'string', targets: 'array',
+        });
+        const want = { kind: 'fixed', value: 12000, scope: 'all', stackable_with_free_shipping: true, members_only: false, status: 'active' };
+        const wrong = Object.entries(want).filter(([k, v]) => body[k] !== v).map(([k, v]) => `${k}=${JSON.stringify(body[k])} (want ${JSON.stringify(v)})`);
+        assert(wrong.length === 0 && body.targets.length === 0, `coupon values changed: ${wrong.join(', ')} targets=${JSON.stringify(body.targets)}`);
+        assertCleanPage(page);
+      } finally {
+        if (createdID) await apiJSON(page, 'DELETE', `/api/admin/coupons/${createdID}`);
+        await page.close();
+      }
+    });
+
+    await check('consistency: the invite role radio cards move with the arrow keys and the invite sends the same email, role and note', async () => {
+      const page = await consistencyPage(context);
+      try {
+        // The invitation is answered here so the review database gets no invited user.
+        await page.route('**/api/admin/users/invite', (route) => route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: 0, invite_url: '/invite/consistency-check', emailed: false }) }));
+        await page.goto(`${base}/admin/users`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-radio', 'jelly-radio-group');
+        await need(page, '#inviteForm jelly-radio-group', 'the invite 角色 group', '#inviteForm input[name="role"]');
+        const editor = await need(page, '#inviteForm jelly-radio[name="role"][value="editor"]', 'the 編輯 role card', '#inviteForm input[name="role"]');
+        const author = page.locator('#inviteForm jelly-radio[name="role"][value="author"]');
+        assert(await isChecked(editor) && !(await isChecked(author)), 'the invite starts with 編輯 (editor) chosen');
+        await editor.focus();
+        await page.keyboard.press('ArrowDown');
+        assert(await isChecked(author) && !(await isChecked(editor)), 'ArrowDown from 編輯 did not choose 作者 (author) and clear 編輯');
+        await page.fill('#inviteEmail', `jui-${stamp}@example.test`);
+        const [request] = await Promise.all([
+          page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith('/api/admin/users/invite'), { timeout: 5000 }),
+          page.click('#sendInvite'),
+        ]);
+        const body = request.postDataJSON();
+        assertShape('POST /api/admin/users/invite', body, { email: 'string', role: 'string', note: 'string' });
+        assert(body.role === 'author' && body.email === `jui-${stamp}@example.test` && body.note === '', `invite sent ${JSON.stringify(body)}`);
+        assertCleanPage(page);
+      } finally {
+        await page.close();
+      }
+    });
+
+    await check('consistency: the 需要運送 checkbox toggles with Space and the product save sends the same booleans', async () => {
+      const page = await consistencyPage(context);
+      let createdID = null;
+      try {
+        await page.goto(`${base}/admin/products/new`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-checkbox', 'jelly-segmented');
+        const ship = await need(page, 'jelly-checkbox#fShip', 'the 需要運送 checkbox', 'input#fShip');
+        const cold = await need(page, 'jelly-checkbox#fCold', 'the 冷藏 checkbox', 'input#fCold');
+        await need(page, 'jelly-segmented[name="status"]', 'the product 狀態 choice', 'input[name="status"]');
+        assert(await isChecked(ship) && !(await isChecked(cold)), 'a new product starts with 需要運送 on and 冷藏 off');
+        await page.fill('#fTitle', `JUI product ${stamp}`);
+        await page.fill('#fPrice', '100');
+        await ship.focus();
+        await page.keyboard.press('Space');
+        assert(!(await isChecked(ship)), 'Space did not untick 需要運送');
+        const [request] = await Promise.all([
+          page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith('/api/admin/products'), { timeout: 5000 }),
+          page.click('#saveBtn'),
+        ]);
+        const body = request.postDataJSON();
+        const response = await (await request.response())?.json().catch(() => null);
+        createdID = response?.id ?? response?.product?.id ?? null;
+        assertShape('POST /api/admin/products', body, {
+          title: 'string', slug: 'string', description: 'string', price: 'string', compare_at_price: 'string', status: 'string',
+          low_stock_threshold: 'number', requires_shipping: 'boolean', cold_chain: 'boolean', images: 'array', categories: 'array',
+          variants: 'array', seo_title: 'string', seo_description: 'string', seo_index: 'string', seo_ai: 'string',
+        });
+        assert(body.requires_shipping === false && body.cold_chain === false && body.status === 'draft',
+          `product sent requires_shipping=${body.requires_shipping} cold_chain=${body.cold_chain} status=${body.status}, want false, false, draft`);
+        assertCleanPage(page);
+      } finally {
+        if (createdID) await apiJSON(page, 'DELETE', `/api/admin/products/${createdID}`);
+        await page.close();
+      }
+    });
+
+    await check('consistency: the theme customizer is a jelly-dialog, its layout checkboxes post the same JSON, and saving shows a Jelly toast', async () => {
+      const page = await consistencyPage(context);
+      try {
+        // Known saved settings, so the checkbox states do not depend on the review database; the save is answered here.
+        await page.route('**/api/admin/themes/default/settings', (route) => route.request().method() === 'GET'
+          ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ layout: JSON.stringify({ sidebar: false, footer: true }) }) })
+          : route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }));
+        await page.goto(`${base}/admin/themes`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-dialog', 'jelly-checkbox');
+        const opener = page.getByRole('button', { name: /客製化|Customize/ }).first();
+        await opener.click();
+        const dialog = await openedJellyDialog(page, 'the theme customizer');
+        await need(page, 'jelly-dialog[open] #customizeForm', 'the customizer form inside the dialog');
+        const sidebar = await need(page, '#customizeForm jelly-checkbox[name="layout_sidebar"]', 'the Sidebar layout checkbox', '#customizeForm input[name="layout_sidebar"]');
+        const footer = await need(page, '#customizeForm jelly-checkbox[name="layout_footer"]', 'the Footer layout checkbox', '#customizeForm input[name="layout_footer"]');
+        assert(!(await isChecked(sidebar)) && await isChecked(footer), 'the saved layout (sidebar off, footer on) is not shown');
+        await sidebar.click();
+        await footer.focus();
+        await page.keyboard.press('Space');
+        assert(await isChecked(sidebar) && !(await isChecked(footer)), 'clicking Sidebar and Space on Footer did not flip both');
+        let request;
+        const toast = await toastAfter(page, async () => {
+          [request] = await Promise.all([
+            page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith('/api/admin/themes/default/settings'), { timeout: 5000 }),
+            dialog.locator('#customizeForm button[type="submit"]').click(),
+          ]);
+        }, 'saving theme settings');
+        const body = request.postDataJSON();
+        assertShape('POST /api/admin/themes/default/settings', body, { colors: 'string', layout: 'string', custom: 'string' });
+        const layout = JSON.parse(body.layout);
+        assert(layout.sidebar === true, `layout.sidebar = ${JSON.stringify(layout.sidebar)}, want the boolean true`);
+        assert(!Object.prototype.hasOwnProperty.call(layout, 'footer'), `layout.footer = ${JSON.stringify(layout.footer)}; an unticked layout checkbox is left out, as before`);
+        assert(toast.tone === 'Success', `the save toast is ${toast.tone || 'untoned'}: ${toast.text}; want kind success`);
+        assertCleanPage(page);
+      } finally {
+        await page.close();
+      }
+    });
+
+    await check('consistency: the notices that used alert() are Jelly toasts (media copy URL, theme activation, OAuth save failure)', async () => {
+      const failures = [];
+      const attempt = async (what, run) => { try { await run(); } catch (error) { failures.push(`${what}: ${error.message}`); } };
+
+      await attempt('media: copy URL', async () => {
+        const page = await consistencyPage(context);
+        try {
+          await page.route('**/api/admin/media', (route) => route.request().method() === 'GET'
+            ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(['/uploads/jelly-consistency.txt']) })
+            : route.continue());
+          await page.goto(`${base}/admin/media?lang=zh-TW`, { waitUntil: 'networkidle' });
+          await jellyReady(page, 'jelly-toaster');
+          const copy = page.locator('#mediaGrid .media-item button').first();
+          await copy.waitFor({ state: 'visible', timeout: 5000 });
+          const toast = await toastAfter(page, () => copy.click(), 'copying a media URL');
+          const copied = await page.evaluate(() => navigator.clipboard.readText().catch(() => null));
+          if (copied === '/uploads/jelly-consistency.txt') assert(toast.tone === 'Success', `the copy toast is ${toast.tone}: ${toast.text}; want kind success`);
+          assert(/[\u4e00-\u9fff]/.test(toast.text), `the zh-TW copy toast reads ${JSON.stringify(toast.text)}; the hard-coded English message must become an i18n key`);
+          assertCleanPage(page);
+        } finally { await page.close(); }
+      });
+
+      await attempt('themes: activation success and failure', async () => {
+        const page = await consistencyPage(context);
+        try {
+          let activation = 200;
+          await page.route('**/api/admin/themes', (route) => route.request().method() === 'GET'
+            ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(['default', 'jelly-consistency']) })
+            : route.continue());
+          await page.route('**/api/admin/themes/jelly-consistency/config', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ name: 'Jelly Consistency', version: '1.0.0' }) }));
+          await page.route('**/api/admin/themes/activate', (route) => route.fulfill({ status: activation, contentType: 'application/json', body: JSON.stringify(activation === 200 ? { ok: true } : { error: 'Injected activation failure' }) }));
+          await page.goto(`${base}/admin/themes`, { waitUntil: 'networkidle' });
+          await jellyReady(page, 'jelly-toaster');
+          const card = page.locator('.theme-card', { hasText: 'Jelly Consistency' });
+          const activate = card.getByRole('button', { name: /啟用|Activate/ });
+          await activate.waitFor({ state: 'visible', timeout: 5000 });
+          const ok = await toastAfter(page, () => activate.click(), 'activating a theme');
+          assert(ok.tone === 'Success', `the activation toast is ${ok.tone}: ${ok.text}; want kind success`);
+          activation = 500;
+          await activate.waitFor({ state: 'visible', timeout: 5000 });
+          const bad = await toastAfter(page, () => activate.click(), 'a failed theme activation');
+          assert(bad.tone === 'Error', `the failed activation toast is ${bad.tone}: ${bad.text}; want kind error`);
+          assertCleanPage(page, [/HTTP 500: .*\/api\/admin\/themes\/activate/]);
+        } finally { await page.close(); }
+      });
+
+      await attempt('settings: Google OAuth save failure', async () => {
+        const page = await consistencyPage(context);
+        try {
+          await page.route('**/api/admin/oauth/providers/google', (route) => route.request().method() === 'POST'
+            ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Injected OAuth failure' }) })
+            : route.continue());
+          await page.goto(`${base}/admin/settings/auth?lang=zh-TW`, { waitUntil: 'networkidle' });
+          await jellyReady(page, 'jelly-switch', 'jelly-toaster');
+          await page.locator('#googleEnabled').waitFor({ state: 'visible', timeout: 5000 });
+          if (!(await isChecked(page.locator('#googleEnabled')))) { await page.focus('#googleEnabled'); await page.keyboard.press('Space'); }
+          await page.fill('#googleClientID', `jelly-consistency-${stamp}`);
+          await page.fill('#googleClientSecret', 'jelly-consistency-secret');
+          const bad = await toastAfter(page, () => page.click('#googleSaveBtn'), 'a failed Google OAuth save');
+          assert(bad.tone === 'Error', `the OAuth failure toast is ${bad.tone}: ${bad.text}; want kind error`);
+          assert(/[\u4e00-\u9fff]/.test(bad.text), `the zh-TW OAuth failure toast reads ${JSON.stringify(bad.text)}; the hard-coded English message must become an i18n key`);
+          assertCleanPage(page, [/HTTP 500: .*\/api\/admin\/oauth\/providers\/google/]);
+        } finally { await page.close(); }
+      });
+
+      assert(failures.length === 0, failures.join('\n'));
+    });
+
+    await check('consistency: the coupon batch sheet is a jelly-dialog; Escape and ✕ close it, focus returns, and its form still submits', async () => {
+      const page = await consistencyPage(context);
+      try {
+        await page.route('**/api/admin/coupons/generate', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ codes: [`JUIB${stamp}A`, `JUIB${stamp}B`] }) }));
+        await page.goto(`${base}/admin/coupons`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-dialog');
+        await page.click('#newBtn');
+        await page.locator('#fPercent').waitFor({ state: 'visible', timeout: 5000 });
+        await page.fill('#fPercent', '10'); // the batch uses the coupon form as its template
+        const opener = page.locator('#batchOpen');
+        await opener.click();
+        await openedJellyDialog(page, 'the coupon batch sheet');
+        await need(page, 'jelly-dialog[open] form#bf', 'the batch form inside the dialog');
+        await page.keyboard.press('Escape');
+        await closedAndFocusReturned(page, opener, 'Escape', 'the coupon batch sheet');
+        await opener.click();
+        await openedJellyDialog(page, 'the coupon batch sheet (second time)');
+        await page.locator('jelly-dialog[open]:not([data-jelly-confirm]) button.close').click();
+        await closedAndFocusReturned(page, opener, 'the ✕ button', 'the coupon batch sheet');
+        await opener.click();
+        const dialog = await openedJellyDialog(page, 'the coupon batch sheet (third time)');
+        await page.fill('#bPrefix', 'JUIB');
+        await page.fill('#bSize', '2');
+        const [request] = await Promise.all([
+          page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith('/api/admin/coupons/generate'), { timeout: 5000 }),
+          page.click('#batchBtn'),
+        ]);
+        const body = request.postDataJSON();
+        assertShape('POST /api/admin/coupons/generate', body, { prefix: 'string', size: 'number', template: 'object' });
+        assert(body.prefix === 'JUIB' && body.size === 2 && body.template.kind === 'percent' && body.template.value === 10 &&
+          body.template.usage_limit === 1 && body.template.per_user_limit === 1, `batch sent ${JSON.stringify(body)}`);
+        await page.locator('#batchOut').waitFor({ state: 'visible', timeout: 5000 });
+        assert(await dialog.isVisible(), 'the batch result must stay in the open dialog');
+        assertCleanPage(page);
+      } finally {
+        await page.close();
+      }
+    });
+
+    await check('consistency: the new-menu sheet is a jelly-dialog; a backdrop click closes it, focus returns, and its form still creates the menu', async () => {
+      const page = await consistencyPage(context);
+      let createdID = null;
+      try {
+        await page.goto(`${base}/admin/menus`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-dialog');
+        const opener = page.locator('#newMenuBtn');
+        await opener.click();
+        await openedJellyDialog(page, 'the new-menu sheet');
+        await need(page, 'jelly-dialog[open] #msName', 'the menu name field inside the dialog');
+        await page.mouse.click(4, 400);
+        await closedAndFocusReturned(page, opener, 'a backdrop click', 'the new-menu sheet');
+        await opener.click();
+        await openedJellyDialog(page, 'the new-menu sheet (second time)');
+        await page.fill('jelly-dialog[open] #msName', `JUI menu ${stamp}`);
+        const [request] = await Promise.all([
+          page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith('/api/admin/menus'), { timeout: 5000 }),
+          page.press('jelly-dialog[open] #msName', 'Enter'),
+        ]);
+        const body = request.postDataJSON();
+        createdID = (await (await request.response())?.json().catch(() => null))?.id ?? null;
+        assertShape('POST /api/admin/menus', body, { name: 'string', location: 'string' });
+        assert(body.name === `JUI menu ${stamp}`, `menu sent ${JSON.stringify(body)}`);
+        await page.waitForFunction(() => !document.querySelector('jelly-dialog[open]:not([data-jelly-confirm])'), null, { timeout: 5000 })
+          .catch(() => { throw new Error('the dialog stayed open after the menu was created'); });
+        assertCleanPage(page);
+      } finally {
+        if (createdID) await apiJSON(page, 'DELETE', `/api/admin/menus/${createdID}`);
+        await page.close();
+      }
+    });
+
+    await check('consistency: Escape in a confirmation over the menu settings jelly-dialog closes only the confirmation', async () => {
+      const page = await consistencyPage(context);
+      await page.goto(`${base}/admin`, { waitUntil: 'networkidle' });
+      const made = await apiJSON(page, 'POST', '/api/admin/menus', { name: `JUI nested ${stamp}` });
+      assert(made.ok && made.body?.id, `creating the menu fixture: HTTP ${made.status}`);
+      const deletes = [];
+      page.on('request', (r) => { if (r.method() === 'DELETE' && r.url().endsWith(`/api/admin/menus/${made.body.id}`)) deletes.push(r.url()); });
+      try {
+        await page.goto(`${base}/admin/menus`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-dialog');
+        await page.locator(`#menuList button[data-id="${made.body.id}"]`).click();
+        const settings = page.locator('#treeMount #menuSettings');
+        await settings.waitFor({ state: 'visible', timeout: 5000 });
+        await settings.click();
+        const outer = await openedJellyDialog(page, 'the menu settings sheet');
+        const name = await need(page, 'jelly-dialog[open] #msName', 'the menu name field inside the dialog');
+        await name.fill(`JUI nested ${stamp} unsaved`);
+        const del = outer.locator('[data-del]');
+        await del.click();
+        const confirm = page.locator('jelly-dialog[open][data-jelly-confirm]');
+        await confirm.waitFor({ state: 'visible', timeout: 5000 });
+        await page.keyboard.press('Escape');
+        await confirm.waitFor({ state: 'hidden', timeout: 5000 });
+        await page.waitForTimeout(400);
+        assert(await page.locator('jelly-dialog[open]:not([data-jelly-confirm])').count() === 1, 'Escape in the confirmation also closed the menu settings dialog; only the top dialog may close');
+        assert(await name.inputValue() === `JUI nested ${stamp} unsaved`, 'cancelling the confirmation lost the unsaved menu name');
+        assert(await del.evaluate((el) => document.activeElement === el), 'focus must return to the delete button that opened the confirmation');
+        assert(deletes.length === 0, 'cancelling the confirmation sent a delete request');
+        await page.keyboard.press('Escape');
+        await closedAndFocusReturned(page, settings, 'a second Escape', 'the menu settings sheet');
+        assertCleanPage(page);
+      } finally {
+        await apiJSON(page, 'DELETE', `/api/admin/menus/${made.body.id}`);
+        await page.close();
+      }
+    });
+
+    await check('consistency: the editor export is a jelly-dialog with radio format cards and a frontmatter checkbox, and downloads with the same query', async () => {
+      const page = await consistencyPage(context);
+      try {
+        await page.route(`**/api/admin/posts/${postID}/export?**`, (route) => route.fulfill({ status: 200, contentType: 'text/markdown', body: '# Consistency\n', headers: { 'Content-Disposition': 'attachment; filename="consistency.md"' } }));
+        await page.goto(`${base}/admin/posts/${postID}`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-dialog', 'jelly-radio', 'jelly-checkbox');
+        const opener = page.locator('[data-action="export"]').first();
+        await opener.click();
+        const dialog = await openedJellyDialog(page, 'the editor export dialog');
+        assert(await dialog.getAttribute('id') === 'editorExport', `the open export dialog is #${await dialog.getAttribute('id')}, want <jelly-dialog id="editorExport">`);
+        const jmd = await need(page, '#editorExport jelly-radio[value="jmd"]', 'the Jelly Markdown format card');
+        const md = page.locator('#editorExport jelly-radio[value="md"]');
+        assert(await isChecked(jmd) && !(await isChecked(md)), 'the export starts with Jelly Markdown chosen');
+        await jmd.focus();
+        await page.keyboard.press('ArrowRight');
+        assert(await isChecked(md) && !(await isChecked(jmd)), 'ArrowRight from Jelly Markdown did not choose 純 Markdown (md)');
+        await page.locator('#editorExport [data-format="html"]').click();
+        assert(await isChecked(page.locator('#editorExport jelly-radio[value="html"]')) && !(await isChecked(md)), 'clicking the HTML card did not choose html');
+        await page.locator('#editorExport [data-format="md"]').click();
+        const front = await need(page, '#editorExport jelly-checkbox#exportFrontmatter', 'the frontmatter checkbox', '#exportFrontmatter');
+        await front.focus();
+        await page.keyboard.press('Space');
+        assert(await isChecked(front), 'Space did not tick the frontmatter checkbox');
+        const [request] = await Promise.all([
+          page.waitForRequest((r) => r.method() === 'GET' && r.url().includes(`/api/admin/posts/${postID}/export?`), { timeout: 10000 }),
+          page.click('#exportDownload'),
+        ]);
+        const query = new URL(request.url()).searchParams;
+        assert(query.toString() === 'format=md&frontmatter=1', `the export asked for ?${query}, want ?format=md&frontmatter=1`);
+        await page.keyboard.press('Escape');
+        await closedAndFocusReturned(page, opener, 'Escape', 'the editor export dialog');
+        assertCleanPage(page);
+      } finally {
+        await page.close();
+      }
+    });
+
+    await check('consistency: no listed page overflows sideways at 390px in light or dark mode', async () => {
+      const failures = [];
+      for (const scheme of ['light', 'dark']) {
+        for (const item of consistencyPages) {
+          const page = await consistencyPage(context, 390);
+          await page.emulateMedia({ colorScheme: scheme });
+          const path = pagePath(item.path);
+          await visit(page, base + path);
+          await jellyReady(page, 'jelly-toaster');
+          await page.waitForTimeout(200);
+          const m = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, inner: window.innerWidth, mode: document.documentElement.getAttribute('data-jelly-mode') }));
+          if (m.mode !== scheme) failures.push(`${scheme} ${path}: data-jelly-mode is ${m.mode}`);
+          if (m.scroll > m.inner) failures.push(`${scheme} ${path}: scrollWidth ${m.scroll} > innerWidth ${m.inner}`);
+          await page.close();
+        }
+      }
+      assert(failures.length === 0, failures.join('\n'));
+    });
+
+    await check('consistency: the integration create form resets after a create: no permission stays ticked, and the next create sends no permission it did not ask for', async () => {
+      const page = await consistencyPage(context);
+      const made = [];
+      try {
+        await page.goto(`${base}/admin/integrations`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-checkbox', 'jelly-dialog');
+        const form = await need(page, '#integrationCreate', 'the create integration card');
+        await page.locator('#integrationCreate input[name="name"]').fill(`JUI reset A ${stamp}`);
+        const first = await need(page, '#integrationCreate jelly-checkbox[name="permission"]', 'a permission checkbox in the create form');
+        await first.click();
+        assert(await first.evaluate((el) => el.hasAttribute('checked')), 'the first permission did not tick');
+        const created = await submitIntegrationCreate(page);
+        assert(created.ok && created.body?.integration?.id, `creating integration A: HTTP ${created.status}`);
+        made.push(created.body.integration.id);
+        await page.getByRole('button', { name: /我已複製，關閉|I have copied it, close/ }).click();
+        await page.waitForFunction(() => !document.querySelector('jelly-dialog#integrationDialog[open]'), null, { timeout: 5000 });
+        const stillTicked = await form.locator('jelly-checkbox[name="permission"][checked]').count();
+        assert(stillTicked === 0, `after a successful create ${stillTicked} permission checkbox(es) in the create form are still ticked; the form must return to its first state`);
+
+        await page.locator('#integrationCreate input[name="name"]').fill(`JUI reset B ${stamp}`);
+        const posted = page.waitForRequest((r) => r.method() === 'POST' && new URL(r.url()).pathname === '/api/admin/integrations', { timeout: 5000 }).catch(() => null);
+        await page.locator('#integrationCreate button[data-mutation]').click();
+        const request = await posted;
+        if (request) {
+          // main never sends a create with no permission ticked (it shows the one-permission message), so any request must carry []
+          const body = request.postDataJSON();
+          assert(JSON.stringify(body.permissions) === '[]', `the second create sent permissions ${JSON.stringify(body.permissions)}; with none ticked the payload has permissions []`);
+          const json = await (await request.response())?.json().catch(() => null);
+          if (json?.integration?.id) made.push(json.integration.id);
+        } else {
+          // main never sends a create with no permission ticked: it shows the one-permission message instead
+          const feedback = await page.locator('#integrationCreate .integration-error').innerText();
+          assert(/至少選擇一項權限|at least one permission/i.test(feedback), `the second create sent no request and the form says "${feedback}"; want the one-permission message`);
+        }
+        assertCleanPage(page);
+      } finally {
+        for (const id of made) await apiJSON(page, 'DELETE', `/api/admin/integrations/${id}`);
+        await page.close();
+      }
+    });
+
+    await check('consistency: the coupon batch sheet ignores a press inside it that is released on the backdrop, and a plain backdrop click still closes it', async () => {
+      const page = await consistencyPage(context);
+      try {
+        await page.goto(`${base}/admin/coupons`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-dialog');
+        const opener = page.locator('#batchOpen');
+        await opener.click();
+        const dialog = await openedJellyDialog(page, 'the coupon batch sheet');
+        const field = await need(page, 'jelly-dialog[open] #bPrefix', 'the batch prefix field inside the dialog');
+        const box = await field.boundingBox();
+        assert(box, 'the batch prefix field has no box to press');
+        const point = await backdropPoint(page, dialog, 'the coupon batch sheet');
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(point.x, point.y, { steps: 10 });
+        await page.mouse.up();
+        await staysOpen(page, 'jelly-dialog#batchSheet', 'pressing inside the sheet and releasing on the backdrop');
+        await clickBackdrop(page, dialog, 'the coupon batch sheet');
+        await closedAndFocusReturned(page, opener, 'a plain backdrop click', 'the coupon batch sheet');
+        assertCleanPage(page);
+      } finally {
+        await page.close();
+      }
+    });
+
+    await check('consistency: dialogs that do not close on a backdrop click on main stay open on one and still close with Escape', async () => {
+      const page = await consistencyPage(context);
+      const made = [];
+      try {
+        const failures = [];
+        const part = async (label, fn) => { try { await fn(); } catch (e) { failures.push(`${label}: ${e.message}`); } };
+        await part('(a) the one-time key dialog', async () => {
+          await page.goto(`${base}/admin/integrations`, { waitUntil: 'networkidle' });
+          await jellyReady(page, 'jelly-checkbox', 'jelly-dialog');
+          await page.locator('#integrationCreate input[name="name"]').fill(`JUI key ${stamp}`);
+          await need(page, '#integrationCreate jelly-checkbox[name="permission"]', 'a permission checkbox in the create form');
+          await page.locator('#integrationCreate jelly-checkbox[name="permission"]').first().click();
+          const created = await submitIntegrationCreate(page);
+          assert(created.ok && created.body?.integration?.id, `creating the integration for the key dialog: HTTP ${created.status}`);
+          made.push(created.body.integration.id);
+          await page.waitForSelector('jelly-dialog#integrationDialog[open] #integrationSecret', { timeout: 5000 }).catch(() => { throw new Error('(a) the one-time key dialog did not open with the key'); });
+          const key = await page.locator('#integrationSecret').innerText();
+          assert(key.startsWith('jly_'), `(a) the one-time key starts with ${key.slice(0, 6)}, want jly_`);
+          await clickBackdrop(page, page.locator('jelly-dialog#integrationDialog'), '(a) the one-time key dialog');
+          await staysOpen(page, 'jelly-dialog#integrationDialog', '(a) a backdrop click on the one-time key dialog');
+          assert(await page.locator('#integrationSecret').innerText() === key, '(a) the key text changed or disappeared after a backdrop click');
+          await page.keyboard.press('Escape');
+          await page.waitForFunction(() => !document.querySelector('jelly-dialog#integrationDialog[open]'), null, { timeout: 5000 })
+            .catch(() => { throw new Error('(a) Escape did not close the one-time key dialog'); });
+        });
+
+        await part('(b) the theme customizer', async () => {
+          await page.goto(`${base}/admin/themes`, { waitUntil: 'networkidle' });
+          await jellyReady(page, 'jelly-dialog', 'jelly-toaster');
+          const customizeOpener = page.getByRole('button', { name: /客製化|Customize/ }).first();
+          await customizeOpener.click();
+          const customizer = await openedJellyDialog(page, '(b) the theme customizer');
+          const sentinel = `JUI backdrop ${stamp}`;
+          const value = await need(page, 'jelly-dialog[open] #customizeForm input[type="text"]:visible', '(b) a text field inside the theme customizer');
+          await value.fill(sentinel);
+          await clickBackdrop(page, customizer, '(b) the theme customizer');
+          await staysOpen(page, 'jelly-dialog#customizeModal', '(b) a backdrop click on the theme customizer');
+          assert(await value.inputValue() === sentinel, '(b) the edited theme value was lost after a backdrop click');
+          await page.keyboard.press('Escape');
+          await closedAndFocusReturned(page, customizeOpener, 'Escape', '(b) the theme customizer');
+        });
+
+        await part('(c) the editor autosave-restore prompt', async () => {
+          await page.goto(`${base}/admin/posts/new`, { waitUntil: 'networkidle' });
+          const draftKey = await page.evaluate(() => {
+            const user = window.JellyEditorUser || {};
+            return 'jelly.editor.' + (user.ID || user.id || user.Username || user.username || 'self') + '.draft.0';
+          });
+          try {
+            await page.evaluate(([k, title]) => localStorage.setItem(k, JSON.stringify({ title, source: 'Restore fixture.', excerpt: '', draft: null, at: Date.now(), base: null })), [draftKey, `JUI restore ${stamp}`]);
+            await page.reload({ waitUntil: 'networkidle' });
+            await page.waitForSelector('jelly-dialog#editorRestore[open]', { timeout: 5000 }).catch(() => { throw new Error('(c) the autosave restore prompt did not open for a local draft'); });
+            await clickBackdrop(page, page.locator('jelly-dialog#editorRestore'), '(c) the autosave restore prompt');
+            await staysOpen(page, 'jelly-dialog#editorRestore', '(c) a backdrop click on the autosave restore prompt');
+            assert(await page.locator('#restoreAutosave').isVisible(), '(c) the restore button is gone after a backdrop click');
+            await page.keyboard.press('Escape');
+            await page.waitForFunction(() => !document.querySelector('jelly-dialog#editorRestore[open]'), null, { timeout: 5000 })
+              .catch(() => { throw new Error('(c) Escape did not close the autosave restore prompt'); });
+          } finally {
+            await page.evaluate((k) => localStorage.removeItem(k), draftKey).catch(() => {});
+          }
+        });
+
+        await part('(d) the custom crawler rule form', async () => {
+          await page.goto(`${base}/admin/settings/crawlers`, { waitUntil: 'networkidle' });
+          await jellyReady(page, 'jelly-dialog');
+          const ruleOpener = page.locator('[data-action="add-ai-rule"]').first();
+          await ruleOpener.click();
+          const ruleDialog = await openedJellyDialog(page, '(d) the custom crawler rule form');
+          const agent = await need(page, 'jelly-dialog[open] input[name="user_agent"]', '(d) the user agent field of the custom rule');
+          await agent.fill(`JUIBot-${stamp}`);
+          await clickBackdrop(page, ruleDialog, '(d) the custom crawler rule form');
+          await staysOpen(page, 'jelly-dialog.sys-dialog', '(d) a backdrop click on the custom crawler rule form');
+          assert(await agent.inputValue() === `JUIBot-${stamp}`, '(d) the typed user agent was lost after a backdrop click');
+          await page.keyboard.press('Escape');
+          await closedAndFocusReturned(page, ruleOpener, 'Escape', '(d) the custom crawler rule form');
+        });
+
+        assert(failures.length === 0, failures.join('\n'));
+        assertCleanPage(page);
+      } finally {
+        for (const id of made) await apiJSON(page, 'DELETE', `/api/admin/integrations/${id}`);
+        await page.close();
+      }
+    });
+
+    await check('consistency: changing the notification filter while a mark-read request is in flight reloads the list for the new category once that request fails', async () => {
+      const page = await consistencyPage(context);
+      const fixtureID = 9000001;
+      const listed = [];
+      let failedAt = 0;
+      try {
+        const fixture = { items: [{ id: fixtureID, kind: 'comment.pending', category: 'comments', params: { message: `JUI fixture ${stamp}` }, read_at: null, created_at: new Date().toISOString() }], counts: { all: 1, unread: 1, comments: 1, orders: 0, system: 0, security: 0 } };
+        await page.route(/\/api\/account\/notifications\?/, (route) => {
+          listed.push({ category: new URL(route.request().url()).searchParams.get('category') || '', at: Date.now() });
+          route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture) });
+        });
+        // The mark-read request takes about 1.5 s and then fails with 500 (the list is not refreshed by a failure).
+        await page.route(`**/api/account/notifications/${fixtureID}/read`, async (route) => {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          failedAt = Date.now();
+          await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'JUI forced failure' }) });
+        });
+        await page.goto(`${base}/admin/notifications`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-segmented', 'jelly-switch');
+        const markRead = await need(page, '#notificationList [data-mark-read]', 'a Mark read button in the list');
+        await markRead.click();
+        // Change the filter while the mark-read request is still in flight (the segment is chosen by its value).
+        await page.locator('#notificationFilters button[role="radio"]', { hasText: /訂單|Orders/ }).first().click();
+        // The request fails, then the list must be requested again for orders within 5 s.
+        const waitingFrom = Date.now();
+        while (!failedAt && Date.now() - waitingFrom < 10000) await new Promise((r) => setTimeout(r, 100));
+        assert(failedAt, 'the mark-read request never reached the server');
+        while (Date.now() - failedAt < 5000 && !listed.some((l) => l.category === 'orders' && l.at >= failedAt)) await new Promise((r) => setTimeout(r, 100));
+        const reload = listed.find((l) => l.category === 'orders' && l.at >= failedAt);
+        const since = listed.filter((l) => l.at >= failedAt).map((l) => l.category || 'all');
+        assert(reload, `no list request for category=orders within 5 s after the failed mark-read (list requests after it: ${since.length ? since.join(', ') : 'none'}); the list did not reload for the new filter`);
+        const selected = await page.locator('#notificationFilters').getAttribute('value');
+        assert(selected === 'orders', `the filter shows ${selected}, want orders`);
+        assertCleanPage(page, [new RegExp(`HTTP 500: .*/api/account/notifications/${fixtureID}/read`)]);
+      } finally {
+        await page.close();
+      }
+    });
+
+    await check('consistency: clicking the selected period segment while a search is typed clears the search and reloads that period without q', async () => {
+      const page = await consistencyPage(context);
+      try {
+        await page.goto(`${base}/admin/coupons`, { waitUntil: 'networkidle' });
+        await jellyReady(page, 'jelly-segmented');
+        const period = await page.locator('#segs').getAttribute('value');
+        const query = `JUIQ${stamp}`;
+        await Promise.all([
+          page.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === '/api/admin/coupons' && new URL(r.url()).searchParams.get('q') === query, { timeout: 5000 }),
+          page.fill('#q', query),
+        ]);
+        const listed = page.waitForRequest((r) => r.method() === 'GET' && new URL(r.url()).pathname === '/api/admin/coupons' && !new URL(r.url()).searchParams.has('q'), { timeout: 5000 }).catch(() => null);
+        await page.locator('#segs button[role="radio"][aria-checked="true"]').click();
+        const request = await listed;
+        assert(request, `clicking the selected period (${period}) sent no list request without q; the search is still on screen`);
+        const params = new URL(request.url()).searchParams;
+        assert(params.get('status') === period, `the list request asked status=${params.get('status')}, want status=${period}`);
+        assert(await page.locator('#q').inputValue() === '', 'clicking the selected period did not clear the search box');
+        assertCleanPage(page);
+      } finally {
+        await page.close();
+      }
+    });
+  } finally {
+    for (const cleanup of cleanups.reverse()) await cleanup().catch(() => {});
+    await setup.close();
+    await context.close();
+  }
+}
+
 async function runPublic(browser) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   await check('public: login, home, posts, search and 404 load offline with the self-hosted fonts', async () => {
@@ -1286,6 +2229,7 @@ try {
   if (!only || only === 'admin') await runAdmin(browser).catch((e) => { results.push({ name: 'admin setup', ok: false, error: e }); console.log(`FAIL  admin setup\n      ${e.message}`); });
   if (!only || only === 'public') await runPublic(browser);
   if (!only || only === 'design') await runDesign(browser).catch((e) => { results.push({ name: 'design setup', ok: false, error: e }); console.log(`FAIL  design setup\n      ${e.message}`); });
+  if (!only || only === 'consistency') await runConsistency(browser).catch((e) => { results.push({ name: 'consistency setup', ok: false, error: e }); console.log(`FAIL  consistency setup\n      ${e.message}`); });
 } finally {
   await browser.close();
 }

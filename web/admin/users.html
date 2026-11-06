@@ -6,9 +6,6 @@
 .accounts-page .page-header h1{margin:0}
 .accounts-page .users-toolbar,.accounts-page .users-filters,.accounts-page .users-bulk{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}
 .accounts-page .users-filters{margin:.75rem 0}
-.accounts-page .role-tabs{display:flex;gap:.25rem;overflow-x:auto;padding:.2rem;background:var(--surface-low);border-radius:var(--r-sm)}
-.accounts-page .role-tabs button{min-height:2.15rem;padding:.25rem .7rem;border:0;border-radius:var(--r-sm);background:transparent;color:var(--muted);font-weight:700;white-space:nowrap;cursor:pointer}
-.accounts-page .role-tabs button[aria-pressed=true]{background:var(--ink);color:var(--surface)}
 .accounts-page .users-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(17rem,22rem);gap:1rem;align-items:start}
 .accounts-page .users-main,.accounts-page .users-side{min-width:0}
 .accounts-page .users-card{background:var(--ac-card);border-radius:var(--r-md);padding:1rem;box-shadow:inset 0 0 0 1px var(--outline)}
@@ -24,22 +21,28 @@
 .accounts-page .users-status.error{color:var(--error)}
 .accounts-page .users-status.success{color:var(--success)}
 .accounts-page .users-table tbody tr[aria-selected=true] td{background:var(--primary-container)}
-.accounts-page .invite-role{display:grid;gap:.5rem;margin:.75rem 0}
-.accounts-page .invite-role label{display:flex;align-items:flex-start;gap:.65rem;padding:.65rem;border:1px solid var(--outline);border-radius:var(--r-sm);cursor:pointer}
-.accounts-page .invite-role input{margin-top:.15rem}
+.accounts-page .invite-role{margin:.75rem 0}
+.accounts-page .invite-role-card{padding:.65rem;border:1px solid var(--outline);border-radius:var(--r-sm);cursor:pointer}
+.accounts-page .invite-role-card:has(jelly-radio[checked]){border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.accounts-page .invite-role-card jelly-radio{display:flex;--jelly-label:var(--ink)}
+.accounts-page .invite-role-card jelly-radio::part(wrap){align-items:flex-start}
+.accounts-page .invite-role-card strong{display:block;line-height:28px}
+.accounts-page .invite-role-card .hint{display:block;margin:0;font-weight:400}
 .accounts-page .invite-result{overflow-wrap:anywhere;padding:.75rem;background:var(--surface-low);border-radius:var(--r-sm)}
 .accounts-page .invite-result a{overflow-wrap:anywhere}
 .accounts-page .matrix-wrap{overflow:auto}
 .accounts-page .matrix{min-width:580px}
 .accounts-page .matrix th:not(:first-child),.accounts-page .matrix td:not(:first-child){text-align:center}
-.accounts-page .modal-overlay{position:fixed;inset:0;z-index:1000;background:color-mix(in srgb,var(--ink) 45%,transparent);display:flex;justify-content:flex-end}
-.accounts-page .modal-overlay[hidden]{display:none}
-.accounts-page .account-sheet{width:min(34rem,100%);height:100%;overflow:auto;padding:1.5rem;background:var(--surface);border-radius:0 0 0 1.5rem;box-shadow:0 0 0 1px var(--outline)}
-.accounts-page .sheet-actions{position:sticky;bottom:-1.5rem;display:flex;flex-wrap:wrap;gap:.5rem;margin:1.25rem -1.5rem -1.5rem;padding:1rem 1.5rem 1.5rem;background:var(--surface);border-top:1px solid var(--outline)}
-.accounts-page .user-fields{display:grid;gap:.85rem}
-.accounts-page .content-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem}
-.accounts-page .content-count{padding:.65rem;background:var(--surface-low);border-radius:var(--r-sm)}
-.accounts-page .content-count b{display:block;font-size:1.2rem}
+/* 使用者對話框是 <jelly-dialog id="userDialog">：打開時被移到 <body>，不在 .accounts-page 裡，所以用 #userDialog 起頭 */
+#userDialog{--jelly-dialog-width:min(30rem,100%)}
+#userDialog .users-status{min-height:1.5rem;margin:.5rem 0;color:var(--muted)}
+#userDialog .users-status.error{color:var(--error)}
+#userDialog .users-status.success{color:var(--success)}
+#userDialog .sheet-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--outline)}
+#userDialog .user-fields{display:grid;gap:.85rem}
+#userDialog .content-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem}
+#userDialog .content-count{padding:.65rem;background:var(--surface-low);border-radius:var(--r-sm)}
+#userDialog .content-count b{display:block;font-size:1.2rem}
 .accounts-page .page-actions{display:flex;gap:.5rem;flex-wrap:wrap}
 .accounts-page .inline-result{margin-top:.75rem}
 @media(max-width:900px){.accounts-page .users-layout{grid-template-columns:minmax(0,1fr)}.accounts-page .users-side{order:-1}.accounts-page .users-side .users-card{max-width:none}}
@@ -81,13 +84,15 @@
     <div class="users-layout">
         <section class="users-main" aria-label="{{if eq .Lang "en"}}Users{{else}}使用者{{end}}">
             <div class="users-toolbar">
-                <nav class="role-tabs" id="roleTabs" aria-label="{{if eq .Lang "en"}}Filter by role{{else}}依角色篩選{{end}}">
-                    <button type="button" data-role="" aria-pressed="true">{{if eq .Lang "en"}}All{{else}}全部{{end}} <span data-count="all">—</span></button>
-                    <button type="button" data-role="admin" aria-pressed="false">{{if eq .Lang "en"}}Administrators{{else}}管理員{{end}} <span data-count-role="admin">—</span></button>
-                    <button type="button" data-role="editor" aria-pressed="false">{{if eq .Lang "en"}}Editors{{else}}編輯{{end}} <span data-count-role="editor">—</span></button>
-                    <button type="button" data-role="author" aria-pressed="false">{{if eq .Lang "en"}}Authors{{else}}作者{{end}} <span data-count-role="author">—</span></button>
-                    <button type="button" data-role="customer" aria-pressed="false">{{if eq .Lang "en"}}Customers{{else}}顧客{{end}} <span data-count-role="customer">—</span></button>
-                </nav>
+                <div class="seg-scroll">
+                    <jelly-segmented id="roleTabs" name="role_filter" value="all" label="{{if eq .Lang "en"}}Filter by role{{else}}依角色篩選{{end}}">
+                        <jelly-segment value="all">{{if eq .Lang "en"}}All{{else}}全部{{end}}</jelly-segment>
+                        <jelly-segment value="admin">{{if eq .Lang "en"}}Administrators{{else}}管理員{{end}}</jelly-segment>
+                        <jelly-segment value="editor">{{if eq .Lang "en"}}Editors{{else}}編輯{{end}}</jelly-segment>
+                        <jelly-segment value="author">{{if eq .Lang "en"}}Authors{{else}}作者{{end}}</jelly-segment>
+                        <jelly-segment value="customer">{{if eq .Lang "en"}}Customers{{else}}顧客{{end}}</jelly-segment>
+                    </jelly-segmented>
+                </div>
             </div>
             <div class="users-filters">
                 <label class="filter-item"><span>{{if eq .Lang "en"}}Search{{else}}搜尋{{end}}</span><input id="userSearch" type="search" autocomplete="off" placeholder="{{if eq .Lang "en"}}Name, username or email{{else}}姓名、帳號或 Email{{end}}"></label>
@@ -109,7 +114,7 @@
                 <div id="usersError" class="alert alert-danger" role="alert" hidden></div>
                 <div class="table-wrapper users-table-wrap" id="usersTableWrap" hidden>
                     <table class="users-table">
-                        <thead><tr><th><input id="selectAllUsers" type="checkbox" aria-label="{{if eq .Lang "en"}}Select all users on this page{{else}}選取本頁全部使用者{{end}}"></th><th>{{if eq .Lang "en"}}User{{else}}使用者{{end}}</th><th>{{if eq .Lang "en"}}Role{{else}}角色{{end}}</th><th>{{if eq .Lang "en"}}Last login{{else}}最後登入{{end}}</th><th>{{if eq .Lang "en"}}Status{{else}}狀態{{end}}</th><th class="actions">{{if eq .Lang "en"}}Actions{{else}}操作{{end}}</th></tr></thead>
+                        <thead><tr><th><jelly-checkbox size="sm" id="selectAllUsers" label="{{if eq .Lang "en"}}Select all users on this page{{else}}選取本頁全部使用者{{end}}"></jelly-checkbox></th><th>{{if eq .Lang "en"}}User{{else}}使用者{{end}}</th><th>{{if eq .Lang "en"}}Role{{else}}角色{{end}}</th><th>{{if eq .Lang "en"}}Last login{{else}}最後登入{{end}}</th><th>{{if eq .Lang "en"}}Status{{else}}狀態{{end}}</th><th class="actions">{{if eq .Lang "en"}}Actions{{else}}操作{{end}}</th></tr></thead>
                         <tbody id="usersRows"></tbody>
                     </table>
                 </div>
@@ -132,13 +137,13 @@
                 <div class="section-head"><div><h2>{{if eq .Lang "en"}}Invite a user{{else}}邀請使用者{{end}}</h2><p class="muted">{{if eq .Lang "en"}}The link is valid for seven days.{{else}}邀請連結 7 天有效。{{end}}</p></div></div>
                 <form id="inviteForm" novalidate>
                     <div class="form-group"><label for="inviteEmail">Email</label><input id="inviteEmail" name="email" type="email" autocomplete="email" required maxlength="254"></div>
-                    <fieldset class="form-group"><legend class="label">{{if eq .Lang "en"}}Role{{else}}角色{{end}}</legend>
-                        <div class="invite-role">
-                            <label><input type="radio" name="role" value="editor" checked><span><strong>{{if eq .Lang "en"}}Editor{{else}}編輯{{end}}</strong><span class="hint">{{if eq .Lang "en"}}Manage all content and comments.{{else}}管理所有內容與留言。{{end}}</span></span></label>
-                            <label><input type="radio" name="role" value="author"><span><strong>{{if eq .Lang "en"}}Author{{else}}作者{{end}}</strong><span class="hint">{{if eq .Lang "en"}}Write and publish own content.{{else}}撰寫與發布自己的內容。{{end}}</span></span></label>
-                            <label><input type="radio" name="role" value="admin"><span><strong>{{if eq .Lang "en"}}Administrator{{else}}管理員{{end}}</strong><span class="hint">{{if eq .Lang "en"}}Full site access.{{else}}擁有完整網站管理權限。{{end}}</span></span></label>
-                        </div>
-                    </fieldset>
+                    <div class="form-group">
+                        <jelly-radio-group size="sm" direction="vertical" class="invite-role" label="{{if eq .Lang "en"}}Role{{else}}角色{{end}}">
+                            <div class="invite-role-card" data-role="editor"><jelly-radio size="sm" name="role" value="editor" checked><strong>{{if eq .Lang "en"}}Editor{{else}}編輯{{end}}</strong><span class="hint">{{if eq .Lang "en"}}Manage all content and comments.{{else}}管理所有內容與留言。{{end}}</span></jelly-radio></div>
+                            <div class="invite-role-card" data-role="author"><jelly-radio size="sm" name="role" value="author"><strong>{{if eq .Lang "en"}}Author{{else}}作者{{end}}</strong><span class="hint">{{if eq .Lang "en"}}Write and publish own content.{{else}}撰寫與發布自己的內容。{{end}}</span></jelly-radio></div>
+                            <div class="invite-role-card" data-role="admin"><jelly-radio size="sm" name="role" value="admin"><strong>{{if eq .Lang "en"}}Administrator{{else}}管理員{{end}}</strong><span class="hint">{{if eq .Lang "en"}}Full site access.{{else}}擁有完整網站管理權限。{{end}}</span></jelly-radio></div>
+                        </jelly-radio-group>
+                    </div>
                     <div class="form-group"><label for="inviteNote">{{if eq .Lang "en"}}Message (optional){{else}}附一句話（可選）{{end}}</label><textarea id="inviteNote" name="note" rows="3" maxlength="500"></textarea></div>
                     <button class="btn btn-primary" id="sendInvite" type="submit">{{if eq .Lang "en"}}Create invitation{{else}}建立邀請{{end}}</button>
                 </form>
@@ -149,16 +154,12 @@
     </div>
 </div>
 
-<div class="accounts-page">
-    <div class="modal-overlay" id="userDialog" hidden>
-        <section class="account-sheet" role="dialog" aria-modal="true" aria-labelledby="userDialogTitle">
-            <div class="modal-header"><h2 id="userDialogTitle"></h2></div>
-            <p class="users-status" id="dialogStatus" role="status" aria-live="polite"></p>
-            <div id="dialogBody"></div>
-            <div class="sheet-actions" id="dialogActions"></div>
-        </section>
-    </div>
-</div>
+<jelly-dialog id="userDialog">
+    <div class="modal-header"><h2 id="userDialogTitle"></h2></div>
+    <p class="users-status" id="dialogStatus" role="status" aria-live="polite"></p>
+    <div id="dialogBody"></div>
+    <div class="sheet-actions" id="dialogActions"></div>
+</jelly-dialog>
 {{end}}
 {{define "scripts"}}
 <script>
@@ -192,6 +193,7 @@
     const rows = $('usersRows');
     const selected = new Set();
     const state = { q: '', role: '', status: '', page: 1, perPage: 25, total: 0, users: [], currentUserID: null, busy: false, seq: 0, inviteURL: '' };
+    const roleFilterNames = { all: en ? 'All' : '全部', admin: en ? 'Administrators' : '管理員', editor: en ? 'Editors' : '編輯', author: en ? 'Authors' : '作者', customer: en ? 'Customers' : '顧客' };
     const roleNames = { admin: en ? 'Administrator' : '管理員', editor: en ? 'Editor' : '編輯', author: en ? 'Author' : '作者', customer: en ? 'Customer' : '顧客' };
     const statusNames = { active: en ? 'Active' : '啟用', invited: en ? 'Invitation pending' : '邀請中', disabled: en ? 'Disabled' : '停用' };
     const permissionNames = {
@@ -207,7 +209,6 @@
         products_manage: en ? 'Manage products' : '管理商品'
     };
     let searchTimer = 0;
-    let dialogFocus = null;
 
     function node(tag, cls, value) {
         const el = document.createElement(tag);
@@ -260,17 +261,19 @@
         page.querySelectorAll('button,input,select,textarea').forEach((el) => {
             if (!el.closest('#userDialog') && !el.closest('#inviteLinkBox')) el.disabled = value;
         });
+        // Jelly 勾選框與單選的停用只認屬性（el.disabled 對它們無效）；分段選擇不停用，免得重建內部按鈕讓焦點掉出。
+        page.querySelectorAll('[data-select-user], #selectAllUsers, #inviteForm [name=role]').forEach((el) => el.toggleAttribute('disabled', value));
         $('previousUsers').disabled = value || state.page <= 1;
         $('nextUsers').disabled = value || state.page * state.perPage >= state.total;
     }
     function renderCounts(counts) {
         counts = counts && typeof counts === 'object' ? counts : {};
-        const all = $('roleTabs').querySelector('[data-count="all"]');
-        if (all) all.textContent = Number.isFinite(Number(counts.all)) ? String(Number(counts.all)) : '0';
+        // 角色篩選是 <jelly-segmented>：只在數字變了才改段的文字（Jelly.segmentText）。
+        const seg = $('roleTabs');
+        Jelly.segmentText(seg, 'all', roleFilterNames.all + ' ' + (Number.isFinite(Number(counts.all)) ? String(Number(counts.all)) : '0'));
         Object.keys(roleNames).forEach((role) => {
-            const el = $('roleTabs').querySelector('[data-count-role="' + role + '"]');
             const count = Number(counts.role && counts.role[role]);
-            if (el) el.textContent = Number.isFinite(count) ? String(count) : '0';
+            Jelly.segmentText(seg, role, roleFilterNames[role] + ' ' + (Number.isFinite(count) ? String(count) : '0'));
         });
     }
     function createBadge(value, tone) {
@@ -285,11 +288,11 @@
             tr.dataset.id = String(user.id);
             tr.setAttribute('aria-selected', String(selected.has(String(user.id))));
             const checkCell = node('td');
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.checked = selected.has(String(user.id));
+            const checkbox = document.createElement('jelly-checkbox');
+            checkbox.setAttribute('size', 'sm');
+            checkbox.toggleAttribute('checked', selected.has(String(user.id)));
             checkbox.dataset.selectUser = String(user.id);
-            checkbox.setAttribute('aria-label', (en ? 'Select ' : '選取 ') + (user.display_name || user.username || user.email || user.id));
+            checkbox.setAttribute('label', (en ? 'Select ' : '選取 ') + (user.display_name || user.username || user.email || user.id));
             checkCell.appendChild(checkbox);
             tr.appendChild(checkCell);
 
@@ -366,13 +369,12 @@
         $('usersPageInfo').textContent = (en ? 'Page ' : '第 ') + state.page + (en ? ' of ' : ' / ') + Math.max(1, Math.ceil(state.total / state.perPage));
         $('previousUsers').disabled = state.page <= 1 || state.busy;
         $('nextUsers').disabled = state.page * state.perPage >= state.total || state.busy;
-        $('selectAllUsers').checked = users.length > 0 && users.every((user) => selected.has(String(user.id)));
         renderSelected();
     }
     function renderSelected() {
         $('bulkActions').hidden = selected.size === 0;
         $('selectedCount').textContent = String(selected.size);
-        $('selectAllUsers').checked = state.users.length > 0 && state.users.every((user) => selected.has(String(user.id)));
+        $('selectAllUsers').toggleAttribute('checked', state.users.length > 0 && state.users.every((user) => selected.has(String(user.id))));
     }
     async function loadUsers() {
         const seq = ++state.seq;
@@ -466,24 +468,22 @@
             setMessage($('rolesStatus'), error.message || text.rolesFailed, 'error');
         }
     }
-    function openDialog(title, body, actions) {
-        dialogFocus = document.activeElement;
+    // 使用者對話框是 <jelly-dialog>：Esc、點背景、右上 ✕ 都關閉，焦點回到打開它的按鈕（Jelly.dialog）。
+    function openDialog(title, body, actions, opener) {
+        const dialog = $('userDialog');
         $('userDialogTitle').textContent = title;
+        dialog.setAttribute('label', title);
         $('dialogBody').replaceChildren(body);
         $('dialogActions').replaceChildren(...actions);
         $('dialogStatus').textContent = '';
-        $('userDialog').hidden = false;
-        $('userDialog').classList.add('open');
-        const focusable = $('userDialog').querySelector('input,select,textarea,button');
-        if (focusable) focusable.focus();
+        $('dialogStatus').classList.remove('error', 'success');
+        Jelly.dialog(dialog, { opener, focus: dialog.querySelector('input,select,textarea,button') });
     }
-    function closeDialog() {
-        $('userDialog').hidden = true;
-        $('userDialog').classList.remove('open');
+    function closeDialog() { Jelly.closeDialog($('userDialog')); }
+    $('userDialog').addEventListener('close', () => {
         $('dialogBody').replaceChildren();
         $('dialogActions').replaceChildren();
-        if (dialogFocus && dialogFocus.isConnected) dialogFocus.focus();
-    }
+    });
     function actionButton(label, action, cls) {
         const button = node('button', 'btn ' + (cls || 'btn-secondary'), label);
         button.type = 'button'; button.dataset.dialogAction = action; return button;
@@ -564,10 +564,7 @@
         add(en ? 'Sign out all devices' : '登出所有裝置', 'sessions');
         const del = actionButton(en ? 'Delete user' : '刪除使用者', 'delete', 'btn-danger');
         del.dataset.userID = user.id; del.classList.add('dialog-operation'); list.appendChild(del);
-        openDialog((user.display_name || user.email || user.username), list, [actionButton(text.close, 'close')]);
-        const first = list.querySelector('button');
-        if (first) first.focus();
-        if (opener) dialogFocus = opener;
+        openDialog((user.display_name || user.email || user.username), list, [actionButton(text.close, 'close')], opener);
     }
     async function openDeleteDialog(user, counts) {
         if (state.currentUserID !== null && String(state.currentUserID) === String(user.id)) {
@@ -660,7 +657,8 @@
         if (state.busy) return;
         const form = event.currentTarget;
         const email = $('inviteEmail').value.trim();
-        const role = form.querySelector('[name=role]:checked').value;
+        const chosen = form.querySelector('[name=role][checked]');
+        const role = chosen ? chosen.getAttribute('value') : 'editor';
         if (!email || !form.reportValidity()) return;
         $('inviteLinkBox').hidden = true;
         setMessage($('inviteStatus'), en ? 'Creating invitation…' : '正在建立邀請…', '');
@@ -675,6 +673,8 @@
             $('inviteLinkBox').hidden = false;
             setMessage($('inviteStatus'), text.inviteSuccess, 'success');
             form.reset();
+            // form.reset() 不會還原 Jelly 單選，自己設回預設的「編輯」。
+            form.querySelectorAll('[name=role]').forEach((radio) => radio.toggleAttribute('checked', radio.getAttribute('value') === 'editor'));
             await loadUsers();
         } catch (error) {
             setMessage($('inviteStatus'), error.message || text.inviteFailed, 'error');
@@ -685,25 +685,31 @@
         try { await navigator.clipboard.writeText(state.inviteURL); setMessage($('inviteStatus'), en ? 'Copied.' : '已複製。', 'success'); }
         catch (_) { setMessage($('inviteStatus'), en ? 'Copy is unavailable; select the link above.' : '無法使用剪貼簿，請選取上方連結複製。', 'error'); }
     });
-    $('roleTabs').addEventListener('click', (event) => {
-        const button = event.target.closest('button[data-role]');
-        if (!button) return;
-        $('roleTabs').querySelectorAll('button').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
-        state.role = button.dataset.role; state.page = 1; selected.clear(); loadUsers();
+    $('roleTabs').addEventListener('change', (event) => {
+        const value = (event.detail && event.detail.value) || $('roleTabs').getAttribute('value');
+        state.role = value === 'all' ? '' : value; state.page = 1; selected.clear(); loadUsers();
     });
+    // 邀請的角色是單選卡：點卡片任何地方等同點選卡片裡的單選。
+    $('inviteForm').querySelectorAll('.invite-role-card').forEach((card) => card.addEventListener('click', () => {
+        const radio = card.querySelector('[name=role]');
+        if (!radio || radio.hasAttribute('disabled')) return;
+        $('inviteForm').querySelectorAll('[name=role]').forEach((item) => item.toggleAttribute('checked', item === radio));
+        radio.focus();
+    }));
     $('userSearch').addEventListener('input', () => {
         window.clearTimeout(searchTimer);
         searchTimer = window.setTimeout(() => { state.q = $('userSearch').value.trim(); state.page = 1; loadUsers(); }, 250);
     });
     $('userStatusFilter').addEventListener('change', () => { state.status = $('userStatusFilter').value; state.page = 1; selected.clear(); loadUsers(); });
     $('selectAllUsers').addEventListener('change', (event) => {
-        state.users.forEach((user) => event.target.checked ? selected.add(String(user.id)) : selected.delete(String(user.id)));
+        const on = $('selectAllUsers').hasAttribute('checked');
+        state.users.forEach((user) => on ? selected.add(String(user.id)) : selected.delete(String(user.id)));
         renderRows(state.users);
     });
     rows.addEventListener('change', (event) => {
-        const input = event.target.closest('input[data-select-user]');
+        const input = event.target.closest('[data-select-user]');
         if (!input) return;
-        if (input.checked) selected.add(input.dataset.selectUser); else selected.delete(input.dataset.selectUser);
+        if (input.hasAttribute('checked')) selected.add(input.dataset.selectUser); else selected.delete(input.dataset.selectUser);
         renderRows(state.users);
     });
     rows.addEventListener('click', (event) => {
@@ -715,7 +721,6 @@
         if (button.dataset.action === 'menu') openUserMenu(user, button);
     });
     $('userDialog').addEventListener('click', async (event) => {
-        if (event.target === $('userDialog')) { closeDialog(); return; }
         const button = event.target.closest('[data-dialog-action]');
         if (!button || state.busy) return;
         const action = button.dataset.dialogAction;
@@ -742,7 +747,7 @@
                 const reassign = $('reassignTarget').value;
                 if (!reassign) throw new Error(text.noTransfer);
                 const deleted = await runUserOperation(user, 'delete', { reassign_to: reassign });
-                if (deleted && !$('userDialog').hidden) closeDialog();
+                if (deleted && $('userDialog').hasAttribute('open')) closeDialog();
                 return;
             }
             let succeeded;
@@ -751,12 +756,11 @@
             } else {
                 succeeded = await runUserOperation(user, action);
             }
-            if (succeeded && !$('userDialog').hidden) closeDialog();
+            if (succeeded && $('userDialog').hasAttribute('open')) closeDialog();
         } catch (error) {
             setMessage($('dialogStatus'), error.message, 'error');
         } finally { setBusy(false); }
     });
-    $('userDialog').addEventListener('keydown', (event) => { if (event.key === 'Escape') closeDialog(); });
     $('retryUsers').addEventListener('click', loadUsers);
     $('retryRoles').addEventListener('click', loadRoles);
     $('showRoles').addEventListener('click', () => $('rolesSection').scrollIntoView({ behavior: 'smooth', block: 'start' }));

@@ -5,7 +5,7 @@
     /* 屬性欄（design/project/Editor.dc.html） */
     .props { max-height: calc(100vh - 4.75rem); max-height: calc(100dvh - 4.75rem); overflow-y: auto; padding-right: .25rem; scrollbar-width: thin; }
     @media (max-width: 1000px) { .props { max-height: none; overflow: visible; padding-right: 0; } }
-    .props .segmented { align-self: flex-start; }
+    .props jelly-segmented { align-self: flex-start; }
     .prop-slug { display: flex; align-items: center; gap: .25rem; color: var(--muted); font-size: .8125rem; }
     .prop-slug input { flex: 1; min-width: 0; }
     .cover-row { display: flex; align-items: center; gap: .75rem; }
@@ -19,8 +19,7 @@
     .props .cover-url input { font-size: .8125rem; min-height: 2rem; }
 
     .catbox { max-height: 11rem; overflow-y: auto; padding: .25rem .5rem .25rem 0; display: flex; flex-direction: column; gap: .0625rem; }
-    .catbox label.inline { min-height: 1.875rem; font-size: .84375rem; font-weight: 500; }
-    .catbox label.inline .n { margin-left: auto; font-size: .6875rem; color: var(--muted); font-weight: 700; }
+    .catbox jelly-checkbox { min-height: 1.875rem; --jelly-label: var(--ink); }
     .catbox .branch { color: color-mix(in srgb, var(--muted) 55%, transparent); }
     .prop-msg { font-size: .8125rem; color: var(--muted); }
     .prop-msg a, .prop-msg button { background: none; border: 0; padding: 0; font-weight: 700; color: var(--secondary); cursor: pointer; text-decoration: underline; }
@@ -65,10 +64,10 @@
         <div class="label">{{.T.edProperties}}</div>
         <div class="prop">
             <label id="postStatusLabel">{{.T.status}}</label>
-            <div class="segmented" role="radiogroup" aria-labelledby="postStatusLabel">
-                <label><input type="radio" name="status" value="draft" checked><span>{{.T.draft}}</span></label>
-                <label><input type="radio" name="status" value="published"><span>{{.T.published}}</span></label>
-            </div>
+            <jelly-segmented id="postStatus" name="status" value="draft" label="{{.T.status}}">
+                <jelly-segment value="draft">{{.T.draft}}</jelly-segment>
+                <jelly-segment value="published">{{.T.published}}</jelly-segment>
+            </jelly-segmented>
         </div>
         <div class="prop">
             <label for="postSlug">{{.T.edSlug}}</label>
@@ -100,8 +99,8 @@
         <div class="prop">
             <label id="optLabel">{{.T.edOptions}}</label>
             <div class="opts" role="group" aria-labelledby="optLabel">
-                <div class="opt"><span id="optCommentsL">{{.T.edAllowComments}}</span><button type="button" class="badge" id="optComments" role="switch" aria-labelledby="optCommentsL" aria-checked="true"></button></div>
-                <div class="opt"><span id="optPinnedL">{{.T.edPinned}}</span><button type="button" class="badge" id="optPinned" role="switch" aria-labelledby="optPinnedL" aria-checked="false"></button></div>
+                <div class="opt"><span id="optCommentsL">{{.T.edAllowComments}}</span><jelly-switch id="optComments" label="{{.T.edAllowComments}}" checked></jelly-switch></div>
+                <div class="opt"><span id="optPinnedL">{{.T.edPinned}}</span><jelly-switch id="optPinned" label="{{.T.edPinned}}"></jelly-switch></div>
                 <div class="opt"><span id="optVisL">{{.T.edVisibility}}</span><button type="button" class="badge" id="optVis" aria-labelledby="optVisL optVis"></button></div>
             </div>
         </div>
@@ -170,20 +169,25 @@
         }
     }
 
-    /* ---------- 選項晶片：允許留言、置頂、可見性 ---------- */
+    /* ---------- 狀態（<jelly-segmented>）與選項：允許留言、置頂是 <jelly-switch>，可見性是晶片 ---------- */
+    const statusSeg = document.getElementById('postStatus');
+    const STATUSES = ['draft', 'published'];
+    // 讀寫一律用屬性（jelly.js 升級前也有效）；不認得的狀態不改目前的選取，與原本的單選相同。
+    function setStatus(v) { if (STATUSES.includes(v)) statusSeg.setAttribute('value', v); }
+    function getStatus() { const v = statusSeg.getAttribute('value'); return STATUSES.includes(v) ? v : 'draft'; }
     const state = { allow_comments: true, pinned: false, visibility: 'public' };
     function paintOptions() {
-        const on = (b, v, label) => { b.setAttribute('aria-checked', v ? 'true' : 'false'); b.className = 'badge' + (v ? ' badge-success' : ''); b.textContent = label || (v ? T.on : T.off); };
-        on(document.getElementById('optComments'), state.allow_comments);
+        document.getElementById('optComments').toggleAttribute('checked', !!state.allow_comments);
         const pin = document.getElementById('optPinned');
-        if (pin) on(pin, state.pinned);
+        if (pin) pin.toggleAttribute('checked', !!state.pinned);
         const vis = document.getElementById('optVis');
-        on(vis, state.visibility === 'private', state.visibility === 'private' ? T.private : T.public);
+        vis.setAttribute('aria-checked', state.visibility === 'private' ? 'true' : 'false');
+        vis.textContent = state.visibility === 'private' ? T.private : T.public;
         vis.className = 'badge' + (state.visibility === 'private' ? ' badge-warning' : '');
     }
-    document.getElementById('optComments').addEventListener('click', () => { state.allow_comments = !state.allow_comments; paintOptions(); });
+    document.getElementById('optComments').addEventListener('change', (e) => { state.allow_comments = e.currentTarget.hasAttribute('checked'); });
     const pinBtn = document.getElementById('optPinned');
-    if (pinBtn) pinBtn.addEventListener('click', () => { state.pinned = !state.pinned; paintOptions(); });
+    if (pinBtn) pinBtn.addEventListener('change', () => { state.pinned = pinBtn.hasAttribute('checked'); });
     document.getElementById('optVis').addEventListener('click', () => { state.visibility = state.visibility === 'private' ? 'public' : 'private'; paintOptions(); });
     paintOptions();
 
@@ -227,8 +231,8 @@
         if (catsFailed) { box.innerHTML = '<span class="prop-msg">' + esc(T.categoriesFailed) + ' <button type="button" id="catRetry">' + esc(T.retry) + '</button></span>'; document.getElementById('catRetry').addEventListener('click', loadCats); return; }
         if (!allCats) return;
         if (!allCats.length) { box.innerHTML = '<span class="prop-msg">' + esc(T.categoriesEmpty) + ' <a href="/admin/taxonomy#new" target="_blank" rel="noopener">' + esc(T.categoriesManage) + '</a></span>'; return; }
-        box.innerHTML = catRows().map(r => '<label class="inline" style="padding-left:' + (r.d * 1.1) + 'rem"><input type="checkbox" value="' + r.c.id + '"' + (pickedCats.has(r.c.id) ? ' checked' : '') + '>' + (r.d ? '<span class="branch" aria-hidden="true">└</span>' : '') + '<span>' + esc(r.c.name) + '</span></label>').join('');
-        box.querySelectorAll('input').forEach(cb => cb.addEventListener('change', () => { if (cb.checked) pickedCats.add(+cb.value); else pickedCats.delete(+cb.value); }));
+        box.innerHTML = catRows().map(r => '<jelly-checkbox size="sm" style="margin-left:' + (r.d * 1.1) + 'rem" value="' + r.c.id + '"' + (pickedCats.has(r.c.id) ? ' checked' : '') + '>' + (r.d ? '<span class="branch" aria-hidden="true">└ </span>' : '') + esc(r.c.name) + '</jelly-checkbox>').join('');
+        box.querySelectorAll('[value]').forEach(cb => cb.addEventListener('change', () => { const v = +cb.getAttribute('value'); if (cb.hasAttribute('checked')) pickedCats.add(v); else pickedCats.delete(v); }));
     }
     async function loadCats() {
         catsFailed = false; allCats = null; paintCats();
@@ -310,7 +314,7 @@
         const post = await res.json();
         form.title.value = post.title;
         form.slug.value = post.slug;
-        form.status.value = post.status;
+        setStatus(post.status);
         existingMeta = Object.prototype.hasOwnProperty.call(post, 'meta') ? post.meta : {};
         // 有 Markdown 原稿就用原稿，舊的 HTML 內容直接當 Markdown 編輯（Markdown 允許 HTML）
         editor.setValue(post.format === 'html' ? post.content : post.source ?? (typeof existingMeta?.markdown === 'string' ? existingMeta.markdown : post.content));
@@ -330,7 +334,7 @@
         const data = {
             title: form.title.value,
             slug: form.slug.value,
-            status: form.status.value || 'draft',
+            status: getStatus(),
             source: editor.getValue(),
             format: editor.format,
             published_at: document.getElementById('publishAt').value ? new Date(document.getElementById('publishAt').value).toISOString() : null,
@@ -353,7 +357,7 @@
         if (!draft?.data) return;
         const data = draft.data;
         form.slug.value = data.slug ?? '';
-        form.status.value = data.status || 'draft';
+        setStatus(data.status || 'draft');
         coverInput.value = data.cover || ''; paintCover();
         state.visibility = data.visibility === 'private' ? 'private' : 'public';
         state.allow_comments = data.allow_comments !== false;

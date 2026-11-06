@@ -109,7 +109,7 @@ def src_html(cur=15):
 gut, body = src_html(16)
 full = f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#fff;position:relative">
     <div class="topline"></div>
-    {TOP('<div class="seg"><span>' + I("page",13) + '原稿</span><span class="on">' + I("grid",13) + '分割</span><span>' + I("eye",13) + '預覽</span></div><button class="tool on" type="button" aria-label="大綱">' + I("list") + '</button><button class="tool" type="button" aria-label="專心模式">' + I("star") + '</button><button class="tool" type="button" aria-label="搜尋取代">' + I("search") + '</button>')}
+    {TOP('<div class="seg j"><span>' + I("page",13) + '原稿</span><span class="on">' + I("grid",13) + '分割</span><span>' + I("eye",13) + '預覽</span></div><button class="tool on" type="button" aria-label="大綱">' + I("list") + '</button><button class="tool" type="button" aria-label="專心模式">' + I("star") + '</button><button class="tool" type="button" aria-label="搜尋取代">' + I("search") + '</button>')}
     <div style="flex:1;display:grid;grid-template-columns:220px minmax(0,1fr) minmax(0,1fr);min-height:0">
       <aside style="border-right:1px solid #E6E7EB;padding:14px 10px;display:flex;flex-direction:column;gap:14px;background:#FAFAFB">
         <div><div class="lbl" style="padding:0 8px 6px">大綱</div><nav class="ol" style="display:flex;flex-direction:column;gap:1px">
@@ -183,9 +183,11 @@ full = f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction:c
 
 # ===================== EditorFocus: 專心模式（單欄、打字機、淡出介面） =====================
 SHEET = f'''      <!-- 快速鍵小抄 ⌘/ -->
-      <div class="pop" style="right:28px;bottom:70px;width:300px;padding:12px 14px;font-size:12.5px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b>快速鍵</b><span class="kbd">⌘/</span><button class="btn x s i" type="button" aria-label="關閉" style="margin-left:auto">{I("x",13)}</button></div>
-        <div style="display:grid;grid-template-columns:1fr auto;gap:5px 16px;color:#3A3D45">
+      <div class="jd-scrim"></div>
+      <div class="jd" role="dialog" aria-label="快速鍵" style="width:400px;font-size:13px">
+        <span class="close">{I("x",14)}</span>
+        <div style="display:flex;align-items:center;gap:8px;padding-right:34px"><b style="font-size:16px">快速鍵</b><span class="kbd">⌘/</span></div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px 16px;color:#3A3D45">
           <span>粗體 / 斜體 / 連結</span><span><span class="kbd">⌘B</span> <span class="kbd">⌘I</span> <span class="kbd">⌘K</span></span>
           <span>標題升降</span><span><span class="kbd">⌘⌥↑↓</span></span>
           <span>插入東西</span><span><span class="kbd">/</span></span>
@@ -229,9 +231,10 @@ def focus_html(open_sheet):
       <nav aria-label="大綱" style="position:absolute;right:28px;top:60px;display:flex;flex-direction:column;gap:14px;align-items:flex-end">
         <span style="width:22px;height:2px;background:#D9DBE0"></span><span style="width:14px;height:2px;background:#D9DBE0"></span><span style="width:14px;height:2px;background:#15161A"></span><span style="width:22px;height:2px;background:#D9DBE0"></span>
       </nav>
-{SHEET if open_sheet else COLLAPSED}
+{'' if open_sheet else COLLAPSED}
     </main>
     <div class="status" style="background:transparent;border:0;opacity:.6"><span><b>1,312</b> 字</span><span>今天 +428</span><span>目標 1,500 <span style="display:inline-block;width:80px;height:3px;background:#EDEEF1;vertical-align:middle;margin-left:4px"><span style="display:block;width:87%;height:3px;background:#13C2A3"></span></span></span><span style="margin-left:auto">打字機模式 · 深色 <span class="kbd">⌘⇧D</span></span></div>
+  {SHEET if open_sheet else ''}
   </div>'''
 
 # ===================== 共用範例稿：斜線選單與診斷、手機版都用這一份（行號要對得上診斷） =====================
@@ -337,7 +340,7 @@ lanes = "\n      ".join([
 ])
 slash_board = f'''<div style="width:100%;min-height:100vh;display:flex;flex-direction:column;background:#fff;position:relative">
     <div class="topline"></div>
-    {TOP('<div class="seg"><span class="on">' + I("page",13) + '原稿</span><span>' + I("grid",13) + '分割</span><span>' + I("eye",13) + '預覽</span></div><button class="tool on" type="button" aria-label="大綱">' + I("list") + '</button><button class="tool" type="button" aria-label="專心模式">' + I("star") + '</button><button class="tool" type="button" aria-label="搜尋取代">' + I("search") + '</button>')}
+    {TOP('<div class="seg j"><span class="on">' + I("page",13) + '原稿</span><span>' + I("grid",13) + '分割</span><span>' + I("eye",13) + '預覽</span></div><button class="tool on" type="button" aria-label="大綱">' + I("list") + '</button><button class="tool" type="button" aria-label="專心模式">' + I("star") + '</button><button class="tool" type="button" aria-label="搜尋取代">' + I("search") + '</button>')}
     <div style="flex:1;display:grid;grid-template-columns:200px minmax(0,1fr);min-height:0">
       <aside style="border-right:1px solid #E6E7EB;padding:14px 10px;display:flex;flex-direction:column;gap:14px;background:#FAFAFB">
         <div><div class="lbl" style="padding:0 8px 6px">大綱</div><nav class="ol" style="display:flex;flex-direction:column;gap:1px">

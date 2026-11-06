@@ -18,8 +18,13 @@
 .account-profile .profile-item-actions{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:flex-end}
 .account-profile .avatar-preview{width:4.5rem;height:4.5rem;overflow:hidden}
 .account-profile .avatar-preview img{width:100%;height:100%;object-fit:cover}
-.account-profile .recovery-codes{padding:1rem;background:var(--rail);color:#fff;border-radius:var(--r-sm);overflow-wrap:anywhere}
-.account-profile .recovery-codes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .75rem;font-family:var(--mono)}
+/* 備用碼與解除連結是 <jelly-dialog>：打開時被移到 <body>，不在 .account-profile 裡，所以不用祖先選擇器 */
+#recoveryBox .recovery-codes{padding:1rem;background:var(--rail);color:#fff;border-radius:var(--r-sm);overflow-wrap:anywhere}
+#recoveryBox .recovery-codes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .75rem;font-family:var(--mono)}
+#recoveryBox .profile-feedback{min-height:1.5rem;margin:.5rem 0 0}
+#recoveryBox .profile-feedback.error{color:var(--error)}
+#recoveryBox .profile-feedback.success{color:var(--success)}
+.account-profile .pref-table jelly-checkbox{vertical-align:middle}
 .account-profile .qr{width:9rem;height:9rem;object-fit:contain;background:#fff;border:1px solid var(--outline);padding:.4rem}
 .account-profile .profile-inline{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
 .account-profile .profile-feedback{min-height:1.5rem;margin:.5rem 0}
@@ -98,7 +103,7 @@
             <div class="pref-table-wrap"><table class="pref-table"><thead><tr><th>{{if eq .Lang "en"}}Event{{else}}事件{{end}}</th><th>{{if eq .Lang "en"}}In-app{{else}}站內{{end}}</th><th>{{if eq .Lang "en"}}Email{{else}}Email{{end}}</th><th>{{if eq .Lang "en"}}Webhook{{else}}Webhook{{end}}</th></tr></thead><tbody id="preferenceRows"></tbody></table></div>
             <div class="form-group" style="margin-top:1rem"><label for="webhookURL">{{if eq .Lang "en"}}Webhook URL (HTTPS only){{else}}Webhook 網址（僅 HTTPS）{{end}}</label><input id="webhookURL" name="webhook_url" type="url" inputmode="url" autocomplete="url"><span class="hint">{{if eq .Lang "en"}}Private and loopback destinations are rejected by the server.{{else}}伺服器會拒絕內網與回送位址。{{end}}</span></div>
             <fieldset class="form-group"><legend class="label">{{if eq .Lang "en"}}Quiet hours{{else}}勿擾時段{{end}}</legend>
-                <label class="inline"><input id="quietEnabled" type="checkbox">{{if eq .Lang "en"}}Enable quiet hours{{else}}啟用勿擾時段{{end}}</label>
+                <jelly-checkbox size="sm" id="quietEnabled">{{if eq .Lang "en"}}Enable quiet hours{{else}}啟用勿擾時段{{end}}</jelly-checkbox>
                 <div class="form-row"><div><label for="quietStart">{{if eq .Lang "en"}}Start{{else}}開始{{end}}</label><input id="quietStart" type="time"></div><div><label for="quietEnd">{{if eq .Lang "en"}}End{{else}}結束{{end}}</label><input id="quietEnd" type="time"></div><div><label for="quietTZ">{{if eq .Lang "en"}}Time zone{{else}}時區{{end}}</label><input id="quietTZ" type="text" placeholder="Asia/Taipei" maxlength="64"></div></div>
             </fieldset>
             <div class="form-actions"><button class="btn btn-primary" type="submit">{{if eq .Lang "en"}}Save preferences{{else}}儲存通知偏好{{end}}</button></div>
@@ -150,7 +155,7 @@
                         <button class="btn btn-danger btn-sm" type="submit">{{if eq .Lang "en"}}Turn off{{else}}關閉{{end}}</button>
                     </form>
                 </div>
-                <div id="recoveryBox" class="section" hidden><h3>{{if eq .Lang "en"}}Recovery codes — shown once{{else}}備用碼 — 僅顯示一次{{end}}</h3><p>{{if eq .Lang "en"}}Save these codes somewhere safe. Closing this panel removes them from this page.{{else}}請妥善保存；關閉此面板後，畫面就不再保留。{{end}}</p><div class="recovery-codes" id="recoveryCodes"></div><div class="form-actions"><button class="btn btn-secondary btn-sm" id="copyRecoveryCodes" type="button">{{if eq .Lang "en"}}Copy codes{{else}}複製備用碼{{end}}</button><button class="btn btn-primary btn-sm" id="ackRecoveryCodes" type="button">{{if eq .Lang "en"}}I saved these codes{{else}}我已保存備用碼{{end}}</button></div></div>
+                <jelly-dialog id="recoveryBox" label="{{if eq .Lang "en"}}Recovery codes{{else}}備用碼{{end}}"><h2>{{if eq .Lang "en"}}Recovery codes — shown once{{else}}備用碼 — 僅顯示一次{{end}}</h2><p>{{if eq .Lang "en"}}Save these codes somewhere safe. Closing this panel removes them from this page.{{else}}請妥善保存；關閉此面板後，畫面就不再保留。{{end}}</p><div class="recovery-codes" id="recoveryCodes"></div><p class="profile-feedback" id="recoveryCopyStatus" role="status" aria-live="polite"></p><div class="form-actions"><button class="btn btn-secondary btn-sm" id="copyRecoveryCodes" type="button">{{if eq .Lang "en"}}Copy codes{{else}}複製備用碼{{end}}</button><button class="btn btn-primary btn-sm" id="ackRecoveryCodes" type="button">{{if eq .Lang "en"}}I saved these codes{{else}}我已保存備用碼{{end}}</button></div></jelly-dialog>
             </section>
         </div>
         <aside class="profile-side"><section class="profile-card"><h2>{{if eq .Lang "en"}}Security notes{{else}}安全提醒{{end}}</h2><ul><li>{{if eq .Lang "en"}}Recovery codes are single-use.{{else}}每組備用碼只能使用一次。{{end}}</li><li>{{if eq .Lang "en"}}A password change signs out other sessions.{{else}}變更密碼會登出其他登入裝置。{{end}}</li><li>{{if eq .Lang "en"}}Never share your authenticator secret or recovery codes.{{else}}不要分享驗證器密鑰或備用碼。{{end}}</li></ul></section></aside>
@@ -169,7 +174,7 @@
     </section>
 </div>
 
-<div class="modal-overlay" id="identityConfirm" hidden><section class="modal-content" role="dialog" aria-modal="true" aria-labelledby="identityConfirmTitle"><div class="modal-header"><h2 id="identityConfirmTitle">{{if eq .Lang "en"}}Disconnect account?{{else}}解除第三方帳號？{{end}}</h2></div><p id="identityConfirmText"></p><div class="form-actions"><button class="btn btn-danger" id="confirmUnlink" type="button">{{if eq .Lang "en"}}Disconnect{{else}}解除連結{{end}}</button><button class="btn btn-secondary" id="cancelUnlink" type="button">{{if eq .Lang "en"}}Cancel{{else}}取消{{end}}</button></div></section></div>
+<jelly-dialog id="identityConfirm" label="{{if eq .Lang "en"}}Disconnect account?{{else}}解除第三方帳號？{{end}}"><div class="modal-header"><h2 id="identityConfirmTitle">{{if eq .Lang "en"}}Disconnect account?{{else}}解除第三方帳號？{{end}}</h2></div><p id="identityConfirmText"></p><div class="form-actions"><button class="btn btn-danger" id="confirmUnlink" type="button">{{if eq .Lang "en"}}Disconnect{{else}}解除連結{{end}}</button><button class="btn btn-secondary" id="cancelUnlink" type="button">{{if eq .Lang "en"}}Cancel{{else}}取消{{end}}</button></div></jelly-dialog>
 {{end}}
 {{define "scripts"}}
 <script>
@@ -223,16 +228,6 @@
         target.classList.toggle('error', kind === 'error');
         target.classList.toggle('success', kind === 'success');
     }
-    function openOverlay(target, focusTarget) {
-        target.hidden = false;
-        target.classList.add('open');
-        if (focusTarget) focusTarget.focus();
-    }
-    function closeOverlay(target, focusTarget) {
-        target.classList.remove('open');
-        target.hidden = true;
-        if (focusTarget && focusTarget.isConnected) focusTarget.focus();
-    }
     function errorText(response, error) {
         if (error && error.name === 'AbortError') return copy.timeout;
         if (navigator.onLine === false) return copy.offline;
@@ -272,6 +267,8 @@
         state.busy = value;
         root.setAttribute('aria-busy', String(value));
         if (form) form.querySelectorAll('button,input,select,textarea').forEach((item) => { item.disabled = value; });
+        // Jelly 勾選框的停用只認屬性（el.disabled 對它無效）
+        if (form) form.querySelectorAll('[data-event], #quietEnabled').forEach((item) => item.toggleAttribute('disabled', value));
     }
     function formatDate(value) {
         if (!value) return '—';
@@ -435,16 +432,16 @@
             const pref = events[eventKey] || {};
             ['in_app', 'email', 'webhook'].forEach((channel) => {
                 const cell = document.createElement('td');
-                const input = document.createElement('input'); input.type = 'checkbox'; input.checked = typeof pref[channel] === 'boolean' ? pref[channel] : channel === 'in_app';
+                const input = document.createElement('jelly-checkbox'); input.setAttribute('size', 'sm'); input.toggleAttribute('checked', typeof pref[channel] === 'boolean' ? pref[channel] : channel === 'in_app');
                 input.dataset.event = eventKey; input.dataset.channel = channel;
-                input.setAttribute('aria-label', eventNames[eventKey] + ' · ' + channel);
+                input.setAttribute('label', eventNames[eventKey] + ' · ' + channel);
                 cell.appendChild(input); row.appendChild(cell);
             });
             tbody.appendChild(row);
         });
         $('webhookURL').value = data && data.webhook_url || '';
         const quiet = data && data.quiet || {};
-        $('quietEnabled').checked = Boolean(quiet.enabled);
+        $('quietEnabled').toggleAttribute('checked', Boolean(quiet.enabled));
         $('quietStart').value = quiet.start || '';
         $('quietEnd').value = quiet.end || '';
         $('quietTZ').value = quiet.tz || '';
@@ -467,9 +464,9 @@
         const events = {};
         Object.keys(eventNames).forEach((eventKey) => {
             events[eventKey] = {};
-            form.querySelectorAll('input[data-event="' + eventKey + '"]').forEach((input) => { events[eventKey][input.dataset.channel] = input.checked; });
+            form.querySelectorAll('[data-event="' + eventKey + '"]').forEach((input) => { events[eventKey][input.dataset.channel] = input.hasAttribute('checked'); });
         });
-        const quietEnabled = $('quietEnabled').checked;
+        const quietEnabled = $('quietEnabled').hasAttribute('checked');
         const body = { events, webhook_url: webhook, quiet: { enabled: quietEnabled, start: quietEnabled ? $('quietStart').value : '', end: quietEnabled ? $('quietEnd').value : '', tz: quietEnabled ? $('quietTZ').value.trim() : '' } };
         setBusy(true, form); message(feedback, '', '');
         try {
@@ -536,8 +533,9 @@
         if (!Array.isArray(codes) || codes.length !== 10 || codes.some((code) => typeof code !== 'string')) throw new Error(copy.invalidResponse);
         state.recoveryCodes = codes.slice();
         const container = $('recoveryCodes'); container.replaceChildren(...codes.map((code) => el('code', '', code)));
-        $('recoveryBox').hidden = false;
-        $('recoveryBox').scrollIntoView({ block: 'nearest' });
+        message($('recoveryCopyStatus'), '', '');
+        // 備用碼只顯示這一次：鎖住的 <jelly-dialog>，Esc、點背景都不關、沒有 ✕，只有「我已保存備用碼」能關。
+        Jelly.dialog($('recoveryBox'), { locked: true, focus: '#copyRecoveryCodes' });
     }
     $('totpEnrollForm').addEventListener('submit', async (event) => {
         event.preventDefault();
@@ -577,17 +575,18 @@
             if (/^\d{6}$/.test(code)) body.code = code;
             else body.recovery_code = code;
             await checked('/api/account/2fa/disable', jsonOptions('POST', body));
-            form.reset(); $('recoveryBox').hidden = true; state.recoveryCodes = [];
+            form.reset(); Jelly.closeDialog($('recoveryBox')); $('recoveryCodes').replaceChildren(); state.recoveryCodes = [];
             await loadTotp(); message($('totpStatus'), en ? 'Two-step verification turned off.' : '兩步驟驗證已關閉。', 'success');
         } catch (error) { message($('totpStatus'), error.message, 'error'); }
         finally { setBusy(false, form); }
     });
     $('copyRecoveryCodes').addEventListener('click', async () => {
         if (!state.recoveryCodes.length) return;
-        try { await navigator.clipboard.writeText(state.recoveryCodes.join('\n')); message($('totpStatus'), en ? 'Recovery codes copied.' : '備用碼已複製。', 'success'); }
-        catch (_) { message($('totpStatus'), en ? 'Clipboard unavailable. Select and copy the codes.' : '無法使用剪貼簿，請選取備用碼複製。', 'error'); }
+        try { await navigator.clipboard.writeText(state.recoveryCodes.join('\n')); message($('recoveryCopyStatus'), en ? 'Recovery codes copied.' : '備用碼已複製。', 'success'); }
+        catch (_) { message($('recoveryCopyStatus'), en ? 'Clipboard unavailable. Select and copy the codes.' : '無法使用剪貼簿，請選取備用碼複製。', 'error'); }
     });
-    $('ackRecoveryCodes').addEventListener('click', () => { $('recoveryCodes').replaceChildren(); $('recoveryBox').hidden = true; state.recoveryCodes = []; });
+    $('ackRecoveryCodes').addEventListener('click', () => Jelly.closeDialog($('recoveryBox')));
+    $('recoveryBox').addEventListener('close', () => { $('recoveryCodes').replaceChildren(); state.recoveryCodes = []; });
     $('passwordForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         const form = event.currentTarget;
@@ -695,7 +694,7 @@
             state.unlinkProvider = provider.provider;
             state.unlinkTrigger = button;
             $('identityConfirmText').textContent = (en ? 'Disconnect ' : '解除 ') + (provider.provider === 'google' ? 'Google' : 'GitHub') + (en ? ' from this account?' : ' 與此帳號的連結？');
-            openOverlay($('identityConfirm'), $('confirmUnlink')); return;
+            Jelly.dialog($('identityConfirm'), { opener: button, focus: $('confirmUnlink') }); return;
         }
         if (button.dataset.identityAction === 'connect') {
             setBusy(true);
@@ -713,16 +712,14 @@
         setBusy(true);
         try {
             await checked('/api/auth/identities/' + encodeURIComponent(provider), { method: 'DELETE' });
-            closeOverlay($('identityConfirm'), state.unlinkTrigger); state.unlinkProvider = ''; state.unlinkTrigger = null; await loadIdentities();
+            Jelly.closeDialog($('identityConfirm')); await loadIdentities();
         } catch (error) { $('identityError').textContent = error.message; $('identityError').hidden = false; }
         finally { setBusy(false); }
     });
-    function closeIdentityConfirm() {
-        closeOverlay($('identityConfirm'), state.unlinkTrigger);
-        state.unlinkProvider = ''; state.unlinkTrigger = null;
-    }
+    // 解除連結是 <jelly-dialog>：Esc、點背景、右上 ✕ 與「取消」都關閉，焦點回到觸發的按鈕（Jelly.dialog）。
+    function closeIdentityConfirm() { Jelly.closeDialog($('identityConfirm')); }
+    $('identityConfirm').addEventListener('close', () => { state.unlinkProvider = ''; state.unlinkTrigger = null; });
     $('cancelUnlink').addEventListener('click', closeIdentityConfirm);
-    $('identityConfirm').addEventListener('click', (event) => { if (event.target === $('identityConfirm')) closeIdentityConfirm(); });
     $('retryIdentities').addEventListener('click', loadIdentities);
 
     $('profileError').hidden = true;
@@ -740,7 +737,6 @@
     }
     $('retrySessions').hidden = true;
     $('retryIdentities').hidden = true;
-    $('identityConfirm').addEventListener('keydown', (event) => { if (event.key === 'Escape') closeIdentityConfirm(); });
 })();
 </script>
 {{end}}

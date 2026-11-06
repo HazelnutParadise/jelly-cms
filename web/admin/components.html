@@ -1,5 +1,7 @@
 {{define "components"}}{{end}}
-{{/* 元件樣式統一放在 layout.html，這裡只有結構。 */}}
+{{/* 元件樣式統一放在 layout.html，這裡只有結構。界線見 COMPONENTS.md：
+   選擇與切換（開關、分段、勾選框、單選）與回饋與覆蓋層（通知、確認、一般對話框）用 Jelly UI 元件；
+   輸入與動作（欄位、按鈕、徽章、卡片、表格）與導覽分頁用這裡的自家範本。 */}}
 
 {{/* Stat Card Component */}}
 {{define "stat-card"}}
@@ -70,16 +72,15 @@
 </a>
 {{end}}
 
-{{/* Modal Component */}}
+{{/* 一般對話框：<jelly-dialog>，以 Jelly.dialog(el) 打開、Jelly.closeDialog(el) 關閉（見 COMPONENTS.md）。
+   表單放在對話框裡面：打開時對話框會被移到 <body>。 */}}
 {{define "modal"}}
-<div id="{{.id}}" class="modal-overlay">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>{{.title}}</h2>
-        </div>
-        {{.content}}
+<jelly-dialog id="{{.id}}" label="{{.title}}">
+    <div class="modal-header">
+        <h2>{{.title}}</h2>
     </div>
-</div>
+    {{.content}}
+</jelly-dialog>
 {{end}}
 
 {{/* Form Group Component */}}
@@ -276,22 +277,6 @@ document.addEventListener('click', function(e) {
         {{if .oninput}}oninput="{{.oninput}}"{{end}}
     >
 </div>
-{{end}}
-
-{{/* Toggle Switch Component */}}
-{{define "toggle"}}
-<label class="toggle-switch">
-    <input
-        type="checkbox"
-        id="{{.id}}"
-        {{if .checked}}checked{{end}}
-        {{if .onchange}}onchange="{{.onchange}}"{{end}}
-    >
-    <span class="slider"></span>
-    {{if .label}}
-    <span class="toggle-label">{{.label}}</span>
-    {{end}}
-</label>
 {{end}}
 
 {{/* Avatar Component */}}

@@ -3,9 +3,7 @@
 <style>
 .widgets-workspace { display:grid; grid-template-columns:minmax(0,1fr) minmax(20rem,32rem); gap:1.5rem; align-items:start; }
 .widgets-intro { padding:1rem; margin-bottom:1rem; background:var(--surface-low); border-radius:var(--r-md); color:var(--muted); }
-.widgets-filters { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:1rem; }
-.widgets-filters .btn { background:var(--surface-low); color:var(--ink); }
-.widgets-filters [aria-pressed="true"] { background:var(--ink); color:var(--surface); }
+.widgets-filters { margin-bottom:1rem; }
 .widget-row { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.5rem 1rem; text-align:left; padding:1rem 0; background:none; color:var(--ink); border:0; border-top:1px solid var(--outline); font:inherit; cursor:pointer; }
 .widget-row:hover,.widget-row[aria-current="true"] { background:var(--surface-low); }
 .widget-row small { display:block; color:var(--muted); overflow-wrap:anywhere; }
@@ -38,11 +36,13 @@
 <p class="widgets-intro">{{.T.widgetsIntro}}</p>
 <div class="widgets-workspace">
 <section aria-label="{{.T.widgetsTitle}}">
-    <div class="widgets-filters" id="widget-filters" aria-label="{{.T.widgetsTitle}}">
-        <button type="button" class="btn btn-sm" data-filter="all" aria-pressed="true">{{.T.widgetsAll}}</button>
-        <button type="button" class="btn btn-sm" data-filter="builtin" aria-pressed="false">{{.T.widgetsBuiltin}}</button>
-        <button type="button" class="btn btn-sm" data-filter="custom" aria-pressed="false">{{.T.widgetsCustom}}</button>
-        <button type="button" class="btn btn-sm" data-filter="plugin" aria-pressed="false">{{.T.widgetsPlugin}}</button>
+    <div class="widgets-filters seg-scroll">
+        <jelly-segmented id="widget-filters" name="widget_filter" value="all" label="{{.T.widgetsTitle}}">
+            <jelly-segment value="all">{{.T.widgetsAll}}</jelly-segment>
+            <jelly-segment value="builtin">{{.T.widgetsBuiltin}}</jelly-segment>
+            <jelly-segment value="custom">{{.T.widgetsCustom}}</jelly-segment>
+            <jelly-segment value="plugin">{{.T.widgetsPlugin}}</jelly-segment>
+        </jelly-segmented>
     </div>
     <p id="widgets-status" role="status" class="widgets-message">{{.T.widgetsLoading}}</p>
     <button id="widgets-retry" type="button" class="btn btn-secondary" hidden>{{.T.widgetsRetry}}</button>
@@ -162,7 +162,7 @@
         byId('widget-preview-params').querySelectorAll('[data-param]').forEach(input=>{if(!input.reportValidity()) valid=false; if(input.value) params.set(input.dataset.param,input.value);}); if(!valid) return;
         const frame=byId('widget-preview-frame'); frame.src='/widgets/'+encodeURIComponent(selected.name)+'/'+previewVersion.version+'/frame?'+params; frame.hidden=false; window.JellyComponents.init(frame.parentElement);
     });
-    byId('widget-filters').addEventListener('click',event=>{const button=event.target.closest('[data-filter]');if(!button)return;filter=button.dataset.filter;byId('widget-filters').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));rows();});
+    byId('widget-filters').addEventListener('change',event=>{filter=(event.detail&&event.detail.value)||byId('widget-filters').getAttribute('value')||'all';rows();});
     byId('widgets-retry').addEventListener('click',()=>load(true));
     window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
     load(true);

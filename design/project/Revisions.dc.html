@@ -38,6 +38,12 @@ a{color:#2F6BFF;text-decoration:none}a:hover{color:#E8285B}
 .jd{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:440px;box-sizing:border-box;background:#fff;border-radius:0 24px 0 24px;box-shadow:0 14px 34px -16px rgba(21,22,26,.42),0 4px 12px -8px rgba(21,22,26,.28);padding:26px;display:flex;flex-direction:column;gap:14px}
 .jd .close{position:absolute;top:16px;right:16px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#5F6470}
 .jd-scrim{position:absolute;inset:0;background:rgba(21,22,26,.42);backdrop-filter:blur(1.5px)}
+.jd.st{position:relative;left:auto;top:auto;transform:none;width:auto;text-align:left}
+.cb.j,.rd.j{--cb:28px;width:var(--cb);height:var(--cb);box-sizing:border-box;background:#E3E3E6;box-shadow:none;position:relative;display:inline-block;vertical-align:middle;flex:0 0 auto}
+.cb.j{border-radius:calc(var(--cb)*.3)}.rd.j{border-radius:50%}
+.cb.j.on,.rd.j.on{background:#13C2A3}
+.cb.j.on:after{display:block;content:"";position:absolute;inset:0;width:auto;height:auto;border:0;transform:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 28'%3E%3Cpath d='M6.2 14.2l5.2 5.4L21.9 7.4' fill='none' stroke='%23fff' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/100% 100% no-repeat}
+.rd.j.on:after{display:block;content:"";position:absolute;left:50%;top:50%;width:calc(var(--cb)*.357);height:calc(var(--cb)*.357);transform:translate(-50%,-50%);border-radius:50%;background:#fff}
 .ul{width:100%;min-height:34px;padding:4px 0;border:0;border-bottom:1.5px solid #D9DBE0;background:transparent;font:inherit;font-size:14px;color:#15161A;box-sizing:border-box}
 .mono{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;letter-spacing:-.02em}
 .cube{position:absolute;border-radius:0 26% 0 26%}
@@ -140,7 +146,7 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
       <div style="font-size:12px;color:#5F6470;line-height:1.6;padding:10px;background:#F5F5F7;border-radius:0 10px 0 10px">自動儲存每 60 秒一次，只留最近 20 個；手動儲存和發布的版本永久保留。</div>
     </aside>
     <section>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg"><span class="on"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg>逐行比較</span><span><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>只看 v13</span><span><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>左右並排</span></div><span style="font-size:13px;color:#5F6470">比較 <b class="mono">v13</b> → <b class="mono">v14（目前）</b></span><label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">只顯示有變的段落<span class="tg"></span></label></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div class="seg j"><span class="on"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1"/></svg>逐行比較</span><span><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>只看 v13</span><span><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>左右並排</span></div><span style="font-size:13px;color:#5F6470">比較 <b class="mono">v13</b> → <b class="mono">v14（目前）</b></span><label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600">只顯示有變的段落<span class="tg j"></span></label></div>
       <div class="card" style="padding:0;overflow:hidden">
         <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #EEEFF2;font-size:12px;font-weight:700;color:#5F6470"><div style="padding:8px 14px;border-right:1px solid #EEEFF2">標題</div><div style="padding:8px 14px"></div></div>
         <div class="diff" style="padding:12px 14px;border-bottom:1px solid #EEEFF2"><span class="a">焦糖布丁食譜</span><span class="b">零失敗焦糖布丁，重點在火</span></div>

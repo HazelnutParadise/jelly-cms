@@ -1,6 +1,146 @@
 # Jelly CMS Admin Components
 
-這是 Jelly CMS 後台管理界面的組件系統。所有組件都定義在 `components.html` 中，可以在任何後台頁面中重複使用。
+這是 Jelly CMS 後台管理界面的組件系統。自家組件定義在 `components.html`，Jelly UI 元件由 `layout.html` 載入的 `/admin/assets/jelly-ui/jelly.js` 提供；兩者怎麼分工看下面的〈界線〉。決定與理由在 `docs/tickets/26-jelly-ui-consistency.md`，設計板上的樣子在 `design/README.md`〈Jelly UI 元件對照（界線）〉。
+
+## 界線：同一類控制項在整個後台只有一種實作
+
+| 類別 | 控制項 | 用什麼 |
+|---|---|---|
+| 選擇與切換 | 開關、分段選擇、勾選框、單選群組 | Jelly UI：`<jelly-switch>`、`<jelly-segmented>`／`<jelly-segment>`、`<jelly-checkbox>`、`<jelly-radio-group>`／`<jelly-radio>` |
+| 回饋與覆蓋層 | 通知、確認、一般對話框 | Jelly UI：`Jelly.toast()`、`Jelly.confirm()`、`<jelly-dialog>`（以 `Jelly.dialog()` 打開） |
+| 輸入與動作 | 文字欄位、多行文字、下拉選單、按鈕、徽章、卡片、表格、側欄、⌘K 面板 | 自家（底線欄位、對角單角按鈕、覆盆子紅主要動作）；不用 `jelly-button`、`jelly-input`、`jelly-textarea`、`jelly-select`、`jelly-badge`、`jelly-chip`、`jelly-tabs`、`jelly-card`、`jelly-pagination`、`jelly-tooltip`、`jelly-menu`、`jelly-drawer` |
+| 導覽 | 會換網址或切換整頁區塊的分頁列：設定頁分頁列、個人資料分頁、附件策略頁與轉址頁的 `.sys-tabs` | 自家分頁 |
+
+**分段選擇還是分頁？** 在卡片或清單內選一個值、篩選清單、切換卡片內的來源，用 `<jelly-segmented>`（文章狀態、留言狀態篩選、使用者角色篩選、折扣碼類型、選單「加入項目」的來源）；換網址或切換整頁的主要區塊，用自家分頁（`<nav class="tabs">`、`.profile-tabs`、`.sys-tabs`）。
+
+不在界線內：登入、安裝、帳號復原與前台主題不載入 Jelly UI；編輯器預覽與文章內容裡的待辦清單 `<input type="checkbox" disabled>` 是使用者內容，不是後台控制項。
+
+## Jelly UI 元件寫法
+
+共同規則：
+
+- **讀寫一律用屬性。** `jelly.js` 是 deferred module，頁面的行內腳本比它先跑；元素升級前寫 `el.checked = …`、`el.value = …` 會變成元素自己的屬性，永遠遮住升級後的 accessor。開關、勾選框、單選讀 `el.hasAttribute('checked')`、寫 `el.toggleAttribute('checked', v)`；分段讀 `el.getAttribute('value')`、寫 `el.setAttribute('value', v)`；停用寫 `el.toggleAttribute('disabled', v)`（`el.disabled = …` 對 Jelly 勾選框與單選沒有作用）。不要用 `.checked`、`.indeterminate` 或 `:checked` 選擇器，改用 `[checked]`。
+- **`change` 只在使用者操作時發出**（`bubbles`、`composed`，在元素本身上）；程式改屬性不發事件。
+- **尺寸**：勾選框、單選與單選群組一律 `size="sm"`（28px，和開關軌道等高；腳本建立的要 `setAttribute('size', 'sm')`）。開關與分段選擇用預設大小，不加 `size`。
+- **可存取名稱**：沒有看得見的文字時給 `label` 屬性（`aria-label` 寫在主機上不會傳進 shadow DOM）。
+- 表單：開關、分段、勾選框、單選都是 form-associated（單選群組不是）。開關、勾選框、單選勾選時 `FormData` 有 `name=value`（`value` 預設 `"on"`），沒勾時沒有這個鍵，與原生勾選框相同；分段送出選中段的 `value`。勾選框與單選**沒有** `formResetCallback`：`form.reset()` 不會還原它們，要自己把屬性設回預設。
+
+### 開關 `<jelly-switch>`
+
+```html
+<div class="tx-toggle"><span>不在列表顯示<small>說明</small></span>
+    <jelly-switch id="fHide" name="hide_from_list" label="不在列表顯示"></jelly-switch></div>
+```
+
+```js
+const on = $('fHide').hasAttribute('checked');
+$('fHide').toggleAttribute('checked', !!item.hide_from_list);
+$('fHide').addEventListener('change', () => { /* 使用者切換 */ });
+```
+
+空白鍵與 Enter 都會切換，所以表單裡的開關按 Enter 不會送出表單。點旁邊的 `<span>` 文字不會切換；要整列可點，把文字放進開關的內容（slot）。
+
+### 分段選擇 `<jelly-segmented>`
+
+```html
+<div class="seg-scroll">
+    <jelly-segmented id="statusSeg" name="status" value="pending" label="狀態">
+        <jelly-segment value="all">全部</jelly-segment>
+        <jelly-segment value="pending">待審</jelly-segment>
+    </jelly-segmented>
+</div>
+```
+
+```js
+$('statusSeg').addEventListener('change', (e) => load(e.detail.value));
+$('statusSeg').setAttribute('value', 'approved');            // 程式選取
+Jelly.segmentText($('statusSeg'), 'pending', '待審 12');      // 只在文字真的變了才改
+```
+
+- 段的內容只能是純文字（不能放圖示或 `<b>`）；數字就接在文字後面（`待審 12`）。
+- 改 `<jelly-segment>` 的文字會讓分段重建內部按鈕、焦點掉出：更新篇數一律用 `Jelly.segmentText(segmented, value, text)`，文字沒變就不動，焦點原本在分段裡會放回選中的段。
+- 方向鍵、Home、End 移動並選取（roving tabindex）。分段沒有「都不選」的狀態，`value` 不對應任何段時顯示第一段。
+- 分段可能比欄位寬（手機、窄卡片、英文）：包一層 `.seg-scroll`，只在自己的列內橫向捲動，不讓整頁溢出（沿用文章列表的做法）。
+- 不要在載入期間對分段加 `disabled`：屬性一變就重建內部按鈕，焦點會掉出。
+
+### 勾選框 `<jelly-checkbox>`
+
+```html
+<jelly-checkbox size="sm" id="fShip">需要運送</jelly-checkbox>
+<jelly-checkbox size="sm" id="selectAll" label="全選"></jelly-checkbox>
+```
+
+```js
+const cb = document.createElement('jelly-checkbox');
+cb.setAttribute('size', 'sm');
+cb.setAttribute('label', item.title);
+cb.toggleAttribute('checked', selected.has(item.id));
+tbody.addEventListener('change', (e) => { const c = e.target.closest('[data-select]'); if (c) toggle(c.dataset.select, c.hasAttribute('checked')); });
+all.toggleAttribute('indeterminate', some && !every);    // 表格全選的部分選取；使用者一點就清掉
+```
+
+點勾選框的任何地方（方塊或文字）都會切換；點一下主機會收到兩次 `click`（文字與內部 input），所以要聽 `change`，不要聽 `click`。
+
+### 單選 `<jelly-radio-group>`／`<jelly-radio>`
+
+```html
+<jelly-radio-group size="sm" direction="vertical" label="角色">
+    <div class="invite-role-card"><jelly-radio size="sm" name="role" value="editor" checked><strong>編輯</strong><span class="hint">…</span></jelly-radio></div>
+    <div class="invite-role-card"><jelly-radio size="sm" name="role" value="author"><strong>作者</strong><span class="hint">…</span></jelly-radio></div>
+</jelly-radio-group>
+```
+
+```js
+const chosen = form.querySelector('[name=role][checked]');
+const role = chosen ? chosen.getAttribute('value') : 'editor';
+form.querySelectorAll('[name=role]').forEach((r) => r.toggleAttribute('checked', r.getAttribute('value') === 'editor'));
+```
+
+- **同一組靠 `name`**：上游把「同一個 root（文件或 shadow root）裡同名的 `<jelly-radio>`」當一組，與外層的 `<jelly-radio-group>` 無關，所以同一頁不同用途的單選要用不同的 `name`。
+- `<jelly-radio-group>` 只負責 `label`（顯示成群組標題並成為可存取名稱）、`direction`、`size` 與 `role="radiogroup"`；它**沒有** `value`、`name`，也不發 `change`。選取狀態在被選的 `<jelly-radio checked>`，`change` 由被選的單選發出。
+- 使用者點選（或方向鍵、空白鍵）會清掉同組其他單選的 `checked`；程式設 `checked` 不會清別人，也不發事件，要自己清。
+- 「勾選卡片」（邀請角色、匯出格式、輪替方式）保留卡片版面：卡片內放 `<jelly-radio>`，卡片的其他地方用 click 委派成「選取這張卡的單選」，讓點整張卡片等同點選。
+
+### 對話框 `<jelly-dialog>` 與 `Jelly.dialog()`
+
+```html
+<jelly-dialog id="batchSheet" class="dialog-wide" label="批次產生">
+    <div class="modal-header"><h2>批次產生</h2></div>
+    <form id="bf">…<div class="modal-footer"><button type="submit" class="btn btn-primary">產生</button></div></form>
+</jelly-dialog>
+```
+
+```js
+Jelly.dialog($('batchSheet'), { opener: $('batchOpen'), focus: '#bPrefix' });   // 打開
+Jelly.closeDialog($('batchSheet'));                                            // 關閉（有退場動畫）
+$('batchSheet').addEventListener('close', () => { /* 清理；Esc、背景、✕ 關閉也會到這裡 */ });
+```
+
+- 打開一律用屬性：`Jelly.dialog(el)` 等 `jelly.js` 定義好元素後 `setAttribute('open', '')`；伺服器輸出的 `<jelly-dialog>` 不帶 `open`。也可以直接 `removeAttribute('open')` 立刻關閉（沒有動畫）。不要呼叫 `.showModal()`（只在升級後存在）。
+- `Jelly.dialog(el, { opener, focus, locked })`：`opener` 是關閉後焦點要回去的元素（預設是打開當下的焦點），`focus` 是打開後要聚焦的元素或選擇器（預設是對話框本體），`locked: true` 讓對話框不理 Esc、點背景，也隱藏右上 ✕，只能由程式關閉（備用碼「我已保存備用碼」之前不能關）。處理中要暫時鎖住，可以直接切換 `data-jelly-locked` 屬性。對已經開著的對話框再呼叫一次（例如換內容）會保留原本的 opener。
+- `dismissOnBackdrop: false`：點背景不關，Esc 與右上 ✕ 照常（與 `locked` 不同：`locked` 連 Esc 與 ✕ 都擋）。用在**輸入或產出後不能因誤點而消失**的對話框：一次性金鑰、還原草稿提示、編輯器的匯出／快捷鍵、主題客製化、外掛上傳、系統頁的表單對話框。預設（不給或給 `true`）點背景關閉，用在短的確認或單一表單（折扣碼批次、選單新增與設定、留言回覆、使用者、個人帳號身分確認）。
+- 點背景的判定：只有按下與放開都在背景（`.wrap` 本身）才算點背景。從對話框內容拖到背景才放開不會關（`layout.html` 攔下上游的 click），所以不必在各頁另外處理拖曳選字。
+- **Esc 只關最上層**：上游每個開著的對話框都在 `document` 上聽 Esc，巢狀時（對話框裡再開 `Jelly.confirm`）會一次全關。`layout.html` 維護開啟堆疊，在 `window` 的捕獲階段攔下 Esc（`preventDefault`）再只關最上層，所以頁面自己的 Esc 處理請先檢查 `event.defaultPrevented`。
+- 打開時對話框會被移到 `<body>`、鎖捲動、外面設成 `inert`。所以**表單要放在對話框裡面**，對話框裡的樣式不能依賴祖先選擇器（例如 `.accounts-page …`），改用 `#userDialog …` 或對話框自己的 class。寬度用 `--jelly-dialog-width`（`.dialog-wide` 是 40rem），內距用 `--jelly-dialog-padding`。
+- 可存取名稱：給 `label` 屬性，或讓第一個 `<h1>`／`<h2>`／`<h3>` 當名稱。右上 ✕ 的 `aria-label` 由 `layout.html` 依介面語言改成「關閉」／Close。
+- 沒有 Enter 處理、沒有確認／取消的概念；表單照原本的 `<form>` 送出。對話框開著時外面的通知看得到但點不到。
+
+### 確認 `Jelly.confirm()`
+
+```js
+if (!await Jelly.confirm({ title: '刪除「夏季特賣」？', message: '只有沒用過的折扣碼可以刪除。', confirmLabel: '刪除', cancelLabel: '取消', tone: 'danger' })) return;
+```
+
+`tone: 'danger'` 時初始焦點在取消鈕；`requireText` 要輸入同樣的字才能確認。Esc、取消、點背景、✕ 都回傳 `false`；開在一般對話框上時 Esc 只關確認框，焦點回到觸發的按鈕。不要用原生 `confirm()`、`alert()`、`prompt()`。
+
+### 通知 `Jelly.toast()`
+
+```js
+Jelly.toast(T.copied, { kind: 'success' });
+Jelly.toast(T.saveFailed, { kind: 'error', detail: err.error });
+```
+
+成功用 `kind: 'success'`、失敗用 `kind: 'error'`；訊息文字一律走 i18n 鍵（`{{.T.*}}` 或頁面的 `T`），細節放 `detail`。完整參數見下方〈Toast（通知條）〉。
 
 ## 組件列表
 
@@ -40,14 +180,15 @@
 }}
 ```
 
-#### 5. Modal（模態框）
+#### 5. Modal（一般對話框）
 ```html
 {{template "modal" dict 
     "id" "myModal" 
-    "title" "模態標題"
-    "content" "模態內容"
+    "title" "對話框標題"
+    "content" "對話框內容"
 }}
 ```
+輸出 `<jelly-dialog id label>`，以 `Jelly.dialog(document.getElementById('myModal'))` 打開；寫法見上方〈對話框〉。
 
 #### 6. Grid（網格）
 ```html
@@ -108,16 +249,6 @@
 }}
 ```
 
-#### 11. Toggle（開關）
-```html
-{{template "toggle" dict 
-    "id" "enableFeature" 
-    "checked" true 
-    "label" "啟用功能"
-    "onchange" "handleToggle()"
-}}
-```
-
 #### 12. Search Box（搜尋框）
 ```html
 {{template "search-box" dict 
@@ -158,7 +289,7 @@
 }}
 ```
 
-#### 16. Tabs（標籤頁）
+#### 16. Tabs（標籤頁，導覽用；選值或篩選用 `<jelly-segmented>`）
 ```html
 {{template "tabs" dict 
     "id" "myTabs"
@@ -398,7 +529,7 @@ Jelly.toast('已移到回收桶', { kind: 'warning', action: { label: '復原', 
 {{template "toast" dict "kind" "success" "message" .T.saved "detail" "" "actionLabel" .T.view "actionHref" "/post/x"}}
 ```
 
-既有頁面的 `alert()` 沒有被攔截，之後逐頁改成 `Jelly.toast`。
+後台不用原生 `alert()`：操作結果一律 `Jelly.toast`，成功 `kind: 'success'`、失敗 `kind: 'error'`。
 
 ## 外殼（layout.html）
 
