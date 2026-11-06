@@ -44,8 +44,8 @@ JellyCMS.registerHook("OnOrderPaid", function (data) {
 | `OnBoot` | 外掛載入完成 | `plugin` |
 | `OnShutdown` | 外掛卸載前 | `plugin`, `reason` |
 | `OnPostSave` | 文章或頁面新增、更新、從回收桶還原、版本還原 | `action`（create／update／restore／revision）, `post` |
-| `OnPostPublish` | 文章或頁面首次變成公開可讀；排程發布到時由每分鐘的排程工作送出 | `trigger`（save／schedule）, `post` |
-| `OnPostDelete` | 移到回收桶或永久刪除 | `action`（trash／purge）, `post`（purge 只有 `id, type, slug, title`） |
+| `OnPostPublish` | 文章或頁面由不可公開讀取變成可公開讀取（狀態 published、`visibility` public、`published_at` 已到）；退回草稿再發布會再送一次；排程發布到時由每分鐘的排程工作送出 | `trigger`（save／schedule）, `post` |
+| `OnPostDelete` | 移到回收桶或永久刪除；永久刪除文章會連帶刪除其留言，但不另發 `OnCommentDelete` | `action`（trash／purge）, `post`（purge 只有 `id, type, slug, title`） |
 | `OnPostView` | 前台 GET 文章或頁面成功 | `post`（`id, type, slug, title, author_id`）, `path`, `signed_in` |
 | `OnProductSave` | 商品新增、更新、複製、還原 | `action`（create／update／duplicate／restore）, `product` |
 | `OnProductDelete` | 商品移到回收桶或永久刪除 | `action`（trash／purge）, `product`（purge 只有 `id, slug, title, price, currency`） |
@@ -59,7 +59,7 @@ JellyCMS.registerHook("OnOrderPaid", function (data) {
 | `OnUserCreate` | 建立使用者：後台邀請、OAuth 首次登入、結帳建立顧客 | `user`, `source`（invite／oauth／checkout） |
 | `OnUserUpdate` | 後台修改角色、狀態或顯示名稱；邀請被接受 | `user`, `changes`（欄位名稱陣列） |
 | `OnUserDelete` | 後台刪除使用者 | `user`（`id, username, email, role`） |
-| `OnUserLogin` | 登入成功 | `user`, `method`（password／oauth）, `ip_masked` |
+| `OnUserLogin` | 登入成功 | `user`, `method`（password／oauth／recovery）, `ip_masked` |
 | `OnUserLoginFailed` | 密碼登入失敗 | `identifier`, `ip_masked`, `reason` |
 | `OnUserLogout` | 登出 | `user`（可能只有 `id`） |
 | `OnCommentCreate` | 前台留言或後台回覆建立 | `comment`, `post`（`id, slug, title`） |

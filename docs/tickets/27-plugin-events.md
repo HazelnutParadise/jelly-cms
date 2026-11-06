@@ -40,7 +40,7 @@ type Subscriber func(Event)
 func Subscribe(fn Subscriber) (cancel func())
 func Publish(e Event)                       // 立即依訂閱順序呼叫；訂閱者必須不阻塞
 func WithOutbox(ctx) (context.Context, *Outbox) // ctx 已有 outbox 時回傳同一個
-func Stage(ctx context.Context, e Event)   // ctx 有 outbox 就暫存，否則等同 Publish
+func Stage(ctx context.Context, e Event)   // ctx 有 outbox 就暫存，否則丟棄並記錄
 func (o *Outbox) Flush()                   // 依序發布，只能有效一次
 func (o *Outbox) Discard()
 func Transaction(ctx context.Context, db *gorm.DB, fn func(tx *gorm.DB) error) error

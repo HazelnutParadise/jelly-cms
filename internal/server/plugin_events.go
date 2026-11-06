@@ -331,8 +331,10 @@ func pluginLogLevel(level string) int {
 	}
 }
 
-// stagePluginEvent stages hook with payload on the outbox of ctx, or publishes
-// immediately when ctx has none. The payload gains "event" and "at" when the
+// stagePluginEvent stages hook with payload on the outbox of ctx so it is
+// published after the transaction commits. Without an outbox events.Stage
+// drops the event and logs it; a write outside a transaction publishes with
+// publishPluginEvent instead. The payload gains "event" and "at" when the
 // bridge dispatches it; callers only supply the hook-specific fields.
 func stagePluginEvent(ctx context.Context, hook plugin.Hook, payload map[string]any) {
 	events.Stage(ctx, events.Event{Name: string(hook), Payload: payload})

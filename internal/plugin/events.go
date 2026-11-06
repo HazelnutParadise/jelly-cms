@@ -274,10 +274,10 @@ func (s *pluginState) stopEvents() {
 	}
 }
 
-// Flush blocks until every event queued before the call has been dispatched
-// (or dropped), including the one a dispatcher is handing to a worker right
-// now, and returns nil; it returns ctx.Err() when ctx ends first. A runtime
-// that never emitted returns at once.
+// Flush blocks until no event is queued or in flight on any plugin queue,
+// including events emitted after the call, and returns nil; it returns
+// ctx.Err() when ctx ends first. Under continuous traffic it therefore waits
+// until ctx ends. A runtime that never emitted returns at once.
 func (m *Runtime) Flush(ctx context.Context) error {
 	m.mu.RLock()
 	closed := m.closed
