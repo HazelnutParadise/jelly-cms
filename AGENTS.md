@@ -21,3 +21,4 @@
 ## Follow-ups
 
 - 工作單 28 未接線的事件路徑：`PurgeExpiredTrash` 自動清除不發 `OnPostDelete`／`OnProductDelete`／`OnCommentDelete`（purge）；自動儲存、WXR 匯入與編輯器批次操作不發 `OnPostSave`；`createOAuthUser` 的 `OnUserCreate`（source oauth）沒有自動化測試。接線時沿用 `events.Transaction` 與 `stagePluginEvent`。
+- 維護模式沒有放行金流回呼：`internal/server/maintenance.go` 的 `maintenanceBypass` 不含 `/api/payment/:gateway/notify|callback|return`，維護中金流服務的付款通知會收到 503；金流會重試但重試用盡就掉單。修法是把這三條加進放行清單並補測試（維護中 `POST /api/payment/sandbox/notify` 仍走 `HandlePaymentCallback`）。工單 29 盤點時發現，另開工單。
