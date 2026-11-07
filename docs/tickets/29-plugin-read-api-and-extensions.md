@@ -3,7 +3,7 @@
 Epic：外觀與擴充
 User Story：外掛開發者可以讀文章、商品與訂單，可以把 HTML 注入主題、後處理文章內容、替換留言元件、把通知送到自己的通路；所有寫入路徑都會發事件。
 Blocked by：28（事件接線）。
-Status：in_progress
+Status：implemented（驗收結果見 STATUS.md）
 
 ## 痛點
 
