@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
+	"github.com/HazelnutParadise/jelly-cms/internal/events"
 	"github.com/HazelnutParadise/jelly-cms/internal/markup"
 	"github.com/HazelnutParadise/jelly-cms/internal/redirects"
 	"github.com/microcosm-cc/bluemonday"
@@ -519,6 +520,13 @@ func (r *runner) post(ctx context.Context, it Item) error {
 	if it.Status == "publish" {
 		status = "published"
 	}
+	// WordPress stamps a published item that has no date with the import time;
+	// without a published_at the post would never be publicly readable.
+	publishedAt := parseWPDate(it.Date)
+	if publishedAt == nil && status == "published" {
+		now := time.Now().UTC()
+		publishedAt = &now
+	}
 	post := core.Post{
 		Title:         truncateRunes(it.Title, 255),
 		Slug:          slug,
@@ -530,14 +538,18 @@ func (r *runner) post(ctx context.Context, it Item) error {
 		Format:        "html",
 		RenderTrust:   markup.TrustStrict,
 		RenderVersion: 1,
-		PublishedAt:   parseWPDate(it.Date),
+		PublishedAt:   publishedAt,
 	}
-	err = r.db.Transaction(func(tx *gorm.DB) error {
+	err = events.Transaction(ctx, r.db, func(tx *gorm.DB) error {
 		if err := tx.Create(&post).Error; err != nil {
 			return err
 		}
-		return tx.Exec(`INSERT INTO import_map (job_id, wp_type, wp_id, local_type, local_id, wp_url)
-			VALUES (?, ?, ?, ?, ?, ?)`, r.job.ID, typ, it.WPID, typ, post.ID, truncateRunes(it.Link, 2048)).Error
+		if err := tx.Exec(`INSERT INTO import_map (job_id, wp_type, wp_id, local_type, local_id, wp_url)
+			VALUES (?, ?, ?, ?, ?, ?)`, r.job.ID, typ, it.WPID, typ, post.ID, truncateRunes(it.Link, 2048)).Error; err != nil {
+			return err
+		}
+		stageImportPostEvents(tx.Statement.Context, post, r.actorValue(), time.Now())
+		return nil
 	})
 	if err != nil {
 		return r.fail(typ, it, err)
@@ -557,6 +569,92 @@ func (r *runner) post(ctx context.Context, it Item) error {
 	}
 	r.posts = append(r.posts, post.ID)
 	return nil
+}
+
+// importEventContentLimit is the largest post content attached to an import
+// event. Longer content is omitted and the payload carries content_omitted.
+// It matches the server's pluginEventContentLimit.
+const importEventContentLimit = 256 << 10
+
+// actorValue is the actor_user_id of the import's events: the admin who runs
+// the import, or nil when there is none.
+func (r *runner) actorValue() any {
+	if r.host.Actor == 0 {
+		return nil
+	}
+	return r.host.Actor
+}
+
+// stageImportPostEvents stages OnPostSave (action import) for a created post
+// and, when the post is already publicly readable at now, OnPostPublish
+// (trigger save). The events are staged on the transaction context so they
+// publish after commit. The bridge turns actor_user_id into "actor".
+func stageImportPostEvents(ctx context.Context, post core.Post, actor any, now time.Time) {
+	events.Stage(ctx, events.Event{Name: "OnPostSave", Payload: map[string]any{
+		"action":        "import",
+		"post":          importPostPayload(post),
+		"actor_user_id": actor,
+	}})
+	if importPostIsPublic(post, now) {
+		events.Stage(ctx, events.Event{Name: "OnPostPublish", Payload: map[string]any{
+			"trigger":       "save",
+			"post":          importPostPayload(post),
+			"actor_user_id": actor,
+		}})
+	}
+}
+
+// importPostIsPublic mirrors the server's postIsPublic: status published,
+// visibility public or empty, and published_at set and not after now.
+func importPostIsPublic(post core.Post, now time.Time) bool {
+	if post.Status != "published" || post.PublishedAt == nil || post.PublishedAt.After(now) {
+		return false
+	}
+	return post.Visibility == "public" || post.Visibility == ""
+}
+
+// importPostPayload builds the "post" object of import events with the same
+// fields as the server's postEventPayload: id, type, slug, title, status,
+// visibility, excerpt, content, format, author_id, published_at (RFC3339 or
+// nil), created_at, updated_at, categories, tags, pinned. Content longer than
+// importEventContentLimit is omitted and content_omitted is true. The server
+// copy lives in internal/server/plugin_events.go; the two must stay in step.
+func importPostPayload(post core.Post) map[string]any {
+	categories := make([]map[string]any, 0, len(post.Categories))
+	for _, category := range post.Categories {
+		categories = append(categories, map[string]any{"id": category.ID, "name": category.Name, "slug": category.Slug})
+	}
+	tags := make([]map[string]any, 0, len(post.Tags))
+	for _, tag := range post.Tags {
+		tags = append(tags, map[string]any{"id": tag.ID, "name": tag.Name, "slug": tag.Slug})
+	}
+	var publishedAt any
+	if post.PublishedAt != nil {
+		publishedAt = post.PublishedAt.UTC().Format(time.RFC3339)
+	}
+	out := map[string]any{
+		"id":           post.ID,
+		"type":         post.Type,
+		"slug":         post.Slug,
+		"title":        post.Title,
+		"status":       post.Status,
+		"visibility":   post.Visibility,
+		"excerpt":      post.Excerpt,
+		"format":       post.Format,
+		"author_id":    post.AuthorID,
+		"published_at": publishedAt,
+		"created_at":   post.CreatedAt.UTC().Format(time.RFC3339),
+		"updated_at":   post.UpdatedAt.UTC().Format(time.RFC3339),
+		"categories":   categories,
+		"tags":         tags,
+		"pinned":       post.Pinned,
+	}
+	if len(post.Content) > importEventContentLimit {
+		out["content_omitted"] = true
+	} else {
+		out["content"] = post.Content
+	}
+	return out
 }
 
 // uniqueSlug returns the slug an item gets. A slug already in use gets a
