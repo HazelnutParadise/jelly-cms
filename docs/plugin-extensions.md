@@ -10,7 +10,9 @@
 
 擴充點分兩種。單一提供者的點（`search.engine`、`comments.component`）依啟用清單順序使用第一個可用的提供者，沒有可用的就用內建實作。多提供者的點（`media.storage`、`theme.inject`、`content.render`、`notify.channel`）同時使用多個：啟用清單為空時，所有可用的提供者依外掛 ID 順序全部生效；清單非空時只有清單內可用的提供者依排列順序生效。`GET /api/admin/extensions` 的 `multiple` 欄位標示這個差別；沒有內建實作的點，`providers` 不含 `builtin`，沒有外掛時什麼都不做。
 
-網站頁面的擴充點（`theme.inject`、`content.render`、`comments.component`）不會每個請求都呼叫外掛：結果快取在伺服器程序的記憶體，外掛啟用、停用、重新載入、安裝、解除安裝、設定變更（含外掛自己呼叫 `settings.set`）或擴充設定變更時全部失效；任何快取結果最多沿用 60 秒。多個伺服器程序各自快取，彼此不同步。回呼失敗、逾時或回傳格式不對時，該頁面照常輸出（略過注入、用原本的內容、用內建留言區），失敗結果記 30 秒不重試，並在外掛日誌記一筆 error。
+網站頁面的擴充點（`theme.inject`、`content.render`、`comments.component`）不會每個請求都呼叫外掛：結果快取在伺服器程序的記憶體，外掛啟用、停用、重新載入、安裝、解除安裝、設定變更（含外掛自己呼叫 `settings.set` 且值有改變）或擴充設定變更時全部失效；任何快取結果最多沿用 60 秒。多個伺服器程序各自快取，彼此不同步。回呼失敗、逾時或回傳格式不對時，該頁面照常輸出（略過注入、用原本的內容、用內建留言區），失敗結果記 30 秒不重試，並在外掛日誌記一筆 error；同一世代已經成功的結果不會被之後的失敗蓋掉。外掛呼叫不跟著瀏覽器連線取消，訪客中斷連線不會影響外掛。
+
+外掛每次回呼仍有 1 秒上限，超過時 worker 會被終止，該外掛的所有擴充點與事件鉤子都停用，直到管理員重新載入或重新啟用；這是沙盒的既有規則，請讓回呼在 1 秒內完成。
 
 ## 搜尋引擎
 
@@ -53,7 +55,7 @@
 {"head":"<meta name=\"generator\" content=\"my-plugin\">","footer":"<script src=\"/plugins/my-plugin/track.js\"></script>"}
 ```
 
-兩個欄位都是字串，可以省略其中一個。HTML 原樣輸出，不做轉義或清理：外掛是管理員核准的，信任層級與程式碼注入相同。每個外掛的 `head` 與 `footer` 各最多 64 KiB，超過的那一格會略過並記錄。商務頁面（`/checkout` 與 `/account` 之下）沿用「商務頁也注入」的設定，關閉時外掛注入也不輸出。每個外掛的結果在同一世代只計算一次，不是每個請求都呼叫。
+兩個欄位都是字串，可以省略其中一個。HTML 原樣輸出，不做轉義或清理：外掛是管理員核准的，信任層級與程式碼注入相同。每個外掛的 `head` 與 `footer` 各最多 64 KiB，超過的那一格會略過並記錄。商務頁面（`/checkout` 與 `/account` 之下）沿用「商務頁也注入」的設定，關閉時外掛注入也不輸出。每個外掛的結果在同一世代只計算一次，不是每個請求都呼叫；同一頁的所有注入提供者合計 3 秒預算。外掛的靜態檔案沒有公開路由，腳本請放在外掛自己可控的網址或直接內嵌。
 
 ## 內容渲染
 
@@ -63,7 +65,7 @@
 {"post":{"id":12,"type":"post","slug":"hello","title":"Hello","author_id":1},"html":"<p>…</p>"}
 ```
 
-回傳 `{"html":"…"}`。整條鏈共用 3 秒預算，每次呼叫仍各有 1 秒上限。結果以文章 ID、輸入 HTML 的雜湊與世代為鍵快取（最多 256 筆、32 MiB），文章內容改變就重算；超過 1 MiB 的內容不送外掛。任一提供者失敗，整篇用原本的 HTML。
+回傳 `{"html":"…"}`。整條鏈共用 3 秒預算（文章與頁面的請求本身有 2 秒上限，實際預算以較短者為準），每次呼叫仍各有 1 秒上限。結果以文章 ID、輸入 HTML 的雜湊與世代為鍵快取（最多 256 筆、32 MiB），文章內容改變就重算；送給外掛的輸入（JSON，HTML 不轉義）超過 1 MiB 時不送外掛、直接用原文；外掛回傳的結果編碼後也不得超過 1 MiB。任一提供者失敗，整篇用原本的 HTML；已經不可用的提供者（停用、核准過期）直接略過。
 
 ## 留言元件
 
@@ -73,11 +75,11 @@
 {"post":{"id":12,"type":"post","slug":"hello","title":"Hello","author_id":1}}
 ```
 
-回傳 `{"html":"<div id=\"my-comments\" data-slug=\"hello\"></div>"}`。結果以文章 ID 與世代為鍵快取。內建留言 API 與後台留言管理不受影響；外掛留言系統自己保存留言。站長要關掉內建留言表單時，另外在留言設定關閉 `comments_enabled`。
+回傳 `{"html":"<div id=\"my-comments\" data-slug=\"hello\"></div>"}`。結果以文章 ID 與世代為鍵快取。單篇文章關閉留言時，外掛留言區與內建留言區都不顯示。內建留言 API 與後台留言管理不受影響；外掛留言系統自己保存留言。站長要關掉內建留言表單時，另外在留言設定關閉 `comments_enabled`。自訂主題的 `post.html` 必須像預設主題一樣輸出 `{{.CommentsHTML}}`（有值時取代 `comments` 區塊），否則選了留言外掛後兩種留言區都不會出現。
 
 ## 通知器
 
-`notify.channel` 讓外掛收到每一個通知事件（新留言待審、新訂單、付款失敗、新裝置登入等，與站內通知中心相同的事件），把它送到 Slack、LINE 或任何自己的通路。它是事件層級的額外通路，不影響每人的站內、Email 與 Webhook 偏好。
+`notify.channel` 讓外掛收到通知中心的事件（`comment.pending`、`comment.reply`、`order.new`、`order.payment_failed`、`order.refunded`、`security.new_device`、`security.password_changed`、`system.update_available`、`system.plugin_failed`、`user.invite_accepted`），把它送到 Slack、LINE 或任何自己的通路。它是事件層級的額外通路，不影響每人的站內、Email 與 Webhook 偏好。只寄給單一顧客的交易信（訂單確認、出貨、訂單查詢連結、匯款說明、設定密碼邀請）帶有存取權杖與連結，不會送給外掛。
 
 通知事件發生時，每個生效的提供者各排一筆投遞（`notification_deliveries`，channel `plugin`），由背景工作依序送出，失敗時沿用既有的重試（最多 5 次）；每個外掛獨立一筆，某個外掛失敗不影響其他外掛。回呼輸入：
 
@@ -85,7 +87,7 @@
 {"kind":"comment.pending","category":"comments","params":{"post":"hello","name":"Mei"},"recipients":{"roles":["admin","editor"],"user_ids":[],"emails":[]},"at":"2026-11-07T03:00:00Z"}
 ```
 
-回傳任何 JSON 值都算成功，拋出例外或逾時就算失敗。`recipients` 可能帶收件人 Email，因此除了宣告擴充點，manifest 還必須宣告並由管理員核准 `events` 權限；沒有的外掛投遞會失敗並記錄。送出時會重新確認外掛仍啟用、核准仍有效。
+回傳任何 JSON 值都算成功，拋出例外或逾時就算失敗；外掛回傳成功但 worker 回應逾時會重送，屬於至少一次投遞，請用 `kind`、`params` 與 `at` 自行去重。`recipients` 可能帶收件人 Email，因此除了宣告擴充點，manifest 還必須宣告並由管理員核准 `events` 權限；沒有宣告的外掛不會排入投遞，核准在送出前失效的投遞會失敗並記錄。送出時會重新確認外掛仍啟用、核准仍有效。
 
 ## 嵌入 Go 程式
 

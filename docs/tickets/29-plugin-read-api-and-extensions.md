@@ -118,6 +118,11 @@ host API 方法與 JS 包裝（`runtime_state.go` 的 `jellyAPIScript`）：
 
 ## 決策紀錄
 
+- PR B 獨立審查後的修正：外掛呼叫改用 `context.WithoutCancel` 加自己的預算，因為 plugin runtime 在呼叫端 ctx 取消時會終止 worker 且不重啟，訪客中斷連線不能殺掉外掛；`theme.inject` 與 `comments.component` 比照 `content.render` 加同鍵單飛，失敗不覆寫同世代的成功結果；1 MiB 上限量測實際送出的 JSON（HTML 不轉義）；渲染鏈略過已不可用的提供者；留言元件的提供者選擇也快取 5 秒；外掛設定寫入值沒變就不遞增世代。
+- 通知器只送通知中心的事件：單一顧客的交易信（訂單確認、出貨、查詢連結、匯款說明、設定密碼）帶存取權杖，超出 `events` 權限的核准範圍，排除在外。沒有 `events` 權限的外掛在排隊時就過濾，不寫入帶 email 的投遞列。`PluginChannelFunc` 帶 `Emit` 正在用的 `*gorm.DB`，不另開連線（另開連線在 synctest 的 OAuth 測試會因計時器跨 bubble 而崩潰，也浪費連線）。
+- 單篇文章關閉留言時外掛留言區也不顯示；自訂主題必須輸出 `{{.CommentsHTML}}`（文件註明）。
+- 遷移 0028 用 `NOT VALID` 加 `VALIDATE`，縮短大表的鎖。
+
 - 讀取 API 的物件沿用事件 payload 的欄位：外掛只需學一種形狀；實作共用 `postEventPayload` 等建構函式。
 - 注入與渲染結果快取在記憶體並以世代失效，而不是每次請求呼叫外掛：每次呼叫是跨程序 IPC 加 1 秒逾時，直接掛在熱路徑會把頁面延遲綁在外掛上。
 - 通知器用投遞列而不是直接在 `Emit` 內呼叫外掛：`Emit` 在交易內，外掛呼叫不能在交易內；投遞列讓失敗可重試、後台可見。
