@@ -93,7 +93,7 @@ JellyCMS.registerHook("OnOrderPaid", function (data) {
 | `shop.read` | `JellyCMS.shop.getOrder(ref)` | id 或訂單編號 | 訂單物件（含 `items`）或 `null` |
 | `shop.read` | `JellyCMS.shop.listOrders(query)` | `{status, email, page, per_page}` | `{items, total, page, per_page}`，不含 `items` |
 
-`per_page` 預設 20、最大 100；`page` 預設 1。文章依 `published_at` 新到舊（沒有發布時間的草稿排在後面、依 id 新到舊），商品與訂單依 id 新到舊。`search` 比對標題，`category`／`tag` 用 slug。沒有宣告並核准對應權限時每次呼叫都回 `plugin permission denied`。
+`content.get` 的 `content` 超過 256 KiB 時省略並附 `content_omitted: true`。`per_page` 預設 20、最大 100；`page` 預設 1。文章依 `published_at` 新到舊（沒有發布時間的草稿排在後面、依 id 新到舊），商品與訂單依 id 新到舊。`search` 比對標題，`category`／`tag` 用 slug。沒有宣告對應權限時每次呼叫都回 `plugin permission denied`；宣告了但管理員核准的權限清單與目前 manifest 不符時回 `plugin permission approval is stale`，要重新核准。
 
 ```javascript
 JellyCMS.registerHook("OnPostPublish", function (data) {
@@ -105,6 +105,10 @@ JellyCMS.registerHook("OnPostPublish", function (data) {
 ## 排程發布
 
 `published_at` 在未來的文章儲存時不會送 `OnPostPublish`；每分鐘的 `posts.publish_due` 工作在時間到後送出 `trigger: "schedule"`。第一次執行只記錄水位、不補送過去的文章；之後伺服器停機期間到期的文章會在重啟後的第一次執行送出。排程時間已到、工作還沒執行就被編輯的文章，由那次儲存送出 `trigger: "save"`，工作不會重發。
+
+## 匯入
+
+WordPress 匯入建立的文章發 `OnPostSave`（`action: "import"`），已發布且可公開讀取的再發 `OnPostPublish`（`trigger: "save"`）。事件裡的 `content` 是改寫站內連結之前的版本；匯入完成後的連結改寫不另發事件。匯出檔裡已發布但沒有日期的項目，以匯入時間當作 `published_at`。
 
 ## 自動儲存
 

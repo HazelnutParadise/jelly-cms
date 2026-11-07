@@ -51,7 +51,7 @@ host API 方法與 JS 包裝（`runtime_state.go` 的 `jellyAPIScript`）：
 | `shop.getOrder(ref)` | `shop.order.get` | id 或訂單編號 | 訂單物件（含 `items`）或 `null` |
 | `shop.listOrders(q)` | `shop.order.list` | `{status, email, page, per_page}` | `{items, total, page, per_page}`，不含 `items` |
 
-- 權限 `content.read` 與 `shop.read` 加入 `enforcedPermissions`；沒宣告或核准雜湊過期一律 `plugin permission denied`。
+- 權限 `content.read` 與 `shop.read` 加入 `enforcedPermissions`；沒宣告回 `plugin permission denied`，核准雜湊過期回 `plugin permission approval is stale`（沿用既有 host API 的訊息）。
 - 回收桶內的列不回傳；`content.get` 不限狀態（草稿也可讀，外掛是管理員核准的）。
 - `per_page` 預設 20、最大 100；`page` 預設 1。排序：文章依 `published_at DESC NULLS LAST, id DESC`，商品與訂單依 `id DESC`。
 - 每次呼叫沿用 host API 的 1 MiB 回應上限；清單超過上限時把 `per_page` 縮小是外掛的責任，host 回錯誤「result exceeds 1 MiB」。
@@ -94,6 +94,8 @@ host API 方法與 JS 包裝（`runtime_state.go` 的 `jellyAPIScript`）：
 - `PurgeExpiredTrash`：每筆改用 `events.Transaction(ctx, db, …)` 並以 `purgeTrashedStaged` 的無 echo 版本（actor null）Stage purge 事件。
 - WXR 匯入：文章建立的交易改用 `events.Transaction`；Stage `OnPostSave` action `import`，若 `postIsPublic` 再 Stage `OnPostPublish` trigger `save`；actor 為匯入工作的執行者（`actor_user_id`，可為 null）。`importer` 可以 import `events`，payload 的文章物件用與 `postEventPayload` 相同欄位（importer 不能 import server，在 importer 內組 map，欄位名稱一致，測試比對）。
 - 自動儲存只寫 `revisions`，文件註明不是文章寫入。
+- 匯入事件的 `content` 是連結改寫（`rewriteLinks`）之前的版本，改寫不另發事件；匯出檔裡已發布但沒有日期的項目以匯入時間為 `published_at`（否則永遠不會公開可讀，也不會有 `OnPostPublish`）。
+- 讀取沿用 host 呼叫的 ctx 並以 2 秒為上限；`content.list` 只讀 payload 需要的欄位，不載入 `content`、`source`、`search_*`；`content.get` 編碼後超過 1 MiB 時改為省略 `content` 再回傳。
 
 ## 鉤子與權限文件
 
