@@ -416,7 +416,10 @@ func TestPluginExtensionsSiteCommentsComponentReplacesBuiltin(t *testing.T) {
 	pluginExtWantContains(t, "GET "+path, body, `<section class="comments" id="comments">`)
 	pluginExtWantContains(t, "GET "+path, body, `<div id="ext-comments">ext ext-comments-post</div>`)
 	pluginExtWantBefore(t, "GET "+path+" section wraps provider", body, `<section class="comments" id="comments">`, `<div id="ext-comments">`)
-	pluginExtWantBefore(t, "GET "+path+" provider inside section", body, `<div id="ext-comments">`, `</section>`)
+	// The page has earlier sections (post-author), so look for the closing tag after the provider fragment.
+	if i := strings.Index(body, `<div id="ext-comments">`); i >= 0 && !strings.Contains(body[i:], `</section>`) {
+		t.Errorf("GET %s provider inside section: no </section> after the provider fragment", path)
+	}
 	pluginExtWantContains(t, "GET "+path+" reply entry", body, `href="#comments"`)
 	pluginExtWantAbsent(t, "GET "+path+" with provider", body, "comments-head")
 	pluginExtWantAbsent(t, "GET "+path+" with provider", body, "ZebraVisitor body")
