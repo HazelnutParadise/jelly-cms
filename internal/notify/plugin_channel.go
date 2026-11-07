@@ -8,9 +8,13 @@ package notify
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"gorm.io/gorm"
 )
 
@@ -55,7 +59,65 @@ func pluginChannelProviders(ctx context.Context) []string {
 //   - All rows are created in one transaction on db; an error aborts Emit.
 //   - Duplicate provider ids are queued once; empty ids are skipped.
 func queuePluginDeliveries(ctx context.Context, db *gorm.DB, spec KindSpec, ev Event, providers []string, now time.Time) error {
-	// TODO(B3): implement.
-	_, _, _, _, _, _ = ctx, db, spec, ev, providers, now
-	return nil
+	ids := uniqueStrings(providers)
+	if len(ids) == 0 {
+		return nil
+	}
+	params := ev.Params
+	if params == nil {
+		params = map[string]any{}
+	}
+	// uniqueStrings and uniqueIDs return non-nil slices, so the arrays encode as [] rather than null.
+	payload, err := json.Marshal(map[string]any{
+		"category": spec.Category,
+		"params":   params,
+		"recipients": map[string]any{
+			"roles":    uniqueStrings(ev.Recipients.Roles),
+			"user_ids": uniqueIDs(ev.Recipients.UserIDs),
+			"emails":   pluginRecipientEmails(ev.Recipients.Emails),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("notify: encode plugin delivery parameters: %w", err)
+	}
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, id := range ids {
+			if err := tx.Model(&core.NotificationDelivery{}).Create(map[string]interface{}{
+				"notification_id": nil,
+				"kind":            ev.Kind,
+				"to_address":      id,
+				"channel":         ChannelPlugin,
+				"status":          "pending",
+				"attempts":        0,
+				"next_attempt_at": now,
+				"error":           "",
+				"params":          payload,
+			}).Error; err != nil {
+				return fmt.Errorf("notify: queue plugin delivery for %q: %w", id, err)
+			}
+		}
+		return nil
+	})
+}
+
+// pluginRecipientEmails normalises and de-duplicates guest addresses for a
+// plugin delivery. An address that does not parse is kept as written.
+func pluginRecipientEmails(emails []string) []string {
+	seen := make(map[string]struct{}, len(emails))
+	result := make([]string, 0, len(emails))
+	for _, raw := range emails {
+		addr, err := normalizeEmail(raw)
+		if err != nil {
+			addr = strings.TrimSpace(raw)
+		}
+		if addr == "" {
+			continue
+		}
+		if _, ok := seen[addr]; ok {
+			continue
+		}
+		seen[addr] = struct{}{}
+		result = append(result, addr)
+	}
+	return result
 }
