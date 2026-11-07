@@ -85,6 +85,16 @@ func handlePluginHostCall(ctx context.Context, meta plugin.PluginMetadata, metho
 			return nil, err
 		}
 		return handlePluginHostHTTP(ctx, meta, args)
+	case "content.get", "content.list":
+		if err := requirePluginHostPermission(ctx, db, meta, "content.read"); err != nil {
+			return nil, err
+		}
+		return handlePluginHostRead(ctx, db, meta, method, args)
+	case "shop.product.get", "shop.product.list", "shop.order.get", "shop.order.list":
+		if err := requirePluginHostPermission(ctx, db, meta, "shop.read"); err != nil {
+			return nil, err
+		}
+		return handlePluginHostRead(ctx, db, meta, method, args)
 	default:
 		return nil, errors.New("unknown plugin host method")
 	}

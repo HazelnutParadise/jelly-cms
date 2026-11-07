@@ -192,6 +192,8 @@ JellyCMS.config.set('setting_key', 'value');
 
 除了 `OnBoot`、`OnShutdown` 與後台動作，其他事件都需要在 `plugin.json` 宣告並由管理員核准 `events` 權限，因為訂單、帳號與留言事件帶有 email 與留言內容。沒有每個 HTTP 請求的鉤子：那會把每個請求的延遲綁在外掛上。
 
+外掛也可以主動讀取內容：`content.read` 權限開放 `JellyCMS.content.get`／`list`（文章與頁面），`shop.read` 權限開放 `JellyCMS.shop.getProduct`／`listProducts`／`getOrder`／`listOrders`；物件欄位與事件 payload 相同，見[外掛事件](docs/plugin-events.md)的「讀取 API」。
+
 ### 外掛範例
 
 ```javascript
