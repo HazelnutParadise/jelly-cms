@@ -126,6 +126,9 @@ func maintenanceBypass(path string, user *core.User) bool {
 		pathOrSubtree(path, "/install") ||
 		pathOrSubtree(path, "/uploads") ||
 		pathOrSubtree(path, "/admin/assets") ||
+		// Let payment callbacks through during maintenance so provider notifications do not
+		// exhaust retries and drop paid orders; the callbacks verify signatures and deduplicate.
+		pathOrSubtree(path, "/api/payment") ||
 		path == "/api/oauth/status" {
 		return true
 	}
