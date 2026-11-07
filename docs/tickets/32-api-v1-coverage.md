@@ -1,9 +1,9 @@
-# 31 — 機器 API 補到能當無頭後台：留言審核、訂單處理、分類標籤寫入、折扣碼
+# 32 — 機器 API 補到能當無頭後台：留言審核、訂單處理、分類標籤寫入、折扣碼
 
 Epic：帳號與存取
 User Story：站長給自動化程式或 AI agent 一把金鑰，就能審留言、處理訂單（出貨、退款、標記已付、加備註）、整理分類與標籤、管理折扣碼，不必再開後台網頁。每個動作沿用後台同一套規則、同一批外掛事件與通知。
 Status：待實作。
-Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、33（訂單詳情 struct 與 `integrationSchemaOf`）。
+Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、34（訂單詳情 struct 與 `integrationSchemaOf`）。
 
 ## 背景與決定
 
@@ -48,7 +48,7 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 | `DELETE /comments/:id` | comments.write | `deleteCommentPermanently` | 200 `{message}`（與 v1 其他 DELETE 一致） |
 | `POST /categories`、`PUT /categories/:id`、`DELETE /categories/:id`、`POST /categories/reorder` | taxonomy.write | `createCategory`、`updateCategory`、`deleteCategory`、`reorderCategories` | 201 單筆、200 單筆、200 `{message}`、200 集合信封 |
 | `POST /tags`、`PUT /tags/:id`、`DELETE /tags/:id` | taxonomy.write | `createTag`、`updateTag`、`deleteTag` | 201、200、200 `{message}` |
-| `PUT /orders/:id/status` | orders.write | `adminOrderUpdateStatus` | 200 訂單詳情（工單 33 的 `integrationOrderDetail`）；不合法轉換回 409 `invalid_transition`，`details.allowed` 為可轉換清單 |
+| `PUT /orders/:id/status` | orders.write | `adminOrderUpdateStatus` | 200 訂單詳情（工單 34 的 `integrationOrderDetail`）；不合法轉換回 409 `invalid_transition`，`details.allowed` 為可轉換清單 |
 | `POST /orders/:id/notes` | orders.write | `adminOrderAddNote` | 200 訂單詳情 |
 | `PATCH /orders/:id/address` | orders.write | `adminOrderUpdateAddress` | 200 訂單詳情 |
 | `POST /orders/:id/refund` | orders.write | `adminOrderRefund` | 200 訂單詳情；`Idempotency-Key` 標頭與 body 的 `idempotency_key` 沿用後台規則 |
@@ -84,7 +84,7 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 - `integrationNotExposed` 拿掉留言、分類寫入、標籤寫入三列，剩下的保留。
 - `permissionDescription` 補六項中文說明；`GET /api/v1` 的 `permissions` 自然多六筆。
 - `web/admin/assets/integrations.js:53-63` 的資源標籤表補 `comments`（留言／Comments）、`taxonomy`（分類與標籤／Taxonomy）、`coupons`（折扣碼／Coupons）。依 AGENTS.md，權限勾選格多了三列，`design/gen/gen_integrations.py` 產生的 `design/project/Integrations.dc.html`、`IntegrationDetail.dc.html` 的權限區塊同一次提交更新並重新產生，線上畫布同步。
-- OpenAPI：每條新路由的 request body 與回應 schema 由工單 33 的 `integrationSchemaOf` 從 struct 產生：留言用 `adminCommentRow`、分類標籤用 `core.Category`／`core.Tag`、訂單用 `integrationOrderDetail`、折扣碼用 `core.Coupon` 加 `targets` 的包裝 struct。工單 33 的「每條路由實打比對」測試要涵蓋這些新路由。
+- OpenAPI：每條新路由的 request body 與回應 schema 由工單 34 的 `integrationSchemaOf` 從 struct 產生：留言用 `adminCommentRow`、分類標籤用 `core.Category`／`core.Tag`、訂單用 `integrationOrderDetail`、折扣碼用 `core.Coupon` 加 `targets` 的包裝 struct。工單 34 的「每條路由實打比對」測試要涵蓋這些新路由。
 - `skills/jelly-cms/SKILL.md` 加「審留言」「處理訂單」兩段短流程；README 權限表；`STATUS.md`；工單 14 開頭加一行。
 
 ## 程式（格子）
@@ -92,9 +92,9 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 1. `internal/integration/integration.go`：六個常數與 `AllPermissions`；`internal/data/migrations/0028_integration_permissions_v2.sql`；`internal/data/integration_permissions_v2_migration_test.go`（遷移測試放 `internal/data`）。
 2. `internal/server/integration_comments.go`（新檔）：`GET /comments`、`GET /comments/:id` 與寫入的 v1 包裝；`handlers_comments.go` 的 `listAdminComments` 抽出查詢函式（後台 handler 不變）。
 3. `internal/server/integration_taxonomy.go`（新檔）：分類標籤寫入的 v1 包裝（主要是回應狀態碼與信封）。
-4. `internal/server/integration_orders.go`（新檔）：訂單五條寫入的 v1 包裝，成功後以工單 33 的 `loadOrderDetail` 重讀並回 `integrationOrderDetail`。
+4. `internal/server/integration_orders.go`（新檔）：訂單五條寫入的 v1 包裝，成功後以工單 34 的 `loadOrderDetail` 重讀並回 `integrationOrderDetail`。
 5. `internal/server/integration_coupons.go`（新檔）：折扣碼七條，v1 一律回 `integrationCouponRow`（攤平），不用後台的 `couponAdminResponse`（`{coupon, targets}`，後台繼續用）；`shop_coupons_admin.go` 的 `adminCouponsList` 抽查詢函式。
-6. `internal/server/integration_routes.go`：路由表加列（`RequiredRoles` 依權限表）；`integrations_discovery.go`：`permissionDescription`、`integrationErrorCodes`、`integrationErrorDescription`、`integrationNotExposed`、schema 與 request body 分支；`integrations_regression_test.go` 的實打比對（工單 33）把新路由納入。
+6. `internal/server/integration_routes.go`：路由表加列（`RequiredRoles` 依權限表）；`integrations_discovery.go`：`permissionDescription`、`integrationErrorCodes`、`integrationErrorDescription`、`integrationNotExposed`、schema 與 request body 分支；`integrations_regression_test.go` 的實打比對（工單 34）把新路由納入。
 7. `web/admin/assets/integrations.js`、`design/gen/gen_integrations.py` 與它產生的 `design/project/Integrations.dc.html`、`IntegrationDetail.dc.html`：R3。
 8. 文件：R3。
 
@@ -108,7 +108,7 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 - 分類標籤：editor 擁有者可建改刪；author 擁有者的串接（建立串接時不驗擁有者角色，執行時才裁剪，與工單 27 的 `owner_role_insufficient` 相同）對 `POST /tags` 回 403 `owner_role_insufficient`；後台 `POST /api/admin/tags` 以 author Cookie 仍 201（守門）。
 - 訂單：`PUT /orders/:id/status` 從 pending 轉 paid 回 200 且回應鍵集合等於 `integrationOrderDetail`、`OnOrderUpdate` 與 `OnOrderPaid` 發出；轉不合法狀態回 409 `invalid_transition` 且 `details.allowed` 等於 `core.AllowedTransitions`；轉 shipped 缺物流資訊回 400 且 `details.fields` 有 `carrier`、`tracking_no`；有待處理退款申請時轉 shipped 回 409 `refund_pending`；退款帶 `Idempotency-Key` 重送同內容回同結果、不同內容回 409；`mark-paid` 對非銀行轉帳訂單回 400。後台 `PUT /api/admin/orders/:id` 仍回 `{"status":"ok"}`（守門）。
 - 折扣碼：`POST /coupons` 回 201 且鍵集合等於 `integrationCouponRow`；`GET /coupons/:id` 同形狀；重複代碼回 409 `coupon_code_taken`；欄位錯誤回 400 且 `details.fields` 有鍵；已使用的折扣碼 `DELETE` 與 `PATCH`（改成非停用）各回 409 `coupon_in_use`；`GET /coupons?per_page=101` 回 400；`GET /coupons` 分頁信封無 `counts`、`impact`。後台 `POST /api/admin/coupons` 仍回 200、`GET /api/admin/coupons` 仍有 `counts` 與 `impact`（守門）。
-- OpenAPI：新路由都在 `paths`，request body 與 200／201 schema 由 struct 產生且有 `properties`；`not_exposed` 不含留言與分類標籤寫入；工單 33 的實打比對測試對新路由通過。
+- OpenAPI：新路由都在 `paths`，request body 與 200／201 schema 由 struct 產生且有 `properties`；`not_exposed` 不含留言與分類標籤寫入；工單 34 的實打比對測試對新路由通過。
 - 既有測試：`internal/integration/integration_test.go:84-92` 與 `integrations_keys_integration_test.go:39-43` 的 `agtAllPermissions`（`integrations_api_integration_test.go:121` 用它做相等比對）改成 22 項；`integrations_api_integration_test.go` 的 `mustList` 與 `not_exposed` 相關斷言依本工單調整；其餘不放寬。
 - 瀏覽器驗收：後台「API 串接」建立頁的權限勾選格出現「留言」「分類與標籤」「折扣碼」三列且中英文都有標籤，與設計板一致。
 
@@ -127,4 +127,4 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 - 作者不能經 v1 寫分類標籤：`taxonomy.write` 用 `editorRoles`，後台讓作者建標籤是畫面流程的便利，不是權限模型的一部分。
 - 訂單狀態路徑用 `/orders/:id/status`：後台用 `PUT /orders/:id` 但 body 只有狀態與物流欄位，對外叫「整筆更新」會誤導。
 - 折扣碼建立回 201 且與單筆同形狀：後台回 200 單筆是歷史包袱；v1 的「建立回 201 加完整資源」是既有慣例。
-- 依賴 33：訂單詳情的形狀由 33 決定，先做 33 才不會做出兩個訂單詳情。
+- 依賴 34：訂單詳情的形狀由 34 決定，先做 34 才不會做出兩個訂單詳情。

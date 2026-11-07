@@ -68,6 +68,10 @@ type trashRow struct {
 // in the returned error; the rest are still purged.
 func PurgeExpiredTrash(db *gorm.DB, now time.Time) (int64, error) {
 	cutoff := now.Add(-time.Duration(trashRetentionDays(db)) * 24 * time.Hour)
+	ctx := context.Background()
+	if db.Statement != nil && db.Statement.Context != nil {
+		ctx = db.Statement.Context
+	}
 	var removed int64
 	var errs []error
 	for _, kind := range trashKinds {
@@ -78,8 +82,20 @@ func PurgeExpiredTrash(db *gorm.DB, now time.Time) (int64, error) {
 			return removed, err
 		}
 		for _, id := range ids {
-			err := db.Transaction(func(tx *gorm.DB) error {
-				return purgeTrashed(tx, nil, kind, id)
+			// Each row is purged in its own transaction; the purge event is
+			// staged on it and published only after the commit. A nil user
+			// applies no visibility rule, so the system sees every bin row.
+			err := events.Transaction(ctx, db, func(tx *gorm.DB) error {
+				hook, payload, err := trashPurgeEvent(tx, nil, kind, id)
+				if err != nil {
+					return err
+				}
+				if err := purgeTrashed(tx, nil, kind, id); err != nil {
+					return err
+				}
+				payload["actor"] = nil
+				stagePluginEvent(tx.Statement.Context, hook, payload)
+				return nil
 			})
 			if err != nil {
 				errs = append(errs, fmt.Errorf("purge %s %d: %w", kind, id, err))

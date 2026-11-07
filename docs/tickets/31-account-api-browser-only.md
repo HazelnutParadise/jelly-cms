@@ -1,9 +1,9 @@
-# 30 — 登入 JWT 只能當 Cookie 用：`Authorization: Bearer <JWT>` 不再是任何端點的身分
+# 31 — 登入 JWT 只能當 Cookie 用：`Authorization: Bearer <JWT>` 不再是任何端點的身分
 
 Epic：帳號與存取
 User Story：站上只有兩種憑證：瀏覽器的登入 Cookie（給網頁）與 `jly_` 存取金鑰（給程式）。登入 JWT 放在 `Authorization: Bearer` 不再被解析成身分；`/api/auth/*`、`/api/account/*` 與付款 API 帶這個標頭會得到明確的 401，個人中心與商店會員 API 的寫入都受到和後台一樣的來源與 CSRF 保護。
 Status：待實作。
-Blocked by：23（後台 API 只收網頁登入，已合併）。與 29 同時改 `internal/auth/api_documentation.go`，見「跨工單」。
+Blocked by：23（後台 API 只收網頁登入，已合併）。與 30 同時改 `internal/auth/api_documentation.go`，見「跨工單」。
 
 ## 背景與決定
 
@@ -56,7 +56,7 @@ Blocked by：23（後台 API 只收網頁登入，已合併）。與 29 同時�
 
 ### R4 文件
 
-- `internal/auth/api_documentation.go`：`securitySchemes` 的 `BearerAuth`（`:602`）刪除，保留既有的 `JWTTokenCookie` 與 `SessionCookie`；`:332` 依 `access` 加安全方案的邏輯改成 `self`、`admin` → `[JWTTokenCookie, SessionCookie]`，`interactive`、`admin-interactive` → 同上並在描述加「寫入需 `X-Jelly-CSRF`」；`:146`、`:198`、`:229`、`:261` 四處直接寫的 `security` 同樣改掉 `BearerAuth`；R2 改成互動限定的四條 account 寫入（`PATCH profile`、`read-all`、`:id/read`、`PUT notification-preferences`），`access` 由 `self` 改 `interactive`（`:284,299,300,302`）；若工單 29 已把 12 條會員商店端點注入這份文件，其中的寫入同樣改 `interactive`；`:241` 的「此互動流程禁止 Authorization 標頭」升級為所有端點共通的一句。登入回應的 `token` 描述依「背景與決定」改寫。工單 29 未做時，`internal/server/shop_api_documentation.go:309-310,334` 宣告的 `BearerAuth` 一併拿掉（改 `JWTTokenCookie`／`SessionCookie`）。
+- `internal/auth/api_documentation.go`：`securitySchemes` 的 `BearerAuth`（`:602`）刪除，保留既有的 `JWTTokenCookie` 與 `SessionCookie`；`:332` 依 `access` 加安全方案的邏輯改成 `self`、`admin` → `[JWTTokenCookie, SessionCookie]`，`interactive`、`admin-interactive` → 同上並在描述加「寫入需 `X-Jelly-CSRF`」；`:146`、`:198`、`:229`、`:261` 四處直接寫的 `security` 同樣改掉 `BearerAuth`；R2 改成互動限定的四條 account 寫入（`PATCH profile`、`read-all`、`:id/read`、`PUT notification-preferences`），`access` 由 `self` 改 `interactive`（`:284,299,300,302`）；若工單 30 已把 12 條會員商店端點注入這份文件，其中的寫入同樣改 `interactive`；`:241` 的「此互動流程禁止 Authorization 標頭」升級為所有端點共通的一句。登入回應的 `token` 描述依「背景與決定」改寫。工單 30 未做時，`internal/server/shop_api_documentation.go:309-310,334` 宣告的 `BearerAuth` 一併拿掉（改 `JWTTokenCookie`／`SessionCookie`）。
 - README：`:107` 的「無 Cookie 的 Bearer API 保留原有認證方式」改寫為「登入 JWT 只能放 Cookie；程式請用存取金鑰」；`docs/tickets/03-access-control.md`、`06-accounts.md`、`07-shop.md`、`23-admin-api-browser-only.md` 開頭各加一行指向本工單；`STATUS.md`。
 
 ## 程式（格子）
@@ -64,7 +64,7 @@ Blocked by：23（後台 API 只收網頁登入，已合併）。與 29 同時�
 1. `internal/auth/principal.go`：R3；`internal/auth/middleware.go:81-83`：刪 `principalBearer` 分支；`internal/auth/service.go`：刪 `GetUserFromJWT`；`internal/auth/oauth_accounts.go`：`:325` 與 `:175-177`。
 2. `internal/server/admin_render.go`：R1 的 `browserOnlyAPIPath` 與兩步拆分。
 3. `internal/server/account_routes.go`、`shop_account.go`、`internal/auth/routes.go`、`internal/server/handlers_payment.go`：依 R2 掛 `auth.RequireInteractive()`。
-4. `internal/auth/api_documentation.go`、（29 未做時）`internal/server/shop_api_documentation.go`：R4。
+4. `internal/auth/api_documentation.go`、（30 未做時）`internal/server/shop_api_documentation.go`：R4。
 5. `web/admin/profile.html`、`notifications.html`、`account.html`、`users.html`、`web/themes/default/assets/shop.js`：確認打 R2 端點的寫入請求都帶 `X-Jelly-CSRF: 1`（後台已有 `api()` 包裝；`shop.js:239-266` 的 `api()` 對非 GET 已加此標頭，確認會員 API 走同一個包裝）。沒有畫面變更。
 6. 測試輔助：`access_control_integration_test.go:212-233` 的 `setAccessToken` 對 `/api/account`、`/api/auth`、`/api/payment` 一律改用 Cookie 加 CSRF 加同來源 `Origin`；`account_profile_integration_test.go:318-320,360,534-540`、`accounts_security_regression_test.go:107-110`、`login_attempts_integration_test.go:167,239`、`auth_revocation_test.go:113,235` 等以 Bearer 打這些端點的測試改成 Cookie，**斷言不變**（例如「舊 JWT 回 401」改成舊 JWT 放 Cookie 仍回 401）。`auth_revocation_test.go:530-539`「無效 Authorization 加有效 Session 不退回」的子測試**不改**：R3 之後它仍成立（有標頭就拒絕）。這一步在規則實作前就要全綠。
 
@@ -86,11 +86,11 @@ Blocked by：23（後台 API 只收網頁登入，已合併）。與 29 同時�
 
 - 登入 JSON 回應拿掉 `token`（要重寫約 41 處測試的登入流程）。
 - `/auth/logout` 停收 Bearer。
-- `/api/public/*` 匿名 API（工單 29）。
+- `/api/public/*` 匿名 API（工單 30）。
 
 ## 跨工單
 
-- 與 29：兩張都改 `internal/auth/api_documentation.go`；29 搬進去的操作用 `JWTTokenCookie`／`SessionCookie`，本工單拿掉 `BearerAuth` 時不會碰到它們；29 負責刪 auth 文件裡的 10 條 `/api/admin/*`（`:304-313`），本工單不動它們；29 未做時本工單要順手拿掉 `shop_api_documentation.go` 的 `BearerAuth`。先後皆可。
+- 與 30：兩張都改 `internal/auth/api_documentation.go`；30 搬進去的操作用 `JWTTokenCookie`／`SessionCookie`，本工單拿掉 `BearerAuth` 時不會碰到它們；30 負責刪 auth 文件裡的 10 條 `/api/admin/*`（`:304-313`），本工單不動它們；30 未做時本工單要順手拿掉 `shop_api_documentation.go` 的 `BearerAuth`。先後皆可。
 
 ## 決策紀錄
 

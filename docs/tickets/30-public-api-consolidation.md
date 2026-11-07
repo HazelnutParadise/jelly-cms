@@ -1,9 +1,9 @@
-# 29 — 匿名 API 只有一個前綴、一份文件、一種錯誤格式
+# 30 — 匿名 API 只有一個前綴、一份文件、一種錯誤格式
 
 Epic：外觀與擴充
 User Story：做主題、前台 SPA 或 WebMCP 工具的人，只要看 `GET /api/public` 與 `/api/public/openapi.json` 就能找到所有不用登入的端點；每個錯誤都長一樣，用 `code` 分流、用 `correlation_id` 回報；搬家後舊路徑一個版本內還能用。
 Status：待實作。
-Blocked by：27（`/api/v1` 契約與 `GET /api` 總索引，已合併）。與 30 同時改 `internal/auth/api_documentation.go`，見「跨工單」。
+Blocked by：27（`/api/v1` 契約與 `GET /api` 總索引，已合併）。與 31 同時改 `internal/auth/api_documentation.go`，見「跨工單」。
 
 ## 背景與決定
 
@@ -72,9 +72,9 @@ Blocked by：27（`/api/v1` 契約與 `GET /api` 總索引，已合併）。與 
 ### R3 清單與文件
 
 - `GET /api/public/shop/shipping-methods`、`payment-methods` 改回集合信封；`shop.js:975`、`:1131` 跟著改讀 `items`。
-- `GET /api/public` 的 `operations` 列出全部匿名端點；`GET /api/public/openapi.json` 是 OpenAPI 3.1.0（從 3.0.3 升），涵蓋 R1 之後所有 `/api/public/**` 路徑（不含索引與 OpenAPI 本身），每個操作宣告 `security: []`、各自的 4xx、有限流者的 `429`、`503`，錯誤 schema 引用公開錯誤信封；`components.schemas` 從 struct 產生（用工單 33 的 `integrationSchemaOf`；若本工單先做，先把該函式建在 `internal/server/integration_schemas.go`，33 沿用）。現有已是 struct 的沿用（`shopCartJSON`、`shopCheckoutResponse`、`shopShippingMethod`、`shopPaymentMethod`）；訂單狀態（`shop_lookup.go:253` 的 map）與搜尋結果（`handlers_public.go:360` 的區域型別）在 `internal/server/public_api_schemas.go` 新定 `publicOrderStatus`、`publicSearchResult` 兩個 struct，handler 改回它們（鍵不變）。
+- `GET /api/public` 的 `operations` 列出全部匿名端點；`GET /api/public/openapi.json` 是 OpenAPI 3.1.0（從 3.0.3 升），涵蓋 R1 之後所有 `/api/public/**` 路徑（不含索引與 OpenAPI 本身），每個操作宣告 `security: []`、各自的 4xx、有限流者的 `429`、`503`，錯誤 schema 引用公開錯誤信封；`components.schemas` 從 struct 產生（用工單 34 的 `integrationSchemaOf`；若本工單先做，先把該函式建在 `internal/server/integration_schemas.go`，33 沿用）。現有已是 struct 的沿用（`shopCartJSON`、`shopCheckoutResponse`、`shopShippingMethod`、`shopPaymentMethod`）；訂單狀態（`shop_lookup.go:253` 的 map）與搜尋結果（`handlers_public.go:360` 的區域型別）在 `internal/server/public_api_schemas.go` 新定 `publicOrderStatus`、`publicSearchResult` 兩個 struct，handler 改回它們（鍵不變）。
 - 金流回呼 `/api/payment/:gateway/notify|callback|return` 放進 `/api/public/openapi.json` 的「金流回呼」標籤，標明「由金流服務呼叫」。
-- `/api/shop/openapi.json` 原本涵蓋的 12 條 `/api/account/*` 商店端點改收進 `/api/auth/openapi.json`。`internal/auth` 不能 import `internal/server`（會循環），所以 `internal/auth/api_documentation.go` 新增匯出型別 `DocumentedOperation`（現有未匯出的 `authDocumentedOperation` 改名匯出）與 `RegisterAPIDocumentation(ops []DocumentedOperation, schemas map[string]any)` 註冊點（覆寫語意：重複呼叫以最後一次為準，因為測試會多次 `RegisterRoutes`），`internal/server` 在 `RegisterRoutes` 時把這 12 條操作與 `shopAPISchemas()` 裡它們用到的 components（`MemberOrders`、`Address`、`InvoiceProfile` 等，`shop_api_documentation.go:71-82,334`）注入；搬過去的操作不帶 `BearerAuth`，改用該文件既有的 `JWTTokenCookie` 與 `SessionCookie` 方案（工單 30 會把 `BearerAuth` 整個拿掉）。27 條 `/api/admin/*` 的商店文件刪除；`/api/auth/openapi.json` 裡既有的 10 條 `/api/admin/users*`、`/api/admin/roles` 文件（`internal/auth/api_documentation.go:304-313`；`:314` 是 `GET /invite/{token}`，保留）同樣刪除，理由相同（後台 API 只給網頁用）。
+- `/api/shop/openapi.json` 原本涵蓋的 12 條 `/api/account/*` 商店端點改收進 `/api/auth/openapi.json`。`internal/auth` 不能 import `internal/server`（會循環），所以 `internal/auth/api_documentation.go` 新增匯出型別 `DocumentedOperation`（現有未匯出的 `authDocumentedOperation` 改名匯出）與 `RegisterAPIDocumentation(ops []DocumentedOperation, schemas map[string]any)` 註冊點（覆寫語意：重複呼叫以最後一次為準，因為測試會多次 `RegisterRoutes`），`internal/server` 在 `RegisterRoutes` 時把這 12 條操作與 `shopAPISchemas()` 裡它們用到的 components（`MemberOrders`、`Address`、`InvoiceProfile` 等，`shop_api_documentation.go:71-82,334`）注入；搬過去的操作不帶 `BearerAuth`，改用該文件既有的 `JWTTokenCookie` 與 `SessionCookie` 方案（工單 31 會把 `BearerAuth` 整個拿掉）。27 條 `/api/admin/*` 的商店文件刪除；`/api/auth/openapi.json` 裡既有的 10 條 `/api/admin/users*`、`/api/admin/roles` 文件（`internal/auth/api_documentation.go:304-313`；`:314` 是 `GET /invite/{token}`，保留）同樣刪除，理由相同（後台 API 只給網頁用）。
 - `GET /api` 的 `apis` 從四筆變三筆（`v1`、`public`、`auth`）。
 - 文件與程式不一致的三處一起修正：商店說明對購物車四條端點寫「需同來源請求」但程式沒檢查（`shop_api_documentation.go:54-58`）→ 改文件；`shop.js` 的 `serverFieldErrors` 讀 `data.field`／`data.fields` 但伺服器從沒送過 → 依 R2 改成讀 `details.fields`；`shop.js:279` 比對從未出現的 `cart_changed` → 刪掉這個分支。
 
@@ -124,9 +124,9 @@ Blocked by：27（`/api/v1` 契約與 `GET /api` 總索引，已合併）。與 
 
 ## 跨工單
 
-- 與 30：兩張都改 `internal/auth/api_documentation.go`。先做哪張都可以：本工單搬進去的操作用 `JWTTokenCookie`／`SessionCookie`，寫入類的描述加「需 `X-Jelly-CSRF`」（30 會把它們改成互動限定）；本工單刪除 auth 文件裡的 10 條 `/api/admin/*`，若 30 先做，30 的 R4 改 `access` 時這 10 條還在，30 不必處理它們，由本工單刪。
-- 與 31：兩張都改 `handlers_comments.go`（本工單改公開兩條與限流回傳，31 抽出 `listAdminComments` 的查詢），不衝突但會碰同一個檔。
-- 與 33：schema 產生用同一個 `integrationSchemaOf`，先做的那張建函式，後做的沿用。
+- 與 31：兩張都改 `internal/auth/api_documentation.go`。先做哪張都可以：本工單搬進去的操作用 `JWTTokenCookie`／`SessionCookie`，寫入類的描述加「需 `X-Jelly-CSRF`」（30 會把它們改成互動限定）；本工單刪除 auth 文件裡的 10 條 `/api/admin/*`，若 31 先做，31 的 R4 改 `access` 時這 10 條還在，31 不必處理它們，由本工單刪。
+- 與 32：兩張都改 `handlers_comments.go`（本工單改公開兩條與限流回傳，31 抽出 `listAdminComments` 的查詢），不衝突但會碰同一個檔。
+- 與 34：schema 產生用同一個 `integrationSchemaOf`，先做的那張建函式，後做的沿用。
 
 ## 決策紀錄
 

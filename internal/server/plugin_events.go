@@ -198,6 +198,17 @@ func pluginEventReadDB(db *gorm.DB) (*gorm.DB, context.CancelFunc) {
 	return db.WithContext(ctx), cancel
 }
 
+// pluginReadDB binds db to ctx, the host call context, with a deadline of
+// pluginEventReadTimeout. A nil ctx is treated as context.Background. The
+// caller must call the returned cancel function.
+func pluginReadDB(ctx context.Context, db *gorm.DB) (*gorm.DB, context.CancelFunc) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(ctx, pluginEventReadTimeout)
+	return db.WithContext(ctx), cancel
+}
+
 // pluginEventOrderSummary loads the order named by raw for a thin event. It
 // returns nil when raw is not a positive id, db is nil or the order is gone.
 func pluginEventOrderSummary(db *gorm.DB, raw any) map[string]any {

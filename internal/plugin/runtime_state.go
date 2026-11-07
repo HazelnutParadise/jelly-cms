@@ -50,6 +50,16 @@ globalThis.JellyCMS = {
 	http: {
 		fetch: function (url, options) { return __jellyHost("http.fetch", [url, options || {}]); },
 	},
+	content: {
+		get: function (ref) { return __jellyHost("content.get", [ref]); },
+		list: function (query) { return __jellyHost("content.list", [query || {}]); },
+	},
+	shop: {
+		getProduct: function (ref) { return __jellyHost("shop.product.get", [ref]); },
+		listProducts: function (query) { return __jellyHost("shop.product.list", [query || {}]); },
+		getOrder: function (ref) { return __jellyHost("shop.order.get", [ref]); },
+		listOrders: function (query) { return __jellyHost("shop.order.list", [query || {}]); },
+	},
 };
 globalThis.console = {
 	log: function (message) { __jelly_log("info", message); },

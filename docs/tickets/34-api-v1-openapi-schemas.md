@@ -1,9 +1,9 @@
-# 33 — `/api/v1` 的 OpenAPI 每個回應與 request body 都有明確欄位
+# 34 — `/api/v1` 的 OpenAPI 每個回應與 request body 都有明確欄位
 
 Epic：帳號與存取
 User Story：用 OpenAPI 產 client 的開發者對 `/api/v1` 每個端點都拿到有型別的物件，不會拿到 `any`；文件說的欄位就是伺服器回的欄位，測試會抓不一致。
 Status：待實作。
-Blocked by：27（契約與 struct 產 schema 的做法，已合併）。工單 31 依賴本工單的 `integrationOrderDetail` 與 `integrationSchemaOf`。
+Blocked by：27（契約與 struct 產 schema 的做法，已合併）。工單 32 依賴本工單的 `integrationOrderDetail` 與 `integrationSchemaOf`。
 
 ## 背景與決定
 
@@ -25,7 +25,7 @@ Blocked by：27（契約與 struct 產 schema 的做法，已合併）。工單 
 
 - 工單 27 的做法已證明可行：回應用 struct 定義、`integrationJSONFields` 取 json tag 產 schema、測試比對鍵集合。
 - 決定：所有 v1 回應與 request body 的 schema 都從 Go struct 產生（`integrationSchemaOf`），不再手寫 map。`additionalProperties: true` 只保留在 `GET /openapi.json` 與 `/me/events` 的 `summary`。
-- 決定：`GET /orders/:id` 定自己的訂單詳情 struct（工單 31 也要用），欄位見「名詞」；後台 `GET /api/admin/orders/:id` 不變。
+- 決定：`GET /orders/:id` 定自己的訂單詳情 struct（工單 32 也要用），欄位見「名詞」；後台 `GET /api/admin/orders/:id` 不變。
 - 決定：文章資源的 `author` 改成固定的作者摘要 `{id, username, display_name}` 並真的 preload；不再輸出全空的 `User`。`GET /posts/:id`、`POST`、`PUT` 的回應跟著變（後台不變）。
 - 決定：`PUT /settings` 的 body schema 列出 `handleSettingsWrite` 實際接受的鍵（`settings.Specs()` 扣掉拒絕清單），每個鍵的型別維持現況的 `oneOf[string, boolean, integer]`（handler 接受這三種再轉成字串，`settings_api.go:48-78`），密鑰 Kind 標 `writeOnly`，`additionalProperties: false`。
 - 不改：各端點的業務行為；後台回應；工單 27 已定的清單信封與摘要欄位。
@@ -60,7 +60,7 @@ Blocked by：27（契約與 struct 產 schema 的做法，已合併）。工單 
 
 ### R2 不一致即失敗
 
-`integrations_regression_test.go` 的 `TestIntegrationRegressionDiscoveryAndOpenAPISchemasMatchHandlers`（`:1091-1211`）擴成：對 **每一條** v1 路由，用測試資料實際呼叫一次，把回應 JSON 的鍵集合與 OpenAPI 該操作 schema 比對：回應的鍵必須是 schema `properties` 的子集合，且 schema `required` 的鍵必須都出現在回應（`omitempty` 欄位可缺）；遞迴到第二層，但 RawMessage（schema 為 `{}`）與 `map[string]T` 的子鍵不比對。request body 用一個合法 body 打一次，body 的鍵（multipart 為表單欄位名）必須都在 schema 的 `properties` 裡。例外清單只允許 `GET /openapi.json` 與 `/me/events` 的 `summary`。工單 31 新增的路由也要納入這個比對。
+`integrations_regression_test.go` 的 `TestIntegrationRegressionDiscoveryAndOpenAPISchemasMatchHandlers`（`:1091-1211`）擴成：對 **每一條** v1 路由，用測試資料實際呼叫一次，把回應 JSON 的鍵集合與 OpenAPI 該操作 schema 比對：回應的鍵必須是 schema `properties` 的子集合，且 schema `required` 的鍵必須都出現在回應（`omitempty` 欄位可缺）；遞迴到第二層，但 RawMessage（schema 為 `{}`）與 `map[string]T` 的子鍵不比對。request body 用一個合法 body 打一次，body 的鍵（multipart 為表單欄位名）必須都在 schema 的 `properties` 裡。例外清單只允許 `GET /openapi.json` 與 `/me/events` 的 `summary`。工單 32 新增的路由也要納入這個比對。
 
 ## 程式（格子）
 
@@ -87,20 +87,20 @@ Blocked by：27（契約與 struct 產 schema 的做法，已合併）。工單 
 
 ## 不在本工單
 
-- 匿名 API（工單 29）與 auth API 的 schema。
+- 匿名 API（工單 30）與 auth API 的 schema。
 - 用 OpenAPI 產生 SDK。
 - `/me/events` 的 `summary` 依 `action` 分型（`oneOf`）。
 
 ## 跨工單
 
-- 31 的訂單寫入回 `integrationOrderDetail`、用 `loadOrderDetail`；31 新路由的 schema 由本工單的 `integrationSchemaOf` 產生並納入 R2 比對。本工單先做。
-- 29 若先做，`integrationSchemaOf` 由 29 建在同一個檔案，本工單沿用。
+- 32 的訂單寫入回 `integrationOrderDetail`、用 `loadOrderDetail`；32 新路由的 schema 由本工單的 `integrationSchemaOf` 產生並納入 R2 比對。本工單先做。
+- 30 若先做，`integrationSchemaOf` 由 30 建在同一個檔案，本工單沿用。
 
 ## 決策紀錄
 
 - 從 struct 反射產 schema 而不是手寫：手寫已經漏了 `role_cap`、`effective_role` 兩欄，之後只會更多；反射讓「回應是什麼」和「文件說什麼」是同一份程式。
 - 例外清單只有兩項：`openapi.json` 本身與事件 `summary`；RawMessage 與 map 的子鍵不是例外，是 schema 本來就說「任意 JSON」。
-- 訂單詳情定 v1 自己的 struct：後台 map 有相容重複鍵與依情況變形的 `payment`，放進文件會變成三年的包袱；工單 31 的寫入端點也要回同一個形狀。`price` 是舊欄位、`unit_price` 是快照，對外只留快照。
+- 訂單詳情定 v1 自己的 struct：後台 map 有相容重複鍵與依情況變形的 `payment`，放進文件會變成三年的包袱；工單 32 的寫入端點也要回同一個形狀。`price` 是舊欄位、`unit_price` 是快照，對外只留快照。
 - `author` 改摘要並 preload：現況是沒 preload 的空 `User`，等於文件裡一個永遠是零值的物件，不如給真的三個欄位。
 - `PUT /settings` 用 `WritableSpecs()` 產 schema：伺服器本來就只收這些鍵，文件應該說實話，而且拒絕清單從此只寫一次。型別維持三型 `oneOf`，因為 handler 真的收三型。
 - `omitempty` 欄位用「子集合加 required 必在」比對而不是「相等」：Go 的 `omitempty` 讓回應缺鍵是正常的，硬要相等只會逼實作去掉 `omitempty` 改變回應。
