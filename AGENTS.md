@@ -21,3 +21,4 @@
 ## Follow-ups
 
 - 工作單 29 PR B（擴充點 `theme.inject`、`content.render`、`comments.component`、`notify.channel`）尚未實作，設計見 `docs/tickets/29-plugin-read-api-and-extensions.md`。
+- 維護模式沒有放行金流回呼：`internal/server/maintenance.go` 的 `maintenanceBypass` 不含 `/api/payment/:gateway/notify|callback|return`，維護中金流服務的付款通知會收到 503；金流會重試但重試用盡就掉單。修法是把這三條加進放行清單並補測試（維護中 `POST /api/payment/sandbox/notify` 仍走 `HandlePaymentCallback`）。工單 30 盤點時發現，另開工單。
