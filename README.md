@@ -126,7 +126,7 @@ Jelly CMS 使用 JavaScript（QuickJS）作為外掛運行時，讓開發者可�
 
 宣告並獲准 `settings` 權限的外掛，可用 `JellyCMS.config` 或 `JellyCMS.settings` 讀寫 manifest 宣告的設定，值保存在資料庫，秘密欄位另行加密。沒有這項權限的舊外掛，其 `config` 保持程序內暫存行為。`JellyCMS.store` 需獲准 `store` 權限，資料按外掛 ID 隔離；`JellyCMS.http.fetch` 需獲准 `http.fetch`，只能連線到 manifest 的允許主機，並封鎖私有網路位址。
 
-後台系統工具、備份與換版的操作限制見[系統維運](docs/system-operations.md)，搜尋與儲存回呼契約見 [JavaScript 擴充點](docs/plugin-extensions.md)，網站事件的鉤子目錄見[外掛事件](docs/plugin-events.md)。目前驗收狀態見 [STATUS.md](STATUS.md)。
+後台系統工具、備份與換版的操作限制見[系統維運](docs/system-operations.md)，搜尋、儲存、主題注入、內容渲染、留言元件與通知器的回呼契約見 [JavaScript 擴充點](docs/plugin-extensions.md)，網站事件的鉤子目錄見[外掛事件](docs/plugin-events.md)。目前驗收狀態見 [STATUS.md](STATUS.md)。
 
 若將 runtime 嵌入其他 Go 執行檔，必須在 `main` 最前面呼叫 `plugin.RunWorkerIfRequested()`，並在結束前呼叫 `Runtime.Close()`。一般伺服器入口已完成這項接線。
 

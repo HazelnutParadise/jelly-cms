@@ -138,6 +138,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 			if err != nil {
 				return err
 			}
+			landing.Content = pluginRenderContent(ctx, db, landing, landing.Content)
 			return publicRender(c, tm, db, "page.html", landing.Title, map[string]interface{}{
 				"IsHome":  true,
 				"IsPage":  true,
@@ -266,17 +267,14 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		if err != nil {
 			return err
 		}
+		post.Content = pluginRenderContent(ctx, db, post, post.Content)
 		content, toc := theme.HeadingIDs(post.Content)
 		post.Content = content
 		prev, next, err := prevNextPosts(db, post)
 		if err != nil {
 			return err
 		}
-		comments, commentCount, commentsOpen, err := publicCommentsForPost(db, c, post)
-		if err != nil {
-			return err
-		}
-		return publicRender(c, tm, db, "post.html", post.Title, map[string]interface{}{
+		values := map[string]interface{}{
 			"IsPost":         true,
 			"Post":           post,
 			"ReadingMinutes": theme.ReadingTime(post.Content),
@@ -284,10 +282,25 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 			"Prev":           prev,
 			"Next":           next,
 			"AuthorCard":     authorCardFor(db, post.Author),
-			"Comments":       comments,
-			"CommentCount":   commentCount,
-			"CommentsOpen":   commentsOpen,
-		})
+			"Comments":       []core.Comment{},
+			"CommentCount":   0,
+			"CommentsOpen":   false,
+			"CommentsHTML":   template.HTML(""),
+		}
+		// A comments.component provider replaces the theme's comments block;
+		// the builtin tree is not loaded then.
+		if html, ok := pluginCommentsComponent(ctx, db, post); ok {
+			values["CommentsHTML"] = html
+		} else {
+			comments, commentCount, commentsOpen, err := publicCommentsForPost(db, c, post)
+			if err != nil {
+				return err
+			}
+			values["Comments"] = comments
+			values["CommentCount"] = commentCount
+			values["CommentsOpen"] = commentsOpen
+		}
+		return publicRender(c, tm, db, "post.html", post.Title, values)
 	})
 
 	e.Match([]string{http.MethodGet, http.MethodHead}, "/search", func(c echo.Context) error {
@@ -416,6 +429,7 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 		if err != nil {
 			return err
 		}
+		page.Content = pluginRenderContent(ctx, db, page, page.Content)
 		return publicRender(c, tm, db, "page.html", page.Title, map[string]interface{}{
 			"IsPage":  true,
 			"Page":    page,

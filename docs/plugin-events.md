@@ -6,7 +6,7 @@
 
 ## 需要 `events` 權限
 
-訂單、帳號與留言事件帶有 email 與留言內容。外掛必須在 `plugin.json` 宣告 `events` 權限，管理員核准後才會收到網站事件；沒有這個權限的外掛只收到 `OnBoot`、`OnShutdown` 與後台動作 `action:<id>`。
+訂單、帳號與留言事件帶有 email 與留言內容。外掛必須在 `plugin.json` 宣告 `events` 權限，管理員核准後才會收到網站事件；沒有這個權限的外掛只收到 `OnBoot`、`OnShutdown` 與後台動作 `action:<id>`。通知器擴充點 `notify.channel` 會收到收件人 email，同樣需要這個權限（見[JavaScript 擴充點](plugin-extensions.md)）。
 
 ```json
 {

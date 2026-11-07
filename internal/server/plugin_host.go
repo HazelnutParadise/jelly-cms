@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
+	"github.com/HazelnutParadise/jelly-cms/internal/notify"
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"github.com/HazelnutParadise/jelly-cms/internal/safehttp"
 	"gorm.io/gorm"
@@ -39,6 +40,7 @@ var (
 func ConfigurePluginHost(runtime *plugin.Runtime) {
 	setExtensionRuntime(runtime)
 	configurePluginEvents(runtime)
+	notify.SetPluginChannel(notifyPluginChannelProviders)
 	if runtime != nil {
 		runtime.SetHostHandler(handlePluginHostCall)
 	}

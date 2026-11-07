@@ -29,6 +29,7 @@ func setExtensionRuntime(runtime *plugin.Runtime) {
 	extensionRuntimeState.Lock()
 	extensionRuntimeState.runtime = runtime
 	extensionRuntimeState.Unlock()
+	bumpPluginExtensionGeneration()
 }
 
 func currentExtensionRuntime() *plugin.Runtime {
@@ -122,7 +123,7 @@ func extensionSelection(ctx context.Context, db *gorm.DB, point string) (string,
 			return id, false
 		}
 	}
-	if ext.Shipped(point) {
+	if ext.HasBuiltin(point) {
 		return extensionBuiltinID, true
 	}
 	return "", false

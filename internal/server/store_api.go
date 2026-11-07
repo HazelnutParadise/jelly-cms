@@ -504,6 +504,7 @@ func (a *storeAPI) installItem(ctx context.Context, item store.Item, accepted st
 		return storeInstallResult{}, err
 	}
 
+	bumpPluginExtensionGeneration()
 	return storeInstallResult{ID: written.ID, Version: written.Version, PreviousVersion: written.PreviousVersion, Enabled: false}, nil
 }
 

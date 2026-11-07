@@ -1040,6 +1040,8 @@ func sendSystemNotification(ctx context.Context, d notify.Delivery) error {
 			return fmt.Errorf("notification webhook returned HTTP %d", resp.StatusCode)
 		}
 		return nil
+	case notify.ChannelPlugin:
+		return deliverPluginNotification(ctx, d)
 	default:
 		return errors.New("notification channel is invalid")
 	}

@@ -112,9 +112,10 @@
 </nav>
 <footer class="article-foot">
     <a href="/posts" class="button button-text"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg>返回文章列表</a>
-    {{if or .CommentsOpen (gt .CommentCount 0)}}<a href="#comments" class="button button-tonal comments-entry"><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg>留言 {{.CommentCount}}</a>{{end}}
+    {{if .CommentsHTML}}<a href="#comments" class="button button-tonal comments-entry"><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg>留言</a>{{else if or .CommentsOpen (gt .CommentCount 0)}}<a href="#comments" class="button button-tonal comments-entry"><svg class="icon" aria-hidden="true"><use href="#i-share"/></svg>留言 {{.CommentCount}}</a>{{end}}
 </footer>
-{{block "comments" .}}{{end}}
+{{- /* A comments.component plugin supplies CommentsHTML; the theme's own block renders otherwise. */ -}}
+{{if .CommentsHTML}}{{.CommentsHTML}}{{else}}{{block "comments" .}}{{end}}{{end}}
 
 <script>
 (function () {
