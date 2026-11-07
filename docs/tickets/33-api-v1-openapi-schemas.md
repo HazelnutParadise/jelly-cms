@@ -67,7 +67,7 @@ Blocked by：27（契約與 struct 產 schema 的做法，已合併）。工單 
 1. `internal/server/integration_schemas.go`（新檔）：`integrationSchemaOf` 與所有 struct。
 2. `internal/server/integrations_discovery.go`：`integrationSuccessSchema`、`integrationRequestBody`、`integrationResourceSchema`、`integrationMediaFileSchema`、`integrationProductInputSchema`、`integrationContentSummarySchema`、`integrationOrderSummarySchema` 全部改成呼叫 `integrationSchemaOf(對應 struct)`；手寫 map 刪除。
 3. `internal/server/handlers_posts.go` 的 `getPost`、`createPost`、`updatePost`：v1 路徑（`c.Get("integration.identity") != nil`）回 `integrationContentResource`／`integrationContentWriteResult`（含 preload 的作者摘要）；後台路徑不變。做法：在 handler 回應前依 context 分流，後台測試不得受影響。
-4. `internal/server/shop_orders_admin.go`：`adminOrderGet` 抽出 `loadOrderDetail(ctx, id) (integrationOrderDetail, error)`（含 `customer.order_count` 的歷史查詢），後台 handler 由它組原本的 map（含重複鍵與 `snapshot`）；v1 的 `GET /orders/:id` 新包裝直接回 `integrationOrderDetail`。
+4. `internal/server/shop_orders_admin.go`：`adminOrderGet` 抽出 `loadOrderDetail(ctx, id) (integrationOrderDetail, error)`（含 `customer.order_count` 的歷史查詢），後台 handler 由它組原本的 map（含重複鍵、`snapshot`、`history_count`，以及零元訂單 `payment` 的 `kind: "none"`）；v1 的 `GET /orders/:id` 新包裝直接回 `integrationOrderDetail`。
 5. `internal/server/integrations_auth.go` 的 `integrationMe` handler 改回 `integrationMeResponse` struct。
 6. `internal/server/media_api.go`：`mediaFileJSON` 改回 `integrationMediaFile` struct（後台與 v1 共用，鍵不變）。
 7. `internal/settings`：`Specs()` 已匯出；新增 `WritableSpecs()` 回傳扣掉 `settings_api.go:87-97` 拒絕清單後的規格，`handleSettingsWrite` 與 schema 都用它（拒絕清單只寫一次）。
@@ -77,7 +77,7 @@ Blocked by：27（契約與 struct 產 schema 的做法，已合併）。工單 
 
 - R2 的比對測試對所有 v1 路由通過。
 - 「測試有牙齒」：`mediaFileJSON` 在格子 6 改成 struct 之前，先在它的 map 多加一個鍵跑一次 R2 測試，必須失敗；審查時主代理執行並把輸出記在 STATUS.md。
-- OpenAPI 文件驗證：不加依賴，自寫檢查：所有 `$ref` 可解析、每個 schema 都有 `type`、`oneOf` 或 `$ref`、除例外清單外沒有 `additionalProperties: true`。
+- OpenAPI 文件驗證：不加依賴，自寫檢查：所有 `$ref` 可解析、每個 schema 都有 `type`、`oneOf` 或 `$ref`（空 schema `{}` 豁免，它是 RawMessage 的「任意 JSON」）、除例外清單外沒有 `additionalProperties: true`。
 - `GET /orders/:id`（v1）的鍵集合等於 `integrationOrderDetail`，`items[]` 沒有 `qty`、`price`，`timeline[]` 沒有 `status`、`from_status`、`to_status`；三種 `payment` 情況各植一筆訂單驗證；後台 `GET /api/admin/orders/:id` 仍有 `total`、`snapshot`、`items[].qty`（守門）。
 - `GET /posts/:id`（v1）的 `author` 恰好 `{id, username, display_name}` 且值正確，沒有 `deleted_at`；`PUT /posts/:id` 的回應有 `diagnostics` 且元素鍵為 `line`、`col`、`severity`、`code`、`message`，含 diagnostics 的 400 回應亦同；後台 `GET /api/admin/posts/:id` 的 `author` 形狀與後台 diagnostics 的大寫鍵不變（守門）。
 - `GET /me` 有 `role_cap` 與 `effective_role` 且 schema 列出。

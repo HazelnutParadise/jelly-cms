@@ -35,13 +35,15 @@ Blocked by：23（後台 API 只收網頁登入，已合併）。與 29 同時�
 
 下列寫入改掛 `auth.RequireInteractive()`，非 GET／HEAD／OPTIONS 必須帶非空 `X-Jelly-CSRF`，否則 403 `{"error": "Interactive login required"}`：
 
+`RequireInteractive` 不做來源檢查，所以所有掛法都是「既有的 `RequireAuth`（或群組的 `RequireAuth`）在外、`RequireInteractive()` 在內」，與 `account_routes.go:54-67` 現有互動路由相同。
+
 - `PATCH /api/account/profile`、`POST /api/account/notifications/read-all`、`POST /api/account/notifications/:id/read`、`PUT /api/account/notification-preferences`
 - `POST /api/account/orders/:number/cancel`、`POST /api/account/orders/:number/reorder`
 - `POST|PUT|DELETE /api/account/addresses*`、`POST|PUT|DELETE /api/account/invoice-profiles*`
-- `DELETE /api/auth/identities/:provider`、`POST /api/auth/identities/:provider/start`（`internal/auth/routes.go:25-26`）：`RequireAuth` 換成 `RequireInteractive()`，其餘不動，寫成
-  `e.POST("/api/auth/identities/:provider/start", auditOAuthIdentityAction("link_start", RequireInteractive()(ProtectLoginAttempts(HandleIdentityLinkStart))))`
-  `e.DELETE("/api/auth/identities/:provider", auditOAuthIdentityAction("unlink", RequireInteractive()(HandleIdentityUnlink)))`
-  （稽核在最外層，失敗也留紀錄）；`start` handler 內原本的「有 `Authorization` 就 400 `Cookie login required`」檢查（`oauth_accounts.go:175-177`）刪除，由閘門（401）與 `RequireInteractive`（403）接手。
+- `DELETE /api/auth/identities/:provider`、`POST /api/auth/identities/:provider/start`（`internal/auth/routes.go:25-26`）：`RequireAuth` 保留（它負責 `ProtectCookieWrites` 的來源檢查，`middleware.go:36`；`RequireInteractive` 本身不檢查來源），在它裡面再套 `RequireInteractive()`，寫成
+  `e.POST("/api/auth/identities/:provider/start", auditOAuthIdentityAction("link_start", RequireAuth(RequireInteractive()(ProtectLoginAttempts(HandleIdentityLinkStart)))))`
+  `e.DELETE("/api/auth/identities/:provider", auditOAuthIdentityAction("unlink", RequireAuth(RequireInteractive()(HandleIdentityUnlink))))`
+  （稽核在最外層，失敗也留紀錄；`oauth_link_integration_test.go:768-795` 的跨站 `Origin` 測試必須維持通過）；`start` handler 內原本的「有 `Authorization` 就 400 `Cookie login required`」檢查（`oauth_accounts.go:175-177`）刪除，由閘門（401）與 `RequireInteractive`（403）接手。
 - `POST /api/payment/create`（`ProtectBrowserWrites` 維持，`RequireInteractive` 加在它外層）
 
 讀取（`GET`）維持 `RequireAuth`。
@@ -88,7 +90,7 @@ Blocked by：23（後台 API 只收網頁登入，已合併）。與 29 同時�
 
 ## 跨工單
 
-- 與 29：兩張都改 `internal/auth/api_documentation.go`；29 搬進去的操作用 `JWTTokenCookie`／`SessionCookie`，本工單拿掉 `BearerAuth` 時不會碰到它們；29 負責刪 auth 文件裡的 11 條 `/api/admin/*`，本工單不動它們；29 未做時本工單要順手拿掉 `shop_api_documentation.go` 的 `BearerAuth`。先後皆可。
+- 與 29：兩張都改 `internal/auth/api_documentation.go`；29 搬進去的操作用 `JWTTokenCookie`／`SessionCookie`，本工單拿掉 `BearerAuth` 時不會碰到它們；29 負責刪 auth 文件裡的 10 條 `/api/admin/*`（`:304-313`），本工單不動它們；29 未做時本工單要順手拿掉 `shop_api_documentation.go` 的 `BearerAuth`。先後皆可。
 
 ## 決策紀錄
 

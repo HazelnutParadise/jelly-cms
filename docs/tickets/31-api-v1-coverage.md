@@ -53,7 +53,7 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 | `PATCH /orders/:id/address` | orders.write | `adminOrderUpdateAddress` | 200 訂單詳情 |
 | `POST /orders/:id/refund` | orders.write | `adminOrderRefund` | 200 訂單詳情；`Idempotency-Key` 標頭與 body 的 `idempotency_key` 沿用後台規則 |
 | `POST /orders/:id/mark-paid` | orders.write | `adminOrderMarkPaid` | 200 訂單詳情 |
-| `GET /coupons`、`GET /coupons/:id`、`POST /coupons/preview` | coupons.read | `adminCouponsList`（抽查詢）、`adminCouponGet`、`adminCouponPreview` | 分頁信封（`page`／`per_page` 依工單 27 R2，去掉後台的 `counts` 與 `impact`），item 為「折扣碼列」：後台清單 item 的攤平形狀（`core.Coupon` 欄位加 `targets`，`shop_coupons_admin.go:501-517`），定成 `integrationCouponRow` struct；單筆與預覽：`GET /coupons/:id` 也回折扣碼列（不是後台的 `{coupon, targets}`），預覽回後台的預覽物件（定 struct） |
+| `GET /coupons`、`GET /coupons/:id`、`POST /coupons/preview` | coupons.read | `adminCouponsList`（抽查詢）、`adminCouponGet`、`adminCouponPreview` | 分頁信封（`page`／`per_page` 依工單 27 R2，去掉後台的 `counts` 與 `impact`），item 為「折扣碼列」：後台清單 item 的攤平形狀（`core.Coupon` 欄位加 `targets`，`shop_coupons_admin.go:578-591`），定成 `integrationCouponRow` struct；單筆與預覽：`GET /coupons/:id` 也回折扣碼列（不是後台的 `{coupon, targets}`），預覽回後台的預覽物件（定 struct） |
 | `POST /coupons`、`PATCH /coupons/:id`、`DELETE /coupons/:id`、`POST /coupons/generate` | coupons.write | `adminCouponCreate`、`adminCouponPatch`、`adminCouponDelete`、`adminCouponGenerate` | 201 折扣碼列（後台回 200 單筆）、200 折扣碼列、200 `{message}`、201 `{batch_id,count,codes}` |
 
 後台 `PUT /api/admin/orders/:id` 的路徑在 v1 改成 `/orders/:id/status`，避免和「整筆更新」混淆。
@@ -93,9 +93,9 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 2. `internal/server/integration_comments.go`（新檔）：`GET /comments`、`GET /comments/:id` 與寫入的 v1 包裝；`handlers_comments.go` 的 `listAdminComments` 抽出查詢函式（後台 handler 不變）。
 3. `internal/server/integration_taxonomy.go`（新檔）：分類標籤寫入的 v1 包裝（主要是回應狀態碼與信封）。
 4. `internal/server/integration_orders.go`（新檔）：訂單五條寫入的 v1 包裝，成功後以工單 33 的 `loadOrderDetail` 重讀並回 `integrationOrderDetail`。
-5. `internal/server/integration_coupons.go`（新檔）：折扣碼七條；`shop_coupons_admin.go` 的 `adminCouponsList` 抽查詢函式；`couponAdminResponse` 沿用為 `{coupon, targets}`。
+5. `internal/server/integration_coupons.go`（新檔）：折扣碼七條，v1 一律回 `integrationCouponRow`（攤平），不用後台的 `couponAdminResponse`（`{coupon, targets}`，後台繼續用）；`shop_coupons_admin.go` 的 `adminCouponsList` 抽查詢函式。
 6. `internal/server/integration_routes.go`：路由表加列（`RequiredRoles` 依權限表）；`integrations_discovery.go`：`permissionDescription`、`integrationErrorCodes`、`integrationErrorDescription`、`integrationNotExposed`、schema 與 request body 分支；`integrations_regression_test.go` 的實打比對（工單 33）把新路由納入。
-7. `web/admin/assets/integrations.js`、`design/gen/gen_agents.py` 與產生的板：R3。
+7. `web/admin/assets/integrations.js`、`design/gen/gen_integrations.py` 與它產生的 `design/project/Integrations.dc.html`、`IntegrationDetail.dc.html`：R3。
 8. 文件：R3。
 
 ## 驗收（測試契約）

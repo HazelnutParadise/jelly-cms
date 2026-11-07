@@ -19,7 +19,7 @@ Blocked by：27（`/api/v1` 契約與 `GET /api` 總索引，已合併）。與 
 - 決定：舊路徑回 308 轉到新路徑，保留到下一個次版本，再由新工單移除。308 保留方法與 body，`fetch` 預設會跟隨；WebMCP 的 `webmcp.js` 用 `redirect: "error"`，但它的工具清單由伺服器產生，直接改成新路徑就不會碰到轉址。
 - 決定：錯誤 `code` 字串除下列兩類外沿用現有值：(a) `rate_limit` 改 `rate_limited`；(b) 結帳以欄位名當 `code` 的那組（`email`、`phone`、`accept_terms`、`website`、`idempotency_key`、`shipping`、`shipping.method`、`payment.method`、`amount` 與發票欄位，`shop_checkout.go:151-177,548-556`）改成 `code = "input"` 加 `details.fields`。主題 JS 讀的 `stock`、`coupon`、`cart_unavailable`、`origin`、`idempotency_conflict` 等不變。
 - 決定：`shop_api_documentation.go` 裡 27 條 `/api/admin/*` 的文件刪除不搬：後台 API 只給網頁用（工單 23），公開 OpenAPI 裡不該有它；`shop_api_documentation_test.go:62-66` 鎖住這些操作的斷言一併刪除。
-- 不改：各端點的業務規則、來源檢查、限流次數、購物車 Cookie、維護模式下匿名 API 回 503 的行為、未安裝時 302 到 `/install` 的行為、`/api/v1`、`/api/admin/*`、`/api/account/*`、`/api/auth/*`、金流回呼 `/api/payment/:gateway/*`。
+- 不改：各端點的業務規則、來源檢查、限流次數、購物車 Cookie、維護模式下匿名 API 回 503 的行為、未安裝時非 `/api/public` 路徑 302 到 `/install` 的行為（搬進 `/api/public` 的端點未安裝時從 302 變成 503，與該子樹現況一致）、`/api/v1`、`/api/admin/*`、`/api/account/*`、`/api/auth/*`、金流回呼 `/api/payment/:gateway/*`。
 
 ## 名詞
 
@@ -49,6 +49,7 @@ Blocked by：27（`/api/v1` 契約與 `GET /api` 總索引，已合併）。與 
 跟著路徑一起改的業務細節：
 
 - `shop_payment.go:363` 的 sandbox Cookie `Path` 改為 `/api/public/checkout/sandbox/<trade_no>`。
+- `shop_lookup.go:200` 訂單查詢連結發的 `jelly_order_view` Cookie `Path` 從 `/api/orders` 改為 `/api/public/orders`（讀取在 `shop_access.go:48`），否則查狀態與補寄會因為瀏覽器不送 Cookie 而 404。
 - `middleware_i18n.go:85-86` 的 `isLanguagePreferencePath` 把 `/api/cart`、`/api/shop`、`/api/checkout` 改成 `/api/public/cart`、`/api/public/shop`、`/api/public/checkout`；舊前綴在 308 期間一併保留（轉址前的請求也套語言偏好，行為與現況相同）。
 
 ### R2 錯誤信封
@@ -60,12 +61,12 @@ Blocked by：27（`/api/v1` 契約與 `GET /api` 總索引，已合併）。與 
 - `maintenance.go`：`/api/public` 子樹的 503 用信封，`code = "maintenance"`，保留 `Retry-After`。
 - `installation_http.go:88-92` 改以 `pathOrSubtree(path, "/api/public")` 判斷，所有方法都適用：資料庫為 nil 時回信封 503 `service_unavailable`（多出 `details: {}` 與 `correlation_id`），判斷位置與現況相同，在 `install.IsInstalled()` 之前，所以未安裝時這個子樹也是 503 而不是 302（沿用現況；`webmcp_edges_integration_test.go:204-229` 的斷言只改 body 形狀）。其他路徑未安裝時仍 302 到 `/install`。
 - `publicAPIError`（`public_api.go:25-37`）改為呼叫 `writeAPIError` 的薄包裝，多出 `details: {}`。
-- `shopJSONError` 簽名不變，內部改呼叫 `writeAPIError`；新增 `shopFieldError(c, status, field, message)` 產生 `code = "input"`、`details.fields = {field: message}`，欄位鍵就是原本當 `code` 用的字串（例如 `shipping.method`）。
-- `shopRateLimited`（`shop_lookup.go:139-141`）與其他商店 429（`shop_cart.go:644`、`shop_checkout.go:144`、`shop_payment.go:142`）、留言 429（`handlers_comments.go:384`）：`code = "rate_limited"`，一律帶 `Retry-After`。秒數：`shopRateLimit` 的視窗記錄在 `shopActionRateWindow.expires`，回距到期的整數秒（最少 1），回傳值改成「是否超限、距到期秒數」；`shopLookupGlobalRateLimit`（`shop_lookup.go:74,113-130,280`）的視窗是 `start + window`，同樣回 `start + window - now` 的整數秒（最少 1），回傳值同樣改成兩個；留言的 `commentRateLimiter` 是 60 秒滾動視窗，回最舊一筆到期的秒數（最少 1）。
+- 新增 `publicJSONError(c, status, code, message)`（呼叫 `writeAPIError`）與 `publicFieldError(c, status, field, message)`（`code = "input"`、`details.fields = {field: message}`，欄位鍵就是原本當 `code` 用的字串，例如 `shipping.method`）；五個商店檔案中**公開路由**的 `shopJSONError` 呼叫全部改成這兩個。`shopJSONError` 本身不動，`shop_account.go:347,352,418`（會員的 reorder）繼續用它，`/api/account/*` 的錯誤格式不變。
+- `shopRateLimited`（`shop_lookup.go:139-141`）與其他商店 429（`shop_cart.go:644`、`shop_checkout.go:144`、`shop_payment.go:142`）、留言 429（`handlers_comments.go:384`）：`code = "rate_limited"`，一律帶 `Retry-After`。秒數：`shopRateLimit` 的視窗記錄在 `shopActionRateWindow.expires`，回距到期的整數秒（最少 1），回傳值改成「是否超限、距到期秒數」；`shopLookupGlobalRateLimit`（`shop_lookup.go:74,113-130,280`）的視窗是 `start + window`，同樣回 `start + window - now` 的整數秒（最少 1），回傳值同樣改成兩個；`shop_lookup.go:280` 以 `||` 串接兩個限流器時取較大的秒數；`shopRateLimited` 多收一個秒數參數；留言的 `commentRateLimiter` 是 60 秒滾動視窗，回最舊一筆到期的秒數（最少 1）。
 - `shop_payment.go:157` 的 `payment_method` 與 `:209` 的 `amount`（結帳重試）也是欄位名當 `code`，同樣改成 `input` 加 `details.fields`。
 - `/api/public/checkout/retry` 與 `/api/public/checkout/sandbox/:trade_no` 外層的 `auth.ProtectBrowserWrites`（`request_protection.go:41-47`）自己回 `{"error": ...}` 的 403／503，不經全域錯誤處理。改法：`internal/auth` 匯出 `RequestOriginAllowed(c) (ok bool, reason string)` 與 `ProtectBrowserWrites` 共用判斷；`internal/server` 新增 `publicBrowserWrites` 中介層，用它判斷後以信封回 403 `origin` 或 503 `service_unavailable`；這兩條路由改掛 `publicBrowserWrites`。
 - sandbox 的 `c.NoContent(404)` 改 404 `not_found` 信封、`c.NoContent(400)` 改 400 `bad_request`、`{"error": "Invalid payment status"}` 改 400 `input` 加 `details.param = "status"`；訂單查詢與補寄的 `echo.NewHTTPError(403, "invalid origin")` 改 403 `origin`（與結帳一致）。
-- 留言（`handlers_comments.go:375-467`）對照：JSON 解析失敗（`:378`）→ 400 `input` 無 details；honeypot（`:381`）→ 400 `rejected` 無 details（不透露原因）；缺 `post_id`（`:390`）→ 400 `input` 加 `details.param = "post_id"`；內文（`:406`）、暱稱（`:415`）、Email（`:419`）、回覆目標（`:428`）→ 400 `input` 加 `details.fields` 的 `body`、`name`、`email`、`parent_id`；`:387` → 403 `comments_disabled`；`:397` → 403 `comments_closed`；`:401` → 401 `login_required`；404 → `not_found`；500 → `internal_error`。
+- 留言：`GET /api/public/comments` 缺 `post_id`（`handlers_comments.go:326`）→ 400 `input` 加 `details.param = "post_id"`；`:333` → 404 `not_found`；`:337` → 500 `internal_error`。`POST`（`:375-467`）對照：JSON 解析失敗（`:378`）→ 400 `input` 無 details；honeypot（`:381`）→ 400 `rejected` 無 details（不透露原因）；缺 `post_id`（`:390`）→ 400 `input` 加 `details.param = "post_id"`；內文（`:406`）、暱稱（`:415`）、Email（`:419`）、回覆目標（`:428`）→ 400 `input` 加 `details.fields` 的 `body`、`name`、`email`、`parent_id`；`:387` → 403 `comments_disabled`；`:397` → 403 `comments_closed`；`:401` → 401 `login_required`；404 → `not_found`；500 → `internal_error`。
 - 搜尋：缺 `q` → 400 `input` 加 `details.param = "q"`；`query_too_long` 不變。
 
 ### R3 清單與文件
@@ -73,7 +74,7 @@ Blocked by：27（`/api/v1` 契約與 `GET /api` 總索引，已合併）。與 
 - `GET /api/public/shop/shipping-methods`、`payment-methods` 改回集合信封；`shop.js:975`、`:1131` 跟著改讀 `items`。
 - `GET /api/public` 的 `operations` 列出全部匿名端點；`GET /api/public/openapi.json` 是 OpenAPI 3.1.0（從 3.0.3 升），涵蓋 R1 之後所有 `/api/public/**` 路徑（不含索引與 OpenAPI 本身），每個操作宣告 `security: []`、各自的 4xx、有限流者的 `429`、`503`，錯誤 schema 引用公開錯誤信封；`components.schemas` 從 struct 產生（用工單 33 的 `integrationSchemaOf`；若本工單先做，先把該函式建在 `internal/server/integration_schemas.go`，33 沿用）。現有已是 struct 的沿用（`shopCartJSON`、`shopCheckoutResponse`、`shopShippingMethod`、`shopPaymentMethod`）；訂單狀態（`shop_lookup.go:253` 的 map）與搜尋結果（`handlers_public.go:360` 的區域型別）在 `internal/server/public_api_schemas.go` 新定 `publicOrderStatus`、`publicSearchResult` 兩個 struct，handler 改回它們（鍵不變）。
 - 金流回呼 `/api/payment/:gateway/notify|callback|return` 放進 `/api/public/openapi.json` 的「金流回呼」標籤，標明「由金流服務呼叫」。
-- `/api/shop/openapi.json` 原本涵蓋的 12 條 `/api/account/*` 商店端點改收進 `/api/auth/openapi.json`。`internal/auth` 不能 import `internal/server`（會循環），所以 `internal/auth/api_documentation.go` 新增 `RegisterAPIDocumentation(ops []DocumentedOperation, schemas map[string]any)` 註冊點，`internal/server` 在 `RegisterRoutes` 時把這 12 條操作與 `shopAPISchemas()` 裡它們用到的 components（`MemberOrders`、`Address`、`InvoiceProfile` 等，`shop_api_documentation.go:71-82,334`）注入；搬過去的操作不帶 `BearerAuth`，改用該文件既有的 `JWTTokenCookie` 與 `SessionCookie` 方案（工單 30 會把 `BearerAuth` 整個拿掉）。27 條 `/api/admin/*` 的商店文件刪除；`/api/auth/openapi.json` 裡既有的 11 條 `/api/admin/users*`、`/api/admin/roles` 文件（`internal/auth/api_documentation.go:304-314`）同樣刪除，理由相同（後台 API 只給網頁用）。
+- `/api/shop/openapi.json` 原本涵蓋的 12 條 `/api/account/*` 商店端點改收進 `/api/auth/openapi.json`。`internal/auth` 不能 import `internal/server`（會循環），所以 `internal/auth/api_documentation.go` 新增匯出型別 `DocumentedOperation`（現有未匯出的 `authDocumentedOperation` 改名匯出）與 `RegisterAPIDocumentation(ops []DocumentedOperation, schemas map[string]any)` 註冊點（覆寫語意：重複呼叫以最後一次為準，因為測試會多次 `RegisterRoutes`），`internal/server` 在 `RegisterRoutes` 時把這 12 條操作與 `shopAPISchemas()` 裡它們用到的 components（`MemberOrders`、`Address`、`InvoiceProfile` 等，`shop_api_documentation.go:71-82,334`）注入；搬過去的操作不帶 `BearerAuth`，改用該文件既有的 `JWTTokenCookie` 與 `SessionCookie` 方案（工單 30 會把 `BearerAuth` 整個拿掉）。27 條 `/api/admin/*` 的商店文件刪除；`/api/auth/openapi.json` 裡既有的 10 條 `/api/admin/users*`、`/api/admin/roles` 文件（`internal/auth/api_documentation.go:304-313`；`:314` 是 `GET /invite/{token}`，保留）同樣刪除，理由相同（後台 API 只給網頁用）。
 - `GET /api` 的 `apis` 從四筆變三筆（`v1`、`public`、`auth`）。
 - 文件與程式不一致的三處一起修正：商店說明對購物車四條端點寫「需同來源請求」但程式沒檢查（`shop_api_documentation.go:54-58`）→ 改文件；`shop.js` 的 `serverFieldErrors` 讀 `data.field`／`data.fields` 但伺服器從沒送過 → 依 R2 改成讀 `details.fields`；`shop.js:279` 比對從未出現的 `cart_changed` → 刪掉這個分支。
 
@@ -99,7 +100,8 @@ Blocked by：27（`/api/v1` 契約與 `GET /api` 總索引，已合併）。與 
 新測試檔 `internal/server/public_api_consolidation_integration_test.go`：
 
 - 路徑對照表每一列：新路徑以原本測試的輸入打一次得到原本的狀態碼；舊路徑回 308、`Location` 等於新路徑（含 `:variant_id`、`:number`、`:trade_no` 的實際值與查詢字串）、body 是公開錯誤信封 `code = "moved"`；`GET /api/shop` 與 `/api/shop/openapi.json` 回 308 到 `/api/public` 與 `/api/public/openapi.json`。
-- sandbox：走新路徑完成一次模擬付款（授權 Cookie 的 `Path` 對得上新路徑）；語言偏好：`GET /api/public/cart?lang=en` 的回應語言與現況 `GET /api/cart?lang=en` 相同。
+- sandbox：走新路徑完成一次模擬付款（授權 Cookie 的 `Path` 對得上新路徑）；訂單查詢：經查詢連結取得 `jelly_order_view` Cookie 後 `GET /api/public/orders/:number/status` 回 200、`POST /api/public/orders/:number/resend` 不因缺 Cookie 而 404；語言偏好：`GET /api/public/cart?lang=en` 的回應語言與現況 `GET /api/cart?lang=en` 相同。
+- `/api/account/orders/:number/reorder` 的錯誤 body 仍是 `{"code", "error"}`（守門：`shopJSONError` 未被改動）。
 - 錯誤信封：對每個端點各挑一個 4xx 案例（購物車 `input`、加入不存在的 variant `variant`、折扣碼 `coupon`、結帳缺 email → `input` 且 `details.fields.email` 存在、結帳非同來源 `origin`、訂單查詢非同來源 `origin`、訂單查詢超限 `rate_limited` 且 `Retry-After` 為 1 到 60 的整數、留言超限 `rate_limited` 且 `Retry-After` 為 1 到 60、留言缺 `post_id` 的 `input`、搜尋缺 `q` 的 `input` 且 `details.param = "q"`、搜尋過長 `query_too_long`、sandbox 不存在的 trade_no 回 404 `not_found` 且 body 非空、不存在的 `/api/public/nope` 的 `not_found`），斷言四個鍵齊全、`details` 是物件、`correlation_id` 等於 `X-Request-ID`。
 - 全路由掃描：對 `e.Routes()` 中每條 `/api/public/**` 路由（排除 308 的舊路徑），用該路徑沒有註冊的方法打一次（例如 `DELETE /api/public/site`），回 405 且 body 是信封 `method_not_allowed`，`correlation_id` 非空。這證明全域錯誤處理對整個子樹都走信封。
 - 維護模式：匿名 GET `/api/public/comments?post_id=1` 回 503、信封 `code = "maintenance"`、有 `Retry-After`；`maintenance_integration_test.go:187-192` 的既有斷言改成這個形狀。安裝閘門：資料庫為 nil 時 `GET /api/public/cart` 回 503 信封 `service_unavailable`。
@@ -122,7 +124,7 @@ Blocked by：27（`/api/v1` 契約與 `GET /api` 總索引，已合併）。與 
 
 ## 跨工單
 
-- 與 30：兩張都改 `internal/auth/api_documentation.go`。先做哪張都可以：本工單搬進去的操作用 `JWTTokenCookie`／`SessionCookie`，寫入類的描述加「需 `X-Jelly-CSRF`」（30 會把它們改成互動限定）；本工單刪除 auth 文件裡的 11 條 `/api/admin/*`，若 30 先做，30 的 R4 改 `access` 時這 11 條還在，30 不必處理它們，由本工單刪。
+- 與 30：兩張都改 `internal/auth/api_documentation.go`。先做哪張都可以：本工單搬進去的操作用 `JWTTokenCookie`／`SessionCookie`，寫入類的描述加「需 `X-Jelly-CSRF`」（30 會把它們改成互動限定）；本工單刪除 auth 文件裡的 10 條 `/api/admin/*`，若 30 先做，30 的 R4 改 `access` 時這 10 條還在，30 不必處理它們，由本工單刪。
 - 與 31：兩張都改 `handlers_comments.go`（本工單改公開兩條與限流回傳，31 抽出 `listAdminComments` 的查詢），不衝突但會碰同一個檔。
 - 與 33：schema 產生用同一個 `integrationSchemaOf`，先做的那張建函式，後做的沿用。
 
