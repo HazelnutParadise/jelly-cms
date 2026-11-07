@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -594,6 +595,7 @@ func (a *pluginDetailAPI) resetSettings(c echo.Context) error {
 // writes to the same plugin run one after the other.
 func writePluginSettings(ctx context.Context, id string, mutate func(plain map[string]any, secrets map[string]string)) (int, error) {
 	var version int
+	changed := false
 	err := data.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var locked []pluginRow
 		if err := tx.Raw(`SELECT id FROM plugins WHERE id = ? FOR UPDATE`, id).Scan(&locked).Error; err != nil {
@@ -607,11 +609,18 @@ func writePluginSettings(ctx context.Context, id string, mutate func(plain map[s
 		if err != nil {
 			return err
 		}
+		beforeJSON, err := json.Marshal(map[string]any{"plain": plain, "secrets": secrets})
+		if err != nil {
+			return err
+		}
 		mutate(plain, secrets)
 
 		plainJSON, err := json.Marshal(plain)
 		if err != nil {
 			return err
+		}
+		if afterJSON, err := json.Marshal(map[string]any{"plain": plain, "secrets": secrets}); err == nil && !bytes.Equal(beforeJSON, afterJSON) {
+			changed = true
 		}
 		var sealed any
 		if len(secrets) > 0 {
@@ -649,7 +658,9 @@ func writePluginSettings(ctx context.Context, id string, mutate func(plain map[s
 		return tx.Exec(`DELETE FROM plugin_setting_snapshots WHERE plugin_id = ? AND version <= ?`,
 			id, version-pluginSnapshotKeep).Error
 	})
-	if err == nil {
+	// A write that changes nothing (a plugin re-saving the same values on
+	// every event) must not invalidate every extension cache on the site.
+	if err == nil && changed {
 		bumpPluginExtensionGeneration()
 	}
 

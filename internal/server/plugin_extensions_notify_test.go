@@ -162,10 +162,12 @@ func TestPluginExtensionsNotifyEmitQueuesOneRowPerLiveNotifier(t *testing.T) {
 	emitCommentPending(t, h, "x")
 
 	rows := pluginNotifyRows(t, h.db, 0)
-	want := []string{pluginNotifyOK, pluginNotifyNoPerm, pluginNotifyThrow}
+	// A notifier without the events permission never gets a row: the row
+	// would carry recipient data it is not approved for.
+	want := []string{pluginNotifyOK, pluginNotifyThrow}
 	sort.Strings(want)
 	if got := pluginNotifyTargets(rows); !reflect.DeepEqual(got, want) {
-		t.Fatalf("plugin delivery targets = %v, want one row per live notifier %v", got, want)
+		t.Fatalf("plugin delivery targets = %v, want one row per live notifier with the events permission %v", got, want)
 	}
 	for _, row := range rows {
 		if row.Kind != notify.KindCommentPending {
@@ -240,25 +242,48 @@ func TestPluginExtensionsNotifyDeliversEventToNotifierWithPermission(t *testing.
 	}
 }
 
+// TestPluginExtensionsNotifyWithoutEventsPermissionFailsAndRetries: a notifier
+// without the events permission is not queued at all, and a queued row whose
+// approval went stale before delivery fails at send time and retries.
 func TestPluginExtensionsNotifyWithoutEventsPermissionFailsAndRetries(t *testing.T) {
 	h := newPluginNotifyHarness(t)
 	h.user("admin", "notify-noperm-admin")
 	emitCommentPending(t, h, "x")
 	rows := pluginNotifyRows(t, h.db, 0)
 	okRow := pluginNotifyRowFor(t, rows, pluginNotifyOK)
-	noPermRow := pluginNotifyRowFor(t, rows, pluginNotifyNoPerm)
+	for _, row := range rows {
+		if row.ToAddress == pluginNotifyNoPerm {
+			t.Fatalf("%s has a delivery row without the events permission: %+v", pluginNotifyNoPerm, row)
+		}
+	}
 
 	// Positive control: the approved notifier of the same event is delivered.
 	if err := notify.ProcessDelivery(context.Background(), h.db, okRow.ID, sendSystemNotification); err != nil {
 		t.Fatalf("ProcessDelivery(%s) = %v, want nil", pluginNotifyOK, err)
 	}
 
-	if err := notify.ProcessDelivery(context.Background(), h.db, noPermRow.ID, sendSystemNotification); err == nil {
-		t.Errorf("ProcessDelivery(%s) = nil, want an error (no events permission)", pluginNotifyNoPerm)
+	// The approval of notifier-ok goes stale after a new row is queued: the
+	// send-time check refuses it, the row stays pending with one attempt.
+	emitCommentPending(t, h, "y")
+	var stale pluginNotifyRow
+	for _, row := range pluginNotifyRows(t, h.db, okRow.ID) {
+		if row.ToAddress == pluginNotifyOK {
+			stale = row
+		}
 	}
-	got := pluginNotifyRowFor(t, pluginNotifyRows(t, h.db, 0), pluginNotifyNoPerm)
+	if stale.ID == 0 {
+		t.Fatalf("no second delivery row for %s", pluginNotifyOK)
+	}
+	if err := h.db.Exec(`UPDATE plugins SET permissions_granted_hash = 'stale' WHERE id = ?`, pluginNotifyOK).Error; err != nil {
+		t.Fatalf("make approval stale: %v", err)
+	}
+	bumpPluginExtensionGeneration()
+	if err := notify.ProcessDelivery(context.Background(), h.db, stale.ID, sendSystemNotification); err == nil {
+		t.Errorf("ProcessDelivery(%s with stale approval) = nil, want an error", pluginNotifyOK)
+	}
+	got := pluginNotifyRowFor(t, pluginNotifyRows(t, h.db, okRow.ID), pluginNotifyOK)
 	if got.Status != "pending" || got.Attempts != 1 {
-		t.Errorf("%s row = status %q attempts %d, want pending/1 (retry later)", pluginNotifyNoPerm, got.Status, got.Attempts)
+		t.Errorf("stale-approval row = status %q attempts %d, want pending/1 (retry later)", got.Status, got.Attempts)
 	}
 
 	if err := plugin.FlushLogs(context.Background()); err != nil {
@@ -267,8 +292,8 @@ func TestPluginExtensionsNotifyWithoutEventsPermissionFailsAndRetries(t *testing
 	if err := flushPluginLogForwarder(context.Background()); err != nil {
 		t.Fatalf("flush plugin log forwarder: %v", err)
 	}
-	if n := notifyServerCount(t, h, "SELECT count(*) FROM system_logs WHERE plugin_id = ? AND level = ?", pluginNotifyNoPerm, 3); n < 1 {
-		t.Errorf("system_logs error rows for %s = %d, want at least 1", pluginNotifyNoPerm, n)
+	if n := notifyServerCount(t, h, "SELECT count(*) FROM system_logs WHERE plugin_id = ? AND level = ?", pluginNotifyOK, 3); n < 1 {
+		t.Errorf("system_logs error rows for %s = %d, want at least 1", pluginNotifyOK, n)
 	}
 }
 
@@ -301,8 +326,8 @@ func TestPluginExtensionsNotifyDisabledNotifierIsNotQueued(t *testing.T) {
 
 	emitCommentPending(t, h, "x")
 	first := pluginNotifyTargets(pluginNotifyRows(t, h.db, 0))
-	if !reflect.DeepEqual(first, []string{pluginNotifyNoPerm, pluginNotifyOK, pluginNotifyThrow}) {
-		t.Fatalf("first emit targets = %v, want all three live notifiers", first)
+	if !reflect.DeepEqual(first, []string{pluginNotifyOK, pluginNotifyThrow}) {
+		t.Fatalf("first emit targets = %v, want both live notifiers with the events permission", first)
 	}
 	var maxID uint
 	for _, row := range pluginNotifyRows(t, h.db, 0) {
@@ -317,7 +342,7 @@ func TestPluginExtensionsNotifyDisabledNotifierIsNotQueued(t *testing.T) {
 
 	emitCommentPending(t, h, "y")
 	added := pluginNotifyTargets(pluginNotifyRows(t, h.db, maxID))
-	want := []string{pluginNotifyNoPerm, pluginNotifyOK}
+	want := []string{pluginNotifyOK}
 	if !reflect.DeepEqual(added, want) {
 		t.Errorf("rows queued after disabling %s = %v, want %v", pluginNotifyThrow, added, want)
 	}

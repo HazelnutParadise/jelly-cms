@@ -22,9 +22,10 @@ import (
 // the plugin id.
 const ChannelPlugin = "plugin"
 
-// PluginChannelFunc lists the plugin ids that should receive every event.
-// It is called once per Emit; nil or an empty list queues nothing.
-type PluginChannelFunc func(ctx context.Context) []string
+// PluginChannelFunc lists the plugin ids that should receive an event. It is
+// called once per Emit with the database (or transaction) Emit runs on, so it
+// never opens a second connection; nil or an empty list queues nothing.
+type PluginChannelFunc func(ctx context.Context, db *gorm.DB) []string
 
 var pluginChannel atomic.Pointer[PluginChannelFunc]
 
@@ -38,12 +39,20 @@ func SetPluginChannel(fn PluginChannelFunc) {
 	pluginChannel.Store(&fn)
 }
 
-func pluginChannelProviders(ctx context.Context) []string {
+func pluginChannelProviders(ctx context.Context, db *gorm.DB) []string {
 	fn := pluginChannel.Load()
 	if fn == nil {
 		return nil
 	}
-	return (*fn)(ctx)
+	return (*fn)(ctx, db)
+}
+
+// PluginChannelCarries reports whether kind is sent to plugin notifiers. The
+// required customer emails (order confirmation, shipping, lookup link,
+// offline payment instructions, set-password invitation) carry access tokens
+// and links meant for one customer only, so they never leave the core.
+func PluginChannelCarries(kind string) bool {
+	return !isRequiredEmailKind(kind)
 }
 
 // queuePluginDeliveries creates one pending notification_deliveries row per

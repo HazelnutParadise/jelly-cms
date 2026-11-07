@@ -288,8 +288,9 @@ func RegisterPublicRoutes(e *echo.Echo, tm *theme.Manager) {
 			"CommentsHTML":   template.HTML(""),
 		}
 		// A comments.component provider replaces the theme's comments block;
-		// the builtin tree is not loaded then.
-		if html, ok := pluginCommentsComponent(ctx, db, post); ok {
+		// the builtin tree is not loaded then. A post with comments switched
+		// off shows neither.
+		if html, ok := pluginCommentsComponent(ctx, db, post); ok && post.CommentsAllowed() {
 			values["CommentsHTML"] = html
 		} else {
 			comments, commentCount, commentsOpen, err := publicCommentsForPost(db, c, post)

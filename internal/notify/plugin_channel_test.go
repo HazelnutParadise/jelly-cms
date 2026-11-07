@@ -98,7 +98,7 @@ func pluginChannelAdminNotifications(t *testing.T, db *gorm.DB, userID uint, kin
 func TestPluginChannelEmitQueuesOneRowPerDistinctProvider(t *testing.T) {
 	db := newNotifyShopDB(t)
 	admin := notifyShopAdmin(t, db)
-	SetPluginChannel(func(context.Context) []string { return []string{"p-a", "p-b", "p-a", ""} })
+	SetPluginChannel(func(context.Context, *gorm.DB) []string { return []string{"p-a", "p-b", "p-a", ""} })
 	t.Cleanup(func() { SetPluginChannel(nil) })
 
 	ev := Event{Kind: KindCommentPending, Category: CategoryComments, Params: map[string]any{"post": "x"},
@@ -164,7 +164,7 @@ func TestPluginChannelEmitQueuesOneRowPerDistinctProvider(t *testing.T) {
 func TestPluginChannelCarriesRecipientEmails(t *testing.T) {
 	db := newNotifyShopDB(t)
 	notifyShopAdmin(t, db)
-	SetPluginChannel(func(context.Context) []string { return []string{"p-a"} })
+	SetPluginChannel(func(context.Context, *gorm.DB) []string { return []string{"p-a"} })
 	t.Cleanup(func() { SetPluginChannel(nil) })
 
 	ev := Event{Kind: KindCommentPending, Category: CategoryComments, Params: map[string]any{"post": "y"},
@@ -215,7 +215,7 @@ func TestPluginChannelNoProvidersQueuesNothing(t *testing.T) {
 		t.Errorf("admin in-app rows after first Emit = %d, want 1", n)
 	}
 
-	SetPluginChannel(func(context.Context) []string { return []string{} })
+	SetPluginChannel(func(context.Context, *gorm.DB) []string { return []string{} })
 	if err := Emit(context.Background(), db, ev); err != nil {
 		t.Fatalf("Emit with empty provider list: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestPluginChannelNoProvidersQueuesNothing(t *testing.T) {
 func TestPluginChannelProcessDeliveryRetriesFailuresAndMarksSuccess(t *testing.T) {
 	db := newNotifyShopDB(t)
 	notifyShopAdmin(t, db)
-	SetPluginChannel(func(context.Context) []string { return []string{"p-a", "p-b"} })
+	SetPluginChannel(func(context.Context, *gorm.DB) []string { return []string{"p-a", "p-b"} })
 	t.Cleanup(func() { SetPluginChannel(nil) })
 	ev := Event{Kind: KindCommentPending, Category: CategoryComments, Params: map[string]any{"post": "x"},
 		Recipients: Recipients{Roles: []string{"admin"}}}
@@ -305,7 +305,7 @@ func TestPluginChannelProcessDeliveryRetriesFailuresAndMarksSuccess(t *testing.T
 func TestPluginChannelPruneRemovesOldSentRowsOnly(t *testing.T) {
 	db := newNotifyShopDB(t)
 	notifyShopAdmin(t, db)
-	SetPluginChannel(func(context.Context) []string { return []string{"p-a", "p-b"} })
+	SetPluginChannel(func(context.Context, *gorm.DB) []string { return []string{"p-a", "p-b"} })
 	t.Cleanup(func() { SetPluginChannel(nil) })
 	ev := Event{Kind: KindCommentPending, Category: CategoryComments, Params: map[string]any{"post": "x"},
 		Recipients: Recipients{Roles: []string{"admin"}}}
@@ -340,5 +340,46 @@ func TestPluginChannelPruneRemovesOldSentRowsOnly(t *testing.T) {
 	}
 	if n := notifyShopCount(t, db, "SELECT count(*) FROM notification_deliveries WHERE id = ? AND status = 'pending' AND channel = 'plugin'", pendingRow.ID); n != 1 {
 		t.Errorf("old pending plugin row after Prune = %d, want 1 (only sent and failed are pruned)", n)
+	}
+}
+
+// TestPluginChannelSkipsRequiredCustomerEmails: the customer-only transactional
+// emails carry order access tokens and set-password links, so they are never
+// queued for plugin notifiers; a notification-center kind in the same test is
+// the positive control.
+func TestPluginChannelSkipsRequiredCustomerEmails(t *testing.T) {
+	db := newNotifyShopDB(t)
+	notifyShopAdmin(t, db)
+	SetPluginChannel(func(context.Context, *gorm.DB) []string { return []string{"p-a"} })
+	t.Cleanup(func() { SetPluginChannel(nil) })
+
+	for _, kind := range []string{KindOrderConfirmation, KindOrderShipped, KindOrderLookupLink, KindOrderOfflineInstructions, KindCustomerSetPassword} {
+		if PluginChannelCarries(kind) {
+			t.Errorf("PluginChannelCarries(%s) = true, want false", kind)
+		}
+		spec, _ := LookupKind(kind)
+		ev := Event{Kind: kind, Category: spec.Category, Params: map[string]any{"number": "JL-1", "url": "/orders/view?t=secret"},
+			Recipients: Recipients{Emails: []string{"guest@example.test"}}}
+		if err := Emit(context.Background(), db, ev); err != nil {
+			t.Fatalf("Emit %s: %v", kind, err)
+		}
+	}
+	if n := len(pluginChannelRows(t, db)); n != 0 {
+		t.Errorf("plugin rows after required customer emails = %d, want 0", n)
+	}
+	// Positive control: the guest emails themselves were queued, and a
+	// notification-center kind reaches the plugin.
+	if n := notifyShopCount(t, db, "SELECT count(*) FROM notification_deliveries WHERE channel = 'email' AND to_address = ?", "guest@example.test"); n != 5 {
+		t.Errorf("guest email deliveries = %d, want 5", n)
+	}
+	if !PluginChannelCarries(KindOrderNew) {
+		t.Errorf("PluginChannelCarries(%s) = false, want true", KindOrderNew)
+	}
+	ev := Event{Kind: KindOrderNew, Category: CategoryOrders, Params: map[string]any{"number": "JL-1"}, Recipients: Recipients{Roles: []string{"admin"}}}
+	if err := Emit(context.Background(), db, ev); err != nil {
+		t.Fatalf("Emit order.new: %v", err)
+	}
+	if rows := pluginChannelRows(t, db); len(rows) != 1 || rows[0].Kind != KindOrderNew {
+		t.Errorf("plugin rows after order.new = %+v, want one order.new row", rows)
 	}
 }

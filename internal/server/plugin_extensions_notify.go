@@ -17,6 +17,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/ext"
 	"github.com/HazelnutParadise/jelly-cms/internal/notify"
+	"gorm.io/gorm"
 )
 
 // errPluginNotifierUnavailable reports that the plugin a delivery targets has
@@ -25,13 +26,30 @@ var errPluginNotifierUnavailable = errors.New("plugin notifier is unavailable")
 
 // notifyPluginChannelProviders is installed as notify.SetPluginChannel by
 // ConfigurePluginHost. It lists the live notify.channel providers
-// (extensionActiveProviders on data.DB) so Emit can queue one delivery row
-// per provider; nil when there is no runtime or database.
-func notifyPluginChannelProviders(ctx context.Context) []string {
-	if data.DB == nil {
+// (extensionActiveProviders on the database Emit runs on) that declare the
+// events permission, so Emit queues one delivery row per provider that can
+// actually receive it; nil when there is no runtime or database. The
+// permission approval itself is checked again at send time.
+func notifyPluginChannelProviders(ctx context.Context, db *gorm.DB) []string {
+	runtime := currentExtensionRuntime()
+	if db == nil || runtime == nil {
 		return nil
 	}
-	return extensionActiveProviders(ctx, data.DB, ext.PointNotifyChannel)
+	ids := extensionActiveProviders(ctx, db, ext.PointNotifyChannel)
+	out := ids[:0]
+	for _, id := range ids {
+		meta, err := runtime.GetPlugin(id)
+		if err != nil || meta == nil {
+			continue
+		}
+		for _, permission := range meta.Permissions {
+			if permission.Name == "events" {
+				out = append(out, id)
+				break
+			}
+		}
+	}
+	return out
 }
 
 // deliverPluginNotification sends one queued plugin delivery (d.Channel is
