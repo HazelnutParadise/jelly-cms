@@ -53,10 +53,12 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 | `PATCH /orders/:id/address` | orders.write | `adminOrderUpdateAddress` | 200 訂單詳情 |
 | `POST /orders/:id/refund` | orders.write | `adminOrderRefund` | 200 訂單詳情；`Idempotency-Key` 標頭與 body 的 `idempotency_key` 沿用後台規則 |
 | `POST /orders/:id/mark-paid` | orders.write | `adminOrderMarkPaid` | 200 訂單詳情 |
-| `GET /coupons`、`GET /coupons/:id`、`POST /coupons/preview` | coupons.read | `adminCouponsList`（抽查詢）、`adminCouponGet`、`adminCouponPreview` | 分頁信封（去掉 `counts`）、`{coupon, targets}`、預覽物件 |
-| `POST /coupons`、`PATCH /coupons/:id`、`DELETE /coupons/:id`、`POST /coupons/generate` | coupons.write | `adminCouponCreate`、`adminCouponPatch`、`adminCouponDelete`、`adminCouponGenerate` | 201 `{coupon, targets}`（後台回 200 單筆，v1 統一 201 與 `GET /coupons/:id` 同形狀）、200 `{coupon, targets}`、200 `{message}`、201 `{batch_id,count,codes}` |
+| `GET /coupons`、`GET /coupons/:id`、`POST /coupons/preview` | coupons.read | `adminCouponsList`（抽查詢）、`adminCouponGet`、`adminCouponPreview` | 分頁信封（`page`／`per_page` 依工單 27 R2，去掉後台的 `counts` 與 `impact`），item 為「折扣碼列」：後台清單 item 的攤平形狀（`core.Coupon` 欄位加 `targets`，`shop_coupons_admin.go:501-517`），定成 `integrationCouponRow` struct；單筆與預覽：`GET /coupons/:id` 也回折扣碼列（不是後台的 `{coupon, targets}`），預覽回後台的預覽物件（定 struct） |
+| `POST /coupons`、`PATCH /coupons/:id`、`DELETE /coupons/:id`、`POST /coupons/generate` | coupons.write | `adminCouponCreate`、`adminCouponPatch`、`adminCouponDelete`、`adminCouponGenerate` | 201 折扣碼列（後台回 200 單筆）、200 折扣碼列、200 `{message}`、201 `{batch_id,count,codes}` |
 
 後台 `PUT /api/admin/orders/:id` 的路徑在 v1 改成 `/orders/:id/status`，避免和「整筆更新」混淆。
+
+「寫入回更新後的資源」的做法：v1 包裝用與 `integrationErrorEnvelope` 相同的 recorder 技巧呼叫後台 handler，2xx 時丟掉後台寫出的 body（`{"status":"ok"}` 或後台單筆），重新讀取資源後以 v1 形狀寫出；非 2xx 原樣交給信封。
 
 ### R2 錯誤對照
 
@@ -66,7 +68,7 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 |---|---|
 | 留言：404 `Comment not found`（含回收桶內做非還原動作） | 404 `not_found` |
 | 留言：409 `Comment is not in trash`（對不在回收桶的留言做 `restore`） | 409 `conflict` |
-| 留言：400 `Unknown status`、內文長度 | 400 `bad_request` 加 `details.param` |
+| 留言：400 `Unknown status`（`:602`）、內文長度（`:862,952`） | 400 `bad_request`，前者 `details.param = "status"`，後者 `details.fields = {"body": "..."}` |
 | 訂單：409 `{"allowed": [...]}` | 409 `invalid_transition` 加 `details.allowed` |
 | 訂單：400 `shipping details are required` | 400 `bad_request` 加 `details.fields = {"carrier": "...", "tracking_no": "..."}`（缺哪個列哪個） |
 | 訂單：422 `provider refund is not supported` | 422 `refund_unsupported` |
@@ -81,7 +83,7 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 
 - `integrationNotExposed` 拿掉留言、分類寫入、標籤寫入三列，剩下的保留。
 - `permissionDescription` 補六項中文說明；`GET /api/v1` 的 `permissions` 自然多六筆。
-- `web/admin/assets/integrations.js:53-63` 的資源標籤表補 `comments`（留言／Comments）、`taxonomy`（分類與標籤／Taxonomy）、`coupons`（折扣碼／Coupons）。依 AGENTS.md，權限勾選格多了三列，`design/gen/gen_agents.py` 產生的 `Agents.dc.html`、`AgentDetail.dc.html` 的權限區塊同一次提交更新並重新產生，線上畫布同步。
+- `web/admin/assets/integrations.js:53-63` 的資源標籤表補 `comments`（留言／Comments）、`taxonomy`（分類與標籤／Taxonomy）、`coupons`（折扣碼／Coupons）。依 AGENTS.md，權限勾選格多了三列，`design/gen/gen_integrations.py` 產生的 `design/project/Integrations.dc.html`、`IntegrationDetail.dc.html` 的權限區塊同一次提交更新並重新產生，線上畫布同步。
 - OpenAPI：每條新路由的 request body 與回應 schema 由工單 33 的 `integrationSchemaOf` 從 struct 產生：留言用 `adminCommentRow`、分類標籤用 `core.Category`／`core.Tag`、訂單用 `integrationOrderDetail`、折扣碼用 `core.Coupon` 加 `targets` 的包裝 struct。工單 33 的「每條路由實打比對」測試要涵蓋這些新路由。
 - `skills/jelly-cms/SKILL.md` 加「審留言」「處理訂單」兩段短流程；README 權限表；`STATUS.md`；工單 14 開頭加一行。
 
@@ -92,7 +94,7 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 3. `internal/server/integration_taxonomy.go`（新檔）：分類標籤寫入的 v1 包裝（主要是回應狀態碼與信封）。
 4. `internal/server/integration_orders.go`（新檔）：訂單五條寫入的 v1 包裝，成功後以工單 33 的 `loadOrderDetail` 重讀並回 `integrationOrderDetail`。
 5. `internal/server/integration_coupons.go`（新檔）：折扣碼七條；`shop_coupons_admin.go` 的 `adminCouponsList` 抽查詢函式；`couponAdminResponse` 沿用為 `{coupon, targets}`。
-6. `internal/server/integration_routes.go`：路由表加列（`RequiredRoles` 依權限表）；`integrations_discovery.go`：`permissionDescription`、`integrationErrorCodes`、`integrationErrorDescription`、`integrationNotExposed`、schema 與 request body 分支。
+6. `internal/server/integration_routes.go`：路由表加列（`RequiredRoles` 依權限表）；`integrations_discovery.go`：`permissionDescription`、`integrationErrorCodes`、`integrationErrorDescription`、`integrationNotExposed`、schema 與 request body 分支；`integrations_regression_test.go` 的實打比對（工單 33）把新路由納入。
 7. `web/admin/assets/integrations.js`、`design/gen/gen_agents.py` 與產生的板：R3。
 8. 文件：R3。
 
@@ -100,12 +102,12 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 
 新測試檔 `internal/server/api_v1_coverage_integration_test.go`；遷移測試在 `internal/data`：
 
-- 遷移：對空庫與含既有串接的庫各跑一次 `MigrateDB`，`integrations_permissions_check` 接受 22 項、拒絕 `comments.admin` 這種未知字串；舊列不變；重跑冪等；舊約束名不存在（已被同名重建）。
+- 遷移：對空庫與含既有串接的庫各跑一次 `MigrateDB`，`integrations_permissions_check` 恰有一個且接受 22 項、拒絕 `comments.admin` 這種未知字串；`agents_permissions_check` 不存在；舊列不變；重跑冪等。
 - 權限：建立串接時勾六個新權限都成功；`GET /api/v1` 的 `permissions` 有這六筆且 `required_roles` 正確；`GET /me` 的 `effective_permissions` 依擁有者角色裁剪（editor 擁有者的 `orders.write` 不在有效清單）。
 - 留言：植入 pending 留言，`POST /comments/:id/approve` 回 200、`status = approved`、`integration_events` 有紀錄、外掛事件 `OnCommentUpdate` 被發出（沿用 `plugin_events_harness_test.go` 的接收方式）；沒有 `comments.write` 的金鑰回 403 `permission_missing`；`GET /comments?status=pending` 分頁信封且沒有 `counts` 鍵，`status=all` 與不帶 `status` 的 `total` 相同；回收桶內的留言 `approve` 回 404 `not_found`；對不在回收桶的留言 `restore` 回 409 `conflict`。
-- 分類標籤：editor 擁有者可建改刪；author 擁有者對 `POST /tags` 回 403 `owner_role_insufficient`；後台 `POST /api/admin/tags` 以 author Cookie 仍 201（守門）。
+- 分類標籤：editor 擁有者可建改刪；author 擁有者的串接（建立串接時不驗擁有者角色，執行時才裁剪，與工單 27 的 `owner_role_insufficient` 相同）對 `POST /tags` 回 403 `owner_role_insufficient`；後台 `POST /api/admin/tags` 以 author Cookie 仍 201（守門）。
 - 訂單：`PUT /orders/:id/status` 從 pending 轉 paid 回 200 且回應鍵集合等於 `integrationOrderDetail`、`OnOrderUpdate` 與 `OnOrderPaid` 發出；轉不合法狀態回 409 `invalid_transition` 且 `details.allowed` 等於 `core.AllowedTransitions`；轉 shipped 缺物流資訊回 400 且 `details.fields` 有 `carrier`、`tracking_no`；有待處理退款申請時轉 shipped 回 409 `refund_pending`；退款帶 `Idempotency-Key` 重送同內容回同結果、不同內容回 409；`mark-paid` 對非銀行轉帳訂單回 400。後台 `PUT /api/admin/orders/:id` 仍回 `{"status":"ok"}`（守門）。
-- 折扣碼：`POST /coupons` 回 201 且形狀為 `{coupon, targets}`；重複代碼回 409 `coupon_code_taken`；欄位錯誤回 400 且 `details.fields` 有鍵；已使用的折扣碼 `DELETE` 與 `PATCH`（改成非停用）各回 409 `coupon_in_use`；`GET /coupons` 分頁信封無 `counts`。後台 `POST /api/admin/coupons` 仍回 200（守門）。
+- 折扣碼：`POST /coupons` 回 201 且鍵集合等於 `integrationCouponRow`；`GET /coupons/:id` 同形狀；重複代碼回 409 `coupon_code_taken`；欄位錯誤回 400 且 `details.fields` 有鍵；已使用的折扣碼 `DELETE` 與 `PATCH`（改成非停用）各回 409 `coupon_in_use`；`GET /coupons?per_page=101` 回 400；`GET /coupons` 分頁信封無 `counts`、`impact`。後台 `POST /api/admin/coupons` 仍回 200、`GET /api/admin/coupons` 仍有 `counts` 與 `impact`（守門）。
 - OpenAPI：新路由都在 `paths`，request body 與 200／201 schema 由 struct 產生且有 `properties`；`not_exposed` 不含留言與分類標籤寫入；工單 33 的實打比對測試對新路由通過。
 - 既有測試：`internal/integration/integration_test.go:84-92` 與 `integrations_keys_integration_test.go:39-43` 的 `agtAllPermissions`（`integrations_api_integration_test.go:121` 用它做相等比對）改成 22 項；`integrations_api_integration_test.go` 的 `mustList` 與 `not_exposed` 相關斷言依本工單調整；其餘不放寬。
 - 瀏覽器驗收：後台「API 串接」建立頁的權限勾選格出現「留言」「分類與標籤」「折扣碼」三列且中英文都有標籤，與設計板一致。
