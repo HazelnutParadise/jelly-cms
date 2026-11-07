@@ -80,9 +80,35 @@ JellyCMS.registerHook("OnOrderPaid", function (data) {
 - `comment`：`id, post_id, parent_id, author_id, name, status, body, created_at`。不含 IP、User-Agent 與 email。
 - `file`：`id, path, filename, mime, size, width, height, alt, policy_id, group_id, created_at`。
 
+## 讀取 API
+
+事件 payload 之外，外掛可以主動讀取內容。方法都是同步呼叫，回傳 JSON 值；host 回錯誤時會拋出例外，請用 `try/catch`。每次呼叫的結果上限 1 MiB，清單太大時縮小 `per_page`。
+
+| 權限 | 方法 | 參數 | 回傳 |
+|---|---|---|---|
+| `content.read` | `JellyCMS.content.get(ref)` | 數字 id 或字串 slug | 文章物件（與 `OnPostSave` 的 `post` 相同欄位，含 `content`）；找不到或在回收桶回 `null` |
+| `content.read` | `JellyCMS.content.list(query)` | `{type, status, visibility, category, tag, search, page, per_page}`，全部可省略 | `{items, total, page, per_page}`；`items` 不含 `content`（`content_omitted: true`） |
+| `shop.read` | `JellyCMS.shop.getProduct(ref)` | id 或 slug | 商品物件或 `null` |
+| `shop.read` | `JellyCMS.shop.listProducts(query)` | `{status, page, per_page}` | `{items, total, page, per_page}` |
+| `shop.read` | `JellyCMS.shop.getOrder(ref)` | id 或訂單編號 | 訂單物件（含 `items`）或 `null` |
+| `shop.read` | `JellyCMS.shop.listOrders(query)` | `{status, email, page, per_page}` | `{items, total, page, per_page}`，不含 `items` |
+
+`per_page` 預設 20、最大 100；`page` 預設 1。文章依 `published_at` 新到舊（草稿依 `updated_at`），商品與訂單依 id 新到舊。`search` 比對標題，`category`／`tag` 用 slug。沒有宣告並核准對應權限時每次呼叫都回 `plugin permission denied`。
+
+```javascript
+JellyCMS.registerHook("OnPostPublish", function (data) {
+  var related = JellyCMS.content.list({ type: "post", category: data.post.categories[0] && data.post.categories[0].slug, per_page: 5 });
+  JellyCMS.log.info("同分類文章 " + related.total + " 篇");
+});
+```
+
 ## 排程發布
 
 `published_at` 在未來的文章儲存時不會送 `OnPostPublish`；每分鐘的 `posts.publish_due` 工作在時間到後送出 `trigger: "schedule"`。第一次執行只記錄水位、不補送過去的文章；之後伺服器停機期間到期的文章會在重啟後的第一次執行送出。排程時間已到、工作還沒執行就被編輯的文章，由那次儲存送出 `trigger: "save"`，工作不會重發。
+
+## 自動儲存
+
+編輯器的自動儲存只寫入版本（revisions），不改文章本身，所以不會發 `OnPostSave`；按下儲存才會。
 
 ## 日誌
 
