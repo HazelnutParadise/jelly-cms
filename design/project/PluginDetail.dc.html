@@ -162,13 +162,14 @@ td.act{text-align:right;white-space:nowrap}td.act .btn{opacity:.55}tr:hover td.a
       </div>
       <div style="margin-top:28px">
         <div class="tab" style="margin-bottom:8px"><span class="on" style="border-color:#2F6BFF">擴充設定 · 這個功能由誰提供</span></div>
-        <p style="margin:0 0 10px;font-size:12.5px;color:#5F6470">搜尋引擎選一個提供者；附件儲存可多選。尚未接上執行流程的擴充點只顯示宣告。</p>
+        <p style="margin:0 0 10px;font-size:12.5px;color:#5F6470">搜尋引擎與留言元件選一個提供者；附件儲存、主題注入、內容渲染與通知器可多選，依順序生效。尚未接上執行流程的擴充點只顯示宣告。</p>
         <table><thead><tr><th>擴充點</th><th>目前使用</th><th>其他可選</th></tr></thead><tbody>
           <tr><td><b>搜尋引擎</b></td><td><span class="chip info">Meilisearch 搜尋</span></td><td style="color:#5F6470">內建 PostgreSQL 全文搜尋</td></tr>
           <tr><td><b>附件儲存</b></td><td><span class="chip nd">本機</span> <span class="chip nd">S3 相容</span></td><td style="color:#5F6470">（可同時多個，在儲存策略選）</td></tr>
+          <tr><td><b>主題注入</b></td><td><span class="chip nd">Umami 分析</span> <span class="chip nd">Cookie 同意</span></td><td style="color:#5F6470">（可同時多個，依順序接在程式碼注入之後）</td></tr>
+          <tr><td><b>內容渲染</b></td><td><span class="chip nd">Shiki 程式碼上色</span></td><td style="color:#5F6470">（可同時多個，前一個的輸出是下一個的輸入）</td></tr>
           <tr><td><b>留言元件</b></td><td><span class="chip info">內建</span></td><td style="color:#5F6470">Waline、Artalk（未安裝）</td></tr>
-          <tr><td><b>通知器</b></td><td><span class="chip nd">Email</span> <span class="chip nd">Webhook</span> <span class="chip nd">LINE Notify</span></td><td style="color:#5F6470">（可同時多個）</td></tr>
-          <tr><td><b>程式碼上色</b></td><td><span class="chip info">Shiki</span></td><td style="color:#5F6470">內建 highlight</td></tr>
+          <tr><td><b>通知器</b></td><td><span class="chip nd">LINE Notify</span> <span class="chip nd">Slack</span></td><td style="color:#5F6470">（可同時多個；Email 與 Webhook 是每人偏好，不在這裡選）</td></tr>
         </tbody></table>
       </div>
     </section>

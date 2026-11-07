@@ -2,9 +2,12 @@
 // that a feature resolves providers for; the admin extensions page edits the
 // active list per point (extension_bindings).
 //
-// Shipped points have a working implementation in the core: search.engine and
-// media.storage. Declared points are reserved names only: plugins may declare
-// them in the manifest, but nothing calls them yet.
+// Shipped points have a working call site in the core: search.engine,
+// media.storage, theme.inject, content.render, comments.component and
+// notify.channel. A shipped point may also have a builtin provider (the core's
+// own implementation, admin id "builtin"); points without one simply do
+// nothing when no plugin provides them. Declared points are reserved names
+// only: plugins may declare them in the manifest, but nothing calls them yet.
 package ext
 
 import (
@@ -16,8 +19,12 @@ import (
 
 // Shipped extension points.
 const (
-	PointSearchEngine = "search.engine"
-	PointMediaStorage = "media.storage"
+	PointSearchEngine      = "search.engine"
+	PointMediaStorage      = "media.storage"
+	PointThemeInject       = "theme.inject"
+	PointContentRender     = "content.render"
+	PointCommentsComponent = "comments.component"
+	PointNotifyChannel     = "notify.channel"
 )
 
 // Declared extension points. media.processor is reserved for WebP conversion,
@@ -36,8 +43,23 @@ type Provider struct {
 }
 
 var (
-	mu        sync.RWMutex
-	shipped   = map[string]bool{PointSearchEngine: true, PointMediaStorage: true}
+	mu      sync.RWMutex
+	shipped = map[string]bool{
+		PointSearchEngine:      true,
+		PointMediaStorage:      true,
+		PointThemeInject:       true,
+		PointContentRender:     true,
+		PointCommentsComponent: true,
+		PointNotifyChannel:     true,
+	}
+	// builtin lists the shipped points the core implements itself when no
+	// plugin is selected: the PostgreSQL search, local media storage and the
+	// theme's own comments block.
+	builtin = map[string]bool{
+		PointSearchEngine:      true,
+		PointMediaStorage:      true,
+		PointCommentsComponent: true,
+	}
 	declared  = map[string]bool{PointMediaProcessor: true}
 	providers = map[string][]Provider{}
 )
@@ -61,6 +83,20 @@ func Points() []string {
 	return points
 }
 
+// ShippedPoints lists the shipped points in name order.
+func ShippedPoints() []string {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	points := make([]string, 0, len(shipped))
+	for point := range shipped {
+		points = append(points, point)
+	}
+	sort.Strings(points)
+
+	return points
+}
+
 // Known reports whether point is shipped or declared.
 func Known(point string) bool {
 	mu.RLock()
@@ -68,11 +104,19 @@ func Known(point string) bool {
 	return shipped[point] || declared[point]
 }
 
-// Shipped reports whether point has a working implementation in the core.
+// Shipped reports whether point has a working call site in the core.
 func Shipped(point string) bool {
 	mu.RLock()
 	defer mu.RUnlock()
 	return shipped[point]
+}
+
+// HasBuiltin reports whether the core itself provides point when no plugin
+// is selected. A shipped point without a builtin is simply inactive then.
+func HasBuiltin(point string) bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	return builtin[point]
 }
 
 // Register adds provider id to point. A provider with the same id replaces the

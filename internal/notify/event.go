@@ -182,6 +182,17 @@ func Emit(ctx context.Context, db *gorm.DB, ev Event) error {
 			return err
 		}
 	}
+	// Plugin notifiers receive every notification-center event once,
+	// independent of recipients and their preferences; the required customer
+	// emails stay in the core (docs/tickets/29-plugin-read-api-and-extensions.md).
+	if !PluginChannelCarries(ev.Kind) {
+		return nil
+	}
+	if providers := pluginChannelProviders(ctx, db); len(providers) > 0 {
+		if err := queuePluginDeliveries(ctx, db, spec, ev, providers, now); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -482,13 +493,14 @@ type Delivery struct {
 	ID uint
 	// NotificationID is the notification being delivered.
 	NotificationID uint
-	// Channel is email or webhook.
+	// Channel is email, webhook or plugin (ChannelPlugin).
 	Channel string
 	// Kind is the notification kind.
 	Kind string
 	// Params are the notification parameters.
 	Params map[string]any
-	// Target is the recipient address for email or the endpoint URL for webhook.
+	// Target is the recipient address for email, the endpoint URL for webhook
+	// or the plugin id for plugin.
 	Target string
 }
 

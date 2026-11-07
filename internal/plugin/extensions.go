@@ -69,6 +69,7 @@ func (m *Runtime) CallExtension(ctx context.Context, pluginID, point string, inp
 	if remaining <= 0 {
 		return nil, context.DeadlineExceeded
 	}
+	m.extensionCalls.Add(1)
 	frame, err := m.requestWorker(ctx, state.worker, state.meta, workerRequest{
 		Op:        opExtension,
 		Extension: point,
@@ -108,8 +109,16 @@ func (m *Runtime) HasExtension(pluginID, point string) bool {
 	return state.hasExtension(point)
 }
 
+// extensionPointShipped reports whether the core has a call site for point.
+// Every shipped point in the ext registry can be registered by a plugin.
 func extensionPointShipped(point string) bool {
-	return ext.Shipped(point) && (point == ext.PointSearchEngine || point == ext.PointMediaStorage)
+	return ext.Shipped(point)
+}
+
+// ExtensionCalls counts the extension requests actually sent to plugin
+// workers. Tests use it to prove a cached result did not call the plugin.
+func (m *Runtime) ExtensionCalls() uint64 {
+	return m.extensionCalls.Load()
 }
 
 func extensionDeclared(meta PluginMetadata, point string) bool {
@@ -122,8 +131,8 @@ func extensionDeclared(meta PluginMetadata, point string) bool {
 }
 
 func validateExtensionSnapshot(meta PluginMetadata, points []string) error {
-	if len(points) > 2 {
-		return errors.New("plugin worker reported more than two extension callbacks")
+	if len(points) > len(ext.ShippedPoints()) {
+		return errors.New("plugin worker reported more extension callbacks than shipped points")
 	}
 	seen := make(map[string]struct{}, len(points))
 	for _, point := range points {

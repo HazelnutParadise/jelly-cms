@@ -173,7 +173,9 @@ func reloadPlugin(c echo.Context, rt *plugin.Runtime) error {
 	}
 	dir := filepath.Join("data", "plugins", meta.ID)
 	if err := rt.ReloadForID(c.Request().Context(), meta.ID, dir); err != nil {
+		bumpPluginExtensionGeneration()
 		return c.JSON(500, map[string]string{"error": "Plugin reload failed"})
 	}
+	bumpPluginExtensionGeneration()
 	return c.JSON(200, map[string]string{"message": "Plugin reloaded"})
 }

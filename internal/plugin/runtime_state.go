@@ -281,7 +281,7 @@ func (s *workerJS) invokeExtensionJSON(point string, payload []byte) (json.RawMe
 
 func (s *workerJS) registeredExtensions() []string {
 	points := make([]string, 0, len(s.extensions))
-	for _, point := range []string{ext.PointSearchEngine, ext.PointMediaStorage} {
+	for _, point := range ext.ShippedPoints() {
 		if s.extensions[point] != nil {
 			points = append(points, point)
 		}

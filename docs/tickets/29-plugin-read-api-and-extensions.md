@@ -3,7 +3,7 @@
 Epic：外觀與擴充
 User Story：外掛開發者可以讀文章、商品與訂單，可以把 HTML 注入主題、後處理文章內容、替換留言元件、把通知送到自己的通路；所有寫入路徑都會發事件。
 Blocked by：28（事件接線）。
-Status：in_progress
+Status：implemented（驗收結果見 STATUS.md）
 
 ## 痛點
 
@@ -59,35 +59,35 @@ host API 方法與 JS 包裝（`runtime_state.go` 的 `jellyAPIScript`）：
 
 ### 擴充點共通
 
-- `ext` 新增出貨點 `theme.inject`、`content.render`、`comments.component`、`notify.channel`。`internal/plugin` 把出貨判斷改為 `ext.Shipped`，快照上限改為出貨點數量；`registeredExtensions` 依 `ext.Points()` 列出。
-- 後台「擴充設定」的 `extensionView` 新增 `multiple`（`media.storage`、`theme.inject`、`content.render`、`notify.channel` 為 true），`system-admin.js` 依它決定多選。
-- 提供者的選擇與可用性沿用 `extensionSelection`／`extensionPluginMeta`（啟用、核准雜湊、實際註冊）。
-- 快取：伺服器保存一個「外掛世代」計數（`pluginExtensionGeneration`），外掛啟用、停用、重載、解除安裝、設定變更、擴充設定變更都遞增；注入、渲染與留言元件的快取鍵都含世代，世代變了就重算。
-- 回呼失敗或逾時：注入略過該外掛、渲染回原 HTML、留言元件退回內建留言區、通知器依投遞重試；都記一筆外掛 error 日誌（走既有 `enqueuePluginLog`）。
+- `ext` 新增出貨點 `theme.inject`、`content.render`、`comments.component`、`notify.channel`，並區分「有內建提供者」的點（`ext.HasBuiltin`：`search.engine`、`media.storage`、`comments.component`）；沒有內建的點在沒有外掛時什麼都不做，後台也不列 `builtin`。`internal/plugin` 把出貨判斷改為 `ext.Shipped`，快照上限改為 `len(ext.ShippedPoints())`；`registeredExtensions` 依 `ext.ShippedPoints()` 列出。`Runtime.ExtensionCalls()` 計數實際送到 worker 的擴充呼叫，測試用它證明快取命中沒有呼叫外掛。
+- 後台「擴充設定」的 `extensionView` 新增 `multiple`（`media.storage`、`theme.inject`、`content.render`、`notify.channel` 為 true），`system-admin.js` 依它決定多選。多提供者的點沿用 `media.storage` 的語意：啟用清單為空時所有可用提供者依 id 順序全部生效，非空時只有清單內可用者依位次生效（`extensionActiveProviders`，每點快取 5 秒）。單一提供者的點（`search.engine`、`comments.component`）取啟用清單第一個可用者，沒有就用內建。
+- 可用性沿用 `extensionPluginMeta`（已載入、實際註冊回呼、啟用、核准雜湊相符）。
+- 快取：伺服器保存一個「外掛世代」計數（`pluginExtensionGen`），外掛啟用、停用、重載、商店安裝、解除安裝、設定寫入（含外掛自己的 `settings.set`）、擴充設定變更、runtime 替換都遞增；注入、渲染與留言元件的快取鍵都含世代，世代變了就重算。另有 60 秒安全上限，任何快取結果最多沿用 60 秒。快取只在本程序記憶體，多實例部署各自獨立（文件註明）。
+- 回呼失敗或逾時：注入略過該外掛、渲染回原 HTML、留言元件退回內建留言區、通知器依投遞重試；失敗結果記 30 秒不重試，並記一筆外掛 error 日誌（走 `forwardPluginLog`，與 `JellyCMS.log` 同一條管線寫進 `system_logs`）。
 
 ### `theme.inject`
 
-- 回呼輸入 `{}`，回傳 `{head, footer}`，兩者皆為字串，可缺。每個外掛的結果在同一世代只計算一次並快取。
+- 回呼輸入 `{}`，回傳 `{head, footer}`，兩者皆為字串，可缺。每個外掛的結果以 `(外掛 id, 世代)` 快取，同一世代只計算一次。
 - 輸出位置：`publicInjectionFor` 之後，`Head` 附加各外掛的 `head`、`Footer` 附加 `footer`，依啟用順序；商務頁（`/checkout`、`/account`）沿用 `inject_on_commerce` 的規則。
-- HTML 原樣輸出（與既有程式碼注入相同信任層級：管理員核准的外掛）。單一外掛 head 與 footer 各最多 64 KiB，超過略過並記錄。
+- HTML 原樣輸出（與既有程式碼注入相同信任層級：管理員核准的外掛）。單一外掛 head 與 footer 各最多 64 KiB，超過的那一格略過並記錄；回傳不是字串物件則整個外掛略過。
 
 ### `content.render`
 
-- 回呼輸入 `{post: 摘要（id, type, slug, title, author_id）, html}`，回傳 `{html}`；多個提供者依啟用順序鏈接，前一個的輸出是下一個的輸入。
-- 位置：`publicPostContent` 的結果（文章與頁面）；標題編號與目錄（`theme.HeadingIDs`）在之後執行。
-- 快取鍵 `(post.id, post.updated_at, 世代)`，LRU 256 筆、總量 32 MiB；超過 1 MiB 的 HTML 不送外掛、直接用原文。
+- 回呼輸入 `{post: 摘要（id, type, slug, title, author_id）, html}`，回傳 `{html}`；多個提供者依啟用順序鏈接，前一個的輸出是下一個的輸入，整條鏈共用 3 秒預算（每次呼叫仍各有 1 秒上限）。
+- 位置：`publicPostContent` 的結果（文章、頁面與首頁指定頁面）；標題編號與目錄（`theme.HeadingIDs`）在之後執行。
+- 快取鍵 `(post.id, sha256(輸入 html), 世代)`，LRU 256 筆、總量 32 MiB，同鍵併發只算一次；超過 1 MiB 的 HTML 不送外掛、直接用原文。任一提供者失敗整條鏈回原文並記 30 秒負快取。
 
 ### `comments.component`
 
-- 回呼輸入 `{post: 摘要, path, comments_open, comment_count}`，回傳 `{html}`。
-- 單一提供者（啟用清單第一個可用者）。有結果時 `post.html` 以 `{{.CommentsHTML}}` 輸出它，不渲染內建 `comments` 區塊；沒有提供者或失敗時維持內建。文章尾的「留言 N」按鈕維持原邏輯。
-- 快取鍵 `(post.id, 世代)`。內建留言 API 不受影響（外掛留言系統自己保存留言）。
+- 回呼輸入 `{post: 摘要}`，回傳 `{html}`；核心包成 `<section class="comments" id="comments">…</section>`。
+- 單一提供者（啟用清單第一個可用者）。有結果時 `post.html` 以 `{{.CommentsHTML}}` 輸出它，不渲染內建 `comments` 區塊，也不載入留言樹；沒有提供者或失敗時維持內建。文章尾的「留言」按鈕在有外掛留言區時顯示（不帶數字），否則維持原邏輯。
+- 快取鍵 `(post.id, 世代)`。內建留言 API 不受影響（外掛留言系統自己保存留言）；站長要關掉內建留言表單時另設 `comments_enabled`（文件註明）。
 
 ### `notify.channel`
 
-- `notify.Emit` 在處理完收件人後，若 `notify.PluginChannelWanted`（server 設定的函式變數；查 `extension_bindings` 有無啟用的 `notify.channel` 提供者，快取 5 秒）回 true，就在同一交易建立一筆 `NotificationDelivery`：`Channel: "plugin"`、`NotificationID: 0`、`Params` 為 `{"kind","category","params","recipients":{"roles","user_ids","emails"}}`。
-- `sendSystemNotification` 的 channel `plugin`：對每個啟用且可用的提供者呼叫回呼，輸入即上述 Params 加 `at`；任一提供者失敗回錯誤，由既有流程重試（最多 5 次），成功的提供者在重試時會再收到一次，外掛要用 `kind` 與參數自行去重。
-- 外掛拿到收件人 email（PII），因此 `notify.channel` 的提供者除了擴充點宣告外，manifest 還必須宣告 `events` 權限（沿用「收事件要核准」的規則）。
+- `notify.SetPluginChannel(func(ctx) []string)`（server 在 `ConfigurePluginHost` 安裝，回 `extensionActiveProviders` 的 `notify.channel` 清單）。`notify.Emit` 處理完收件人後，對每個提供者各建一筆 `notification_deliveries`：`channel = "plugin"`、`to_address = 外掛 id`、`notification_id = NULL`（用 map Create；struct 的 0 會違反外鍵）、`kind = 事件 kind`、`params = {"category","params","recipients":{"roles","user_ids","emails"}}`（陣列一律存在）。遷移 `0028_notification_plugin_channel.sql` 把 channel 的 CHECK 擴成 `email`、`webhook`、`plugin`（0005 不改）。
+- `sendSystemNotification` 的 channel `plugin` 交給 `deliverPluginNotification`：送出時重新確認該外掛可用（`extensionPluginMeta`）且持有 `events` 權限（`requirePluginHostPermission`），輸入為上述 params 加 `kind` 與 `at`；失敗回錯誤，由既有流程重試（最多 5 次）。每個提供者一筆投遞列，所以某個外掛失敗不影響其他外掛；`Prune` 一樣清掉 90 天前的終態列。
+- 外掛拿到收件人 email（PII），因此 `notify.channel` 的提供者除了擴充點宣告外，manifest 還必須宣告 `events` 權限（沿用「收事件要核准」的規則）；沒有就投遞失敗並記錄。
 
 ### 事件缺口
 
@@ -111,12 +111,17 @@ host API 方法與 JS 包裝（`runtime_state.go` 的 `jellyAPIScript`）：
 | WXR 匯入兩篇（一篇 publish、一篇 draft） | 兩筆 `OnPostSave` action import；只有 publish 那篇有 `OnPostPublish` |
 | OAuth 首次登入 | `OnUserCreate` source oauth、`OnUserLogin` method oauth |
 | 兩個 `theme.inject` 外掛啟用 | 公開頁 head 與 footer 依序含兩段；商務頁依 `inject_on_commerce`；停用其中一個後世代遞增、輸出只剩一段 |
-| `content.render` 外掛把 `<p>` 換成 `<p class="x">` | 文章頁輸出含 class；第二次請求不再呼叫外掛（`HookDispatches`／擴充呼叫計數不變）；外掛拋錯時輸出原文並有 error 日誌 |
+| `content.render` 外掛把 `<p>` 換成 `<p class="x">` | 文章頁輸出含 class；第二次請求不再呼叫外掛（`ExtensionCalls` 不變）；外掛拋錯時輸出原文並有 error 日誌 |
 | `comments.component` 外掛回傳 `<div id="ext-comments">` | 文章頁含該片段、不含內建 `comments-head`；停用後恢復內建 |
-| `notify.channel` 外掛啟用後觸發 `comment.pending` | 投遞列 channel plugin，外掛收到 `kind`、`params`、`recipients`；外掛拋錯時投遞狀態 pending 且 attempts 1；成功時 sent |
+| `notify.channel` 外掛啟用後觸發 `comment.pending` | 每個提供者一筆投遞列 channel plugin、`to_address` 是外掛 id、`notification_id` NULL；外掛收到 `kind`、`params`、`recipients`；外掛拋錯時投遞狀態 pending 且 attempts 1；成功時 sent；沒有 `events` 權限的外掛投遞失敗 |
 | 擴充設定頁 | `GET /api/admin/extensions` 每個新點有 `multiple` 欄位；`PUT` 可存多個或單一提供者 |
 
 ## 決策紀錄
+
+- PR B 獨立審查後的修正：外掛呼叫改用 `context.WithoutCancel` 加自己的預算，因為 plugin runtime 在呼叫端 ctx 取消時會終止 worker 且不重啟，訪客中斷連線不能殺掉外掛；`theme.inject` 與 `comments.component` 比照 `content.render` 加同鍵單飛，失敗不覆寫同世代的成功結果；1 MiB 上限量測實際送出的 JSON（HTML 不轉義）；渲染鏈略過已不可用的提供者；留言元件的提供者選擇也快取 5 秒；外掛設定寫入值沒變就不遞增世代。
+- 通知器只送通知中心的事件：單一顧客的交易信（訂單確認、出貨、查詢連結、匯款說明、設定密碼）帶存取權杖，超出 `events` 權限的核准範圍，排除在外。沒有 `events` 權限的外掛在排隊時就過濾，不寫入帶 email 的投遞列。`PluginChannelFunc` 帶 `Emit` 正在用的 `*gorm.DB`，不另開連線（另開連線在 synctest 的 OAuth 測試會因計時器跨 bubble 而崩潰，也浪費連線）。
+- 單篇文章關閉留言時外掛留言區也不顯示；自訂主題必須輸出 `{{.CommentsHTML}}`（文件註明）。
+- 遷移 0028 用 `NOT VALID` 加 `VALIDATE`，縮短大表的鎖。
 
 - 讀取 API 的物件沿用事件 payload 的欄位：外掛只需學一種形狀；實作共用 `postEventPayload` 等建構函式。
 - 注入與渲染結果快取在記憶體並以世代失效，而不是每次請求呼叫外掛：每次呼叫是跨程序 IPC 加 1 秒逾時，直接掛在熱路徑會把頁面延遲綁在外掛上。
@@ -138,7 +143,7 @@ PR B：
 |---|---|
 | B1 擴充點登錄與 runtime 一般化 | `internal/ext/ext.go`、`internal/plugin/extensions.go`、`internal/plugin/runtime_state.go` |
 | B2 世代與快取、注入、渲染、留言元件 | `internal/server/plugin_extensions_site.go`（新）、`seo_routes.go`（注入）、`handlers_public.go`（渲染與留言）、`web/themes/default/post.html`、`plugin_detail_api.go`（世代遞增、`multiple`）、`store_api.go`、`integration_shared_handlers.go`、`web/admin/assets/system-admin.js` |
-| B3 通知器 | `internal/notify/event.go`、`internal/notify/worker.go`（如需）、`internal/server/system_runtime.go`（`sendSystemNotification`）、`internal/server/plugin_extensions_site.go` |
+| B3 通知器 | `internal/notify/event.go`、`internal/notify/plugin_channel.go`（新）、`internal/data/migrations/0028_notification_plugin_channel.sql`（新）、`internal/server/system_runtime.go`（`sendSystemNotification`）、`internal/server/plugin_extensions_notify.go`（新） |
 | B4 文件 | `docs/plugin-extensions.md`、README |
 
-測試檔：PR A `internal/server/plugin_read_api_integration_test.go`、`internal/server/plugin_events_gaps_test.go`、`internal/importer/events_test.go`（或 server 內的匯入事件測試）；PR B `internal/server/plugin_extensions_site_test.go`、`internal/notify/plugin_channel_test.go`、`internal/plugin/extensions_points_test.go`。實作者不得修改測試檔。
+測試檔：PR A `internal/server/plugin_read_api_integration_test.go`、`internal/server/plugin_events_gaps_test.go`；PR B `internal/server/plugin_extensions_site_test.go`、`internal/server/plugin_extensions_notify_test.go`、`internal/notify/plugin_channel_test.go`、`internal/plugin/extensions_points_test.go`。實作者不得修改測試檔。

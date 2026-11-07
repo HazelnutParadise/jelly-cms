@@ -38,6 +38,8 @@ type Runtime struct {
 	pending     atomic.Int64
 	queuedBytes atomic.Int64
 	dispatches  atomic.Uint64
+	// extensionCalls counts extension requests sent to workers (ExtensionCalls).
+	extensionCalls atomic.Uint64
 }
 
 // pluginState is the parent-side handle of one loaded plugin. execMu serialises

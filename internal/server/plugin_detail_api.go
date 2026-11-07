@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -278,6 +279,7 @@ func (a *pluginDetailAPI) enableLocked(c echo.Context) error {
 
 		return pluginFailure(c, err)
 	}
+	bumpPluginExtensionGeneration()
 	syslog.Audit(ctx, pluginActorID(c), "plugin.enable", map[string]any{"plugin": row.ID})
 
 	return c.JSON(http.StatusOK, map[string]any{"id": row.ID, "enabled": true, "loaded": a.loaded(row.ID)})
@@ -312,6 +314,7 @@ func (a *pluginDetailAPI) disableLocked(c echo.Context) error {
 			log.Printf("plugin %s: unload after disable: %v", row.ID, err)
 		}
 	}
+	bumpPluginExtensionGeneration()
 	syslog.Audit(ctx, pluginActorID(c), "plugin.disable", map[string]any{"plugin": row.ID})
 
 	return c.JSON(http.StatusOK, map[string]any{"id": row.ID, "enabled": false, "loaded": a.loaded(row.ID)})
@@ -397,6 +400,7 @@ func (a *pluginDetailAPI) uninstallLocked(c echo.Context) error {
 			if cleanupErr := finishPluginArchiveCommit(j); cleanupErr != nil {
 				log.Printf("plugin %s: post-uninstall cleanup deferred: %v", row.ID, cleanupErr)
 			}
+			bumpPluginExtensionGeneration()
 			return c.JSON(http.StatusOK, map[string]any{"removed": row.ID})
 		}
 		if checkErr == nil {
@@ -407,6 +411,7 @@ func (a *pluginDetailAPI) uninstallLocked(c echo.Context) error {
 	if cleanupErr := finishPluginArchiveCommit(j); cleanupErr != nil {
 		log.Printf("plugin %s: post-uninstall cleanup deferred: %v", row.ID, cleanupErr)
 	}
+	bumpPluginExtensionGeneration()
 	syslog.Audit(ctx, pluginActorID(c), "plugin.uninstall", map[string]any{"plugin": row.ID, "keep_settings": keep})
 
 	return c.JSON(http.StatusOK, map[string]any{"removed": row.ID})
@@ -590,6 +595,7 @@ func (a *pluginDetailAPI) resetSettings(c echo.Context) error {
 // writes to the same plugin run one after the other.
 func writePluginSettings(ctx context.Context, id string, mutate func(plain map[string]any, secrets map[string]string)) (int, error) {
 	var version int
+	changed := false
 	err := data.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var locked []pluginRow
 		if err := tx.Raw(`SELECT id FROM plugins WHERE id = ? FOR UPDATE`, id).Scan(&locked).Error; err != nil {
@@ -603,11 +609,18 @@ func writePluginSettings(ctx context.Context, id string, mutate func(plain map[s
 		if err != nil {
 			return err
 		}
+		beforeJSON, err := json.Marshal(map[string]any{"plain": plain, "secrets": secrets})
+		if err != nil {
+			return err
+		}
 		mutate(plain, secrets)
 
 		plainJSON, err := json.Marshal(plain)
 		if err != nil {
 			return err
+		}
+		if afterJSON, err := json.Marshal(map[string]any{"plain": plain, "secrets": secrets}); err == nil && !bytes.Equal(beforeJSON, afterJSON) {
+			changed = true
 		}
 		var sealed any
 		if len(secrets) > 0 {
@@ -645,6 +658,11 @@ func writePluginSettings(ctx context.Context, id string, mutate func(plain map[s
 		return tx.Exec(`DELETE FROM plugin_setting_snapshots WHERE plugin_id = ? AND version <= ?`,
 			id, version-pluginSnapshotKeep).Error
 	})
+	// A write that changes nothing (a plugin re-saving the same values on
+	// every event) must not invalidate every extension cache on the site.
+	if err == nil && changed {
+		bumpPluginExtensionGeneration()
+	}
 
 	return version, err
 }
@@ -754,8 +772,11 @@ func (a *pluginDetailAPI) logs(c echo.Context) error {
 }
 
 type extensionView struct {
-	Point     string   `json:"point"`
-	Shipped   bool     `json:"shipped"`
+	Point   string `json:"point"`
+	Shipped bool   `json:"shipped"`
+	// Multiple is true when every active provider runs (in position order);
+	// false when only the first available one does.
+	Multiple  bool     `json:"multiple"`
 	Providers []string `json:"providers"`
 	Active    []string `json:"active"`
 	// Resolved is the provider that serves the point now, or null when none can.
@@ -771,7 +792,7 @@ func extensionProviders(point string, requestContexts ...context.Context) []stri
 	}
 	providers := []string{}
 	seen := make(map[string]bool)
-	if ext.Shipped(point) {
+	if ext.HasBuiltin(point) {
 		providers = append(providers, extensionBuiltinID)
 		seen[extensionBuiltinID] = true
 	}
@@ -826,7 +847,7 @@ func resolveExtension(point string, active, providers []string) *string {
 			return &id
 		}
 	}
-	if ext.Shipped(point) {
+	if ext.HasBuiltin(point) {
 		builtin := extensionBuiltinID
 
 		return &builtin
@@ -849,6 +870,7 @@ func buildExtensionView(point string, requestContexts ...context.Context) (exten
 	return extensionView{
 		Point:     point,
 		Shipped:   ext.Shipped(point),
+		Multiple:  extensionPointMultiple(point),
 		Providers: providers,
 		Active:    active,
 		Resolved:  resolveExtension(point, active, providers),
@@ -927,6 +949,7 @@ func (a *pluginDetailAPI) putExtension(c echo.Context) error {
 	if err != nil {
 		return pluginFailure(c, err)
 	}
+	bumpPluginExtensionGeneration()
 	syslog.Audit(ctx, pluginActorID(c), "extension.bind", map[string]any{"point": point, "count": len(body.Active)})
 
 	view, err := buildExtensionView(point, ctx)

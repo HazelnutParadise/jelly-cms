@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -80,12 +81,17 @@ type workerRequest struct {
 	Payload   json.RawMessage `json:"payload,omitempty"`
 }
 
-// writeFrame writes a frame with a four byte big-endian length prefix.
+// writeFrame writes a frame with a four byte big-endian length prefix. HTML
+// is not escaped: both sides parse JSON, and escaping would triple the size
+// of tag-dense payloads (content.render inputs) against the frame limit.
 func writeFrame(w io.Writer, value any, limit int) error {
-	payload, err := json.Marshal(value)
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(value); err != nil {
 		return fmt.Errorf("encode frame: %w", err)
 	}
+	payload := bytes.TrimSuffix(buf.Bytes(), []byte("\n"))
 
 	if len(payload) > limit {
 		return fmt.Errorf("frame of %d bytes exceeds limit %d", len(payload), limit)
