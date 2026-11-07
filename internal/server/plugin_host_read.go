@@ -136,7 +136,7 @@ func pluginReadPositiveInt(text string) (uint64, bool) {
 		return n, n >= 1
 	}
 	f, err := strconv.ParseFloat(text, 64)
-	if err != nil || f != math.Trunc(f) || f < 1 || f > math.MaxInt64 {
+	if err != nil || f != math.Trunc(f) || f < 1 || f >= 9.223372036854775807e18 {
 		return 0, false
 	}
 	return uint64(f), true
@@ -150,7 +150,7 @@ func pluginReadPositiveInt(text string) (uint64, bool) {
 //   - list methods return {"items":[…],"total":n,"page":p,"per_page":s}
 //   - content.list items omit "content" and carry content_omitted: true;
 //     shop.order.list items omit "items"
-//   - every read uses db with a 2 second timeout (pluginEventReadDB)
+//   - every read uses db bound to the host call ctx with a 2 second timeout (pluginReadDB)
 //   - a result larger than pluginReadResultMax is refused with an error
 func handlePluginHostRead(ctx context.Context, db *gorm.DB, meta plugin.PluginMetadata, method string, args []json.RawMessage) (json.RawMessage, error) {
 	switch method {
@@ -163,7 +163,7 @@ func handlePluginHostRead(ctx context.Context, db *gorm.DB, meta plugin.PluginMe
 		if err != nil {
 			return nil, err
 		}
-		return pluginReadEncode(post)
+		return pluginReadEncodeContent(post)
 	case "content.list":
 		query, err := decodePluginReadQuery(args)
 		if err != nil {
@@ -219,10 +219,22 @@ func handlePluginHostRead(ctx context.Context, db *gorm.DB, meta plugin.PluginMe
 	}
 }
 
+// pluginReadMarshal encodes value as JSON without HTML escaping, so <, > and &
+// keep their one-byte form. The encoder's trailing newline is dropped.
+func pluginReadMarshal(value any) ([]byte, error) {
+	var buf bytes.Buffer
+	encoder := json.NewEncoder(&buf)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(value); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
+}
+
 // pluginReadEncode marshals one read result and enforces the result size bound.
 // A nil map encodes as JSON null.
 func pluginReadEncode(value any) (json.RawMessage, error) {
-	raw, err := json.Marshal(value)
+	raw, err := pluginReadMarshal(value)
 	if err != nil {
 		return nil, errors.New("plugin read result could not be encoded")
 	}
@@ -230,6 +242,26 @@ func pluginReadEncode(value any) (json.RawMessage, error) {
 		return nil, errors.New("result exceeds 1 MiB")
 	}
 	return raw, nil
+}
+
+// pluginReadEncodeContent encodes a content.get result. When the encoded object
+// exceeds the bound and carries a "content" key, the content is dropped, the
+// object is marked content_omitted and encoded once more. A second overflow, or
+// an object without "content", is refused with "result exceeds 1 MiB".
+func pluginReadEncodeContent(post map[string]any) (json.RawMessage, error) {
+	raw, err := pluginReadMarshal(post)
+	if err != nil {
+		return nil, errors.New("plugin read result could not be encoded")
+	}
+	if len(raw) <= pluginReadResultMax {
+		return raw, nil
+	}
+	if _, has := post["content"]; !has {
+		return nil, errors.New("result exceeds 1 MiB")
+	}
+	delete(post, "content")
+	post["content_omitted"] = true
+	return pluginReadEncode(post)
 }
 
 // pluginReadEncodeList wraps one page of items in the list envelope.
@@ -268,7 +300,7 @@ func pluginReadLikePattern(text string) string {
 // pluginReadPost loads one post or page by id or slug, excluding the trash,
 // with categories and tags, and returns postEventPayload or nil.
 func pluginReadPost(ctx context.Context, db *gorm.DB, id uint, slug string) (map[string]any, error) {
-	db, cancel := pluginEventReadDB(db)
+	db, cancel := pluginReadDB(ctx, db)
 	defer cancel()
 	query := db.Model(&core.Post{}).Preload("Categories").Preload("Tags")
 	if id > 0 {
@@ -286,11 +318,15 @@ func pluginReadPost(ctx context.Context, db *gorm.DB, id uint, slug string) (map
 	return postEventPayload(post), nil
 }
 
+// pluginReadPostColumns are the columns a content.list row loads. content is
+// left out; id stays for the category and tag preloads.
+const pluginReadPostColumns = "id, type, slug, title, status, visibility, excerpt, format, author_id, published_at, created_at, updated_at, pinned"
+
 // pluginReadPosts lists posts and pages. Filters: Type (post|page), Status,
 // Visibility, Category (slug), Tag (slug), Search (ILIKE on title). Order:
 // published_at DESC NULLS LAST, id DESC. Items carry no content.
 func pluginReadPosts(ctx context.Context, db *gorm.DB, q pluginReadQuery) (items []map[string]any, total int64, err error) {
-	db, cancel := pluginEventReadDB(db)
+	db, cancel := pluginReadDB(ctx, db)
 	defer cancel()
 	filtered := func() *gorm.DB {
 		query := db.Model(&core.Post{})
@@ -322,7 +358,7 @@ func pluginReadPosts(ctx context.Context, db *gorm.DB, q pluginReadQuery) (items
 		return nil, 0, err
 	}
 	var posts []core.Post
-	if err := filtered().Omit("content").
+	if err := filtered().Select(pluginReadPostColumns).
 		Order("published_at DESC NULLS LAST, id DESC").
 		Offset(offset).Limit(q.PerPage).
 		Preload("Categories").Preload("Tags").
@@ -341,7 +377,7 @@ func pluginReadPosts(ctx context.Context, db *gorm.DB, q pluginReadQuery) (items
 
 // pluginReadProduct loads one product by id or slug, excluding the trash.
 func pluginReadProduct(ctx context.Context, db *gorm.DB, id uint, slug string) (map[string]any, error) {
-	db, cancel := pluginEventReadDB(db)
+	db, cancel := pluginReadDB(ctx, db)
 	defer cancel()
 	query := db.Model(&core.Product{})
 	if id > 0 {
@@ -361,7 +397,7 @@ func pluginReadProduct(ctx context.Context, db *gorm.DB, id uint, slug string) (
 
 // pluginReadProducts lists products (filter Status), order id DESC.
 func pluginReadProducts(ctx context.Context, db *gorm.DB, q pluginReadQuery) (items []map[string]any, total int64, err error) {
-	db, cancel := pluginEventReadDB(db)
+	db, cancel := pluginReadDB(ctx, db)
 	defer cancel()
 	filtered := func() *gorm.DB {
 		query := db.Model(&core.Product{})
@@ -390,7 +426,7 @@ func pluginReadProducts(ctx context.Context, db *gorm.DB, q pluginReadQuery) (it
 
 // pluginReadOrder loads one order by id or number with its items.
 func pluginReadOrder(ctx context.Context, db *gorm.DB, id uint, number string) (map[string]any, error) {
-	db, cancel := pluginEventReadDB(db)
+	db, cancel := pluginReadDB(ctx, db)
 	defer cancel()
 	query := db.Model(&core.Order{})
 	if id > 0 {
@@ -417,7 +453,7 @@ func pluginReadOrder(ctx context.Context, db *gorm.DB, id uint, number string) (
 
 // pluginReadOrders lists orders (filters Status, Email), order id DESC, no items.
 func pluginReadOrders(ctx context.Context, db *gorm.DB, q pluginReadQuery) (items []map[string]any, total int64, err error) {
-	db, cancel := pluginEventReadDB(db)
+	db, cancel := pluginReadDB(ctx, db)
 	defer cancel()
 	filtered := func() *gorm.DB {
 		query := db.Model(&core.Order{})
