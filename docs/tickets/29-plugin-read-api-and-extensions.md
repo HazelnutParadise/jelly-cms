@@ -53,7 +53,7 @@ host API 方法與 JS 包裝（`runtime_state.go` 的 `jellyAPIScript`）：
 
 - 權限 `content.read` 與 `shop.read` 加入 `enforcedPermissions`；沒宣告或核准雜湊過期一律 `plugin permission denied`。
 - 回收桶內的列不回傳；`content.get` 不限狀態（草稿也可讀，外掛是管理員核准的）。
-- `per_page` 預設 20、最大 100；`page` 預設 1。排序：文章依 `published_at DESC, id DESC`（草稿用 `updated_at`），商品與訂單依 `id DESC`。
+- `per_page` 預設 20、最大 100；`page` 預設 1。排序：文章依 `published_at DESC NULLS LAST, id DESC`，商品與訂單依 `id DESC`。
 - 每次呼叫沿用 host API 的 1 MiB 回應上限；清單超過上限時把 `per_page` 縮小是外掛的責任，host 回錯誤「result exceeds 1 MiB」。
 - 讀取用 `data.DB` 加 2 秒逾時。
 

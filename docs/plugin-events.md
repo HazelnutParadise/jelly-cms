@@ -93,7 +93,7 @@ JellyCMS.registerHook("OnOrderPaid", function (data) {
 | `shop.read` | `JellyCMS.shop.getOrder(ref)` | id 或訂單編號 | 訂單物件（含 `items`）或 `null` |
 | `shop.read` | `JellyCMS.shop.listOrders(query)` | `{status, email, page, per_page}` | `{items, total, page, per_page}`，不含 `items` |
 
-`per_page` 預設 20、最大 100；`page` 預設 1。文章依 `published_at` 新到舊（草稿依 `updated_at`），商品與訂單依 id 新到舊。`search` 比對標題，`category`／`tag` 用 slug。沒有宣告並核准對應權限時每次呼叫都回 `plugin permission denied`。
+`per_page` 預設 20、最大 100；`page` 預設 1。文章依 `published_at` 新到舊（沒有發布時間的草稿排在後面、依 id 新到舊），商品與訂單依 id 新到舊。`search` 比對標題，`category`／`tag` 用 slug。沒有宣告並核准對應權限時每次呼叫都回 `plugin permission denied`。
 
 ```javascript
 JellyCMS.registerHook("OnPostPublish", function (data) {
