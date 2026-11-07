@@ -33,10 +33,12 @@ const (
 // enforcedPermissions are the permissions the runtime checks. Every other
 // declared permission is shown as declared but not enforced.
 var enforcedPermissions = map[string]bool{
-	"http.fetch": true,
-	"store":      true,
-	"settings":   true,
-	"events":     true, // receive site events (orders, users, comments carry PII)
+	"http.fetch":   true,
+	"store":        true,
+	"settings":     true,
+	"events":       true, // receive site events (orders, users, comments carry PII)
+	"content.read": true, // read posts and pages through JellyCMS.content
+	"shop.read":    true, // read products and orders through JellyCMS.shop
 }
 
 var (
