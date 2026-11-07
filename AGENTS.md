@@ -22,4 +22,3 @@
 
 - 外掛 worker 在單次呼叫逾時（1 秒）或回傳超過 1 MiB 時會被終止且不自動重啟，該外掛的擴充點與鉤子都停用到管理員重載為止；是否加自動重啟或只隔離該次呼叫，待評估（見 `docs/tickets/29-plugin-read-api-and-extensions.md` 決策紀錄）。
 - 擴充點快取只在單一程序記憶體；多實例部署靠 60 秒安全上限收斂，沒有跨實例失效。
-- 維護模式沒有放行金流回呼：`internal/server/maintenance.go` 的 `maintenanceBypass` 不含 `/api/payment/:gateway/notify|callback|return`，維護中金流服務的付款通知會收到 503；金流會重試但重試用盡就掉單。修法是把這三條加進放行清單並補測試（維護中 `POST /api/payment/sandbox/notify` 仍走 `HandlePaymentCallback`）。工單 30 盤點時發現，另開工單。
