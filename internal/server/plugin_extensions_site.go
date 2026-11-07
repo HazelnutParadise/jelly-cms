@@ -5,11 +5,12 @@ package server
 // plugin_extensions_notify.go. The generation counter and the provider list
 // cache here are shared by all four points.
 //
-// Every plugin call is a cross-process request with a one-second deadline, so
-// nothing on the public hot path calls a plugin per request: results are cached
+// Nothing on the public hot path calls a plugin per request: results are cached
 // in process memory and keyed by the plugin generation, which every plugin or
 // extension change bumps. A 60-second safety TTL covers changes made by another
-// process (multi-instance deployments share nothing here, by design).
+// process (multi-instance deployments share nothing here, by design). Plugin
+// calls run on a context detached from the request with the cell's own budget
+// (pluginCallContext): a client that goes away must not terminate the worker.
 
 import (
 	"bytes"
@@ -20,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"math"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -27,6 +29,7 @@ import (
 
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 	"github.com/HazelnutParadise/jelly-cms/internal/ext"
+	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 	"gorm.io/gorm"
 )
 
@@ -35,21 +38,30 @@ const (
 	// used without recomputation, whatever the generation says.
 	pluginExtensionSafetyTTL = 60 * time.Second
 	// pluginExtensionProviderTTL is the lifetime of the cached active-provider
-	// list of one point (also invalidated by the generation).
+	// list and selected provider of one point (also invalidated by the generation).
 	pluginExtensionProviderTTL = 5 * time.Second
 	// pluginExtensionNegativeTTL is how long a failed call is remembered before
 	// the plugin is tried again.
 	pluginExtensionNegativeTTL = 30 * time.Second
 
+	// pluginCallMargin is kept back from the caller's deadline so the response
+	// can still be written after a plugin call.
+	pluginCallMargin = 300 * time.Millisecond
+
 	// pluginThemeInjectMax is the largest head or footer fragment one plugin
 	// may contribute; a larger fragment is skipped and logged.
 	pluginThemeInjectMax = 64 << 10
-	// pluginContentRenderMax is the largest HTML sent to content.render;
-	// larger content is used as is.
+	// pluginThemeInjectBudget is the total time the whole theme.inject provider
+	// group may take per request miss.
+	pluginThemeInjectBudget = 3 * time.Second
+	// pluginContentRenderMax is the largest encoded input (and output html)
+	// content.render handles; larger content is used as is.
 	pluginContentRenderMax = 1 << 20
 	// pluginContentRenderBudget is the total time one render chain may take
-	// across all providers (each call still has its own one-second deadline).
+	// across all providers.
 	pluginContentRenderBudget = 3 * time.Second
+	// pluginCommentsBudget is the time one comments.component call may take.
+	pluginCommentsBudget = time.Second
 	// pluginContentRenderEntries and pluginContentRenderBytes bound the render
 	// cache (LRU by last use).
 	pluginContentRenderEntries = 256
@@ -60,7 +72,8 @@ const (
 // that can alter what a provider returns or which providers are active:
 // plugin enable, disable, reload, install, uninstall, settings writes
 // (including the plugin's own settings.set), extension bindings, runtime
-// replacement and a call that found a provider unavailable.
+// replacement, and the first sighting in a generation of a loaded plugin whose
+// extension callback is gone (see noteLoadedProviderUnavailable).
 var pluginExtensionGen atomic.Uint64
 
 // bumpPluginExtensionGeneration invalidates every cached extension result.
@@ -88,6 +101,124 @@ func extensionPointMultiple(point string) bool {
 // warn or info.
 func pluginExtensionLog(pluginID, level, message string) {
 	forwardPluginLog(pluginID, level, message)
+}
+
+// pluginCallBudget returns how long a plugin call started now may run: budget,
+// cut to what is left of the caller's deadline minus pluginCallMargin. It is 0
+// when the caller is already done or too close to its deadline for a plugin
+// call; callers then skip the call without logging or caching a failure.
+func pluginCallBudget(ctx context.Context, budget time.Duration) time.Duration {
+	if ctx.Err() != nil {
+		return 0
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		if left := time.Until(deadline) - pluginCallMargin; left < budget {
+			budget = left
+		}
+	}
+	if budget < 0 {
+		return 0
+	}
+	return budget
+}
+
+// pluginCallContext returns the context for one plugin call, or for a group of
+// calls that share one budget. It is detached from the request, so a request
+// that is cancelled or times out does not terminate the plugin worker
+// (workerProcess.request). Its own deadline is budget, cut to the caller's
+// remaining time (pluginCallBudget); with no budget left it is already expired.
+func pluginCallContext(ctx context.Context, budget time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), pluginCallBudget(ctx, budget))
+}
+
+// pluginEncodeInput encodes a plugin input without escaping HTML, so the size
+// checked against pluginContentRenderMax is the size actually sent. The
+// trailing newline of the encoder is dropped.
+func pluginEncodeInput(v any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
+}
+
+// pluginEntryFresh reports whether a cached result may still be used: failures
+// for pluginExtensionNegativeTTL, successes for pluginExtensionSafetyTTL.
+func pluginEntryFresh(at time.Time, failed bool) bool {
+	ttl := pluginExtensionSafetyTTL
+	if failed {
+		ttl = pluginExtensionNegativeTTL
+	}
+	return time.Since(at) < ttl
+}
+
+// prunePluginCache keeps a cache map within pluginCacheBound. Over the bound,
+// stale entries are dropped first; the map is rebuilt only if it is still over.
+func prunePluginCache[K comparable, V any](entries map[K]V, stale func(K, V) bool) map[K]V {
+	if len(entries) <= pluginCacheBound {
+		return entries
+	}
+	for k, v := range entries {
+		if stale(k, v) {
+			delete(entries, k)
+		}
+	}
+	if len(entries) > pluginCacheBound {
+		return make(map[K]V)
+	}
+	return entries
+}
+
+// pluginProviderUnavailable is the error extensionPluginMeta returns for a provider
+// that is not live right now.
+const pluginProviderUnavailable = "extension provider is unavailable"
+
+// pluginProviderMeta is extensionPluginMeta for a call made on callCtx. An
+// unavailable provider is reported to the caller, which skips it. When the
+// plugin is still loaded but its callback is gone (typically its worker died),
+// the first sighting per generation is noted: the generation is bumped so the
+// provider list is recomputed at once.
+func pluginProviderMeta(callCtx context.Context, db *gorm.DB, id, point string) (*plugin.Runtime, plugin.PluginMetadata, error) {
+	runtime, meta, err := extensionPluginMeta(callCtx, db, id, point)
+	if err != nil && err.Error() == pluginProviderUnavailable && callCtx.Err() == nil {
+		if rt := currentExtensionRuntime(); rt != nil && rt.IsLoaded(id) {
+			noteLoadedProviderUnavailable(id, point)
+		}
+	}
+	return runtime, meta, err
+}
+
+// pluginUnavailableKey identifies one unavailable-but-loaded note.
+type pluginUnavailableKey struct {
+	id  string
+	gen uint64
+}
+
+var pluginUnavailableNotes struct {
+	sync.Mutex
+	seen map[pluginUnavailableKey]bool
+}
+
+// noteLoadedProviderUnavailable bumps the generation and logs once per plugin
+// and generation, so a dead worker does not flood the log. The bump makes the
+// next provider list drop the plugin.
+func noteLoadedProviderUnavailable(id, point string) {
+	key := pluginUnavailableKey{id: id, gen: pluginExtensionGeneration()}
+	notes := &pluginUnavailableNotes
+	notes.Lock()
+	if notes.seen == nil || len(notes.seen) > pluginCacheBound {
+		notes.seen = make(map[pluginUnavailableKey]bool)
+	}
+	if notes.seen[key] {
+		notes.Unlock()
+		return
+	}
+	notes.seen[key] = true
+	notes.Unlock()
+	bumpPluginExtensionGeneration()
+	pluginExtensionLog(id, "error", fmt.Sprintf("%s: extension provider is unavailable while the plugin is loaded (its worker may have stopped); provider list recomputed", point))
 }
 
 // extensionProviderCache remembers the active provider list of each point for
@@ -151,6 +282,45 @@ func extensionActiveProviders(ctx context.Context, db *gorm.DB, point string) []
 	return ids
 }
 
+// extensionSelectionCache remembers the selected provider of each single point
+// (extensionSelection) for pluginExtensionProviderTTL within one generation.
+var extensionSelectionCache struct {
+	sync.Mutex
+	entries map[string]extensionSelectionEntry
+}
+
+type extensionSelectionEntry struct {
+	gen  uint64
+	at   time.Time
+	id   string
+	isJS bool
+}
+
+// extensionSelectedProvider is extensionSelection with a short cache per
+// generation. The lookup runs on a context detached from the request, so a
+// client that goes away cannot leave a builtin selection cached by mistake.
+func extensionSelectedProvider(ctx context.Context, db *gorm.DB, point string) (string, bool) {
+	gen := pluginExtensionGeneration()
+	now := time.Now()
+	cache := &extensionSelectionCache
+	cache.Lock()
+	if entry, ok := cache.entries[point]; ok && entry.gen == gen && now.Sub(entry.at) < pluginExtensionProviderTTL {
+		cache.Unlock()
+		return entry.id, entry.isJS
+	}
+	cache.Unlock()
+
+	id, isJS := extensionSelection(context.WithoutCancel(ctx), db, point)
+	cache.Lock()
+	if cache.entries == nil {
+		cache.entries = make(map[string]extensionSelectionEntry)
+	}
+	cache.entries = prunePluginCache(cache.entries, func(_ string, e extensionSelectionEntry) bool { return e.gen != gen })
+	cache.entries[point] = extensionSelectionEntry{gen: gen, at: now, id: id, isJS: isJS}
+	cache.Unlock()
+	return id, isJS
+}
+
 // pluginPostSummary is the post object every site extension receives: the
 // identity of the post without its content.
 func pluginPostSummary(post core.Post) map[string]any {
@@ -177,7 +347,9 @@ type pluginThemeInjection struct {
 //   - Each provider is called with input {} and returns {"head": string, "footer": string};
 //     either key may be missing. The result of one provider is cached per
 //     (plugin id, generation) and reused for pluginExtensionSafetyTTL, so the
-//     plugin is called once per generation, not per request.
+//     plugin is called once per generation, not per request. Concurrent misses
+//     for one provider share one call (single flight).
+//   - The whole provider group shares one pluginThemeInjectBudget.
 //   - Fragments are output raw, in provider order, head after head and footer
 //     after footer. The caller (applyPublicSEO) appends them to the admin's
 //     code injection and applies the commerce-page rule itself.
@@ -186,16 +358,25 @@ type pluginThemeInjection struct {
 //     contributes nothing (the whole provider on an invalid shape; only the
 //     oversized slot on a size breach), is logged once with
 //     pluginExtensionLog(id, "error", …) and is not retried for
-//     pluginExtensionNegativeTTL.
-//   - A nil db, a nil runtime or no active provider yields an empty value and
-//     calls nothing.
+//     pluginExtensionNegativeTTL. A later failure does not overwrite a fresh
+//     success of the same generation.
+//   - An unavailable provider is skipped without caching. A nil db, a nil
+//     runtime, no active provider, or a request with no time left yields an
+//     empty value and calls nothing (cache hits are still served).
 func pluginThemeInjectionFor(ctx context.Context, db *gorm.DB) pluginThemeInjection {
 	if currentExtensionRuntime() == nil || db == nil {
 		return pluginThemeInjection{}
 	}
+	ids := extensionActiveProviders(ctx, db, ext.PointThemeInject)
+	if len(ids) == 0 {
+		return pluginThemeInjection{}
+	}
+	skip := pluginCallBudget(ctx, pluginThemeInjectBudget) <= 0
+	callCtx, cancel := pluginCallContext(ctx, pluginThemeInjectBudget)
+	defer cancel()
 	var head, footer strings.Builder
-	for _, id := range extensionActiveProviders(ctx, db, ext.PointThemeInject) {
-		h, f, ok := pluginThemeInjectFor(ctx, db, id)
+	for _, id := range ids {
+		h, f, ok := pluginThemeInjectFor(ctx, callCtx, skip, db, id)
 		if !ok {
 			continue
 		}
@@ -220,52 +401,86 @@ type pluginThemeInjectEntry struct {
 	failed bool
 }
 
+// pluginThemeInjectFlight lets concurrent misses for one key wait for the leader.
+type pluginThemeInjectFlight struct {
+	done  chan struct{}
+	entry pluginThemeInjectEntry
+}
+
 var pluginThemeInjectCache struct {
 	sync.Mutex
 	entries map[pluginThemeInjectKey]pluginThemeInjectEntry
+	flights map[pluginThemeInjectKey]*pluginThemeInjectFlight
 }
 
-// pluginCacheBound is the map size above which a cache map is rebuilt on write.
-const pluginCacheBound = 1024
+// pluginCacheBound is the map size above which a cache map drops stale entries
+// and, if still over it, is rebuilt.
+const pluginCacheBound = 4096
 
 // pluginThemeInjectFor returns the head and footer fragments of one provider
 // for the current generation, calling it at most once per generation (and
 // once per negative TTL after a failure). ok is false when the provider
-// contributes nothing.
-func pluginThemeInjectFor(ctx context.Context, db *gorm.DB, id string) (head, footer string, ok bool) {
-	gen := pluginExtensionGeneration()
-	key := pluginThemeInjectKey{id: id, gen: gen}
-	now := time.Now()
-	pluginThemeInjectCache.Lock()
-	entry, hit := pluginThemeInjectCache.entries[key]
-	pluginThemeInjectCache.Unlock()
-	if hit {
-		ttl := pluginExtensionSafetyTTL
-		if entry.failed {
-			ttl = pluginExtensionNegativeTTL
-		}
-		if now.Sub(entry.at) < ttl {
-			return entry.head, entry.footer, !entry.failed
-		}
+// contributes nothing. reqCtx is the caller's request (a waiter gives up when
+// it ends); callCtx is the group's plugin call context; skip is set when the
+// request had no time left, in which case misses are not called.
+func pluginThemeInjectFor(reqCtx, callCtx context.Context, skip bool, db *gorm.DB, id string) (head, footer string, ok bool) {
+	key := pluginThemeInjectKey{id: id, gen: pluginExtensionGeneration()}
+	cache := &pluginThemeInjectCache
+	cache.Lock()
+	if entry, hit := cache.entries[key]; hit && pluginEntryFresh(entry.at, entry.failed) {
+		cache.Unlock()
+		return entry.head, entry.footer, !entry.failed
 	}
-
-	// A provider that is not available is skipped without caching: the
-	// provider list cache already decides which providers are live.
-	runtime, meta, err := extensionPluginMeta(ctx, db, id, ext.PointThemeInject)
-	if err != nil {
-		return "", "", false
-	}
-	fail := func(reason string) (string, string, bool) {
-		pluginExtensionLog(id, "error", fmt.Sprintf("%s: %s", ext.PointThemeInject, reason))
-		storePluginThemeInject(key, pluginThemeInjectEntry{at: time.Now(), failed: true})
-		return "", "", false
-	}
-	output, err := runtime.CallExtension(ctx, meta.ID, ext.PointThemeInject, []byte("{}"))
-	if err != nil {
-		if ctx.Err() != nil {
-			// The request went away; that says nothing about the plugin.
+	if flight, inFlight := cache.flights[key]; inFlight {
+		cache.Unlock()
+		select {
+		case <-flight.done:
+			return flight.entry.head, flight.entry.footer, !flight.entry.failed
+		case <-reqCtx.Done():
 			return "", "", false
 		}
+	}
+	if skip {
+		cache.Unlock()
+		return "", "", false
+	}
+	if cache.flights == nil {
+		cache.flights = make(map[pluginThemeInjectKey]*pluginThemeInjectFlight)
+	}
+	flight := &pluginThemeInjectFlight{done: make(chan struct{})}
+	cache.flights[key] = flight
+	cache.Unlock()
+
+	entry, store := pluginThemeInjectCall(callCtx, db, id)
+	if !store {
+		entry = pluginThemeInjectEntry{at: time.Now(), failed: true}
+	} else {
+		storePluginThemeInject(key, entry)
+	}
+	cache.Lock()
+	delete(cache.flights, key)
+	cache.Unlock()
+	flight.entry = entry
+	close(flight.done)
+	return entry.head, entry.footer, !entry.failed
+}
+
+// pluginThemeInjectCall calls one provider once and parses its result. store is
+// false when the provider is unavailable: nothing is learned and nothing cached.
+func pluginThemeInjectCall(callCtx context.Context, db *gorm.DB, id string) (pluginThemeInjectEntry, bool) {
+	fail := func(reason string) (pluginThemeInjectEntry, bool) {
+		pluginExtensionLog(id, "error", fmt.Sprintf("%s: %s", ext.PointThemeInject, reason))
+		return pluginThemeInjectEntry{at: time.Now(), failed: true}, true
+	}
+	if callCtx.Err() != nil {
+		return fail("call budget used up")
+	}
+	runtime, meta, err := pluginProviderMeta(callCtx, db, id, ext.PointThemeInject)
+	if err != nil {
+		return pluginThemeInjectEntry{}, false
+	}
+	output, err := runtime.CallExtension(callCtx, meta.ID, ext.PointThemeInject, []byte("{}"))
+	if err != nil {
 		return fail(fmt.Sprintf("call failed: %v", err))
 	}
 	var fields map[string]json.RawMessage
@@ -285,18 +500,24 @@ func pluginThemeInjectFor(ctx context.Context, db *gorm.DB, id string) (head, fo
 		pluginExtensionLog(id, "error", fmt.Sprintf("%s: footer is %d bytes, above the %d byte limit; footer skipped", ext.PointThemeInject, len(footerText), pluginThemeInjectMax))
 		footerText = ""
 	}
-	storePluginThemeInject(key, pluginThemeInjectEntry{at: time.Now(), head: headText, footer: footerText})
-	return headText, footerText, true
+	return pluginThemeInjectEntry{at: time.Now(), head: headText, footer: footerText}, true
 }
 
-// storePluginThemeInject writes one entry, rebuilding the map when it grows past pluginCacheBound.
+// storePluginThemeInject writes one entry. A failure does not overwrite a fresh
+// success of the same generation. Over pluginCacheBound, stale generations go first.
 func storePluginThemeInject(key pluginThemeInjectKey, entry pluginThemeInjectEntry) {
-	pluginThemeInjectCache.Lock()
-	defer pluginThemeInjectCache.Unlock()
-	if pluginThemeInjectCache.entries == nil || len(pluginThemeInjectCache.entries) > pluginCacheBound {
-		pluginThemeInjectCache.entries = make(map[pluginThemeInjectKey]pluginThemeInjectEntry)
+	cache := &pluginThemeInjectCache
+	cache.Lock()
+	defer cache.Unlock()
+	if cache.entries == nil {
+		cache.entries = make(map[pluginThemeInjectKey]pluginThemeInjectEntry)
 	}
-	pluginThemeInjectCache.entries[key] = entry
+	if old, ok := cache.entries[key]; ok && entry.failed && !old.failed && pluginEntryFresh(old.at, false) {
+		return
+	}
+	cur := pluginExtensionGeneration()
+	cache.entries = prunePluginCache(cache.entries, func(k pluginThemeInjectKey, _ pluginThemeInjectEntry) bool { return k.gen != cur })
+	cache.entries[key] = entry
 }
 
 // pluginOptionalString reads fields[name] as a string. A missing key yields
@@ -330,19 +551,22 @@ func pluginJSONString(raw json.RawMessage) (string, bool) {
 // Wanted results:
 //   - Each provider is called with {"post": pluginPostSummary(post), "html": string}
 //     and returns {"html": string}; the output of one provider is the input of
-//     the next. The whole chain shares a pluginContentRenderBudget deadline.
+//     the next. The whole chain shares one pluginContentRenderBudget.
+//   - The size limit is measured on the encoded input {"post","html"} with HTML
+//     not escaped (pluginEncodeInput): above pluginContentRenderMax the html is
+//     returned as is, without a call, a log line or a cached failure.
 //   - The final HTML is cached by (post.ID, sha256(input html), generation) in
 //     an LRU of at most pluginContentRenderEntries entries and
 //     pluginContentRenderBytes total bytes; a hit calls no plugin (the runtime
 //     ExtensionCalls counter does not move). Concurrent misses for the same key
 //     compute once (single flight). Entries also expire after
 //     pluginExtensionSafetyTTL.
-//   - Any provider failure (error, timeout, missing or non-string html, output
-//     over 1 MiB) returns the original html unchanged, logs
+//   - Any provider failure (error, budget, missing or non-string html) returns the original html unchanged, logs
 //     pluginExtensionLog(id, "error", …) once and caches the failure for
 //     pluginExtensionNegativeTTL so the page keeps rendering without the plugin.
-//   - html longer than pluginContentRenderMax, a nil db or runtime, or no
-//     active provider returns html as is without calling anything.
+//   - A provider that is unavailable is skipped and the chain goes on.
+//   - A nil db or runtime, no active provider, or a request with no time left
+//     returns html as is without calling anything.
 func pluginRenderContent(ctx context.Context, db *gorm.DB, post core.Post, html string) string {
 	if currentExtensionRuntime() == nil || db == nil || len(html) > pluginContentRenderMax {
 		return html
@@ -351,7 +575,12 @@ func pluginRenderContent(ctx context.Context, db *gorm.DB, post core.Post, html 
 	if len(ids) == 0 {
 		return html
 	}
-	key := pluginRenderKey{postID: post.ID, sum: sha256.Sum256([]byte(html)), gen: pluginExtensionGeneration()}
+	input, err := pluginEncodeInput(map[string]any{"post": pluginPostSummary(post), "html": html})
+	if err != nil || len(input) > pluginContentRenderMax {
+		return html
+	}
+	gen := pluginExtensionGeneration()
+	key := pluginRenderKey{postID: post.ID, sum: sha256.Sum256([]byte(html)), gen: gen}
 
 	cache := &pluginRenderCache
 	cache.Lock()
@@ -376,6 +605,10 @@ func pluginRenderContent(ctx context.Context, db *gorm.DB, post core.Post, html 
 			return html
 		}
 	}
+	if pluginCallBudget(ctx, pluginContentRenderBudget) <= 0 {
+		cache.Unlock()
+		return html
+	}
 	flight := &pluginRenderFlight{done: make(chan struct{})}
 	cache.flights[key] = flight
 	cache.Unlock()
@@ -394,14 +627,10 @@ func pluginRenderContent(ctx context.Context, db *gorm.DB, post core.Post, html 
 	}()
 
 	out, failedID, err := pluginRenderChain(ctx, db, post, html, ids)
-	switch {
-	case err == nil:
+	if err == nil {
 		result = out
 		entry = &pluginRenderEntry{key: key, at: time.Now(), html: out}
-	case ctx.Err() != nil:
-		// The request went away; that says nothing about the plugins, so the
-		// failure is neither logged nor remembered.
-	default:
+	} else {
 		pluginExtensionLog(failedID, "error", fmt.Sprintf("%s: %v; original content kept", ext.PointContentRender, err))
 		entry = &pluginRenderEntry{key: key, at: time.Now(), failed: true}
 	}
@@ -486,31 +715,46 @@ func (c *pluginRenderCacheState) removeLocked(el *list.Element) {
 	c.bytes -= len(entry.html)
 }
 
-// pluginRenderChain runs html through every provider in order. On failure it
-// returns the id of the provider that failed and the reason.
+// pluginRenderChain runs html through every available provider in order. The
+// whole chain runs on one budget. On failure it returns the id of the provider
+// that failed and the reason.
 func pluginRenderChain(ctx context.Context, db *gorm.DB, post core.Post, html string, ids []string) (string, string, error) {
-	ctx, cancel := context.WithTimeout(ctx, pluginContentRenderBudget)
+	callCtx, cancel := pluginCallContext(ctx, pluginContentRenderBudget)
 	defer cancel()
 	summary := pluginPostSummary(post)
 	current := html
+	last := ""
 	for _, id := range ids {
-		runtime, meta, err := extensionPluginMeta(ctx, db, id, ext.PointContentRender)
-		if err != nil {
-			return "", id, fmt.Errorf("provider unavailable: %w", err)
+		if callCtx.Err() != nil {
+			failed := id
+			if last != "" {
+				failed = last
+			}
+			return "", failed, errors.New("render budget used up")
 		}
-		input, err := json.Marshal(map[string]any{"post": summary, "html": current})
+		runtime, meta, err := pluginProviderMeta(callCtx, db, id, ext.PointContentRender)
+		if err != nil {
+			continue
+		}
+		input, err := pluginEncodeInput(map[string]any{"post": summary, "html": current})
 		if err != nil {
 			return "", id, fmt.Errorf("encode input: %w", err)
 		}
-		output, err := runtime.CallExtension(ctx, meta.ID, ext.PointContentRender, input)
+		if len(input) > pluginContentRenderMax {
+			return "", id, fmt.Errorf("input is %d bytes, above the %d byte limit", len(input), pluginContentRenderMax)
+		}
+		output, err := runtime.CallExtension(callCtx, meta.ID, ext.PointContentRender, input)
 		if err != nil {
 			return "", id, fmt.Errorf("call failed: %w", err)
 		}
-		next, err := pluginHTMLOutput(output, pluginContentRenderMax)
+		// The output is not capped here: the next provider's input is measured
+		// above, and the page takes whatever the last provider returns.
+		next, err := pluginHTMLOutput(output, math.MaxInt)
 		if err != nil {
 			return "", id, err
 		}
 		current = next
+		last = id
 	}
 	return current, "", nil
 }
@@ -541,60 +785,91 @@ func pluginHTMLOutput(output json.RawMessage, limit int) (string, error) {
 // <section class="comments" id="comments">…</section>, and true. It returns
 // false when the builtin comments block should render: no provider is
 // selected (extensionSelection yields builtin), the provider is unavailable,
-// or the call failed.
+// the call failed, or the request has no time left.
 //
 // Wanted results:
 //   - The single provider is the first available one of the active list
-//     (extensionSelection for ext.PointCommentsComponent); it is called with
+//     (extensionSelectedProvider for ext.PointCommentsComponent); it is called with
 //     {"post": pluginPostSummary(post)} and returns {"html": string}.
 //   - The result is cached by (post.ID, generation) for pluginExtensionSafetyTTL.
+//     Concurrent misses for one post share one call (single flight).
 //   - A failure (error, timeout, missing or non-string html) is logged with
 //     pluginExtensionLog(id, "error", …), cached for pluginExtensionNegativeTTL
-//     and yields false so the theme's own block renders.
+//     and yields false so the theme's own block renders. A later failure does
+//     not overwrite a fresh success of the same generation.
 //   - The caller skips loading the comment tree when ok is true; the post page
 //     shows the "留言" button when CommentsHTML is set.
 func pluginCommentsComponent(ctx context.Context, db *gorm.DB, post core.Post) (template.HTML, bool) {
 	if currentExtensionRuntime() == nil || db == nil {
 		return "", false
 	}
-	id, isJS := extensionSelection(ctx, db, ext.PointCommentsComponent)
+	id, isJS := extensionSelectedProvider(ctx, db, ext.PointCommentsComponent)
 	if !isJS || id == extensionBuiltinID {
 		return "", false
 	}
 	key := pluginCommentsKey{postID: post.ID, gen: pluginExtensionGeneration()}
-	now := time.Now()
-	pluginCommentsCache.Lock()
-	entry, hit := pluginCommentsCache.entries[key]
-	pluginCommentsCache.Unlock()
-	if hit {
-		ttl := pluginExtensionSafetyTTL
-		if entry.failed {
-			ttl = pluginExtensionNegativeTTL
-		}
-		if now.Sub(entry.at) < ttl {
-			return entry.html, !entry.failed
+	cache := &pluginCommentsCache
+	cache.Lock()
+	if entry, hit := cache.entries[key]; hit && pluginEntryFresh(entry.at, entry.failed) {
+		cache.Unlock()
+		return entry.html, !entry.failed
+	}
+	if flight, inFlight := cache.flights[key]; inFlight {
+		cache.Unlock()
+		select {
+		case <-flight.done:
+			return flight.entry.html, !flight.entry.failed
+		case <-ctx.Done():
+			return "", false
 		}
 	}
+	if pluginCallBudget(ctx, pluginCommentsBudget) <= 0 {
+		cache.Unlock()
+		return "", false
+	}
+	if cache.flights == nil {
+		cache.flights = make(map[pluginCommentsKey]*pluginCommentsFlight)
+	}
+	flight := &pluginCommentsFlight{done: make(chan struct{})}
+	cache.flights[key] = flight
+	cache.Unlock()
 
-	runtime, meta, err := extensionPluginMeta(ctx, db, id, ext.PointCommentsComponent)
-	if err != nil {
-		return "", false
+	callCtx, cancel := pluginCallContext(ctx, pluginCommentsBudget)
+	entry, store := pluginCommentsCall(callCtx, db, id, post)
+	cancel()
+	if !store {
+		entry = pluginCommentsEntry{at: time.Now(), failed: true}
+	} else {
+		storePluginComments(key, entry)
 	}
-	fail := func(reason string) (template.HTML, bool) {
+	cache.Lock()
+	delete(cache.flights, key)
+	cache.Unlock()
+	flight.entry = entry
+	close(flight.done)
+	return entry.html, !entry.failed
+}
+
+// pluginCommentsCall calls the comments provider once. store is false when the
+// provider is unavailable: nothing is learned and nothing cached.
+func pluginCommentsCall(callCtx context.Context, db *gorm.DB, id string, post core.Post) (pluginCommentsEntry, bool) {
+	fail := func(reason string) (pluginCommentsEntry, bool) {
 		pluginExtensionLog(id, "error", fmt.Sprintf("%s: %s; builtin comments kept", ext.PointCommentsComponent, reason))
-		storePluginComments(key, pluginCommentsEntry{at: time.Now(), failed: true})
-		return "", false
+		return pluginCommentsEntry{at: time.Now(), failed: true}, true
+	}
+	if callCtx.Err() != nil {
+		return fail("call budget used up")
+	}
+	runtime, meta, err := pluginProviderMeta(callCtx, db, id, ext.PointCommentsComponent)
+	if err != nil {
+		return pluginCommentsEntry{}, false
 	}
 	input, err := json.Marshal(map[string]any{"post": pluginPostSummary(post)})
 	if err != nil {
 		return fail(fmt.Sprintf("encode input failed: %v", err))
 	}
-	output, err := runtime.CallExtension(ctx, meta.ID, ext.PointCommentsComponent, input)
+	output, err := runtime.CallExtension(callCtx, meta.ID, ext.PointCommentsComponent, input)
 	if err != nil {
-		if ctx.Err() != nil {
-			// The request went away; that says nothing about the plugin.
-			return "", false
-		}
 		return fail(fmt.Sprintf("call failed: %v", err))
 	}
 	fragment, err := pluginHTMLOutput(output, pluginContentRenderMax)
@@ -602,8 +877,7 @@ func pluginCommentsComponent(ctx context.Context, db *gorm.DB, post core.Post) (
 		return fail(err.Error())
 	}
 	html := template.HTML(`<section class="comments" id="comments">` + fragment + `</section>`)
-	storePluginComments(key, pluginCommentsEntry{at: time.Now(), html: html})
-	return html, true
+	return pluginCommentsEntry{at: time.Now(), html: html}, true
 }
 
 // pluginCommentsKey identifies one post's comments.component result.
@@ -619,17 +893,31 @@ type pluginCommentsEntry struct {
 	failed bool
 }
 
+// pluginCommentsFlight lets concurrent misses for one post wait for the leader.
+type pluginCommentsFlight struct {
+	done  chan struct{}
+	entry pluginCommentsEntry
+}
+
 var pluginCommentsCache struct {
 	sync.Mutex
 	entries map[pluginCommentsKey]pluginCommentsEntry
+	flights map[pluginCommentsKey]*pluginCommentsFlight
 }
 
-// storePluginComments writes one entry, rebuilding the map when it grows past pluginCacheBound.
+// storePluginComments writes one entry. A failure does not overwrite a fresh
+// success of the same generation. Over pluginCacheBound, stale generations go first.
 func storePluginComments(key pluginCommentsKey, entry pluginCommentsEntry) {
-	pluginCommentsCache.Lock()
-	defer pluginCommentsCache.Unlock()
-	if pluginCommentsCache.entries == nil || len(pluginCommentsCache.entries) > pluginCacheBound {
-		pluginCommentsCache.entries = make(map[pluginCommentsKey]pluginCommentsEntry)
+	cache := &pluginCommentsCache
+	cache.Lock()
+	defer cache.Unlock()
+	if cache.entries == nil {
+		cache.entries = make(map[pluginCommentsKey]pluginCommentsEntry)
 	}
-	pluginCommentsCache.entries[key] = entry
+	if old, ok := cache.entries[key]; ok && entry.failed && !old.failed && pluginEntryFresh(old.at, false) {
+		return
+	}
+	cur := pluginExtensionGeneration()
+	cache.entries = prunePluginCache(cache.entries, func(k pluginCommentsKey, _ pluginCommentsEntry) bool { return k.gen != cur })
+	cache.entries[key] = entry
 }
