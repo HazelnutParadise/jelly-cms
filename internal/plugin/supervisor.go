@@ -30,7 +30,7 @@ type PluginStatus struct {
 
 // Restart policy. Tests shorten these.
 var (
-	restartBackoff = []time.Duration{time.Second, 5 * time.Second, 30 * time.Second, 2 * time.Minute, 10 * time.Minute}
+	restartBackoff = []time.Duration{time.Second, 5 * time.Second, 30 * time.Second, 2 * time.Minute}
 	crashThreshold = 5
 	crashWindow    = 30 * time.Minute
 )

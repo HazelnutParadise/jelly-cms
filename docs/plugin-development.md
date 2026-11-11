@@ -437,7 +437,7 @@ const result = JellyCMS.shop.listOrders(query);
 
 自動重啟使用與手動重新載入相同的候選流程：先建立新 worker、執行入口腳本與 `OnBoot`，成功後才替換。JavaScript 記憶體不會保留；`settings` 與 `store` 不受影響。
 
-失效後依序等待 1 秒、5 秒、30 秒、2 分鐘、10 分鐘再重新載入，之後每次等 10 分鐘。等待期間：
+失效後依序等待 1 秒、5 秒、30 秒、2 分鐘再重新載入。等待期間：
 
 - 擴充點與後台動作的呼叫立即失敗，不排隊；後台動作回 `{"dispatched": false, "reason": "plugin_restarting"}`。
 - 網站事件直接丟棄，不會補送。
