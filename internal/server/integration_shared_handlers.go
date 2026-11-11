@@ -2,6 +2,8 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -140,29 +142,81 @@ func listPlugins(c echo.Context) error {
 	return c.JSON(200, queryPlugins())
 }
 
-// queryPlugins reads the metadata of every plugin under data/plugins. An unreadable directory is an empty list.
-func queryPlugins() []map[string]any {
+type pluginListView struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Version     string `json:"version"`
+	Description string `json:"description"`
+	Author      string `json:"author"`
+	Enabled     bool   `json:"enabled"`
+	Managed     bool   `json:"managed"`
+	State       string `json:"state"`
+	LastError   string `json:"last_error,omitempty"`
+}
+
+// queryPlugins reads the metadata and stored state of every plugin under
+// data/plugins. An unreadable directory is an empty list.
+func queryPlugins() []pluginListView {
+	out := []pluginListView{}
 	entries, err := os.ReadDir("data/plugins")
 	if err != nil {
-		return []map[string]any{}
+		return out
 	}
-	var out []map[string]any
-	for _, e := range entries {
-		if !e.IsDir() {
+
+	type storedPlugin struct {
+		ID      string `gorm:"column:id"`
+		Enabled bool   `gorm:"column:enabled"`
+	}
+	stored := map[string]bool{}
+	if data.DB != nil {
+		var rows []storedPlugin
+		if err := data.DB.Table("plugins").Select("id, enabled").Find(&rows).Error; err != nil {
+			log.Printf("list plugins: read stored state: %v", err)
+		} else {
+			for _, row := range rows {
+				stored[row.ID] = row.Enabled
+			}
+		}
+	}
+
+	runtime := currentExtensionRuntime()
+	for _, entry := range entries {
+		if !entry.IsDir() {
 			continue
 		}
-		path := filepath.Join("data", "plugins", e.Name(), "plugin.json")
-		b, err := os.ReadFile(path)
+		path := filepath.Join("data", "plugins", entry.Name(), "plugin.json")
+		raw, err := os.ReadFile(path)
 		if err != nil {
 			continue
 		}
 		var meta plugin.PluginMetadata
-		if json.Unmarshal(b, &meta) == nil {
-			out = append(out, map[string]any{"id": meta.ID, "name": meta.Name, "version": meta.Version, "description": meta.Description, "author": meta.Author})
+		if json.Unmarshal(raw, &meta) != nil {
+			continue
 		}
+
+		enabled := true
+		managed := false
+		if storedEnabled, ok := stored[meta.ID]; ok {
+			enabled = storedEnabled
+			managed = true
+		}
+		state, status := pluginStatusView(enabled, runtime, meta.ID)
+		out = append(out, pluginListView{
+			ID:          meta.ID,
+			Name:        meta.Name,
+			Version:     meta.Version,
+			Description: meta.Description,
+			Author:      meta.Author,
+			Enabled:     enabled,
+			Managed:     managed,
+			State:       state,
+			LastError:   status.LastError,
+		})
 	}
+
 	return out
 }
+
 func reloadPlugin(c echo.Context, rt *plugin.Runtime) error {
 	if rt == nil {
 		return c.JSON(503, map[string]string{"error": "Plugin runtime is unavailable"})
@@ -171,11 +225,23 @@ func reloadPlugin(c echo.Context, rt *plugin.Runtime) error {
 	if err != nil {
 		return c.JSON(404, map[string]string{"error": "Plugin not found"})
 	}
+
+	ctx := c.Request().Context()
 	dir := filepath.Join("data", "plugins", meta.ID)
-	if err := rt.ReloadForID(c.Request().Context(), meta.ID, dir); err != nil {
+	err = withPluginInstallLock(ctx, meta.ID, func() error {
+		return rt.ReloadForID(ctx, meta.ID, dir)
+	})
+	if errors.Is(err, errPluginNotFound) {
+		return c.JSON(404, map[string]string{"error": "Plugin not found"})
+	}
+	if errors.Is(err, errPluginRecoveryPending) {
+		return c.JSON(409, map[string]string{"error": "Plugin recovery is pending"})
+	}
+	if err != nil {
 		bumpPluginExtensionGeneration()
 		return c.JSON(500, map[string]string{"error": "Plugin reload failed"})
 	}
 	bumpPluginExtensionGeneration()
+
 	return c.JSON(200, map[string]string{"message": "Plugin reloaded"})
 }

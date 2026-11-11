@@ -247,16 +247,29 @@ func (s *pluginState) deliverEvent(m *Runtime, item eventItem) {
 // is suspended like one that keeps throwing.
 func (s *pluginState) dispatchEvent(hook Hook, payload []byte) error {
 	s.execMu.Lock()
-	defer s.execMu.Unlock()
 
 	if s.closed {
+		s.execMu.Unlock()
+
 		return nil
 	}
 	if s.invalid {
-		return fmt.Errorf("hook %s: %w", hook, ErrPluginNotLoaded)
+		// The supervisor already reported this worker; events queued for the
+		// waiting period are dropped silently instead of logged one by one.
+		s.execMu.Unlock()
+
+		return nil
 	}
 
-	return s.sendHook(context.Background(), hook, payload)
+	err := s.sendHook(context.Background(), hook, payload)
+	report, reason := s.claimWorkerFailureLocked()
+	s.execMu.Unlock()
+
+	if report {
+		s.reportFailure(reason)
+	}
+
+	return err
 }
 
 // stopEvents stops the plugin's dispatcher. Events still queued are discarded

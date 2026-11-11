@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // pluginIDPattern limits plugin ids to characters that are safe to use as a
@@ -32,6 +33,15 @@ type Runtime struct {
 	eventFilter EventFilter
 	closed      bool
 
+	// Supervision, see supervisor.go. failureHandler runs outside every lock.
+	// monitorWG counts the worker watcher goroutines, restartActive the
+	// automatic restarts still installing a candidate worker.
+	failureHandler  func(id string, status PluginStatus)
+	recoveryHandler func(id string)
+	monitorWG       sync.WaitGroup
+	restartActive   int
+	restartIdle     chan struct{}
+
 	// Event accounting, see events.go. pending counts queued and in-flight
 	// events for Flush, queuedBytes the payload bytes waiting, dispatches the
 	// hook requests sent to workers.
@@ -47,17 +57,38 @@ type Runtime struct {
 type pluginState struct {
 	id      string
 	meta    PluginMetadata
+	dir     string
 	runtime *Runtime
 
 	worker *workerProcess
 
-	execMu       sync.Mutex
-	extensionsMu sync.RWMutex
-	extensions   map[string]struct{}
-	hooksMu      sync.RWMutex
-	hooks        map[Hook]struct{}
-	closed       bool
-	invalid      bool
+	execMu        sync.Mutex
+	extensionsMu  sync.RWMutex
+	extensions    map[string]struct{}
+	hooksMu       sync.RWMutex
+	hooks         map[Hook]struct{}
+	closed        bool
+	invalid       bool
+	failureReason error
+	workerFaulted atomic.Bool
+	stopped       atomic.Bool
+
+	// Supervision of this worker instance, see supervisor.go. supMu guards the
+	// fields below; the runtime registry lock is never held while waiting for a
+	// worker request.
+	supMu         sync.Mutex
+	supState      string
+	faultTimes    []time.Time
+	lastError     string
+	lastFailureAt time.Time
+	nextRestartAt time.Time
+	restartTimer  *time.Timer
+	restartDone   chan struct{}
+	restartGen    uint64
+	// restartCancel cancels the automatic restart that is installing right now.
+	// adminOps counts admin installs holding this instance (see holdForAdmin).
+	restartCancel context.CancelFunc
+	adminOps      int
 
 	// Event queue of this plugin, see events.go. eventsMu guards the fields
 	// above it; failures and the dispatcher's view are touched only by the
@@ -91,13 +122,13 @@ func NewRuntime() (*Runtime, error) {
 // When a plugin with the same id is already loaded it is replaced, but only
 // after the new version loaded and booted successfully.
 func (m *Runtime) Load(ctx context.Context, dir string) error {
-	return m.install(ctx, dir, false, "")
+	return m.install(ctx, dir, false, "", nil)
 }
 
 // Reload hot reloads the plugin stored in dir. The running version keeps
 // serving hooks when the new version fails to load or to boot.
 func (m *Runtime) Reload(ctx context.Context, dir string) error {
-	return m.install(ctx, dir, true, "")
+	return m.install(ctx, dir, true, "", nil)
 }
 
 // ReloadForID hot reloads an already loaded plugin from its own directory.
@@ -113,12 +144,14 @@ func (m *Runtime) ReloadForID(ctx context.Context, pluginID, dir string) error {
 		return fmt.Errorf("plugin id %q is missing or invalid", pluginID)
 	}
 
-	return m.install(ctx, dir, true, pluginID)
+	return m.install(ctx, dir, true, pluginID, nil)
 }
 
 // install builds a candidate worker and swaps it in once it is ready. A
-// non-empty expectedID binds the candidate to that already loaded plugin.
-func (m *Runtime) install(ctx context.Context, dir string, reload bool, expectedID string) error {
+// non-empty expectedID binds the candidate to that already loaded plugin. A
+// non-nil expectedState additionally requires that exact instance to still be
+// registered, which binds an automatic restart to the worker that failed.
+func (m *Runtime) install(ctx context.Context, dir string, reload bool, expectedID string, expectedState *pluginState) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -127,14 +160,21 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool, expected
 	// no longer loaded before any worker starts.
 	m.mu.RLock()
 	closed := m.closed
-	loaded := expectedID == "" || m.plugins[expectedID] != nil
+	var registered *pluginState
+	if expectedID != "" {
+		registered = m.plugins[expectedID]
+	}
 	m.mu.RUnlock()
 
 	if closed {
 		return errRuntimeClosed
 	}
 
-	if !loaded {
+	if expectedState != nil {
+		if registered != expectedState {
+			return errRestartTargetChanged
+		}
+	} else if expectedID != "" && registered == nil {
 		return fmt.Errorf("plugin %s is not loaded", expectedID)
 	}
 
@@ -145,6 +185,20 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool, expected
 
 	if expectedID != "" && meta.ID != expectedID {
 		return fmt.Errorf("plugin manifest declares %q instead of %q", meta.ID, expectedID)
+	}
+
+	// An admin install takes over the registered instance before any worker
+	// starts: its scheduled automatic restart is cancelled, an automatic restart
+	// already installing is awaited, and new restarts are refused until the
+	// install ends. A failed install resumes the restart (see releaseAdminHold).
+	if expectedState == nil {
+		held, holdErr := m.holdForAdmin(ctx, meta.ID)
+		if holdErr != nil {
+			return holdErr
+		}
+		if held != nil {
+			defer m.releaseAdminHold(held)
+		}
 	}
 
 	script, err := readFileLimited(entryPath, maxEntryBytes)
@@ -158,8 +212,8 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool, expected
 	}
 
 	state := &pluginState{
-		id: meta.ID, meta: clonePluginMetadata(meta), worker: worker, runtime: m,
-		extensions: make(map[string]struct{}),
+		id: meta.ID, meta: clonePluginMetadata(meta), dir: dir, worker: worker, runtime: m,
+		extensions: make(map[string]struct{}), supState: StateRunning,
 	}
 
 	loadFrame, err := m.requestWorker(ctx, worker, meta, workerRequest{
@@ -212,7 +266,14 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool, expected
 
 		return errRuntimeClosed
 	}
-	if expectedID != "" {
+	if expectedState != nil {
+		if m.plugins[expectedID] != expectedState {
+			m.mu.Unlock()
+			worker.terminate()
+
+			return errRestartTargetChanged
+		}
+	} else if expectedID != "" {
 		if _, ok := m.plugins[expectedID]; !ok {
 			m.mu.Unlock()
 			worker.terminate()
@@ -224,7 +285,15 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool, expected
 	if previous == nil {
 		m.order = append(m.order, meta.ID)
 	}
+	// An automatic restart replaces an invalid instance but keeps its fault
+	// history, so repeated crashes can still reach the crash threshold.
+	state.carryFaultsFrom(expectedState)
 	m.plugins[meta.ID] = state
+	if previous != nil {
+		previous.cancelRestart()
+	}
+	m.monitorWG.Add(1)
+	go state.watchWorker()
 	m.mu.Unlock()
 
 	if previous != nil {
@@ -326,14 +395,22 @@ func (m *Runtime) Unload(ctx context.Context, pluginID string) error {
 
 	m.mu.Lock()
 	state, ok := m.plugins[pluginID]
+	var restartDone <-chan struct{}
 	if ok {
 		delete(m.plugins, pluginID)
 		m.removeOrderLocked(pluginID)
+		restartDone = state.stopRestart(true)
 	}
 	m.mu.Unlock()
 
 	if !ok {
 		return fmt.Errorf("plugin %s is not loaded", pluginID)
+	}
+
+	// The cancelled restart returns without loading the plugin again. Waiting
+	// for it keeps a restart from installing a worker after the unload.
+	if restartDone != nil {
+		<-restartDone
 	}
 
 	payload, err := shutdownPayload(pluginID, "unloaded")
@@ -490,7 +567,27 @@ func (m *Runtime) Close() {
 	}
 	m.plugins = make(map[string]*pluginState)
 	m.order = nil
+	var restartTimers []<-chan struct{}
+	for _, state := range states {
+		if done := state.stopRestart(true); done != nil {
+			restartTimers = append(restartTimers, done)
+		}
+	}
+	var restartIdle <-chan struct{}
+	if m.restartActive > 0 {
+		if m.restartIdle == nil {
+			m.restartIdle = make(chan struct{})
+		}
+		restartIdle = m.restartIdle
+	}
 	m.mu.Unlock()
+
+	for _, done := range restartTimers {
+		<-done
+	}
+	if restartIdle != nil {
+		<-restartIdle
+	}
 
 	for _, state := range states {
 		payload, err := shutdownPayload(state.id, "runtime closed")
@@ -502,6 +599,8 @@ func (m *Runtime) Close() {
 
 		_ = state.shutdown(context.Background(), payload)
 	}
+
+	m.monitorWG.Wait()
 }
 
 // states returns the loaded plugins in load order.
@@ -536,26 +635,60 @@ func (m *Runtime) removeOrderLocked(pluginID string) {
 // for a dead process.
 func (s *pluginState) dispatch(hook Hook, payload []byte) error {
 	s.execMu.Lock()
-	defer s.execMu.Unlock()
 
 	if s.closed || s.invalid {
+		s.execMu.Unlock()
+
 		return nil
 	}
 
-	return s.sendHook(context.Background(), hook, payload)
+	err := s.sendHook(context.Background(), hook, payload)
+	report, reason := s.claimWorkerFailureLocked()
+	s.execMu.Unlock()
+
+	if report {
+		s.reportFailure(reason)
+	}
+
+	return err
 }
 
 // call runs one hook and returns its error. A stopped or dead plugin answers
 // ErrPluginNotLoaded instead of waiting for a worker that is gone.
 func (s *pluginState) call(ctx context.Context, hook Hook, payload []byte) error {
 	s.execMu.Lock()
-	defer s.execMu.Unlock()
 
 	if s.closed || s.invalid {
+		s.execMu.Unlock()
+
 		return ErrPluginNotLoaded
 	}
 
-	return s.sendHook(ctx, hook, payload)
+	err := s.sendHook(ctx, hook, payload)
+	report, reason := s.claimWorkerFailureLocked()
+	s.execMu.Unlock()
+
+	if report {
+		s.reportFailure(reason)
+	}
+
+	return err
+}
+
+// claimWorkerFailureLocked claims the one worker death this instance may
+// report. The caller holds execMu. Claiming inside execMu keeps the watcher
+// goroutine from logging the same failure later from another goroutine.
+func (s *pluginState) claimWorkerFailureLocked() (bool, error) {
+	if !s.invalid || !s.workerFaulted.CompareAndSwap(false, true) {
+		return false, nil
+	}
+
+	reason := s.failureReason
+	if reason == nil {
+		reason = errors.New("plugin worker exited unexpectedly")
+	}
+
+	return true, reason
 }
 
 // sendHook sends one opHook request and applies the snapshots of its response.
@@ -569,20 +702,31 @@ func (s *pluginState) sendHook(ctx context.Context, hook Hook, payload []byte) e
 		Payload: payload,
 	}, workerStepTimeout)
 	if snapErr := s.applyResponse(frame); snapErr != nil {
-		s.invalid = true
+		wrapped := fmt.Errorf("hook %s: %w", hook, snapErr)
+		s.markInvalid(wrapped)
 		s.worker.terminate()
 
-		return fmt.Errorf("hook %s: %w", hook, snapErr)
+		return wrapped
 	}
 	if err != nil {
+		wrapped := fmt.Errorf("hook %s: %w", hook, err)
 		if !s.worker.alive() {
-			s.invalid = true
+			s.markInvalid(wrapped)
 		}
 
-		return fmt.Errorf("hook %s: %w", hook, err)
+		return wrapped
 	}
 
 	return nil
+}
+
+// markInvalid records the first reason the worker became unusable. The caller
+// holds execMu.
+func (s *pluginState) markInvalid(reason error) {
+	s.invalid = true
+	if s.failureReason == nil {
+		s.failureReason = reason
+	}
 }
 
 // shutdown runs the OnShutdown hook of the plugin exactly once and reclaims its
@@ -597,6 +741,7 @@ func (s *pluginState) shutdown(ctx context.Context, payload []byte) error {
 		return nil
 	}
 	s.closed = true
+	s.stopped.Store(true)
 
 	if s.invalid || s.worker == nil {
 		if s.worker != nil {
@@ -622,6 +767,7 @@ func (s *pluginState) abort() {
 		return
 	}
 	s.closed = true
+	s.stopped.Store(true)
 	s.invalid = true
 
 	if s.worker != nil {

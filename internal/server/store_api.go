@@ -59,8 +59,11 @@ const (
 var (
 	storeSHA256Pattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
 	storeLikeEscaper   = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
-	// errPluginRunning means the plugin is loaded, so its files must not change.
+	// errPluginRunning is kept for callers that still map the old refusal.
 	errPluginRunning = errors.New("plugin is running")
+	// errPluginUpgradeFailed means the new version loaded but failed to start,
+	// so the old version and files were restored.
+	errPluginUpgradeFailed = errors.New("plugin upgrade failed")
 	// pluginFilesMu serializes changes to data/plugins/<id> and their plugins rows.
 	pluginFilesMu sync.Mutex
 )
@@ -437,9 +440,6 @@ type storeInstallResult struct {
 // installItem downloads, verifies and installs item. The plugin stays disabled
 // until an admin enables it.
 func (a *storeAPI) installItem(ctx context.Context, item store.Item, accepted string) (storeInstallResult, error) {
-	if pluginRunning(a.runtime, item.ID) {
-		return storeInstallResult{}, storeFail(http.StatusConflict, "Plugin is running; disable it before installing")
-	}
 	signature := storeSignatureNone
 	if item.Official {
 		signature = storeSignatureOfficial
@@ -492,6 +492,8 @@ func (a *storeAPI) installItem(ctx context.Context, item store.Item, accepted st
 	})
 	if err != nil {
 		switch {
+		case errors.Is(err, errPluginUpgradeFailed):
+			return storeInstallResult{}, storeFail(http.StatusConflict, "New version failed to start; the previous version was kept: "+err.Error())
 		case errors.Is(err, errPluginRunning):
 			return storeInstallResult{}, storeFail(http.StatusConflict, "Plugin is running; disable it before installing")
 		case errors.Is(err, errPluginRecoveryPending):
@@ -505,7 +507,7 @@ func (a *storeAPI) installItem(ctx context.Context, item store.Item, accepted st
 	}
 
 	bumpPluginExtensionGeneration()
-	return storeInstallResult{ID: written.ID, Version: written.Version, PreviousVersion: written.PreviousVersion, Enabled: false}, nil
+	return storeInstallResult{ID: written.ID, Version: written.Version, PreviousVersion: written.PreviousVersion, Enabled: written.Enabled}, nil
 }
 
 type storeUpdateRequest struct {
@@ -651,7 +653,7 @@ func (a *storeAPI) installURL(c echo.Context) error {
 	permissions := plugin.ManifestPermissionNames(meta)
 	permissionsHash := plugin.PermissionNamesHash(permissions)
 	if c.QueryParam("dry") == "1" {
-		return c.JSON(http.StatusOK, map[string]any{"id": meta.ID, "version": meta.Version, "permissions": permissions, "permissions_hash": permissionsHash, "sha256": archive.sha256})
+		return c.JSON(http.StatusOK, map[string]any{"id": meta.ID, "name": meta.Name, "version": meta.Version, "permissions": permissions, "permissions_hash": permissionsHash, "extensions": pluginPreviewExtensions(meta), "sha256": archive.sha256})
 	}
 	previewSHA256 := strings.ToLower(strings.TrimSpace(req.PreviewSHA256))
 	if previewSHA256 == "" {
@@ -664,6 +666,8 @@ func (a *storeAPI) installURL(c echo.Context) error {
 	res, err := installPluginFile(ctx, a.runtime, archive.path, pluginFileInstall{Source: storeSourceURL, Signature: storeSignatureNone, Want: plugin.ArchiveExpectation{ID: meta.ID, Version: meta.Version, PermissionsHash: permissionsHash}})
 	if err != nil {
 		switch {
+		case errors.Is(err, errPluginUpgradeFailed):
+			return infraError(c, http.StatusConflict, "New version failed to start; the previous version was kept: "+err.Error())
 		case errors.Is(err, errPluginRunning):
 			return infraError(c, http.StatusConflict, "Plugin is running; disable it before installing")
 		case errors.Is(err, errPluginRecoveryPending):
@@ -743,29 +747,203 @@ type pluginFileResult struct {
 }
 
 // installPluginFile replaces data/plugins/<id> with the archive and records the
-// plugins row. A running plugin is refused with errPluginRunning, and nothing on
-// disk changes. A new row starts disabled.
+// plugins row. A loaded plugin is upgraded in place; an unloaded one is
+// installed with nothing running and a new row starts disabled.
 func installPluginFile(ctx context.Context, runtime *plugin.Runtime, zipPath string, in pluginFileInstall) (pluginFileResult, error) {
 	meta, err := plugin.InspectArchive(zipPath)
 	if err != nil {
 		return pluginFileResult{}, err
 	}
-	if pluginRunning(runtime, meta.ID) {
-		return pluginFileResult{}, errPluginRunning
-	}
-	var result pluginFileResult
+	var (
+		result     pluginFileResult
+		installErr error
+	)
 	err = withPluginInstallLock(ctx, meta.ID, func() error {
 		if pluginRunning(runtime, meta.ID) {
-			return errPluginRunning
+			result, installErr = upgradePluginFileLocked(ctx, runtime, zipPath, in, meta.ID)
+			return installErr
 		}
 		stamp, err := newPluginCommitStamp(ctx, meta.ID)
 		if err != nil {
 			return err
 		}
-		result, err = installPluginFileLocked(ctx, zipPath, in, stamp)
-		return err
+		result, installErr = installPluginFileLocked(ctx, zipPath, in, stamp)
+		return installErr
 	})
 	return result, err
+}
+
+const (
+	// pluginUpgradeTimeout bounds one hot upgrade, including the reload that
+	// starts the new version.
+	pluginUpgradeTimeout = 30 * time.Second
+	// pluginUpgradeRestoreTimeout bounds putting back the row and files of the
+	// previous version. It never follows the request context.
+	pluginUpgradeRestoreTimeout = 10 * time.Second
+)
+
+// upgradePluginFileLocked swaps the files and the row of a loaded plugin, then
+// reloads it from the new directory. A failed reload restores both. The request
+// context is detached because an interrupted upgrade must still finish or roll
+// back consistently.
+func upgradePluginFileLocked(ctx context.Context, runtime *plugin.Runtime, zipPath string, in pluginFileInstall, id string) (pluginFileResult, error) {
+	upgradeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), pluginUpgradeTimeout)
+	defer cancel()
+
+	staged, err := plugin.StageArchive(zipPath, pluginDirRoot, in.Want)
+	if err != nil {
+		return pluginFileResult{}, err
+	}
+	defer staged.Cleanup()
+	installed, err := plugin.ReadManifest(staged.Stage)
+	if err != nil {
+		return pluginFileResult{}, fmt.Errorf("read staged manifest: %w", err)
+	}
+	if installed.ID != id {
+		return pluginFileResult{}, fmt.Errorf("staged plugin identity changed")
+	}
+	permissionsHash := plugin.PermissionNamesHash(plugin.ManifestPermissionNames(installed))
+	stamp, err := newPluginCommitStamp(upgradeCtx, id)
+	if err != nil {
+		return pluginFileResult{}, err
+	}
+	before, err := readPluginUpgradeRow(upgradeCtx, id)
+	if err != nil {
+		return pluginFileResult{}, err
+	}
+	j, err := commitPluginArchive(staged, installed.Version, permissionsHash, stamp)
+	if err != nil {
+		return pluginFileResult{}, errors.Join(fmt.Errorf("activate plugin files: %w", err), rollbackPluginArchive(j))
+	}
+
+	previous, err := writePluginRow(upgradeCtx, pluginRowWrite{
+		ID:              id,
+		Version:         installed.Version,
+		Source:          in.Source,
+		Signature:       in.Signature,
+		PermissionsHash: permissionsHash,
+		CommitStamp:     stamp,
+		EnableOnInsert:  true,
+	})
+	if err != nil {
+		committed, checkErr := pluginInstallRowCommitted(upgradeCtx, id, installed.Version, permissionsHash, stamp, j.TreeSHA256)
+		switch {
+		case checkErr == nil && committed:
+			previous = before.Version
+		case checkErr == nil:
+			// The row was not written, so the journal can be removed safely.
+			return pluginFileResult{}, errors.Join(fmt.Errorf("record plugin %s: %w", id, err), rollbackPluginArchive(j))
+		default:
+			// The row state is unknown. The journal stays, so startup recovery
+			// decides from the plugins row.
+			return pluginFileResult{}, errors.Join(fmt.Errorf("record plugin %s: %w", id, err), fmt.Errorf("verify plugin row commit: %w", checkErr))
+		}
+	}
+
+	if err := runtime.ReloadForID(upgradeCtx, id, filepath.Join(pluginDirRoot, id)); err != nil {
+		pluginExtensionLog(id, "error", err.Error())
+		if restoreErr := restoreFailedPluginUpgrade(id, before, installed.Version, j); restoreErr != nil {
+			return pluginFileResult{}, restoreErr
+		}
+
+		return pluginFileResult{}, fmt.Errorf("%w: %v", errPluginUpgradeFailed, err)
+	}
+	if cleanupErr := finishPluginArchiveCommit(j); cleanupErr != nil {
+		log.Printf("plugin %s: post-upgrade cleanup deferred: %v", id, cleanupErr)
+	}
+	bumpPluginExtensionGeneration()
+
+	enabled := true
+	if before.Exists {
+		enabled = before.Enabled
+	}
+
+	return pluginFileResult{ID: id, Version: installed.Version, PreviousVersion: previous, Enabled: enabled}, nil
+}
+
+type pluginUpgradeRow struct {
+	Exists          bool
+	Enabled         bool
+	Version         string
+	Source          string
+	Signature       string
+	PermissionsHash string
+	PreviousVersion *string
+	UpdatedAt       time.Time
+}
+
+func readPluginUpgradeRow(ctx context.Context, id string) (pluginUpgradeRow, error) {
+	var rows []struct {
+		Enabled         bool      `gorm:"column:enabled"`
+		Version         string    `gorm:"column:version"`
+		Source          string    `gorm:"column:source"`
+		Signature       string    `gorm:"column:signature"`
+		PermissionsHash string    `gorm:"column:permissions_granted_hash"`
+		PreviousVersion *string   `gorm:"column:previous_version"`
+		UpdatedAt       time.Time `gorm:"column:updated_at"`
+	}
+	if err := data.DB.WithContext(ctx).Raw(`SELECT enabled, version, source, signature, permissions_granted_hash, previous_version, updated_at FROM plugins WHERE id = ?`, id).Scan(&rows).Error; err != nil {
+		return pluginUpgradeRow{}, err
+	}
+	if len(rows) == 0 {
+		return pluginUpgradeRow{}, nil
+	}
+
+	return pluginUpgradeRow{
+		Exists:          true,
+		Enabled:         rows[0].Enabled,
+		Version:         rows[0].Version,
+		Source:          rows[0].Source,
+		Signature:       rows[0].Signature,
+		PermissionsHash: rows[0].PermissionsHash,
+		PreviousVersion: rows[0].PreviousVersion,
+		UpdatedAt:       rows[0].UpdatedAt,
+	}, nil
+}
+
+func restorePluginUpgradeRow(ctx context.Context, id string, row pluginUpgradeRow) error {
+	if !row.Exists {
+		return data.DB.WithContext(ctx).Exec(`DELETE FROM plugins WHERE id = ?`, id).Error
+	}
+
+	return data.DB.WithContext(ctx).Exec(`UPDATE plugins SET version = ?, source = ?, signature = ?, permissions_granted_hash = ?, previous_version = ?, updated_at = ? WHERE id = ?`,
+		row.Version, row.Source, row.Signature, row.PermissionsHash, row.PreviousVersion, row.UpdatedAt, id).Error
+}
+
+// restoreFailedPluginUpgrade puts back the row and then the files of a loaded
+// plugin whose new version failed to reload. The row goes first: rollbackPluginArchive
+// deletes the journal, and startup recovery cannot repair a row that disagrees
+// with the files after that. When the row cannot be restored the files are left
+// alone and the journal stays. A failure is logged with the row and file versions
+// that step leaves behind.
+func restoreFailedPluginUpgrade(id string, before pluginUpgradeRow, newVersion string, j pluginInstallJournal) error {
+	ctx, cancel := context.WithTimeout(context.Background(), pluginUpgradeRestoreTimeout)
+	defer cancel()
+
+	oldVersion := "none"
+	if before.Exists {
+		oldVersion = before.Version
+	}
+
+	if err := restorePluginUpgradeRow(ctx, id, before); err != nil {
+		pluginExtensionLog(id, "error", fmt.Sprintf(
+			"hot upgrade rollback incomplete: restoring the plugins row failed; the row is still version %s and the files are still version %s, the transaction journal is kept for startup recovery: %v",
+			newVersion, newVersion, err,
+		))
+
+		return fmt.Errorf("plugin upgrade rollback incomplete: restore plugin row: %w", err)
+	}
+
+	if err := rollbackPluginArchive(j); err != nil {
+		pluginExtensionLog(id, "error", fmt.Sprintf(
+			"hot upgrade rollback incomplete: the plugins row is restored to version %s, restoring the files failed and they may be version %s or partly restored: %v",
+			oldVersion, newVersion, err,
+		))
+
+		return fmt.Errorf("plugin upgrade rollback incomplete: restore plugin files: %w", err)
+	}
+
+	return nil
 }
 
 func installPluginFileLocked(ctx context.Context, zipPath string, in pluginFileInstall, stamp time.Time) (pluginFileResult, error) {
@@ -861,6 +1039,7 @@ type pluginRowWrite struct {
 	Signature       string
 	PermissionsHash string
 	CommitStamp     time.Time
+	EnableOnInsert  bool
 }
 
 // writePluginRow inserts or updates the plugins row. An existing row keeps its
@@ -877,8 +1056,8 @@ func writePluginRow(ctx context.Context, w pluginRowWrite) (string, error) {
 		}
 		if len(rows) == 0 {
 			return tx.Exec(`INSERT INTO plugins (id, kind, version, source, enabled, signature, permissions_granted_hash, installed_at, updated_at)
-				VALUES (?, 'plugin', ?, ?, FALSE, ?, ?, ?, ?)`,
-				w.ID, w.Version, w.Source, w.Signature, w.PermissionsHash, w.CommitStamp, w.CommitStamp).Error
+				VALUES (?, 'plugin', ?, ?, ?, ?, ?, ?, ?)`,
+				w.ID, w.Version, w.Source, w.EnableOnInsert, w.Signature, w.PermissionsHash, w.CommitStamp, w.CommitStamp).Error
 		}
 		replaced = rows[0].Version
 
@@ -896,6 +1075,17 @@ func writePluginRow(ctx context.Context, w pluginRowWrite) (string, error) {
 	}
 
 	return replaced, nil
+}
+
+// pluginPreviewExtensions lists the extension points a preview offers. It is
+// never nil, so the JSON field is an empty array for a plugin without any.
+func pluginPreviewExtensions(meta plugin.PluginMetadata) []string {
+	points := make([]string, 0, len(meta.Extensions))
+	for _, ext := range meta.Extensions {
+		points = append(points, ext.Point)
+	}
+
+	return points
 }
 
 // pluginRunning reports whether the runtime has id loaded.

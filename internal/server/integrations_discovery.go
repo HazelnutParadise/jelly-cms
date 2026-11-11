@@ -355,7 +355,12 @@ func integrationSuccessSchema(r integrationRoute) map[string]any {
 		return integrationSchemaObject(map[string]any{"message": integrationStringSchema()})
 	}
 	if path == "/plugins" {
-		return integrationCollectionSchema(map[string]any{"type": "object", "properties": map[string]any{"id": integrationStringSchema(), "name": integrationStringSchema(), "version": integrationStringSchema(), "description": integrationStringSchema(), "author": integrationStringSchema()}})
+		return integrationCollectionSchema(map[string]any{"type": "object", "properties": map[string]any{
+			"id": integrationStringSchema(), "name": integrationStringSchema(), "version": integrationStringSchema(),
+			"description": integrationStringSchema(), "author": integrationStringSchema(),
+			"enabled": map[string]any{"type": "boolean"}, "managed": map[string]any{"type": "boolean"},
+			"state": integrationStringSchema(), "last_error": integrationStringSchema(),
+		}})
 	}
 	if path == "/settings" {
 		if r.Method == http.MethodGet {

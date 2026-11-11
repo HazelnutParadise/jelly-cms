@@ -42,6 +42,11 @@ func (m *Runtime) CallExtension(ctx context.Context, pluginID, point string, inp
 	if state == nil {
 		return nil, ErrPluginNotLoaded
 	}
+	// A worker that is restarting or crashed is not loaded for callers. The
+	// supervisor brings the same instance back, but no call waits for that.
+	if !state.worker.alive() {
+		return nil, ErrPluginNotLoaded
+	}
 	if !extensionDeclared(state.meta, point) {
 		return nil, fmt.Errorf("plugin %s does not declare extension point %q", pluginID, point)
 	}
@@ -51,7 +56,13 @@ func (m *Runtime) CallExtension(ctx context.Context, pluginID, point string, inp
 	if err := lockExtensionUntil(ctx, &state.execMu); err != nil {
 		return nil, err
 	}
-	defer state.execMu.Unlock()
+	defer func() {
+		report, reason := state.claimWorkerFailureLocked()
+		state.execMu.Unlock()
+		if report {
+			state.reportFailure(reason)
+		}
+	}()
 
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -76,20 +87,22 @@ func (m *Runtime) CallExtension(ctx context.Context, pluginID, point string, inp
 		Payload:   input,
 	}, remaining)
 	if snapErr := state.applyResponse(frame); snapErr != nil {
-		state.invalid = true
+		state.markInvalid(snapErr)
 		state.worker.terminate()
 		return nil, snapErr
 	}
 	if err != nil {
+		wrapped := fmt.Errorf("call extension %s for plugin %s: %w", point, pluginID, err)
 		if !state.worker.alive() {
-			state.invalid = true
+			state.markInvalid(wrapped)
 		}
-		return nil, fmt.Errorf("call extension %s for plugin %s: %w", point, pluginID, err)
+		return nil, wrapped
 	}
 	if len(frame.Result) == 0 || len(frame.Result) > maxExtensionBytes || !json.Valid(frame.Result) || jsonDepth(frame.Result) > 64 {
-		state.invalid = true
+		resultErr := errors.New("plugin worker returned an invalid or oversized extension result")
+		state.markInvalid(resultErr)
 		state.worker.terminate()
-		return nil, errors.New("plugin worker returned an invalid or oversized extension result")
+		return nil, resultErr
 	}
 	return append(json.RawMessage(nil), frame.Result...), nil
 }

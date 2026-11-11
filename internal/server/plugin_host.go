@@ -40,6 +40,7 @@ var (
 func ConfigurePluginHost(runtime *plugin.Runtime) {
 	setExtensionRuntime(runtime)
 	configurePluginEvents(runtime)
+	installPluginFailureHandler(runtime)
 	notify.SetPluginChannel(notifyPluginChannelProviders)
 	if runtime != nil {
 		runtime.SetHostHandler(handlePluginHostCall)
