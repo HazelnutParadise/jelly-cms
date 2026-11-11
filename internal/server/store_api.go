@@ -829,7 +829,15 @@ func upgradePluginFileLocked(ctx context.Context, runtime *plugin.Runtime, zipPa
 	}
 	j, err := commitPluginArchive(staged, installed.Version, permissionsHash, stamp)
 	if err != nil {
-		return pluginFileResult{}, errors.Join(fmt.Errorf("activate plugin files: %w", err), rollbackPluginArchive(j))
+		activateErr := fmt.Errorf("activate plugin files: %w", err)
+		if rollbackErr := rollbackPluginArchive(j); rollbackErr != nil {
+			// The directory may be half swapped and its journal still needs
+			// recovery, so nothing may restart from it automatically.
+			activateErr = errors.Join(activateErr, rollbackErr)
+			runtime.ForbidRestarts(id, activateErr)
+		}
+
+		return pluginFileResult{}, activateErr
 	}
 
 	previous, err := writePluginRow(upgradeCtx, pluginRowWrite{
@@ -848,7 +856,15 @@ func upgradePluginFileLocked(ctx context.Context, runtime *plugin.Runtime, zipPa
 			previous = before.Version
 		case checkErr == nil:
 			// The row was not written, so the journal can be removed safely.
-			return pluginFileResult{}, errors.Join(fmt.Errorf("record plugin %s: %w", id, err), rollbackPluginArchive(j))
+			recordErr := fmt.Errorf("record plugin %s: %w", id, err)
+			if rollbackErr := rollbackPluginArchive(j); rollbackErr != nil {
+				// The old files are not back, so nothing may restart from this
+				// directory automatically.
+				recordErr = errors.Join(recordErr, rollbackErr)
+				runtime.ForbidRestarts(id, recordErr)
+			}
+
+			return pluginFileResult{}, recordErr
 		default:
 			// The row state is unknown. The journal stays, so startup recovery
 			// decides from the plugins row. A waiting automatic restart must not
