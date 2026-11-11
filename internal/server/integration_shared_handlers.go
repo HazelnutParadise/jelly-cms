@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -139,7 +140,12 @@ func saveThemeSettings(c echo.Context, tm *theme.Manager) error {
 	return c.JSON(200, map[string]string{"message": "Settings saved"})
 }
 func listPlugins(c echo.Context) error {
-	return c.JSON(200, queryPlugins())
+	out, err := queryPlugins()
+	if err != nil {
+		log.Printf("list plugins: %v", err)
+		return c.JSON(500, map[string]string{"error": "Failed to list plugins"})
+	}
+	return c.JSON(200, out)
 }
 
 type pluginListView struct {
@@ -155,12 +161,15 @@ type pluginListView struct {
 }
 
 // queryPlugins reads the metadata and stored state of every plugin under
-// data/plugins. An unreadable directory is an empty list.
-func queryPlugins() []pluginListView {
+// data/plugins. An unreadable directory is an empty list. When data.DB is nil
+// there are no stored rows, so every plugin on disk is reported unmanaged. When
+// the plugins table cannot be read, it returns the error and no items, so a
+// failed read is never reported as enabled and unmanaged plugins.
+func queryPlugins() ([]pluginListView, error) {
 	out := []pluginListView{}
 	entries, err := os.ReadDir("data/plugins")
 	if err != nil {
-		return out
+		return out, nil
 	}
 
 	type storedPlugin struct {
@@ -171,11 +180,10 @@ func queryPlugins() []pluginListView {
 	if data.DB != nil {
 		var rows []storedPlugin
 		if err := data.DB.Table("plugins").Select("id, enabled").Find(&rows).Error; err != nil {
-			log.Printf("list plugins: read stored state: %v", err)
-		} else {
-			for _, row := range rows {
-				stored[row.ID] = row.Enabled
-			}
+			return nil, fmt.Errorf("read stored plugin state: %w", err)
+		}
+		for _, row := range rows {
+			stored[row.ID] = row.Enabled
 		}
 	}
 
@@ -214,7 +222,7 @@ func queryPlugins() []pluginListView {
 		})
 	}
 
-	return out
+	return out, nil
 }
 
 func reloadPlugin(c echo.Context, rt *plugin.Runtime) error {
