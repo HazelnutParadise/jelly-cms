@@ -733,9 +733,15 @@ func (a *pluginDetailAPI) test(c echo.Context) error {
 	}
 	settingsOK := plugin.CheckSettingValues(meta.Settings, stored) == nil
 
+	// Only a running worker is healthy. A plugin that waits for an automatic
+	// restart or stays crashed is reported with its supervisor state.
+	runtimeOK := false
 	runtimeDetail := "not running"
-	if a.loaded(meta.ID) {
-		runtimeDetail = "running"
+	if a.runtime != nil {
+		if status, ok := a.runtime.Status(meta.ID); ok {
+			runtimeDetail = status.State
+			runtimeOK = status.State == plugin.StateRunning
+		}
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
@@ -743,7 +749,7 @@ func (a *pluginDetailAPI) test(c echo.Context) error {
 		"checks": []map[string]any{
 			{"name": "manifest", "ok": true},
 			{"name": "settings", "ok": settingsOK},
-			{"name": "runtime", "ok": a.loaded(meta.ID), "detail": runtimeDetail},
+			{"name": "runtime", "ok": runtimeOK, "detail": runtimeDetail},
 		},
 	})
 }

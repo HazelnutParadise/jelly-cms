@@ -341,11 +341,29 @@
 
     uploadModal.addEventListener('close', resetUploadModal);
 
+    // While an install request is in flight the dialog stays open: the cancel
+    // button, the top-right close button, the backdrop and Esc are blocked, so
+    // the install result is always shown in this dialog. The capture listener
+    // stops the click before the dialog's own close handlers see it.
+    let uploadInstalling = false;
+
     uploadModal.addEventListener('click', (e) => {
+        if (uploadInstalling) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            return;
+        }
         if (e.target.closest('#uploadCancel')) {
             Jelly.closeDialog(uploadModal);
         }
-    });
+    }, true);
+
+    document.addEventListener('keydown', (e) => {
+        if (uploadInstalling && e.key === 'Escape') {
+            e.preventDefault();
+        }
+    }, true);
 
     pluginFile.addEventListener('change', async () => {
         if (!pluginFile.files || !pluginFile.files[0]) {
@@ -455,13 +473,27 @@
 
     uploadFooter.addEventListener('click', async (e) => {
         const installBtn = e.target.closest('#installBtn');
-        if (!installBtn || !currentFile || !currentPreview) return;
+        if (!installBtn || uploadInstalling || !currentFile || !currentPreview) return;
 
         const perms = currentPreview.permissions || [];
         const acceptPerms = document.getElementById('acceptPerms');
         if (perms.length > 0 && acceptPerms && !acceptPerms.hasAttribute('checked')) return;
 
+        // Copy everything the response handler needs now. The dialog can be
+        // reset while the request is in flight, so the handler must not read
+        // currentPreview or currentFile again.
+        const install = {
+            file: currentFile,
+            id: currentPreview.id,
+            name: currentPreview.name || currentPreview.id,
+            permissionsHash: currentPreview.permissions_hash || '',
+            sha256: currentPreview.sha256 || ''
+        };
+        const cancelBtn = uploadFooter.querySelector('#uploadCancel');
+
         installBtn.disabled = true;
+        if (cancelBtn) cancelBtn.disabled = true;
+        uploadInstalling = true;
         uploadStatus.innerHTML = `<div class="alert alert-info" style="margin-top: .75rem;">${escapeHtml(T.uploading)}</div>`;
         isActionInProgress = true;
         listSeq++;
@@ -470,9 +502,9 @@
         // The install sends the exact File the preview was made from, with the
         // hashes that preview reported, so the server can check both.
         const installForm = new FormData();
-        installForm.append('file', currentFile);
-        installForm.append('accept_permissions', currentPreview.permissions_hash || '');
-        installForm.append('sha256', currentPreview.sha256 || '');
+        installForm.append('file', install.file);
+        installForm.append('accept_permissions', install.permissionsHash);
+        installForm.append('sha256', install.sha256);
 
         try {
             const res = await fetch('/api/admin/plugins/upload', {
@@ -484,11 +516,13 @@
             const result = await res.json().catch(() => ({}));
 
             if (res.ok) {
-                const targetId = result.id || currentPreview.id;
+                const targetId = result.id || install.id;
+                uploadInstalling = false;
                 Jelly.closeDialog(uploadModal);
                 resetUploadModal();
                 Jelly.toast(T.uploadSuccess, {
                     kind: 'success',
+                    detail: install.name,
                     action: {
                         label: T.viewDetails,
                         href: `/admin/plugins/${encodeURIComponent(targetId)}`
@@ -506,6 +540,8 @@
             Jelly.toast(T.uploadError, { kind: 'error', detail: err.message });
             installBtn.disabled = false;
         } finally {
+            uploadInstalling = false;
+            if (cancelBtn) cancelBtn.disabled = false;
             isActionInProgress = false;
         }
 

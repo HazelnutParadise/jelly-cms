@@ -124,6 +124,53 @@ func (m *Runtime) HoldRestart(ctx context.Context, id string) (release func(), e
 	}, nil
 }
 
+// ForbidRestarts marks the currently registered instance of a loaded plugin so
+// that it is never restarted automatically: a running worker keeps running, and
+// its next failure goes straight to StateCrashed with reason recorded in the
+// plugin log. The mark belongs to that instance; an admin load, reload or
+// re-enable replaces the instance and clears it. It reports whether a loaded
+// plugin was marked.
+func (m *Runtime) ForbidRestarts(id string, reason error) bool {
+	if reason == nil {
+		reason = errors.New("automatic restart forbidden")
+	}
+
+	m.mu.Lock()
+	state := m.plugins[id]
+	if state == nil || m.closed {
+		m.mu.Unlock()
+
+		return false
+	}
+
+	state.supMu.Lock()
+	state.forbidden = true
+	state.forbidReason = reason.Error()
+	stopped := state.supState == StateRestarting
+	if stopped {
+		// Same as StopRestarts: an automatic restart already installing is
+		// cancelled, and the scheduled one is dropped.
+		if state.restartCancel != nil {
+			state.restartCancel()
+		}
+		state.cancelRestartLocked()
+		state.supState = StateCrashed
+		state.nextRestartAt = time.Time{}
+		state.lastError = reason.Error()
+	}
+	state.supMu.Unlock()
+	m.mu.Unlock()
+
+	if stopped {
+		enqueuePluginLog(id, "error", fmt.Sprintf(
+			"%v; automatic restart stopped, an admin reload or enable is needed to start the plugin again",
+			reason,
+		))
+	}
+
+	return true
+}
+
 // StopRestarts puts a loaded plugin that is waiting for an automatic restart
 // into StateCrashed with reason as its last error: the scheduled restart is
 // cancelled and none is scheduled again until an admin reloads or re-enables
@@ -263,7 +310,9 @@ func (s *pluginState) reportFailure(cause error) {
 	// While an admin install holds the instance the restart is not scheduled
 	// here; releaseAdminHold schedules it when the install ends.
 	held := s.adminOps > 0
-	crashed := threshold <= 0 || faults >= threshold || len(backoff) == 0
+	forbidden := s.forbidden
+	forbidReason := s.forbidReason
+	crashed := forbidden || threshold <= 0 || faults >= threshold || len(backoff) == 0
 	var (
 		delay time.Duration
 		next  time.Time
@@ -294,6 +343,11 @@ func (s *pluginState) reportFailure(cause error) {
 	s.stopEvents()
 
 	switch {
+	case forbidden:
+		enqueuePluginLog(s.id, "error", fmt.Sprintf(
+			"%v; automatic restart stopped: %s",
+			cause, forbidReason,
+		))
 	case crashed:
 		enqueuePluginLog(s.id, "error", fmt.Sprintf(
 			"%v; automatic restart stopped after %d failure(s) within %s",

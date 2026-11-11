@@ -854,7 +854,7 @@ func upgradePluginFileLocked(ctx context.Context, runtime *plugin.Runtime, zipPa
 			// decides from the plugins row. A waiting automatic restart must not
 			// load the directory that may not match that row.
 			unknownErr := errors.Join(fmt.Errorf("record plugin %s: %w", id, err), fmt.Errorf("verify plugin row commit: %w", checkErr))
-			runtime.StopRestarts(id, unknownErr)
+			runtime.ForbidRestarts(id, unknownErr)
 
 			return pluginFileResult{}, unknownErr
 		}
@@ -865,7 +865,7 @@ func upgradePluginFileLocked(ctx context.Context, runtime *plugin.Runtime, zipPa
 		if restoreErr := restoreFailedPluginUpgrade(id, before, installed.Version, j); restoreErr != nil {
 			// The row or the files are not back to the previous version, so a
 			// waiting automatic restart must not load this directory.
-			runtime.StopRestarts(id, restoreErr)
+			runtime.ForbidRestarts(id, restoreErr)
 
 			return pluginFileResult{}, restoreErr
 		}

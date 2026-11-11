@@ -89,6 +89,10 @@ type pluginState struct {
 	// adminOps counts admin installs holding this instance (see holdForAdmin).
 	restartCancel context.CancelFunc
 	adminOps      int
+	// forbidden marks this instance as never restarted automatically (see
+	// ForbidRestarts). forbidReason is the reason logged with its failure.
+	forbidden    bool
+	forbidReason string
 
 	// Event queue of this plugin, see events.go. eventsMu guards the fields
 	// above it; failures and the dispatcher's view are touched only by the
