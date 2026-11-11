@@ -659,6 +659,10 @@ func (a *storeAPI) installURL(c echo.Context) error {
 	if previewSHA256 == "" {
 		previewSHA256 = want
 	}
+	// A preview hash that is given must match the archive that is installed.
+	if previewSHA256 != "" && previewSHA256 != archive.sha256 {
+		return infraError(c, http.StatusConflict, "Preview this exact archive and accept its permissions before installing")
+	}
 	if len(permissions) > 0 && (req.AcceptPermissions != permissionsHash || previewSHA256 != archive.sha256) {
 		return infraError(c, http.StatusConflict, "Preview this exact archive and accept its permissions before installing")
 	}
@@ -847,14 +851,22 @@ func upgradePluginFileLocked(ctx context.Context, runtime *plugin.Runtime, zipPa
 			return pluginFileResult{}, errors.Join(fmt.Errorf("record plugin %s: %w", id, err), rollbackPluginArchive(j))
 		default:
 			// The row state is unknown. The journal stays, so startup recovery
-			// decides from the plugins row.
-			return pluginFileResult{}, errors.Join(fmt.Errorf("record plugin %s: %w", id, err), fmt.Errorf("verify plugin row commit: %w", checkErr))
+			// decides from the plugins row. A waiting automatic restart must not
+			// load the directory that may not match that row.
+			unknownErr := errors.Join(fmt.Errorf("record plugin %s: %w", id, err), fmt.Errorf("verify plugin row commit: %w", checkErr))
+			runtime.StopRestarts(id, unknownErr)
+
+			return pluginFileResult{}, unknownErr
 		}
 	}
 
 	if err := runtime.ReloadForID(upgradeCtx, id, filepath.Join(pluginDirRoot, id)); err != nil {
 		pluginExtensionLog(id, "error", err.Error())
 		if restoreErr := restoreFailedPluginUpgrade(id, before, installed.Version, j); restoreErr != nil {
+			// The row or the files are not back to the previous version, so a
+			// waiting automatic restart must not load this directory.
+			runtime.StopRestarts(id, restoreErr)
+
 			return pluginFileResult{}, restoreErr
 		}
 

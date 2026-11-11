@@ -267,7 +267,12 @@ func (m *Runtime) install(ctx context.Context, dir string, reload bool, expected
 		return errRuntimeClosed
 	}
 	if expectedState != nil {
-		if m.plugins[expectedID] != expectedState {
+		// StopRestarts may have moved the instance to crashed while this
+		// candidate was starting; an automatic restart must not undo that.
+		expectedState.supMu.Lock()
+		stillRestarting := expectedState.supState == StateRestarting
+		expectedState.supMu.Unlock()
+		if m.plugins[expectedID] != expectedState || !stillRestarting {
 			m.mu.Unlock()
 			worker.terminate()
 

@@ -304,7 +304,7 @@ func (a *pluginDetailAPI) enableLocked(c echo.Context) error {
 
 	if err := data.DB.Exec(`UPDATE plugins SET enabled = TRUE, updated_at = now() WHERE id = ?`, row.ID).Error; err != nil {
 		if startedHere {
-			_ = a.runtime.Unload(ctx, row.ID)
+			_ = unloadDetached(ctx, a.runtime, row.ID)
 		}
 
 		return pluginFailure(c, err)
@@ -313,6 +313,19 @@ func (a *pluginDetailAPI) enableLocked(c echo.Context) error {
 	syslog.Audit(ctx, pluginActorID(c), "plugin.enable", map[string]any{"plugin": row.ID})
 
 	return c.JSON(http.StatusOK, map[string]any{"id": row.ID, "enabled": true, "loaded": a.loaded(row.ID)})
+}
+
+// pluginUnloadTimeout bounds one unload that follows a committed row change.
+const pluginUnloadTimeout = 10 * time.Second
+
+// unloadDetached unloads a plugin without following the request context. The row
+// change is already committed when this runs, so a cancelled request must not
+// leave the plugin loaded.
+func unloadDetached(ctx context.Context, runtime *plugin.Runtime, id string) error {
+	unloadCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), pluginUnloadTimeout)
+	defer cancel()
+
+	return runtime.Unload(unloadCtx, id)
 }
 
 // disable stores the flag and unloads the plugin. The flag is written first, so
@@ -340,7 +353,7 @@ func (a *pluginDetailAPI) disableLocked(c echo.Context) error {
 	}
 
 	if a.loaded(row.ID) {
-		if err := a.runtime.Unload(ctx, row.ID); err != nil {
+		if err := unloadDetached(ctx, a.runtime, row.ID); err != nil {
 			log.Printf("plugin %s: unload after disable: %v", row.ID, err)
 		}
 	}
@@ -380,7 +393,7 @@ func (a *pluginDetailAPI) uninstallLocked(c echo.Context) error {
 		}
 	}
 	if a.loaded(row.ID) {
-		if err := a.runtime.Unload(ctx, row.ID); err != nil {
+		if err := unloadDetached(ctx, a.runtime, row.ID); err != nil {
 			log.Printf("plugin %s: unload before uninstall: %v", row.ID, err)
 		}
 	}

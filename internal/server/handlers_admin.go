@@ -111,6 +111,11 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		if c.QueryParam("dry") == "1" {
 			return c.JSON(http.StatusOK, map[string]any{"id": meta.ID, "name": meta.Name, "version": meta.Version, "permissions": permissions, "permissions_hash": permissionsHash, "extensions": pluginPreviewExtensions(meta), "sha256": digest})
 		}
+		// A hash the admin previewed must match the archive that is installed.
+		// A legacy upload without sha256 and without permissions still installs.
+		if sha := strings.ToLower(strings.TrimSpace(c.FormValue("sha256"))); sha != "" && sha != digest {
+			return c.JSON(http.StatusConflict, map[string]string{"error": "Preview this exact archive and accept its permissions before installing"})
+		}
 		if len(permissions) > 0 {
 			if c.FormValue("accept_permissions") != permissionsHash || c.FormValue("sha256") != digest {
 				return c.JSON(http.StatusConflict, map[string]string{"error": "Preview this exact archive and accept its permissions before installing"})

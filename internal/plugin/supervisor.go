@@ -124,6 +124,52 @@ func (m *Runtime) HoldRestart(ctx context.Context, id string) (release func(), e
 	}, nil
 }
 
+// StopRestarts puts a loaded plugin that is waiting for an automatic restart
+// into StateCrashed with reason as its last error: the scheduled restart is
+// cancelled and none is scheduled again until an admin reloads or re-enables
+// the plugin. A plugin that is running, already crashed or not loaded is left
+// alone. It reports whether the state changed.
+func (m *Runtime) StopRestarts(id string, reason error) bool {
+	if reason == nil {
+		reason = errors.New("automatic restart stopped")
+	}
+
+	m.mu.Lock()
+	state := m.plugins[id]
+	if state == nil || m.closed {
+		m.mu.Unlock()
+
+		return false
+	}
+
+	state.supMu.Lock()
+	if state.supState != StateRestarting {
+		state.supMu.Unlock()
+		m.mu.Unlock()
+
+		return false
+	}
+
+	// An automatic restart already installing is cancelled too, so it cannot
+	// bring the plugin back after it was stopped.
+	if state.restartCancel != nil {
+		state.restartCancel()
+	}
+	state.cancelRestartLocked()
+	state.supState = StateCrashed
+	state.nextRestartAt = time.Time{}
+	state.lastError = reason.Error()
+	state.supMu.Unlock()
+	m.mu.Unlock()
+
+	enqueuePluginLog(id, "error", fmt.Sprintf(
+		"%v; automatic restart stopped, an admin reload or enable is needed to start the plugin again",
+		reason,
+	))
+
+	return true
+}
+
 // SetRecoveryHandler registers fn, called outside the runtime locks after an
 // automatic restart replaced a failed worker and the plugin runs again. It is
 // not called for admin installs or for failures.
