@@ -347,6 +347,16 @@
     // stops the click before the dialog's own close handlers see it.
     let uploadInstalling = false;
 
+    // The layout's Esc handler runs on window before any listener here, so the
+    // dialog itself is locked: a locked dialog ignores Esc, the backdrop and
+    // the close button (see Jelly.dialog in layout.html).
+    function setUploadInstalling(on) {
+        uploadInstalling = on;
+        uploadModal.toggleAttribute('data-jelly-locked', on);
+        const close = uploadModal.shadowRoot && uploadModal.shadowRoot.querySelector('.close');
+        if (close) close.hidden = on;
+    }
+
     uploadModal.addEventListener('click', (e) => {
         if (uploadInstalling) {
             e.preventDefault();
@@ -493,7 +503,7 @@
 
         installBtn.disabled = true;
         if (cancelBtn) cancelBtn.disabled = true;
-        uploadInstalling = true;
+        setUploadInstalling(true);
         uploadStatus.innerHTML = `<div class="alert alert-info" style="margin-top: .75rem;">${escapeHtml(T.uploading)}</div>`;
         isActionInProgress = true;
         listSeq++;
@@ -517,7 +527,7 @@
 
             if (res.ok) {
                 const targetId = result.id || install.id;
-                uploadInstalling = false;
+                setUploadInstalling(false);
                 Jelly.closeDialog(uploadModal);
                 resetUploadModal();
                 Jelly.toast(T.uploadSuccess, {
@@ -540,7 +550,7 @@
             Jelly.toast(T.uploadError, { kind: 'error', detail: err.message });
             installBtn.disabled = false;
         } finally {
-            uploadInstalling = false;
+            setUploadInstalling(false);
             if (cancelBtn) cancelBtn.disabled = false;
             isActionInProgress = false;
         }
