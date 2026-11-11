@@ -39,7 +39,7 @@
         <div class="label">{{.T.plugins}}</div>
         <h2>{{.T.uploadPluginTitle}}</h2>
     </div>
-    <div id="uploadBody">
+    <form id="uploadForm" onsubmit="return false">
         <div class="form-group" id="uploadFileGroup">
             <label for="pluginFile">{{.T.pluginZipFile}}</label>
             <input type="file" id="pluginFile" accept=".zip" required>
@@ -50,7 +50,7 @@
         <div class="modal-footer" id="uploadFooter" style="margin-top: 1.25rem;">
             <button type="button" class="btn btn-text" id="uploadCancel"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>{{.T.cancel}}</button>
         </div>
-    </div>
+    </form>
 </jelly-dialog>
 {{end}}
 {{define "scripts"}}
@@ -196,6 +196,15 @@
                     if (state === 'crashed') {
                         actionsHtml = `
                             <button class="btn btn-primary btn-sm" type="button" data-action="reload" data-id="${escapeHtml(plugin.id)}">
+                                <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>${escapeHtml(T.retry)}
+                            </button>
+                            <button class="btn btn-secondary btn-sm" type="button" data-action="disable" data-id="${escapeHtml(plugin.id)}">
+                                ${escapeHtml(T.disable)}
+                            </button>
+                        `;
+                    } else if (state === 'stopped') {
+                        actionsHtml = `
+                            <button class="btn btn-primary btn-sm" type="button" data-action="enable" data-id="${escapeHtml(plugin.id)}">
                                 <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>${escapeHtml(T.retry)}
                             </button>
                             <button class="btn btn-secondary btn-sm" type="button" data-action="disable" data-id="${escapeHtml(plugin.id)}">

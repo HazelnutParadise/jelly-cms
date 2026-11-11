@@ -101,6 +101,29 @@ func (m *Runtime) SetFailureHandler(fn func(id string, status PluginStatus)) {
 	m.mu.Unlock()
 }
 
+// HoldRestart stops automatic restarts of a loaded plugin until release is
+// called: it cancels a scheduled restart and waits for one already installing.
+// A caller that replaces the plugin's files holds it first, so the supervisor
+// cannot load a half-swapped directory. release is never nil and is safe to
+// call once; a plugin that is not loaded yields a no-op release.
+func (m *Runtime) HoldRestart(ctx context.Context, id string) (release func(), err error) {
+	held, err := m.holdForAdmin(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if held == nil {
+		return func() {}, nil
+	}
+
+	var once sync.Once
+
+	return func() {
+		once.Do(func() {
+			m.releaseAdminHold(held)
+		})
+	}, nil
+}
+
 // SetRecoveryHandler registers fn, called outside the runtime locks after an
 // automatic restart replaced a failed worker and the plugin runs again. It is
 // not called for admin installs or for failures.

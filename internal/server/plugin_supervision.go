@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"log"
+	"sync"
 
 	"github.com/HazelnutParadise/jelly-cms/internal/data"
 	"github.com/HazelnutParadise/jelly-cms/internal/notify"
@@ -83,4 +84,49 @@ func pluginStatusView(enabled bool, runtime *plugin.Runtime, id string) (string,
 	}
 
 	return pluginStateStopped, status
+}
+
+// pluginUpgradeGrants maps a plugin id to the permissions hash approved before
+// a hot upgrade wrote the new one. While the upgrade runs, the old worker still
+// serves host calls and must keep the approval it was started with.
+var pluginUpgradeGrants = struct {
+	sync.Mutex
+	hashes map[string]string
+}{hashes: make(map[string]string)}
+
+// registerPluginUpgradeGrant records the approved hash of the row before an
+// upgrade writes the new one. Pair it with unregisterPluginUpgradeGrant.
+func registerPluginUpgradeGrant(id, hash string) {
+	if id == "" || hash == "" {
+		return
+	}
+
+	pluginUpgradeGrants.Lock()
+	defer pluginUpgradeGrants.Unlock()
+
+	pluginUpgradeGrants.hashes[id] = hash
+}
+
+// unregisterPluginUpgradeGrant removes the upgrade grant of id.
+func unregisterPluginUpgradeGrant(id string) {
+	pluginUpgradeGrants.Lock()
+	defer pluginUpgradeGrants.Unlock()
+
+	delete(pluginUpgradeGrants.hashes, id)
+}
+
+// pluginUpgradeAcceptsGrant reports whether an upgrade in progress registered
+// hash for id, so a caller whose manifest hashes to exactly that value may use
+// host calls even though the row already holds the new approval.
+func pluginUpgradeAcceptsGrant(id, hash string) bool {
+	if hash == "" {
+		return false
+	}
+
+	pluginUpgradeGrants.Lock()
+	defer pluginUpgradeGrants.Unlock()
+
+	granted, ok := pluginUpgradeGrants.hashes[id]
+
+	return ok && granted == hash
 }

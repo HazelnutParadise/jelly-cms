@@ -811,6 +811,18 @@ func upgradePluginFileLocked(ctx context.Context, runtime *plugin.Runtime, zipPa
 	if err != nil {
 		return pluginFileResult{}, err
 	}
+	// Keep the running worker from restarting onto the new files while they are
+	// swapped, and let the old worker keep the approval it started with until
+	// the reload finishes.
+	release, err := runtime.HoldRestart(upgradeCtx, id)
+	if err != nil {
+		return pluginFileResult{}, err
+	}
+	defer release()
+	if before.Exists {
+		registerPluginUpgradeGrant(id, before.PermissionsHash)
+		defer unregisterPluginUpgradeGrant(id)
+	}
 	j, err := commitPluginArchive(staged, installed.Version, permissionsHash, stamp)
 	if err != nil {
 		return pluginFileResult{}, errors.Join(fmt.Errorf("activate plugin files: %w", err), rollbackPluginArchive(j))

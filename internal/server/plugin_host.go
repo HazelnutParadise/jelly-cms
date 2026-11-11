@@ -134,7 +134,10 @@ func requirePluginHostPermission(ctx context.Context, db *gorm.DB, meta plugin.P
 		return fmt.Errorf("plugin permission denied: %s", name)
 	}
 	expected := plugin.PermissionNamesHash(plugin.ManifestPermissionNames(meta))
-	if row.Granted == "" || row.Granted != expected {
+	if row.Granted == "" {
+		return fmt.Errorf("plugin permission approval is stale: %s", name)
+	}
+	if row.Granted != expected && !pluginUpgradeAcceptsGrant(meta.ID, expected) {
 		return fmt.Errorf("plugin permission approval is stale: %s", name)
 	}
 	return nil
