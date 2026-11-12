@@ -1,6 +1,6 @@
 package server
 
-// Ticket 08b (docs/tickets/08-system.md): URL settings, per-page counts, feed
+// Ticket 08b (ticket 8): URL settings, per-page counts, feed
 // modes, home mode, reserved slugs and the slug strategy. The contract is the
 // 「閱讀與網址」 bullet and the 選項鍵 list. These tests are written before the
 // implementation: they fail with 501 or missing behaviour until 08b lands. Do not

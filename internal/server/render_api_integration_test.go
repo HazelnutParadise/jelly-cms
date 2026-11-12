@@ -1,6 +1,6 @@
 package server
 
-// Ticket 09 render API contract (docs/tickets/09-editor.md, API table, 錯誤與邊界):
+// Ticket 09 render API contract (ticket 9, API table, 錯誤與邊界):
 //
 //	POST /api/admin/render {source, post_id?, mode: fragment|page, sourcemap, expand}
 //	GET  /api/admin/render/schema

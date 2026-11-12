@@ -1,6 +1,6 @@
 package assetcheck
 
-// Consistency acceptance tests for ticket 26 slot 26-B (docs/tickets/26-jelly-ui-consistency.md): every
+// Consistency acceptance tests for ticket 26 slot 26-B (ticket 26): every
 // selection and switch control in the admin is a Jelly UI element, every notification is a Jelly toast,
 // every general dialog is a <jelly-dialog>, while text inputs, buttons, navigation tabs and the ⌘K
 // palette stay the project's own. They read the admin template, script and style sources, so they need no

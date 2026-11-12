@@ -1,6 +1,6 @@
 package server
 
-// Jelly UI adoption acceptance tests for ticket 12 slots Z3 to Z6 (docs/tickets/12-zero-cdn-jelly-ui.md):
+// Jelly UI adoption acceptance tests for ticket 12 slots Z3 to Z6 (ticket 12):
 // the admin layout loads the vendored Jelly UI module, the settings booleans and the posts status filter
 // render as Jelly UI elements, and no other page loads Jelly UI. They run through the real route table
 // against the dedicated PostgreSQL database and are skipped unless JELLY_TEST_POSTGRES=1. Most of them are

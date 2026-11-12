@@ -29,7 +29,7 @@ import (
 )
 
 // Shared fixtures for the account self-service and devices acceptance tests
-// (docs/tickets/06-accounts.md, sections S1 to S13 and A1 to A10).
+// (ticket 6, sections S1 to S13 and A1 to A10).
 
 const acctPassword = "account-test-password-1"
 

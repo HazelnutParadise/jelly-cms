@@ -1,4 +1,4 @@
--- Signed-in devices (docs/tickets/06-accounts.md, 資料表 login_sessions).
+-- Signed-in devices (ticket 6, 資料表 login_sessions).
 -- id is hashLoginID(jti), the same value stored in revoked_logins.id; the raw jti is never stored.
 
 CREATE TABLE IF NOT EXISTS login_sessions (

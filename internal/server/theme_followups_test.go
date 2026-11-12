@@ -1,6 +1,6 @@
 package server
 
-// File and CSS checks for ticket 10 (docs/tickets/10-theme-followups.md), issue #28. They need no database.
+// File and CSS checks for ticket 10 (ticket 10), issue #28. They need no database.
 // Slots: 10-C (theme CSS: items 4, 6, 7 text color of <mark>, 11) and 10-E (fonts: item 10; locale keys:
 // items 1 and 3). The CSS helpers at the top are also used by theme_followups_integration_test.go.
 //

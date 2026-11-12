@@ -1,4 +1,4 @@
-// WebMCP browser acceptance for ticket 13 (docs/tickets/13-webmcp.md, slot W6).
+// WebMCP browser acceptance for ticket 13 (ticket 13, slot W6).
 //
 // Runs against a real, installed Jelly CMS server with the default theme active. It logs in as an admin
 // through the API, seeds its own posts (one public, one draft, one private) and drives Chromium with fake

@@ -16,7 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Administrator user management acceptance (docs/tickets/06-accounts.md, A1 to
+// Administrator user management acceptance (ticket 6, A1 to
 // A10). Fixtures and request helpers live in account_profile_integration_test.go.
 
 type usersAdminListBody struct {

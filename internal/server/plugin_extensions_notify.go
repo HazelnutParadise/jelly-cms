@@ -1,6 +1,6 @@
 package server
 
-// notify.channel (docs/tickets/29-plugin-read-api-and-extensions.md, PR B):
+// notify.channel (ticket 29, PR B):
 // plugin notifiers. notify.Emit queues one notification_deliveries row per
 // active provider (channel "plugin", to_address = plugin id) and the
 // notifications.deliver job hands each row to deliverPluginNotification

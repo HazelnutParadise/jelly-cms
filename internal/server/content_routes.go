@@ -6,7 +6,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Content organisation (docs/tickets/04-content-organization.md).
+// Content organisation (ticket 4).
 //
 // Roles: admin and editor manage categories, tags, menus, comments and the
 // recycle bin. Authors read taxonomy (to assign terms to their own posts),

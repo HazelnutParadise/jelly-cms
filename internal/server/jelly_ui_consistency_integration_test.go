@@ -1,6 +1,6 @@
 package server
 
-// Jelly UI consistency acceptance tests for ticket 26 slot 26-B (docs/tickets/26-jelly-ui-consistency.md):
+// Jelly UI consistency acceptance tests for ticket 26 slot 26-B (ticket 26):
 // every admin page an administrator opens renders its switches, value choices, checkboxes, radios and
 // dialogs as Jelly UI elements, keeps the ids, names, values and defaults the page scripts and the server
 // rely on, and renders none of the hand-made or native controls ticket 26 removes. They run through the

@@ -1,7 +1,7 @@
 package server
 
 // Maintenance-mode integration tests for ticket 05 slot B3 (public theme). The contract is the 契約 section
-// of docs/tickets/05-public-theme.md and the header comment of maintenance.go. They are written before the
+// of ticket 5 and the header comment of maintenance.go. They are written before the
 // gate is implemented and are expected to fail: public pages still answer 200 while maintenance is on.
 // Do not edit them to match an implementation. Fixtures are seeded directly into the isolated PostgreSQL
 // database; the behavior under test always goes through HTTP. Run with JELLY_TEST_POSTGRES=1, otherwise the

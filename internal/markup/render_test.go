@@ -1,6 +1,6 @@
 package markup
 
-// Render contract tests (docs/tickets/09-editor.md, 語法表, 錯誤與邊界). They are written before the
+// Render contract tests (ticket 9, 語法表, 錯誤與邊界). They are written before the
 // renderer exists and are expected to fail against the skeleton. Do not edit them to match an
 // implementation.
 //

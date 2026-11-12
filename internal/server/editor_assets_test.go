@@ -1,6 +1,6 @@
 package server
 
-// Ticket 09 asset contract (docs/tickets/09-editor.md, 前端與資產; AGENTS.md on external assets). These are
+// Ticket 09 asset contract (ticket 9, 前端與資產; AGENTS.md on external assets). These are
 // file checks with no database. The editor and the theme ship their own CodeMirror, KaTeX, and motion and
 // component scripts, the templates load nothing from an external URL, and marked.min.js is gone. Written
 // before the assets exist and expected to fail until they are vendored. Do not edit them to match an

@@ -1,6 +1,6 @@
 package server
 
-// WebMCP integration tests for ticket 13 (docs/tickets/13-webmcp.md). Run with
+// WebMCP integration tests for ticket 13 (ticket 13). Run with
 // JELLY_TEST_POSTGRES=1; the harness skips otherwise.
 //
 // Fixtures live in testdata/webmcp: plugins/webmcp-fixture (a manifest with valid and invalid webmcp_tools

@@ -69,7 +69,7 @@ node design/tools/shot.mjs Main Posts EditorFull
 
 ## Jelly UI 元件對照（界線）
 
-後台依「控制項的種類」劃線，同一類在整個後台只有一種長相與一種實作；界線的決定與理由在 `docs/tickets/26-jelly-ui-consistency.md`。前台、登入、安裝與帳號復原頁不用 Jelly UI，板上維持自家樣子。
+後台依「控制項的種類」劃線，同一類在整個後台只有一種長相與一種實作；界線的決定與理由在 工單 26。前台、登入、安裝與帳號復原頁不用 Jelly UI，板上維持自家樣子。
 
 | 類別 | 在板上的樣子 | 程式用什麼 |
 |---|---|---|

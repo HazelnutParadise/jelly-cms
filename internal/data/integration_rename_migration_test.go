@@ -13,7 +13,7 @@ import (
 )
 
 // Acceptance test for migration 0027_integration_rename.sql
-// (docs/tickets/25-integration-internal-rename.md, 25a 內部). The migration
+// (ticket 25, 25a 內部). The migration
 // renames the agent tables, columns, constraints, indexes, trigger, function
 // and sequences to integration, rewrites the audit history, widens
 // integration_events.actor_type and drops api_tokens.

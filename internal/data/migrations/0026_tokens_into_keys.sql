@@ -1,4 +1,4 @@
--- Ticket 22 (docs/tickets/22-api-keys-consolidation.md, 資料：遷移 0026).
+-- Ticket 22 (ticket 22, 資料：遷移 0026).
 -- Every personal API token (api_tokens) becomes one agent and one agent key.
 -- Idempotent: a token whose hash already exists in agent_keys is skipped, so a
 -- rerun adds nothing. api_tokens is kept; the program stops reading it and a

@@ -1,6 +1,6 @@
 package assetcheck
 
-// Adoption acceptance tests for ticket 12 slots Z3 to Z6 (docs/tickets/12-zero-cdn-jelly-ui.md): which
+// Adoption acceptance tests for ticket 12 slots Z3 to Z6 (ticket 12): which
 // templates load Jelly UI and which controls become Jelly UI elements. They read the template sources, so
 // they need no database; the rendered-page checks are in internal/server/jelly_ui_integration_test.go.
 // These tests are expected to fail now: no template uses Jelly UI yet. Do not edit them to match an

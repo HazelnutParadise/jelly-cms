@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-// Two-step verification (docs/tickets/06-accounts.md, D6).
+// Two-step verification (ticket 6, D6).
 const (
 	// totpStep is the time slice of one code (RFC 6238, 30 seconds).
 	totpStep = 30 * time.Second

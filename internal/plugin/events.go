@@ -9,7 +9,7 @@ import (
 	"unicode/utf8"
 )
 
-// Event queue, hook snapshots and the log sink (docs/tickets/28-plugin-events.md).
+// Event queue, hook snapshots and the log sink (ticket 28).
 //
 // Emit is the site's non-blocking entry point: HTTP handlers never wait for a
 // plugin. Every plugin that registered the hook (and passes the event filter)

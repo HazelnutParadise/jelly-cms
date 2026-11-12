@@ -1,6 +1,6 @@
 package server
 
-// Integration tests for ticket 10 (docs/tickets/10-theme-followups.md), the follow-ups of issue #28 on the
+// Integration tests for ticket 10 (ticket 10), the follow-ups of issue #28 on the
 // public theme of ticket 05. Slots: 10-A search (items 1, 2), 10-B 404 text (item 3), 10-C post navigation
 // (item 4), 10-D maintenance path (item 8), 10-E fonts and HEAD (items 10, 13), 10-F list/page markup
 // (items 5, 12). Run with JELLY_TEST_POSTGRES=1; the harness skips otherwise.

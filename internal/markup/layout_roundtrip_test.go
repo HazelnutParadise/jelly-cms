@@ -1,6 +1,6 @@
 package markup
 
-// Layout mode contract (docs/tickets/09-editor.md, G3 版面模式, 語法表). The editor reads Block line
+// Layout mode contract (ticket 9, G3 版面模式, 語法表). The editor reads Block line
 // ranges from Render, moves a block by cutting its source lines and pasting them after another block,
 // and rewrites only the opener line of a container. These tests check those three guarantees. They are
 // written before the renderer exists and are expected to fail against the skeleton. Do not edit them to

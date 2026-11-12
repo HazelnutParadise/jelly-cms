@@ -23,7 +23,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Plugin detail API (docs/tickets/08-system.md, 08d). Plugin files live in
+// Plugin detail API (ticket 8, 08d). Plugin files live in
 // data/plugins/<id>; the state (enabled flag, settings, snapshots, extension
 // bindings) lives in the tables created by migration 0021.
 //

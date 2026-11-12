@@ -1,7 +1,7 @@
 package server
 
 // Maintenance-mode payment callback integration tests for ticket 35
-// (docs/tickets/35-maintenance-payment-callbacks.md). The contract is that, while maintenance is on, the three
+// (ticket 35). The contract is that, while maintenance is on, the three
 // payment callback routes stay reachable: POST /api/payment/:gateway/notify, POST /api/payment/:gateway/callback
 // and GET /api/payment/:gateway/return. Signed notifications must keep marking orders paid, a bad signature must
 // still be rejected with 400, and every other anonymous API must keep answering 503.

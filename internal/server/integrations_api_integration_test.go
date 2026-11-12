@@ -1,6 +1,6 @@
 package server
 
-// Acceptance tests for ticket 14 (docs/tickets/14-integration-api.md): the integration-facing API under
+// Acceptance tests for ticket 14 (ticket 14): the integration-facing API under
 // /api/v1. Slots: A3 (key and permission middleware, reused /api/admin handlers, type scoping,
 // base_updated_at version guard, error envelope and request id, settings masking, maintenance bypass),
 // A4 (discovery index and OpenAPI 3.1 document from one route table), A5 (GET /me/events) and A7 (the Integration

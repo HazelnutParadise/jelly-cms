@@ -1,6 +1,6 @@
 package server
 
-// Acceptance tests for ticket 36 R3 (docs/tickets/36-plugin-usability.md):
+// Acceptance tests for ticket 36 R3 (ticket 36):
 // upgrading a loaded plugin in place through the real upload endpoints. A
 // running plugin is not refused, the new version boots with its new permission
 // approval already recorded, a failing new version keeps both the old files and

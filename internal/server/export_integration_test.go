@@ -1,6 +1,6 @@
 package server
 
-// Ticket 09 export contract (docs/tickets/09-editor.md, 匯出規則 and API table):
+// Ticket 09 export contract (ticket 9, 匯出規則 and API table):
 //
 //	GET /api/admin/posts/:id/export?format=jmd|md|html|pdf&images=1&frontmatter=1&history=1
 //

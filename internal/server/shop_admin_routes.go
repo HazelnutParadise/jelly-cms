@@ -10,7 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Admin shop routes (docs/tickets/07-shop.md, 管理 API and 頁面). Product list,
+// Admin shop routes (ticket 7, 管理 API and 頁面). Product list,
 // create, and update routes are registered by handlers_ecommerce.go; this file
 // registers the additional shop administration APIs and pages below.
 //

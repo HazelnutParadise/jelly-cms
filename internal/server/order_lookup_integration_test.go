@@ -1,7 +1,7 @@
 package server
 
 // Order lookup integration tests for ticket 07, section E7 (contract: /orders/lookup, /orders/view and
-// POST /api/orders/lookup, /api/orders/:number/resend in docs/tickets/07-shop.md). They run against the dedicated
+// POST /api/orders/lookup, /api/orders/:number/resend in ticket 7). They run against the dedicated
 // PostgreSQL database and are skipped unless JELLY_TEST_POSTGRES=1. They must fail until the implementation exists.
 // Do not edit them to match an implementation.
 //

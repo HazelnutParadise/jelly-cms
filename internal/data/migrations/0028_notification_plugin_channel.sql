@@ -1,4 +1,4 @@
--- Ticket 29 PR B (docs/tickets/29-plugin-read-api-and-extensions.md): plugin
+-- Ticket 29 PR B (ticket 29): plugin
 -- notifiers queue notification_deliveries rows with channel 'plugin'
 -- (to_address is the plugin id, notification_id is NULL). The channel check
 -- from 0005 only allowed email and webhook; 0005 stays untouched and this

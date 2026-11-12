@@ -1,7 +1,7 @@
 package server
 
 // Admin order integration tests for ticket 07, section E8 (contract: 管理 API for orders, settings and the order
-// state machine in docs/tickets/07-shop.md). They run through /api/admin/* on the dedicated PostgreSQL database and
+// state machine in ticket 7). They run through /api/admin/* on the dedicated PostgreSQL database and
 // are skipped unless JELLY_TEST_POSTGRES=1. They must fail until the implementation exists. Do not edit them to
 // match an implementation.
 //

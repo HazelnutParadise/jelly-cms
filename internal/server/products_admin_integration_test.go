@@ -1,7 +1,7 @@
 package server
 
 // Admin product catalog integration tests for ticket 07, section E2 (contract: 管理 API in
-// docs/tickets/07-shop.md). They run through the real route table against the dedicated PostgreSQL
+// ticket 7). They run through the real route table against the dedicated PostgreSQL
 // database and are skipped unless JELLY_TEST_POSTGRES=1. They are written before the implementation and
 // must fail until it exists: the current /api/admin/products handlers return an unfiltered array, and the
 // product-category, duplicate and variant routes do not exist yet. Do not edit them to match an

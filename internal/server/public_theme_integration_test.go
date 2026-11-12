@@ -1,7 +1,7 @@
 package server
 
 // Public theme integration tests for ticket 05 slices B1 (public scope, home, posts, post, page, about) and
-// B2 (search). The contract is docs/tickets/05-public-theme.md. They are written before the implementation
+// B2 (search). The contract is ticket 5. They are written before the implementation
 // and are expected to fail until the public handlers, search.go, the template functions and the templates
 // follow the contract. Do not edit them to match an implementation. Run with JELLY_TEST_POSTGRES=1; the
 // harness skips otherwise.

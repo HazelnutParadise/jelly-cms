@@ -1,6 +1,6 @@
 package assetcheck
 
-// Zero-CDN scan for ticket 12 slot Z1 (docs/tickets/12-zero-cdn-jelly-ui.md). The table-driven cases pin
+// Zero-CDN scan for ticket 12 slot Z1 (ticket 12). The table-driven cases pin
 // what counts as an external resource load and pass now. TestRepositoryLoadsNoExternalResources scans every
 // .html, .tmpl, .css and .js file under web/, design/ and cmd/ and is expected to fail until the design
 // boards stop loading Google Fonts (slot Z1). Do not edit these tests to match an implementation. No

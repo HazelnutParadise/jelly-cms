@@ -1,6 +1,6 @@
 package server
 
-// Plugin read API integration tests (docs/tickets/29-plugin-read-api-and-extensions.md, PR A, acceptance rows for
+// Plugin read API integration tests (ticket 29, PR A, acceptance rows for
 // content.read and shop.read). They run real host calls through the plugin runtime: a fixture plugin registers the
 // action:read hook, each call invokes it with an operation name and an argument, and the callback logs the JSON
 // result (read:<op>:<json>) or the thrown host error (read-error:<op>:<message>). The tests are skipped unless

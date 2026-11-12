@@ -1,6 +1,6 @@
 package server
 
-// Ticket 08b (docs/tickets/08-system.md): maintenance mode as the admin manages it,
+// Ticket 08b (ticket 8): maintenance mode as the admin manages it,
 // and what the public site does while it is on. The contract is the 「維護模式」
 // bullet, the 選項鍵 maintenance entries (maintenance_retry_after defaults to 600)
 // and the 錯誤與邊界 limit of 280 characters for the message. The front-end

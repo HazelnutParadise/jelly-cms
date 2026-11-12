@@ -1,6 +1,6 @@
 package server
 
-// Startup steps for attachments (docs/tickets/08-system.md, 08d). A default
+// Startup steps for attachments (ticket 8, 08d). A default
 // local policy is ensured, then files that already sit in data/uploads are
 // recorded under it with their public address unchanged. Both steps are
 // idempotent and run each time RegisterRoutes runs.

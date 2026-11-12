@@ -11,8 +11,8 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 )
 
-// Acceptance tests for ticket 22 (docs/tickets/22-api-keys-consolidation.md)
-// and ticket 25 (docs/tickets/25-integration-internal-rename.md). Ticket 22
+// Acceptance tests for ticket 22 (ticket 22)
+// and ticket 25 (ticket 25). Ticket 22
 // merged personal API tokens into access keys; ticket 25 renamed the agent
 // tables to integration. These tests seed integrations and integration_keys
 // directly through SQL and exercise the same runtime behaviour.

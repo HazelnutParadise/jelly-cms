@@ -1,4 +1,4 @@
-// Browser acceptance for ticket 11 (docs/tickets/11-mermaid.md): Mermaid diagrams drawn in the browser by
+// Browser acceptance for ticket 11 (ticket 11): Mermaid diagrams drawn in the browser by
 // the vendored Pele build through web/admin/assets/jelly-mermaid.js. These checks are expected to fail until
 // slots M1–M3 are implemented. Do not edit them to match an implementation.
 //

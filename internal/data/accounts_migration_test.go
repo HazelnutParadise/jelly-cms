@@ -14,7 +14,7 @@ import (
 )
 
 // Acceptance tests for the account migrations 0002 to 0008
-// (docs/tickets/06-accounts.md, D1, 資料表). Each test gets its own fresh
+// (ticket 6, D1, 資料表). Each test gets its own fresh
 // database on the dedicated PostgreSQL container.
 
 const (

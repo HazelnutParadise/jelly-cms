@@ -1,6 +1,6 @@
 package server
 
-// WebMCP for public theme pages (ticket 13, docs/tickets/13-webmcp.md).
+// WebMCP for public theme pages (ticket 13, ticket 13).
 //
 // GET /_jelly/webmcp.js          the compatibility layer and registration script (web/jelly/webmcp.js)
 // GET /_jelly/webmcp-tools.json  the merged tool list: core, loaded plugins, then the active theme

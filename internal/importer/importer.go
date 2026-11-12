@@ -1,5 +1,5 @@
 // Package importer reads WordPress WXR exports and imports them into the site
-// (docs/tickets/08-system.md, 「WordPress 匯入」).
+// (ticket 8, 「WordPress 匯入」).
 //
 // WXR files are accepted as .xml, .xml.gz or .zip and may be up to 512 MiB.
 // Parsing streams the document and holds one item at a time. Attachment

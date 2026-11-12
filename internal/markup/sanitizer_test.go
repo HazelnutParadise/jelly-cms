@@ -1,6 +1,6 @@
 package markup
 
-// Sanitizer matrix (docs/tickets/09-editor.md, 淨化政策). Every case renders under both policies and
+// Sanitizer matrix (ticket 9, 淨化政策). Every case renders under both policies and
 // checks that the dangerous token is absent from the output. Tokens are raw tag fragments such as
 // "<img src=x onerror" rather than bare words such as "onerror". Under strict, an html fence becomes
 // escaped code, so its text legitimately contains the bare words, but the escaped form never

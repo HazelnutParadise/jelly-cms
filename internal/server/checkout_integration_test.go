@@ -1,7 +1,7 @@
 package server
 
 // Checkout integration tests for ticket 07, section E5 (contract: POST /api/checkout, stock reservation, the order
-// number and the customer account rule in docs/tickets/07-shop.md). They run through the public routes against the
+// number and the customer account rule in ticket 7). They run through the public routes against the
 // dedicated PostgreSQL database and are skipped unless JELLY_TEST_POSTGRES=1. They must fail until the implementation
 // exists. Do not edit them to match an implementation.
 //

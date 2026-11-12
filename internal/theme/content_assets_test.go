@@ -1,7 +1,7 @@
 package theme
 
 // Content-asset tests for ticket 11 slot M1 (Mermaid diagrams rendered in the browser by the vendored Pele
-// build). The contract is the 契約 section of docs/tickets/11-mermaid.md: a theme calls {{contentAssets .}}
+// build). The contract is the 契約 section of ticket 11: a theme calls {{contentAssets .}}
 // in its layout <head>; when the page content holds a mermaid code block the function emits the Pele and
 // jelly-mermaid.js <script> tags plus the DOMContentLoaded call, otherwise nothing. These tests are expected
 // to fail now: ContentAssets and the "contentAssets" template function return "" until slot M1 is

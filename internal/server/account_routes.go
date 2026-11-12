@@ -13,7 +13,7 @@ import (
 )
 
 // Account self-service, notifications and two-step verification
-// (docs/tickets/06-accounts.md).
+// (ticket 6).
 //
 // Self-service API, auth.RequireAuth, every role. "I" marks interactive-only
 // endpoints (auth.RequireInteractive).

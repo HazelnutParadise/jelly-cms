@@ -1,6 +1,6 @@
 package markup
 
-// Flatten contract (docs/tickets/09-editor.md, 匯出規則: md export). Flatten turns Jelly MD into
+// Flatten contract (ticket 9, 匯出規則: md export). Flatten turns Jelly MD into
 // plain Markdown by following the AST line ranges. Cases with an exact want compare after line
 // normalisation (trailing spaces removed, runs of blank lines collapsed to one). Cases without an
 // exact want check that the required pieces are present and the Jelly syntax is gone. Written before
