@@ -7,7 +7,7 @@
 - 🚀 **高效能**：使用 Go 語言開發，比 PHP 更快
 - 🌍 **多語言支援**：內建繁體中文和英文，可輕鬆擴展
 - 🎨 **主題系統**：支援自訂頁面布局和配色，無需重啟即可切換主題
-- 🔌 **外掛系統**：使用 JavaScript 開發外掛，支援熱重載
+- 🔌 **外掛系統**：使用 JavaScript 開發外掛，支援熱升級
 - 🔐 **OAuth 登入**：支援 Google、GitHub 等第三方登入，自動創建帳號
 - 💳 **金流整合**：支援綠界 ECPay、藍新 NewebPay 等台灣常見金流服務
 - 📦 **電商功能**：內建產品管理和訂單系統
@@ -118,9 +118,11 @@ Google 與 GitHub 入口共用另一份來源額度，每個連線來源在 60 �
 
 ## 🔌 外掛開發
 
-Jelly CMS 使用 JavaScript（QuickJS）作為外掛運行時，讓開發者可以輕鬆擴展系統功能。
+Jelly CMS 使用 JavaScript（QuickJS）作為外掛執行環境，讓開發者可以擴展系統功能。
 
-每個外掛以獨立子程序執行。入口、事件及結束回呼各有 1 秒執行上限，啟動子程序的上限為 5 秒；逾時會終止該外掛程序。熱重載只有在新版本完成載入與啟動後才替換舊版本，失敗時保留舊版本。
+完整教學、`plugin.json` 欄位、API 簽名、生命週期、限制與除錯見[外掛開發指南](docs/plugin-development.md)。可安裝的範例見 [`examples/plugins/hello-jelly`](examples/plugins/hello-jelly/README.md)。
+
+每個外掛以獨立子程序執行。入口、事件及結束回呼各有 1 秒執行上限，啟動子程序的上限為 5 秒；worker 失效時會自動重新啟動，30 分鐘內失效 5 次才停止並通知管理員。熱升級只有在新版本完成載入與啟動後才替換舊版本，失敗時保留舊版本。
 
 外掛只能存取隔離的暫存目錄，不能直接讀寫網站檔案。入口上限為 1 MiB，事件資料須可轉換為 JSON 且不超過 1 MiB。日誌有大小與佇列限制，輸出受阻時可能捨棄日誌。
 
@@ -135,10 +137,12 @@ Jelly CMS 使用 JavaScript（QuickJS）作為外掛運行時，讓開發者可�
 每個外掛需要包含以下檔案：
 
 ```
-data/plugins/my-plugin/
-├── plugin.json    # 外掛配置檔案
-└── index.js       # 外掛主程式（entrypoint）
+my-plugin/
+├── plugin.json
+└── index.js
 ```
+
+安裝後會放在 `data/plugins/my-plugin/`。
 
 ### plugin.json 範例
 
@@ -150,76 +154,41 @@ data/plugins/my-plugin/
   "description": "這是一個範例外掛",
   "author": "開發者名稱",
   "entrypoint": "index.js",
-  "permissions": [{ "name": "events" }]
+  "settings": [
+    {
+      "key": "greeting",
+      "type": "string",
+      "label": "招呼語",
+      "default": "Hello"
+    }
+  ],
+  "permissions": [
+    { "name": "settings" },
+    { "name": "events" }
+  ]
 }
 ```
 
 ### 外掛 API
 
-外掛可以透過全域物件 `JellyCMS` 存取系統功能：
+`JellyCMS` 的方法、參數、回傳值、權限與錯誤都列在[外掛開發指南](docs/plugin-development.md#jellycms-api)。需要保存設定時請使用 `settings`，並在 manifest 宣告 `settings` 權限：
 
 ```javascript
-// 註冊 Hook
-JellyCMS.registerHook('OnPostSave', function(data) {
-    JellyCMS.log.info('文章已儲存: ' + data.post.title);
-});
-
-// 記錄日誌
-JellyCMS.log.info('資訊訊息');
-JellyCMS.log.error('錯誤訊息');
-
-// 讀取設定
-const value = JellyCMS.config.get('setting_key');
-
-// 儲存設定
-JellyCMS.config.set('setting_key', 'value');
+const greeting = JellyCMS.settings.get('greeting');
+JellyCMS.settings.set('greeting', 'Hi');
 ```
+
+沒有 `settings` 權限時，`config.set` 只存在該次外掛程序的記憶體，重新載入後就會消失，不會保存。
 
 ### 可用的 Hook（鉤子）
 
-鉤子在對應的資料庫交易提交後送出，HTTP 請求不等待外掛；每個回呼最多執行 1 秒。完整目錄、每個事件的 payload 欄位與排程發布規則見 [外掛事件](docs/plugin-events.md)。
+鉤子涵蓋生命週期、內容、商品、訂單與付款、帳號、留言、附件、主題與設定。鉤子在資料庫交易提交後送出，HTTP 請求不等待外掛，每個回呼最多執行 1 秒。
 
-| 分類 | 鉤子 |
-|---|---|
-| 生命週期 | `OnBoot`、`OnShutdown` |
-| 內容 | `OnPostSave`、`OnPostPublish`、`OnPostDelete`、`OnPostView` |
-| 商品 | `OnProductSave`、`OnProductDelete`、`OnProductView` |
-| 訂單與付款 | `OnOrderCreate`、`OnOrderUpdate`、`OnOrderPaid`、`OnOrderRefund`、`OnPaymentSuccess`、`OnPaymentFailed` |
-| 帳號 | `OnUserCreate`、`OnUserUpdate`、`OnUserDelete`、`OnUserLogin`、`OnUserLoginFailed`、`OnUserLogout` |
-| 留言 | `OnCommentCreate`、`OnCommentUpdate`、`OnCommentDelete` |
-| 附件 | `OnMediaUpload`、`OnMediaDelete` |
-| 主題與設定 | `OnThemeActivate`、`OnSettingsChange` |
-
-除了 `OnBoot`、`OnShutdown` 與後台動作，其他事件都需要在 `plugin.json` 宣告並由管理員核准 `events` 權限，因為訂單、帳號與留言事件帶有 email 與留言內容。沒有每個 HTTP 請求的鉤子：那會把每個請求的延遲綁在外掛上。
-
-外掛也可以主動讀取內容：`content.read` 權限開放 `JellyCMS.content.get`／`list`（文章與頁面），`shop.read` 權限開放 `JellyCMS.shop.getProduct`／`listProducts`／`getOrder`／`listOrders`；物件欄位與事件 payload 相同，見[外掛事件](docs/plugin-events.md)的「讀取 API」。
+除了 `OnBoot`、`OnShutdown` 與後台動作，其他事件都需要在 `plugin.json` 宣告並由管理員核准 `events` 權限。完整鉤子目錄、payload、排程發布規則與 `content`／`shop` 讀取 API 見[外掛事件](docs/plugin-events.md)。
 
 ### 外掛範例
 
-```javascript
-// index.js
-JellyCMS.log.info('外掛載入中...');
-
-// 在文章儲存時發送通知
-JellyCMS.registerHook('OnPostSave', function(data) {
-    JellyCMS.log.info('文章已儲存: ' + data.post.title);
-    
-    // 可以在這裡執行自訂邏輯
-    // 例如：發送 Email、更新快取、同步到其他系統等
-});
-
-// 在訂單付款完成時執行操作（需要 events 權限）
-JellyCMS.registerHook('OnOrderPaid', function(data) {
-    JellyCMS.log.info('訂單已付款: ' + data.order.number);
-    
-    // 例如：發送確認 Email、更新庫存等
-});
-
-// 外掛載入完成
-JellyCMS.registerHook('OnBoot', function(data) {
-    JellyCMS.log.info('外掛已成功載入！');
-});
-```
+完整可安裝的範例見 [`examples/plugins/hello-jelly`](examples/plugins/hello-jelly/README.md)，包含設定、`store`、`OnPostPublish`、`theme.inject` 與後台動作。逐步操作見[外掛開發指南](docs/plugin-development.md#五分鐘做出第一個外掛)。
 
 ## 🎨 主題開發
 

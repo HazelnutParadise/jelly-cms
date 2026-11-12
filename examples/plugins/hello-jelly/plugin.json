@@ -1,0 +1,27 @@
+{
+  "id": "hello-jelly",
+  "name": "Hello Jelly",
+  "version": "1.0.0",
+  "description": "在頁尾顯示招呼語，並統計已發布文章數。",
+  "author": "Jelly CMS",
+  "entrypoint": "index.js",
+  "settings": [
+    {
+      "key": "banner",
+      "type": "string",
+      "label": "頁尾招呼語",
+      "default": "Hello from Jelly"
+    }
+  ],
+  "permissions": [
+    { "name": "settings" },
+    { "name": "store" },
+    { "name": "events" }
+  ],
+  "actions": [
+    { "id": "stats", "label": "顯示統計" }
+  ],
+  "extensions": [
+    { "point": "theme.inject" }
+  ]
+}

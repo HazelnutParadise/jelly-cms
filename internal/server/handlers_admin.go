@@ -109,7 +109,12 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		permissions := plugin.ManifestPermissionNames(meta)
 		permissionsHash := plugin.PermissionNamesHash(permissions)
 		if c.QueryParam("dry") == "1" {
-			return c.JSON(http.StatusOK, map[string]any{"id": meta.ID, "version": meta.Version, "permissions": permissions, "permissions_hash": permissionsHash, "sha256": digest})
+			return c.JSON(http.StatusOK, map[string]any{"id": meta.ID, "name": meta.Name, "version": meta.Version, "permissions": permissions, "permissions_hash": permissionsHash, "extensions": pluginPreviewExtensions(meta), "sha256": digest})
+		}
+		// A hash the admin previewed must match the archive that is installed.
+		// A legacy upload without sha256 and without permissions still installs.
+		if sha := strings.ToLower(strings.TrimSpace(c.FormValue("sha256"))); sha != "" && sha != digest {
+			return c.JSON(http.StatusConflict, map[string]string{"error": "Preview this exact archive and accept its permissions before installing"})
 		}
 		if len(permissions) > 0 {
 			if c.FormValue("accept_permissions") != permissionsHash || c.FormValue("sha256") != digest {
@@ -120,6 +125,8 @@ func registerAdminRoutes(e *echo.Echo, tm *theme.Manager, pluginRuntime *plugin.
 		res, err := installPluginFile(c.Request().Context(), pluginRuntime, tmpPath, pluginFileInstall{Source: storeSourceUpload, Signature: storeSignatureNone, Want: plugin.ArchiveExpectation{ID: meta.ID, Version: meta.Version, PermissionsHash: permissionsHash}})
 		if err != nil {
 			switch {
+			case errors.Is(err, errPluginUpgradeFailed):
+				return c.JSON(http.StatusConflict, map[string]string{"error": "New version failed to start; the previous version was kept: " + err.Error()})
 			case errors.Is(err, errPluginRunning):
 				return c.JSON(http.StatusConflict, map[string]string{"error": "Plugin is running; disable it before uploading a new version"})
 			case errors.Is(err, errPluginRecoveryPending):

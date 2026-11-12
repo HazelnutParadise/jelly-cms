@@ -228,7 +228,11 @@ func integrationListThemes(c echo.Context) error {
 }
 
 func integrationListPlugins(c echo.Context) error {
-	return c.JSON(http.StatusOK, integrationCollection(queryPlugins()))
+	plugins, err := queryPlugins()
+	if err != nil {
+		return writeAPIError(c, http.StatusInternalServerError, "internal_error", "Unable to load plugins", nil)
+	}
+	return c.JSON(http.StatusOK, integrationCollection(plugins))
 }
 
 func integrationListSettings(c echo.Context) error {

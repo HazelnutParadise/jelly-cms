@@ -4,12 +4,15 @@
     .plugin-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem 1.5rem; align-items: center; padding: 1rem 0; border-top: 1px solid color-mix(in srgb, var(--outline) 70%, transparent); }
     .plugin-row:last-child { border-bottom: 1px solid color-mix(in srgb, var(--outline) 70%, transparent); }
     .plugin-title { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
-    .plugin-title h3 { font-size: 1rem; }
+    .plugin-title h3 { font-size: 1rem; margin: 0; }
+    .plugin-title h3 a { color: inherit; text-decoration: none; }
+    .plugin-title h3 a:hover { text-decoration: underline; color: var(--primary); }
     .plugin-description { color: var(--muted); font-size: .875rem; margin-top: .15rem; }
+    .plugin-error { color: var(--error); font-size: .8125rem; margin-top: .3rem; font-family: var(--mono); overflow-wrap: anywhere; }
     .plugin-meta { font-family: var(--mono); font-size: .75rem; color: var(--muted); white-space: nowrap; }
-    .plugin-actions .btn { opacity: 0; transition: opacity .12s ease; }
-    .plugin-row:hover .plugin-actions .btn, .plugin-row:focus-within .plugin-actions .btn { opacity: 1; }
-    @media (hover: none) { .plugin-actions .btn { opacity: 1; } }
+    .plugin-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    .plugin-preview-card { margin-top: 1rem; border: 1px solid var(--outline); border-radius: var(--r-md); padding: 1rem; background: var(--surface-low); display: grid; gap: .75rem; }
+    .plugin-docs-footer { margin-top: 2.5rem; text-align: center; color: var(--muted); font-size: .875rem; }
     @media (max-width: 700px) { .plugin-row { grid-template-columns: 1fr; } }
 </style>
 {{end}}
@@ -17,7 +20,7 @@
 <div class="page-header">
     <div class="page-title-wrapper">
         <h1>{{.T.plugins}}</h1>
-        <p class="page-description">{{.T.noPluginsDesc}}</p>
+        <p class="page-description" id="pluginsSummary">{{.T.noPluginsDesc}}</p>
     </div>
     <div class="page-actions">
         <button class="btn btn-primary" type="button" id="uploadOpen"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>{{.T.uploadPlugin}}</button>
@@ -28,146 +31,539 @@
     {{template "loading" dict "text" .T.loading}}
 </div>
 
-{{/* Upload sheet */}}
+<div class="plugin-docs-footer"><a href="https://github.com/HazelnutParadise/jelly-cms/blob/main/docs/plugin-development.md" target="_blank" rel="noopener noreferrer">{{.T.pluginDevDocsLink}}</a></div>
+
+{{/* Upload dialog */}}
 <jelly-dialog id="uploadModal" label="{{.T.uploadPluginTitle}}">
-        <div class="modal-header">
-            <div class="label">{{.T.plugins}}</div>
-            <h2>{{.T.uploadPluginTitle}}</h2>
+    <div class="modal-header">
+        <div class="label">{{.T.plugins}}</div>
+        <h2>{{.T.uploadPluginTitle}}</h2>
+    </div>
+    <form id="uploadForm" onsubmit="return false">
+        <div class="form-group" id="uploadFileGroup">
+            <label for="pluginFile">{{.T.pluginZipFile}}</label>
+            <input type="file" id="pluginFile" accept=".zip" required>
+            <small class="hint">{{.T.pluginZipDesc}}</small>
         </div>
-        <form id="uploadForm" enctype="multipart/form-data">
-            <div class="form-group">
-                <label for="pluginFile">{{.T.pluginZipFile}}</label>
-                <input type="file" id="pluginFile" name="plugin" accept=".zip" required>
-                <small class="hint">{{.T.pluginZipDesc}}</small>
-            </div>
-            <div id="uploadStatus"></div>
-            <div class="modal-footer">
-                <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>{{.T.upload}}</button>
-                <button type="button" class="btn btn-text" id="uploadCancel"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>{{.T.cancel}}</button>
-            </div>
-        </form>
+        <div id="uploadPreviewArea"></div>
+        <div id="uploadStatus"></div>
+        <div class="modal-footer" id="uploadFooter" style="margin-top: 1.25rem;">
+            <button type="button" class="btn btn-text" id="uploadCancel"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>{{.T.cancel}}</button>
+        </div>
+    </form>
 </jelly-dialog>
 {{end}}
 {{define "scripts"}}
 <script>
     const T = {
-        noPlugins: "{{.T.noPlugins}}",
-        noPluginsDesc: "{{.T.noPluginsDesc}}",
-        uploadPlugin: "{{.T.uploadPlugin}}",
-        reload: "{{.T.reload}}",
-        reloadConfirm: "{{.T.reloadConfirm}}",
-        pluginReloaded: "{{.T.pluginReloaded}}",
-        reloadFailed: "{{.T.reloadFailed}}",
-        uploading: "{{.T.uploading}}",
-        uploadSuccess: "{{.T.uploadSuccess}}",
-        uploadError: "{{.T.uploadError}}"
+        noPlugins: {{json .T.noPlugins}},
+        noPluginsDesc: {{json .T.noPluginsDesc}},
+        uploadPlugin: {{json .T.uploadPlugin}},
+        reload: {{json .T.reload}},
+        reloadConfirm: {{json .T.reloadConfirm}},
+        pluginReloaded: {{json .T.pluginReloaded}},
+        reloadFailed: {{json .T.reloadFailed}},
+        uploading: {{json .T.uploading}},
+        uploadSuccess: {{json .T.uploadSuccess}},
+        uploadError: {{json .T.uploadError}},
+        enable: {{json .T.enable}},
+        disable: {{json .T.disable}},
+        retry: {{json .T.pluginRetry}},
+        pluginEnabled: {{json .T.pluginEnabled}},
+        pluginDisabled: {{json .T.pluginDisabled}},
+        enableFailed: {{json .T.enableFailed}},
+        disableFailed: {{json .T.disableFailed}},
+        stateRunning: {{json .T.pluginStateRunning}},
+        stateDisabled: {{json .T.pluginStateDisabled}},
+        stateRestarting: {{json .T.pluginStateRestarting}},
+        stateCrashed: {{json .T.pluginStateCrashed}},
+        stateStopped: {{json .T.pluginStateStopped}},
+        summaryEnabled: {{json .T.summaryEnabled}},
+        summaryDisabled: {{json .T.summaryDisabled}},
+        summaryAbnormal: {{json .T.summaryAbnormal}},
+        unsigned: {{json .T.unsigned}},
+        noPermissions: {{json .T.noPermissionsRequired}},
+        acceptPermissions: {{json .T.acceptPermissions}},
+        hotUpgradeNotice: {{json .T.pluginHotUpgradeNotice}},
+        pluginPermissions: {{json .T.pluginPermissions}},
+        viewDetails: {{json .T.viewDetails}},
+        install: {{json .T.installPlugin}},
+        previewFailed: {{json .T.previewFailed}},
+        cancel: {{json .T.cancel}},
+        extensionPoints: {{json .T.pluginExtensionPoints}}
     };
 
-    async function loadPlugins() {
+    let currentPlugins = [];
+    let isActionInProgress = false;
+    // listSeq numbers the list refreshes. A response is dropped when a newer
+    // refresh or an action started after it was sent.
+    let listSeq = 0;
+    let currentPreview = null;
+    let currentFile = null;
+    // Bumped on every file pick and dialog reset. A preview response that comes
+    // back with an older number belongs to a file the admin no longer selected.
+    let uploadSeq = 0;
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+    }
+
+    async function loadPlugins(opts = {}) {
+        const isBg = opts.background === true;
         const container = document.getElementById('pluginsList');
+        const seq = ++listSeq;
 
         try {
             const res = await fetch('/api/admin/plugins');
+            if (seq !== listSeq || isActionInProgress) return;
             if (!res.ok) throw new Error('Failed to load plugins');
 
             const plugins = await res.json();
-            container.innerHTML = '';
+            if (seq !== listSeq || isActionInProgress) return;
+            currentPlugins = plugins || [];
 
-            if (!plugins || plugins.length === 0) {
+            let runningCount = 0, disabledCount = 0, abnormalCount = 0;
+            currentPlugins.forEach(p => {
+                const s = p.state || (p.enabled ? 'running' : 'disabled');
+                if (s === 'running') runningCount++;
+                else if (s === 'disabled') disabledCount++;
+                else if (['restarting', 'crashed', 'stopped'].includes(s)) abnormalCount++;
+                else if (p.enabled) runningCount++;
+                else disabledCount++;
+            });
+
+            const summaryEl = document.getElementById('pluginsSummary');
+            if (summaryEl) {
+                if (currentPlugins.length === 0) {
+                    summaryEl.textContent = T.noPluginsDesc;
+                } else {
+                    summaryEl.textContent = `${runningCount} ${T.summaryEnabled} · ${disabledCount} ${T.summaryDisabled} · ${abnormalCount} ${T.summaryAbnormal}`;
+                }
+            }
+
+            if (!currentPlugins.length) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <span class="cubes" aria-hidden="true"><i></i><i></i><i></i></span>
-                        <div class="empty-title">${T.noPlugins}</div>
-                        <div class="empty-description">${T.noPluginsDesc}</div>
+                        <div class="empty-title">${escapeHtml(T.noPlugins)}</div>
+                        <div class="empty-description">${escapeHtml(T.noPluginsDesc)}</div>
                     </div>
                 `;
                 return;
             }
 
-            plugins.forEach(plugin => {
-                const div = document.createElement('div');
-                div.className = 'plugin-row';
-                div.innerHTML = `
-                    <div>
-                        <div class="plugin-title">
-                            <h3>${escapeHtml(plugin.name || plugin.id)}</h3>
-                            <span class="badge badge-success">Active</span>
+            const html = currentPlugins.map(plugin => {
+                const isManaged = plugin.managed === true;
+                const state = plugin.state || (plugin.enabled ? 'running' : 'disabled');
+                let badgeClass = 'badge';
+                let badgeText = state;
+
+                switch (state) {
+                    case 'running':
+                        badgeClass = 'badge badge-success';
+                        badgeText = T.stateRunning;
+                        break;
+                    case 'disabled':
+                        badgeClass = 'badge';
+                        badgeText = T.stateDisabled;
+                        break;
+                    case 'restarting':
+                        badgeClass = 'badge badge-warning';
+                        badgeText = T.stateRestarting;
+                        break;
+                    case 'crashed':
+                        badgeClass = 'badge badge-danger';
+                        badgeText = T.stateCrashed;
+                        break;
+                    case 'stopped':
+                        badgeClass = 'badge badge-warning';
+                        badgeText = T.stateStopped;
+                        break;
+                    default:
+                        badgeClass = plugin.enabled ? 'badge badge-success' : 'badge';
+                        badgeText = plugin.enabled ? T.stateRunning : T.stateDisabled;
+                        break;
+                }
+
+                const isAbnormal = ['restarting', 'crashed', 'stopped'].includes(state);
+                const hasError = isAbnormal && plugin.last_error;
+
+                const titleHtml = isManaged
+                    ? `<a href="/admin/plugins/${encodeURIComponent(plugin.id)}">${escapeHtml(plugin.name || plugin.id)}</a>`
+                    : escapeHtml(plugin.name || plugin.id);
+
+                let actionsHtml = '';
+                if (isManaged) {
+                    if (state === 'crashed') {
+                        actionsHtml = `
+                            <button class="btn btn-primary btn-sm" type="button" data-action="reload" data-id="${escapeHtml(plugin.id)}">
+                                <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>${escapeHtml(T.retry)}
+                            </button>
+                            <button class="btn btn-secondary btn-sm" type="button" data-action="disable" data-id="${escapeHtml(plugin.id)}">
+                                ${escapeHtml(T.disable)}
+                            </button>
+                        `;
+                    } else if (state === 'stopped') {
+                        actionsHtml = `
+                            <button class="btn btn-primary btn-sm" type="button" data-action="enable" data-id="${escapeHtml(plugin.id)}">
+                                <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>${escapeHtml(T.retry)}
+                            </button>
+                            <button class="btn btn-secondary btn-sm" type="button" data-action="disable" data-id="${escapeHtml(plugin.id)}">
+                                ${escapeHtml(T.disable)}
+                            </button>
+                        `;
+                    } else if (state === 'disabled') {
+                        actionsHtml = `
+                            <button class="btn btn-secondary btn-sm" type="button" data-action="enable" data-id="${escapeHtml(plugin.id)}">
+                                ${escapeHtml(T.enable)}
+                            </button>
+                        `;
+                    } else {
+                        actionsHtml = `
+                            <button class="btn btn-secondary btn-sm" type="button" data-action="disable" data-id="${escapeHtml(plugin.id)}">
+                                ${escapeHtml(T.disable)}
+                            </button>
+                            <button class="btn btn-secondary btn-sm" type="button" data-action="reload" data-id="${escapeHtml(plugin.id)}">
+                                <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>${escapeHtml(T.reload)}
+                            </button>
+                        `;
+                    }
+                }
+
+                return `
+                    <div class="plugin-row" data-plugin-id="${escapeHtml(plugin.id)}">
+                        <div>
+                            <div class="plugin-title">
+                                <h3>${titleHtml}</h3>
+                                <span class="${badgeClass}">${escapeHtml(badgeText)}</span>
+                            </div>
+                            <div class="plugin-description">${escapeHtml(plugin.description || '—')}</div>
+                            ${hasError ? `<div class="plugin-error">${escapeHtml(plugin.last_error)}</div>` : ''}
                         </div>
-                        <div class="plugin-description">${escapeHtml(plugin.description || 'No description available')}</div>
-                    </div>
-                    <div class="plugin-meta">${escapeHtml(plugin.id)} · v${escapeHtml(plugin.version || '1.0.0')} · ${escapeHtml(plugin.author || 'Unknown')}</div>
-                    <div class="plugin-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="reloadPlugin('${escapeHtml(plugin.id)}')"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>${T.reload}</button>
+                        <div class="plugin-meta">${escapeHtml(plugin.id)} · v${escapeHtml(plugin.version || '1.0.0')} · ${escapeHtml(plugin.author || 'Unknown')}</div>
+                        <div class="plugin-actions">
+                            ${actionsHtml}
+                        </div>
                     </div>
                 `;
-                container.appendChild(div);
-            });
+            }).join('');
+
+            container.innerHTML = html;
         } catch (err) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-title">Error</div>
-                    <div class="empty-description">${escapeHtml(err.message)}</div>
-                </div>
-            `;
+            if (seq !== listSeq || isActionInProgress) return;
+            if (!isBg) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-title">Error</div>
+                        <div class="empty-description">${escapeHtml(err.message)}</div>
+                    </div>
+                `;
+            }
         }
     }
 
-    function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
+    // Action button handler
+    document.getElementById('pluginsList').addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const id = btn.dataset.id;
+        if (!action || !id) return;
 
-    async function reloadPlugin(id) {
-        if (!await Jelly.confirm({title:`${T.reloadConfirm} "${id}"?`, confirmLabel:document.documentElement.lang === 'en' ? 'Reload' : '重新載入', cancelLabel:document.documentElement.lang === 'en' ? 'Cancel' : '取消', tone:'danger'})) return;
+        const row = btn.closest('.plugin-row');
+        const rowBtns = row ? row.querySelectorAll('button') : [btn];
+        rowBtns.forEach(b => b.disabled = true);
+        isActionInProgress = true;
+        listSeq++;
 
+        let succeeded = false;
         try {
-            const res = await fetch(`/api/admin/plugins/${id}/reload`, {
-                method: 'POST'
+            const res = await fetch(`/api/admin/plugins/${encodeURIComponent(id)}/${action}`, {
+                method: 'POST',
+                headers: {
+                    'X-Jelly-CSRF': '1',
+                    'Accept': 'application/json'
+                }
             });
 
             if (res.ok) {
-                Jelly.toast(T.pluginReloaded, { kind: 'success' });
+                let successMsg = T.pluginReloaded;
+                if (action === 'enable') successMsg = T.pluginEnabled;
+                else if (action === 'disable') successMsg = T.pluginDisabled;
+                Jelly.toast(successMsg, { kind: 'success' });
+                succeeded = true;
             } else {
                 const err = await res.json().catch(() => ({}));
-                Jelly.toast(T.reloadFailed, { kind: 'error', detail: err.error || 'Unknown error' });
+                let failMsg = T.reloadFailed;
+                if (action === 'enable') failMsg = T.enableFailed;
+                else if (action === 'disable') failMsg = T.disableFailed;
+                Jelly.toast(failMsg, { kind: 'error', detail: err.error || err.message || 'Unknown error' });
+                rowBtns.forEach(b => b.disabled = false);
             }
         } catch (err) {
             Jelly.toast(T.reloadFailed, { kind: 'error', detail: err.message });
+            rowBtns.forEach(b => b.disabled = false);
+        } finally {
+            isActionInProgress = false;
         }
+
+        // Refresh after the action flag is cleared, so the response is not dropped.
+        if (succeeded) await loadPlugins();
+    });
+
+    // Upload dialog management
+    const uploadModal = document.getElementById('uploadModal');
+    const uploadOpen = document.getElementById('uploadOpen');
+    const pluginFile = document.getElementById('pluginFile');
+    const uploadPreviewArea = document.getElementById('uploadPreviewArea');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const uploadFooter = document.getElementById('uploadFooter');
+
+    function resetUploadModal() {
+        uploadSeq++;
+        pluginFile.value = '';
+        pluginFile.disabled = false;
+        uploadPreviewArea.innerHTML = '';
+        uploadStatus.innerHTML = '';
+        uploadFooter.innerHTML = `
+            <button type="button" class="btn btn-text" id="uploadCancel"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>${escapeHtml(T.cancel)}</button>
+        `;
+        currentPreview = null;
+        currentFile = null;
     }
 
-    // 上傳是 <jelly-dialog>：Esc、右上 ✕ 與「取消」都關閉，點背景不關（選好的檔案不會因誤點消失），焦點回到「上傳插件」按鈕。
-    document.getElementById('uploadOpen').addEventListener('click', (e) => Jelly.dialog(document.getElementById('uploadModal'), { opener: e.currentTarget, focus: '#pluginFile', dismissOnBackdrop: false }));
-    document.getElementById('uploadCancel').addEventListener('click', () => Jelly.closeDialog(document.getElementById('uploadModal')));
-    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const statusDiv = document.getElementById('uploadStatus');
-        statusDiv.innerHTML = '<div class="alert alert-info">' + T.uploading + '</div>';
+    uploadOpen.addEventListener('click', (e) => {
+        resetUploadModal();
+        Jelly.dialog(uploadModal, { opener: e.currentTarget, focus: '#pluginFile', dismissOnBackdrop: false });
+    });
+
+    uploadModal.addEventListener('close', resetUploadModal);
+
+    // While an install request is in flight the dialog stays open: the cancel
+    // button, the top-right close button, the backdrop and Esc are blocked, so
+    // the install result is always shown in this dialog. The capture listener
+    // stops the click before the dialog's own close handlers see it.
+    let uploadInstalling = false;
+
+    // The layout's Esc handler runs on window before any listener here, so the
+    // dialog itself is locked: a locked dialog ignores Esc, the backdrop and
+    // the close button (see Jelly.dialog in layout.html).
+    function setUploadInstalling(on) {
+        uploadInstalling = on;
+        uploadModal.toggleAttribute('data-jelly-locked', on);
+        const close = uploadModal.shadowRoot && uploadModal.shadowRoot.querySelector('.close');
+        if (close) close.hidden = on;
+    }
+
+    uploadModal.addEventListener('click', (e) => {
+        if (uploadInstalling) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            return;
+        }
+        if (e.target.closest('#uploadCancel')) {
+            Jelly.closeDialog(uploadModal);
+        }
+    }, true);
+
+    document.addEventListener('keydown', (e) => {
+        if (uploadInstalling && e.key === 'Escape') {
+            e.preventDefault();
+        }
+    }, true);
+
+    pluginFile.addEventListener('change', async () => {
+        if (!pluginFile.files || !pluginFile.files[0]) {
+            uploadPreviewArea.innerHTML = '';
+            uploadStatus.innerHTML = '';
+            return;
+        }
+
+        const file = pluginFile.files[0];
+        const seq = ++uploadSeq;
+        currentFile = file;
+        currentPreview = null;
+        pluginFile.disabled = true;
+        uploadPreviewArea.innerHTML = '';
+        uploadStatus.innerHTML = `<div class="alert alert-info" style="margin-top: .75rem;">${escapeHtml(T.uploading)}</div>`;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch('/api/admin/plugins/upload?dry=1', {
+                method: 'POST',
+                headers: { 'X-Jelly-CSRF': '1' },
+                body: formData
+            });
+
+            const data = await res.json().catch(() => ({}));
+            if (seq !== uploadSeq) return;
+            pluginFile.disabled = false;
+
+            if (!res.ok) {
+                const errDetail = data.error || data.message || T.previewFailed;
+                uploadStatus.innerHTML = `<div class="alert alert-danger" style="margin-top: .75rem;">${escapeHtml(errDetail)}</div>`;
+                return;
+            }
+
+            currentPreview = data;
+            uploadStatus.innerHTML = '';
+
+            const perms = (data.permissions || []).map(p => typeof p === 'string' ? p : (p && p.name ? p.name : String(p)));
+            const extensions = Array.isArray(data.extensions) ? data.extensions : [];
+            const existing = currentPlugins.find(p => p.id === data.id);
+            const isUpgrade = !!existing && ['running', 'restarting', 'crashed'].includes(existing.state);
+
+            uploadPreviewArea.innerHTML = `
+                <div class="plugin-preview-card">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: .5rem; flex-wrap: wrap;">
+                        <div>
+                            <strong style="font-size: 1.05rem;">${escapeHtml(data.name || data.id)}</strong>
+                            <span class="badge" style="margin-left: .5rem;">${escapeHtml(data.id)} · v${escapeHtml(data.version || '1.0.0')}</span>
+                        </div>
+                        <span class="badge badge-warning">${escapeHtml(T.unsigned)}</span>
+                    </div>
+                    ${isUpgrade ? `
+                        <div class="alert alert-warning" style="margin: 0; font-size: .8125rem;">
+                            ${escapeHtml(T.hotUpgradeNotice)}
+                        </div>
+                    ` : ''}
+                    <div>
+                        <div style="font-weight: 700; font-size: .8125rem; margin-bottom: .35rem;">${escapeHtml(T.pluginPermissions)}</div>
+                        ${perms.length === 0 ? `
+                            <div style="color: var(--muted); font-size: .8125rem;">${escapeHtml(T.noPermissions)}</div>
+                        ` : `
+                            <ul style="margin: 0; padding-left: 1.25rem; font-family: var(--mono); font-size: .8125rem;">
+                                ${perms.map(p => `<li>${escapeHtml(p)}</li>`).join('')}
+                            </ul>
+                        `}
+                    </div>
+                    ${extensions.length > 0 ? `
+                        <div>
+                            <div style="font-weight: 700; font-size: .8125rem; margin-bottom: .35rem;">${escapeHtml(T.extensionPoints)}</div>
+                            <ul style="margin: 0; padding-left: 1.25rem; font-family: var(--mono); font-size: .8125rem;">
+                                ${extensions.map(p => `<li>${escapeHtml(p)}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                    ${perms.length > 0 ? `
+                        <div style="margin-top: .25rem;">
+                            <jelly-checkbox size="sm" id="acceptPerms">${escapeHtml(T.acceptPermissions)}</jelly-checkbox>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+
+            uploadFooter.innerHTML = `
+                <button type="button" class="btn btn-primary" id="installBtn" ${perms.length > 0 ? 'disabled' : ''}>
+                    <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>${escapeHtml(T.install)}
+                </button>
+                <button type="button" class="btn btn-text" id="uploadCancel">
+                    <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>${escapeHtml(T.cancel)}
+                </button>
+            `;
+
+            const acceptPerms = document.getElementById('acceptPerms');
+            const installBtn = document.getElementById('installBtn');
+            if (acceptPerms && installBtn) {
+                acceptPerms.addEventListener('change', () => {
+                    installBtn.disabled = !acceptPerms.hasAttribute('checked');
+                });
+            }
+        } catch (err) {
+            if (seq !== uploadSeq) return;
+            pluginFile.disabled = false;
+            uploadStatus.innerHTML = `<div class="alert alert-danger" style="margin-top: .75rem;">${escapeHtml(err.message)}</div>`;
+        }
+    });
+
+    uploadFooter.addEventListener('click', async (e) => {
+        const installBtn = e.target.closest('#installBtn');
+        if (!installBtn || uploadInstalling || !currentFile || !currentPreview) return;
+
+        const perms = currentPreview.permissions || [];
+        const acceptPerms = document.getElementById('acceptPerms');
+        if (perms.length > 0 && acceptPerms && !acceptPerms.hasAttribute('checked')) return;
+
+        // Copy everything the response handler needs now. The dialog can be
+        // reset while the request is in flight, so the handler must not read
+        // currentPreview or currentFile again.
+        const install = {
+            file: currentFile,
+            id: currentPreview.id,
+            name: currentPreview.name || currentPreview.id,
+            permissionsHash: currentPreview.permissions_hash || '',
+            sha256: currentPreview.sha256 || ''
+        };
+        const cancelBtn = uploadFooter.querySelector('#uploadCancel');
+
+        installBtn.disabled = true;
+        if (cancelBtn) cancelBtn.disabled = true;
+        setUploadInstalling(true);
+        uploadStatus.innerHTML = `<div class="alert alert-info" style="margin-top: .75rem;">${escapeHtml(T.uploading)}</div>`;
+        isActionInProgress = true;
+        listSeq++;
+        let succeeded = false;
+
+        // The install sends the exact File the preview was made from, with the
+        // hashes that preview reported, so the server can check both.
+        const installForm = new FormData();
+        installForm.append('file', install.file);
+        installForm.append('accept_permissions', install.permissionsHash);
+        installForm.append('sha256', install.sha256);
 
         try {
             const res = await fetch('/api/admin/plugins/upload', {
                 method: 'POST',
-                body: formData
+                headers: { 'X-Jelly-CSRF': '1' },
+                body: installForm
             });
 
-            const result = await res.json();
+            const result = await res.json().catch(() => ({}));
+
             if (res.ok) {
-                statusDiv.innerHTML = '<div class="alert alert-success">' + T.uploadSuccess + '</div>';
-                setTimeout(() => {
-                    Jelly.closeDialog(document.getElementById('uploadModal'));
-                    document.getElementById('uploadForm').reset();
-                    statusDiv.innerHTML = '';
-                    loadPlugins();
-                }, 1500);
+                const targetId = result.id || install.id;
+                setUploadInstalling(false);
+                Jelly.closeDialog(uploadModal);
+                resetUploadModal();
+                Jelly.toast(T.uploadSuccess, {
+                    kind: 'success',
+                    detail: install.name,
+                    action: {
+                        label: T.viewDetails,
+                        href: `/admin/plugins/${encodeURIComponent(targetId)}`
+                    }
+                });
+                succeeded = true;
             } else {
-                statusDiv.innerHTML = '<div class="alert alert-danger">' + T.uploadError + ': ' + escapeHtml(result.error || 'Unknown error') + '</div>';
+                const errorDetail = result.error || result.message || T.uploadError;
+                uploadStatus.innerHTML = `<div class="alert alert-danger" style="margin-top: .75rem;">${escapeHtml(errorDetail)}</div>`;
+                Jelly.toast(T.uploadError, { kind: 'error', detail: errorDetail });
+                installBtn.disabled = false;
             }
         } catch (err) {
-            statusDiv.innerHTML = '<div class="alert alert-danger">' + T.uploadError + ': ' + escapeHtml(err.message) + '</div>';
+            uploadStatus.innerHTML = `<div class="alert alert-danger" style="margin-top: .75rem;">${escapeHtml(err.message)}</div>`;
+            Jelly.toast(T.uploadError, { kind: 'error', detail: err.message });
+            installBtn.disabled = false;
+        } finally {
+            setUploadInstalling(false);
+            if (cancelBtn) cancelBtn.disabled = false;
+            isActionInProgress = false;
         }
+
+        if (succeeded) await loadPlugins();
     });
+
+    // 5-second polling (paused when page not visible)
+    setInterval(() => {
+        if (document.visibilityState === 'visible' && !isActionInProgress) {
+            loadPlugins({ background: true });
+        }
+    }, 5000);
 
     loadPlugins();
 </script>

@@ -180,21 +180,26 @@ type pluginPermissionView struct {
 }
 
 type pluginDetailView struct {
-	ID          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	Version     string                 `json:"version"`
-	Description string                 `json:"description"`
-	Author      string                 `json:"author"`
-	Source      string                 `json:"source"`
-	Signature   string                 `json:"signature"`
-	Enabled     bool                   `json:"enabled"`
-	Loaded      bool                   `json:"loaded"`
-	Settings    []plugin.SettingSpec   `json:"settings"`
-	Permissions []pluginPermissionView `json:"permissions"`
-	Actions     []plugin.ActionSpec    `json:"actions"`
-	Extensions  []plugin.ExtensionSpec `json:"extensions"`
-	InstalledAt time.Time              `json:"installed_at"`
-	UpdatedAt   time.Time              `json:"updated_at"`
+	ID            string                 `json:"id"`
+	Name          string                 `json:"name"`
+	Version       string                 `json:"version"`
+	Description   string                 `json:"description"`
+	Author        string                 `json:"author"`
+	Source        string                 `json:"source"`
+	Signature     string                 `json:"signature"`
+	Enabled       bool                   `json:"enabled"`
+	Loaded        bool                   `json:"loaded"`
+	State         string                 `json:"state"`
+	Faults        int                    `json:"faults"`
+	LastError     string                 `json:"last_error,omitempty"`
+	LastFailureAt *time.Time             `json:"last_failure_at,omitempty"`
+	NextRestartAt *time.Time             `json:"next_restart_at,omitempty"`
+	Settings      []plugin.SettingSpec   `json:"settings"`
+	Permissions   []pluginPermissionView `json:"permissions"`
+	Actions       []plugin.ActionSpec    `json:"actions"`
+	Extensions    []plugin.ExtensionSpec `json:"extensions"`
+	InstalledAt   time.Time              `json:"installed_at"`
+	UpdatedAt     time.Time              `json:"updated_at"`
 }
 
 func (a *pluginDetailAPI) loaded(id string) bool {
@@ -214,23 +219,38 @@ func (a *pluginDetailAPI) detail(c echo.Context) error {
 		permissions = append(permissions, pluginPermissionView{Name: permission.Name, Enforced: permission.Enforced()})
 	}
 
+	state, status := pluginStatusView(row.Enabled, a.runtime, row.ID)
 	return c.JSON(http.StatusOK, pluginDetailView{
-		ID:          row.ID,
-		Name:        meta.Name,
-		Version:     meta.Version,
-		Description: meta.Description,
-		Author:      meta.Author,
-		Source:      row.Source,
-		Signature:   row.Signature,
-		Enabled:     row.Enabled,
-		Loaded:      a.loaded(row.ID),
-		Settings:    nonNilSlice(meta.Settings),
-		Permissions: permissions,
-		Actions:     nonNilSlice(meta.Actions),
-		Extensions:  nonNilSlice(meta.Extensions),
-		InstalledAt: row.InstalledAt,
-		UpdatedAt:   row.UpdatedAt,
+		ID:            row.ID,
+		Name:          meta.Name,
+		Version:       meta.Version,
+		Description:   meta.Description,
+		Author:        meta.Author,
+		Source:        row.Source,
+		Signature:     row.Signature,
+		Enabled:       row.Enabled,
+		Loaded:        a.loaded(row.ID),
+		State:         state,
+		Faults:        status.Faults,
+		LastError:     status.LastError,
+		LastFailureAt: optionalTime(status.LastFailureAt),
+		NextRestartAt: optionalTime(status.NextRestartAt),
+		Settings:      nonNilSlice(meta.Settings),
+		Permissions:   permissions,
+		Actions:       nonNilSlice(meta.Actions),
+		Extensions:    nonNilSlice(meta.Extensions),
+		InstalledAt:   row.InstalledAt,
+		UpdatedAt:     row.UpdatedAt,
 	})
+}
+
+// optionalTime returns nil for a zero time so the JSON field is omitted.
+func optionalTime(value time.Time) *time.Time {
+	if value.IsZero() {
+		return nil
+	}
+
+	return &value
 }
 
 // nonNilSlice keeps empty lists as [] in JSON instead of null.
@@ -263,18 +283,28 @@ func (a *pluginDetailAPI) enableLocked(c echo.Context) error {
 	}
 
 	startedHere := false
-	if a.runtime != nil && !a.loaded(row.ID) {
-		if err := a.runtime.Load(ctx, filepath.Join(pluginDirRoot, row.ID)); err != nil {
+	if a.runtime != nil {
+		if a.loaded(row.ID) {
+			status, ok := a.runtime.Status(row.ID)
+			if !ok || status.State != plugin.StateRunning {
+				if err := a.runtime.ReloadForID(ctx, row.ID, filepath.Join(pluginDirRoot, row.ID)); err != nil {
+					log.Printf("plugin %s: reload for enable failed: %v", row.ID, err)
+
+					return infraError(c, http.StatusConflict, "Plugin failed to start")
+				}
+			}
+		} else if err := a.runtime.Load(ctx, filepath.Join(pluginDirRoot, row.ID)); err != nil {
 			log.Printf("plugin %s: start failed: %v", row.ID, err)
 
 			return infraError(c, http.StatusConflict, "Plugin failed to start")
+		} else {
+			startedHere = true
 		}
-		startedHere = true
 	}
 
 	if err := data.DB.Exec(`UPDATE plugins SET enabled = TRUE, updated_at = now() WHERE id = ?`, row.ID).Error; err != nil {
 		if startedHere {
-			_ = a.runtime.Unload(ctx, row.ID)
+			_ = unloadDetached(ctx, a.runtime, row.ID)
 		}
 
 		return pluginFailure(c, err)
@@ -283,6 +313,19 @@ func (a *pluginDetailAPI) enableLocked(c echo.Context) error {
 	syslog.Audit(ctx, pluginActorID(c), "plugin.enable", map[string]any{"plugin": row.ID})
 
 	return c.JSON(http.StatusOK, map[string]any{"id": row.ID, "enabled": true, "loaded": a.loaded(row.ID)})
+}
+
+// pluginUnloadTimeout bounds one unload that follows a committed row change.
+const pluginUnloadTimeout = 10 * time.Second
+
+// unloadDetached unloads a plugin without following the request context. The row
+// change is already committed when this runs, so a cancelled request must not
+// leave the plugin loaded.
+func unloadDetached(ctx context.Context, runtime *plugin.Runtime, id string) error {
+	unloadCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), pluginUnloadTimeout)
+	defer cancel()
+
+	return runtime.Unload(unloadCtx, id)
 }
 
 // disable stores the flag and unloads the plugin. The flag is written first, so
@@ -310,7 +353,7 @@ func (a *pluginDetailAPI) disableLocked(c echo.Context) error {
 	}
 
 	if a.loaded(row.ID) {
-		if err := a.runtime.Unload(ctx, row.ID); err != nil {
+		if err := unloadDetached(ctx, a.runtime, row.ID); err != nil {
 			log.Printf("plugin %s: unload after disable: %v", row.ID, err)
 		}
 	}
@@ -350,7 +393,7 @@ func (a *pluginDetailAPI) uninstallLocked(c echo.Context) error {
 		}
 	}
 	if a.loaded(row.ID) {
-		if err := a.runtime.Unload(ctx, row.ID); err != nil {
+		if err := unloadDetached(ctx, a.runtime, row.ID); err != nil {
 			log.Printf("plugin %s: unload before uninstall: %v", row.ID, err)
 		}
 	}
@@ -690,9 +733,15 @@ func (a *pluginDetailAPI) test(c echo.Context) error {
 	}
 	settingsOK := plugin.CheckSettingValues(meta.Settings, stored) == nil
 
+	// Only a running worker is healthy. A plugin that waits for an automatic
+	// restart or stays crashed is reported with its supervisor state.
+	runtimeOK := false
 	runtimeDetail := "not running"
-	if a.loaded(meta.ID) {
-		runtimeDetail = "running"
+	if a.runtime != nil {
+		if status, ok := a.runtime.Status(meta.ID); ok {
+			runtimeDetail = status.State
+			runtimeOK = status.State == plugin.StateRunning
+		}
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
@@ -700,7 +749,7 @@ func (a *pluginDetailAPI) test(c echo.Context) error {
 		"checks": []map[string]any{
 			{"name": "manifest", "ok": true},
 			{"name": "settings", "ok": settingsOK},
-			{"name": "runtime", "ok": a.loaded(meta.ID), "detail": runtimeDetail},
+			{"name": "runtime", "ok": runtimeOK, "detail": runtimeDetail},
 		},
 	})
 }
@@ -729,6 +778,13 @@ func (a *pluginDetailAPI) action(c echo.Context) error {
 
 	if !a.loaded(meta.ID) {
 		return c.JSON(http.StatusOK, map[string]any{"dispatched": false, "reason": "plugin_not_running"})
+	}
+	status, ok := a.runtime.Status(meta.ID)
+	if ok && status.State == plugin.StateCrashed {
+		return c.JSON(http.StatusOK, map[string]any{"dispatched": false, "reason": "plugin_crashed"})
+	}
+	if !ok || status.State != plugin.StateRunning {
+		return c.JSON(http.StatusOK, map[string]any{"dispatched": false, "reason": "plugin_restarting"})
 	}
 
 	if err := a.runtime.Invoke(ctx, meta.ID, plugin.Hook("action:"+name), map[string]interface{}{"action": name}); err != nil {
