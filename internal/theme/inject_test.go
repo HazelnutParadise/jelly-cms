@@ -2,7 +2,7 @@ package theme
 
 // Unit tests for ticket 13 (WebMCP), slot W1: the injection step that puts the WebMCP script tag into a
 // rendered theme page, and the paragraph-preserving plain text used by the get_post tool. The contract is
-// docs/tickets/13-webmcp.md. They need no database. These tests are expected to fail now, because
+// ticket 13. They need no database. These tests are expected to fail now, because
 // InjectBeforeHeadEnd and PlainTextParagraphs are skeletons; do not edit them to match an implementation.
 
 import (

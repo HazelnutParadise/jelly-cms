@@ -1,6 +1,6 @@
 package notify
 
-// Plugin notifier channel tests (docs/tickets/29-plugin-read-api-and-extensions.md, PR B3).
+// Plugin notifier channel tests (ticket 29, PR B3).
 //
 // Control cases: TestPluginChannelNoProvidersQueuesNothing passes on the empty
 // skeleton on purpose. It pins the "nothing configured, nothing queued" rule

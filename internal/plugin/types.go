@@ -36,7 +36,7 @@ type Manager interface {
 
 // Hook names an event the site dispatches to plugins through
 // JellyCMS.registerHook. The catalogue below is the complete list the site
-// dispatches; docs/tickets/28-plugin-events.md and docs/plugin-events.md
+// dispatches; ticket 28 and docs/plugin-events.md
 // describe when each fires and what the payload carries. KnownHooks returns
 // the list for validation and documentation.
 type Hook string

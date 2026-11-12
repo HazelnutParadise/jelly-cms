@@ -27,7 +27,7 @@ Blocked by：22、23。專案沒有任何已部署站台或版本標籤，所以
 3. 錯誤訊息（`agents_auth.go`）：`A valid agent key is required` → `A valid access key is required`；`Invalid agent key` → `Invalid access key`；`Agent key is no longer valid` → `Access key is no longer valid`；`Agent key is not currently usable` → `Access key is not currently usable`；`Agent key lacks required permission` → `Access key lacks required permission`；說明端點 `errors` 表中的文字同步（`Bearer agent key is required` → `Bearer access key is required`、`Agent key is invalid` → `Access key is invalid`，其餘含 `agent` 字樣的描述同理）。錯誤碼不變。
 4. 後台頁面：`/admin/integrations` 與 `/admin/integrations/:id` 渲染原本的頁面（模板檔名可保留）；`/admin/agents` 與 `/admin/agents/:id` 以 302 轉到新路徑，保留 `:id` 與查詢字串；側欄項目 `Key: "agents"` 的 `Href` 改為 `/admin/integrations`，標籤鍵 `agents` 的值依上表；個人資料頁「API 權杖」分頁的連結改指 `/admin/integrations`；`web/admin/assets/agents.js` 內所有呼叫 `/api/admin/agents*` 的請求維持原路徑（內部 API 不改），畫面上的網址說明改為 `/api/v1`。
 5. 介面文字（`web/admin/agents.html`、`agent_detail.html`、`web/admin/assets/agents.js`、`web/locales/zh-TW.json`、`en.json`）：畫面上使用者看得到的「AI agent」「agent」依上表改為「API 串接」「串接」（英文「API integrations」「integration」），「金鑰」維持；`agents.js` 內以 `jly_` 或 `jla_` 為前綴的檢查維持。元素 id、CSS 類別與 JS 變數名（`agentsPage`、`agent-dialog` 等）不改。
-6. 文件與腳本：`README.md`、`ENG.md`、`STATUS.md` 內的機器 API 網址改為 `/api/v1`，並說明 `/api/agent/v1` 已移除；`skills/jelly-cms/SKILL.md` 的標題、描述與所有網址與稱呼改為存取金鑰與 `/api/v1`（技能名稱 `jelly-cms` 與檔案路徑不變）；`docs/tickets/14-agent-api.md` 開頭加一行指向本工單。
+6. 文件與腳本：`README.md`、架構文件、工單的驗收紀錄 內的機器 API 網址改為 `/api/v1`，並說明 `/api/agent/v1` 已移除；`skills/jelly-cms/SKILL.md` 的標題、描述與所有網址與稱呼改為存取金鑰與 `/api/v1`（技能名稱 `jelly-cms` 與檔案路徑不變）；工單 14 開頭加一行指向本工單。
 7. 設計板：`design/gen/gen_agents.py` 產生的 `Agents.dc.html`、`AgentDetail.dc.html` 內的使用者可見文字與網址依上表更新（板檔名與 id 可保留，板標題用新名稱），用 `/opt/homebrew/bin/python3.15` 重新產生，只提交相關板與 `canvas.json` 標題；`design/gen/gen_halo.py` 的 `Tokens` 板中指向 agent 管理頁的按鈕文字同步。
 
 ## 驗收（測試契約）
@@ -51,3 +51,9 @@ Blocked by：22、23。專案沒有任何已部署站台或版本標籤，所以
 - 錯誤碼與權限字串的改名。
 - 刪除 `api_tokens` 資料表。
 - 讓 `/api/auth/*`、`/api/account/*` 只收瀏覽器登入。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- 工單 24：機器 API 不再叫 agent。網址由 `/api/agent/v1` 改為 `/api/v1`（舊網址 404，沒有別名，因為專案沒有部署也沒有版本標籤）；後台頁改為 `/admin/integrations`（舊 `/admin/agents` 轉址）；畫面與文件的稱呼改為「API 串接」（英文 API integrations）與「存取金鑰」；OpenAPI 安全機制名改為 `AccessKey`；錯誤訊息文字由 agent key 改為 access key，錯誤碼、權限字串、`jly_`／`jla_` 前綴不變。內部名稱（資料表、`internal/agent`、`/api/admin/agents*`、稽核值、JSON 欄位 `agent_id` 等）刻意不改。驗證：12 個新的改名契約測試、既有 TestAgent 與整套 `internal/server`（1246 秒）、auth、agent 套件通過；跨平台編譯通過。隔離站瀏覽器實測：舊網址 404、新網址 200、說明端點與 OpenAPI 只有新網址與 `AccessKey`；`/admin/agents` 與 `/admin/agents/1` 轉到新頁；中文與英文介面的列表頁與詳情頁、建立串接並一次性顯示 `jly_` 金鑰；用該金鑰打 `/api/v1/me` 回 200、有權限的路徑 200、沒授權的路徑 403、無金鑰與錯誤金鑰各回對應錯誤碼、打 `/api/admin/posts` 回 401。未驗證：完整 `-race` 全套件交由 CI；手機版面；設計板沒有截圖比對（本機沒有 Playwright）。已知：設計板範例金鑰仍用 `jla_` 開頭；英文介面把憑證語境的 key 改為 access key，範圍比工單寬，畫面讀起來正常。後續尚未做：內部名稱改名、`api_tokens` 資料表移除。沒有部署。

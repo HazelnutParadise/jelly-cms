@@ -1,6 +1,6 @@
 package plugin
 
-// Tests for ticket 36 R1 (docs/tickets/36-plugin-usability.md): automatic
+// Tests for ticket 36 R1 (ticket 36): automatic
 // worker restart, supervision status and the failure handler.
 //
 // This file is the R1 contract and is written before the implementation. Every

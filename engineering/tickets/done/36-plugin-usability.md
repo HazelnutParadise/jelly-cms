@@ -115,3 +115,9 @@ worker 因逾時、回傳超過上限、協定錯誤或程序結束而失效，�
 | E 文件與範例 | `docs/plugin-development.md`（新）、`examples/plugins/hello-jelly/`（新）、`README.md`、`docs/plugin-extensions.md`（逾時段落） |
 
 測試檔（實作者不得修改）：`internal/plugin/supervisor_test.go`、`internal/server/plugin_supervision_integration_test.go`、`internal/server/plugin_hot_upgrade_integration_test.go`、`internal/server/plugin_example_integration_test.go`。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- 工單 36：外掛裝得上、升得了級、掛了會自己重新啟動。實測發現「外掛」頁上傳任何宣告權限的外掛都失敗、列表一律顯示 Active、逾時一次外掛就永久失效、執行中無法升級。現在：(R1) runtime 監督 worker，逾時、回傳超限、協定錯誤或程序結束後依 1 秒、5 秒、30 秒、2 分鐘自動重新載入，30 分鐘內失效 5 次進入已停止運作並送 `system.plugin_failed`；重啟綁定失效的那個狀態，管理員操作會先取消並等待進行中的重啟。(R2) 啟用對失效的外掛等於重新載入，重啟中的動作回 `plugin_restarting`、已停止運作回 `plugin_crashed`。(R3) 已載入的外掛上傳新版本直接熱升級：換檔、寫列、重載，失敗時先還原列再還原檔案並回 409。(R4) `GET /api/admin/plugins` 與 `/api/v1/plugins` 新增 `enabled`、`managed`、`state`、`last_error`，詳情新增 `state`、`faults` 等。(R5) 外掛頁改為預覽並同意權限後安裝，顯示真實狀態、可啟用停用重試，繁中「插件」全改「外掛」。(R6) 新增 `docs/plugin-development.md` 與 `examples/plugins/hello-jelly/`。驗證：測試先於實作（`internal/plugin/supervisor_test.go` 10 條在空骨架失敗；`plugin_supervision_integration_test.go`、`plugin_hot_upgrade_integration_test.go` 8 條中 7 條在原程式失敗），另有範例守門測試；獨立審查 0 個 P0／P1、5 個 P2、6 個 P3 全部處理。主代理重跑：`go test ./internal/plugin -count=1 -race` 通過，`internal/server` 外掛、擴充點、應用市場相關測試通過，其餘 26 個套件通過；完整 `internal/server` 套件本機因磁碟空間不足導致測試資料庫中斷，以 CI 為準。瀏覽器驗收（本機專用資料庫）：上傳含權限外掛、啟用、前台注入、逾時後自動恢復、熱升級成功與失敗還原、重啟伺服器後維持啟用。設計板 `Plugins.dc.html` 同批更新，線上畫布已同步（第 71 版）。PR 上的自動審查另提出 13 項，全部處理並各有回歸測試：升級前暫停自動重啟、升級途中舊版核准仍有效、已啟用未載入的外掛改走啟用、列表讀取失敗回 500、還原不完整時停止自動重啟、停用不受請求中斷影響、上傳核對檔案雜湊並綁定預覽。沒有部署。

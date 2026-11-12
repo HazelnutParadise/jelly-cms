@@ -6,7 +6,7 @@ Blocked by：03 的角色與 OAuth 身分（已合併）、04 的留言待審掛
 交付紀錄：本機實作、PostgreSQL 競態測試與 357 項瀏覽器檢查通過；交付與 CI 結果見 PR #24，線上帳號板已同步第 37 版，主代理已核對線上版本
 設計稿：`design/project/Users、Profile、Tokens、Notifications、Login.dc.html`；本工作單先補：登入的驗證碼步驟（`Login2FA`）、接受邀請（`InviteAccept`）、重設密碼（`PasswordReset`）、個人帳號的兩步驟驗證啟用區與備用碼、使用者刪除時的內容轉移面板；並把 `Profile` 板的分頁改成和 `Tokens`、`Notifications` 相同的六個分頁（基本資料、通知、API 權杖、密碼與安全、登入裝置、第三方帳號），語言只留繁中與 English。
 
-驗收依據：主代理完整差異審查與競態全套、獨立複審、真實伺服器 D7 完整流程；詳細紀錄見 [STATUS.md](/STATUS.md)。
+驗收依據：主代理完整差異審查與競態全套、獨立複審、真實伺服器 D7 完整流程；詳細紀錄見 本工單的驗收紀錄。
 
 ## 流程與驗收
 
@@ -132,3 +132,12 @@ Blocked by：03 的角色與 OAuth 身分（已合併）、04 的留言待審掛
 6. D5 通知：`internal/notify`、S19–S21、三個生產者、鈴鐺計數、`notifications.html` 與偏好分頁。測試檔 `notifications_integration_test.go`。
 7. D6 兩步驟驗證：S6–S10、S22、`totp.go`、`secrets.go`、登入頁步驟。測試檔 `totp_integration_test.go`、`internal/auth/totp_test.go`。
 8. D7 驗收：真實伺服器走完邀請 → 接受 → 登入 → 啟用 2FA → 登出其他裝置 → 建權杖打 API → 待審留言出現在通知中心 → 停用帳號後權杖失效。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- PR #24 帳號階段：工作單 06 的使用者管理、個人資料、登入裝置、API 權杖、通知與 TOTP 已實作。主代理重跑專用 PostgreSQL 全套競態測試通過（`GORACE=atexit_sleep_ms=0 JELLY_TEST_POSTGRES=1 go test -race -p 1 ./... -count=1 -timeout=600s`，server 322.812 秒），357 項真實瀏覽器檢查全數通過、沒有跳過。gofmt、go vet、原生／Windows／macOS 編譯通過，獨立複審沒有已確認阻擋缺陷。`8d34e3a` 四項 CI 全綠；交付及最新 CI 結果見 [PR #24](https://github.com/HazelnutParadise/jelly-cms/pull/24)。
+- 帳號安全回歸：管理員及本人限制、停用與舊登入撤銷、權杖依目前角色收斂、密碼重設並行保護、一次性邀請／重設／備用碼、TOTP 重放與鎖定、重設後立即完成 MFA、資料遷移重跑均通過。真實瀏覽器走完邀請、接受、重設、登入、啟用 2FA、登出其他裝置、建立／撤銷／恢復權杖、公開待審留言、通知與停用後權杖 401。
+- 帳號刪除補充驗收：真實 HTTP 建文後刪除作者曾因版本外鍵回 500；修正後主代理實際回查為 200，文章轉移且歷史版本快照完全保留，僅清除已刪帳號的製作者關聯。只有他人文章版本的成員也可刪除；有訂單的帳號回 409 並保留訂單與買家關聯，批次略過該帳號。新增測試涵蓋版本 API／還原、SQL NULL、完整交易回滾與舊登入保留。主代理另重跑 27 項使用者面板／通知核准與 12 項語言／外觀瀏覽器檢查，全部通過。通知可見欄位改由新增 0008 遷移加入，0005 保持原始 PR 版本，舊資料升級與重跑回歸通過。
+- 帳號設計同步：本機 Profile、通知偏好與帳號索引隨實作更新；已依使用者授權在 PR #24 留言交由 Claude 同步；[完成回報](https://github.com/HazelnutParadise/jelly-cms/pull/24#issuecomment-6379597696) 確認帳號七張板與索引同步至第 37 版（`1792814433-7abf`），保留其他 PR 與工作階段的變更。主代理已在瀏覽器核對相同線上版本與 73 張板索引。寄件設定與實際投遞屬工作單 08，本階段回傳可複製連結並保存待送狀態。未部署；此階段不等同完整 CMS 驗收。

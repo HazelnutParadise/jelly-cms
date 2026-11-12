@@ -70,7 +70,7 @@ const tooLong = `<p>原文超過 50 000 字元時不交給 Pele，直接提示�
   <p class="jc-mermaid-error" role="status">Diagram could not be displayed: Diagram source exceeds 50000 characters</p>`;
 
 const spec = `<div class="spec">
-  <div class="lbl">規格摘要（契約見 docs/tickets/11-mermaid.md）</div>
+  <div class="lbl">規格摘要（契約見工單 11）</div>
   <h3 class="d">輸出結構</h3>
   <pre class="code">&lt;pre hidden&gt;&lt;code class="language-mermaid"&gt;原文&lt;/code&gt;&lt;/pre&gt;
 &lt;figure class="jc-mermaid"&gt;&lt;svg class="pele"&gt;…&lt;/svg&gt;&lt;/figure&gt;

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Pure acceptance tests for the TOTP primitives (docs/tickets/06-accounts.md,
+// Pure acceptance tests for the TOTP primitives (ticket 6,
 // D6, 登入兩步驟): RFC 6238 vectors, the ±1 slice window, replay protection
 // through lastStep, and the shape of generated secrets. No database is used.
 

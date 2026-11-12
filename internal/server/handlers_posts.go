@@ -29,7 +29,7 @@ var errPostConflict = errors.New("post changed")
 var errReservedSlug = errors.New("slug is reserved")
 var errRenderDiagnostics = errors.New("render diagnostics")
 
-// Ticket 09 G0 (docs/tickets/09-editor.md): source writes are rendered and
+// Ticket 09 G0 (ticket 9): source writes are rendered and
 // sanitized on the server, while legacy content-only writes keep the HTML path
 // and are sanitized under the caller's trust policy. Both paths return render
 // diagnostics, and content-only writes clear stale source state.

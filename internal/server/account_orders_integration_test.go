@@ -1,7 +1,7 @@
 package server
 
 // Member account integration tests for ticket 07, section E7 (contract: /account, /api/account/* in
-// docs/tickets/07-shop.md). They use the public routes against the dedicated PostgreSQL database and are skipped
+// ticket 7). They use the public routes against the dedicated PostgreSQL database and are skipped
 // unless JELLY_TEST_POSTGRES=1. They must fail until the implementation exists. Do not edit them to match an
 // implementation.
 //

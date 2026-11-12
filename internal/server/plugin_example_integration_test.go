@@ -1,6 +1,6 @@
 package server
 
-// Ticket 36 R6 guard (docs/tickets/36-plugin-usability.md): the sample plugin
+// Ticket 36 R6 guard (ticket 36): the sample plugin
 // examples/plugins/hello-jelly must keep loading and behaving as its README
 // promises on the real plugin runtime. The test copies the sample's plugin.json
 // and index.js into the harness data directory, enables it through the admin

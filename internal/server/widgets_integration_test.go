@@ -1,6 +1,6 @@
 package server
 
-// Ticket 09 G6 custom widget contract (docs/tickets/09-editor.md, API, 自訂元件, 錯誤與邊界). The admin
+// Ticket 09 G6 custom widget contract (ticket 9, API, 自訂元件, 錯誤與邊界). The admin
 // registry, versions, automatic publish checks, the public sandboxed frame and the ::widget directive go
 // through the real route table on the dedicated PostgreSQL database. Run with JELLY_TEST_POSTGRES=1;
 // otherwise the harness skips. Written before the widget handlers exist and expected to fail against the

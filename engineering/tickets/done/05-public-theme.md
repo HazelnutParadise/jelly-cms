@@ -82,3 +82,19 @@ Blocked by：04 的分類標籤、選單、留言（已合併）。
 - 主代理實際送出訪客留言，畫面顯示待審核，專用資料庫回查只有一筆 pending。
 - Main、Post、Search、MobileHome、Maintenance 本機板與程式在同批提交更新；Maintenance 已由腳本重新產生並逐字比對。
 - [ ] 線上畫布同步：依使用者分工交由 Claude，在 [PR 留言](https://github.com/HazelnutParadise/jelly-cms/pull/23#issuecomment-6370797119) 回報完成版本；尚未確認。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- 階段：依使用者授權完成 [PR #23](https://github.com/HazelnutParadise/jelly-cms/pull/23) 的前台主題實作；完整 PostgreSQL 競態測試與 251 項瀏覽器檢查通過，CI 與合併結果見該 PR。完整 CMS 尚未完成。
+- 階段目標：交付工作單 05 的程式與本機設計板；線上畫布由 Claude 依 PR 留言另行回報。
+- 前台資料驗證：主代理重跑公開頁面、搜尋、維護模式、離線資源與邊界測試通過；私密／草稿／未來發布／回收桶內容排除、頁面類型限制、Unicode 摘要、段落閱讀詞數、目錄 ID 衝突與無 DB 錯誤頁均有回歸案例。獨立複審沒有其他已確認缺陷。
+- 前台完整驗證：主代理執行 `JELLY_TEST_POSTGRES=1 go test -race ./... -count=1 -timeout=240s` 全數通過，server 套件耗時 211.917 秒；完整測試找到的身分 API 與 Options 表故障整合回歸已修正，原測試與維護模式競態案例通過。真實站的 251 項瀏覽器檢查通過，涵蓋 1280px／390px、亮／暗、七種頁面、搜尋日期與摘要不重疊、字型載入、禁止外部資源、搜尋分頁、目錄定位與維護模式；另以瀏覽器送出訪客留言，資料庫回查只有一筆 pending。
+- 字型驗證：主代理以 `scripts/vendor/fonts.sh` 重新下載及建置兩套字型，兩處 woff2、LICENSE、VERSION 與重建前 SHA-256 完全相同；字集內 5,403 個 CJK 字元沒有缺字。原生、Windows 與 macOS 編譯及 `go vet ./...` 通過。
+- 設計同步：本機設計板與實作一併更新；依使用者指示，已在 PR 留言交由 Claude 發布線上畫布，尚未收到完成回報，不視為已同步。
+- 介面重設計：預設主題（web/themes/default）、後台全部頁面、登入與安裝頁改為同一套視覺語言：白底墨字、墨色調出的冷灰階、對角線對稱圓角、果凍丁品牌記號（web/admin/assets/jelly-mark.svg）、Bricolage Grotesque 與 Noto Sans TC 網路字型。後台改為工作區型版面（路徑列、列式清單、文件式編輯器、系統偏好式設定列、右側抽屜）。
+- 文章編輯器：改為 Markdown 編輯器（工具列、即時預覽），儲存時以 marked（已內建於 web/admin/assets）轉成 HTML 寫入 content，原稿保存在 meta.markdown；舊的 HTML 內容可直接當 Markdown 編輯。
+- 主題模板函數：新增 safeHTML、excerpt（去標籤、依字元截斷）、initial，並有單元測試；post.html 改用 safeHTML 輸出文章 HTML（原本 `{{.Post.Content | html}}` 會把標籤轉成純文字）。
+- 介面驗證：以靜態渲染加 Chromium 截圖檢查桌面（1280）與手機（390）、亮暗色模式，含 API 假資料；尚未在真實伺服器以瀏覽器完整操作驗收，表單送出與主題客製化儲存仍待實機確認。
+- 已知缺口：後台部分頁面（文章列表按鈕、編輯器、設定、商品）仍是英文字串，需併入 07 的 i18n 工作；網路字型與自架離線環境不相容時會退回系統字型。

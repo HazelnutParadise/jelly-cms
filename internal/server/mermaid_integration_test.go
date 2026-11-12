@@ -1,6 +1,6 @@
 package server
 
-// Mermaid acceptance tests for ticket 11 (docs/tickets/11-mermaid.md). Slot M1 makes the default theme
+// Mermaid acceptance tests for ticket 11 (ticket 11). Slot M1 makes the default theme
 // call {{contentAssets .}} so a post or page whose content holds a mermaid code block loads the vendored
 // Pele build and web/admin/assets/jelly-mermaid.js, and slot M2 vendors Pele with its LICENSE, VERSION,
 // rebuild script and release-checklist entry. The diagram itself is drawn in the browser; the browser

@@ -17,7 +17,7 @@ const (
 	workerEnvKey    = "JELLY_PLUGIN_WORKER"
 	workerEnvMarker = "1"
 
-	// Limits are conservative defaults from docs/tickets/02-plugin-runtime.md.
+	// Limits are conservative defaults from ticket 2.
 	maxManifestBytes  = 64 << 10
 	maxEntryBytes     = 1 << 20
 	maxPayloadBytes   = 1 << 20

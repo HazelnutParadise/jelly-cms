@@ -1,4 +1,4 @@
--- Personal API tokens (docs/tickets/06-accounts.md, 資料表 api_tokens).
+-- Personal API tokens (ticket 6, 資料表 api_tokens).
 -- Only the SHA-256 hash of the token is stored; last4 is kept for display.
 
 CREATE TABLE IF NOT EXISTS api_tokens (

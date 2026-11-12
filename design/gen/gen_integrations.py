@@ -1,4 +1,4 @@
-# API 串接管理畫面（docs/tickets/14-integration-api.md）：Integrations（清單、建立、金鑰一次性顯示）與
+# API 串接管理畫面（ticket 14）：Integrations（清單、建立、金鑰一次性顯示）與
 # IntegrationDetail（詳情、金鑰與過渡倒數、輪替歷史、活動紀錄、輪替對話框各狀態、提前撤銷、停用與刪除）。
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))

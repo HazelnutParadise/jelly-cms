@@ -1,7 +1,7 @@
 package server
 
 // Acceptance tests for ticket 36 R2 and R4
-// (docs/tickets/36-plugin-usability.md): the server wiring around automatic
+// (ticket 36): the server wiring around automatic
 // restart, enable/reload during a restart, the system.plugin_failed event, and
 // the enabled/managed/state/last_error status fields on the admin and /api/v1
 // plugin lists plus the detail endpoint.

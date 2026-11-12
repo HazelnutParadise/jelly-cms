@@ -1,6 +1,6 @@
 package notify
 
-// Plugin notifiers (docs/tickets/29-plugin-read-api-and-extensions.md, PR B).
+// Plugin notifiers (ticket 29, PR B).
 // The server registers a function that lists the active notify.channel plugin
 // providers; Emit then queues one delivery row per provider so the plugin
 // receives the event through the ordinary retrying outbox. The rows carry no

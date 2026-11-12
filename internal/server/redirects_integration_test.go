@@ -1,6 +1,6 @@
 package server
 
-// Ticket 08b (docs/tickets/08-system.md): redirects (301, 302, 410), wildcard
+// Ticket 08b (ticket 8): redirects (301, 302, 410), wildcard
 // rules, target validation, loop and chain checks, expiry, hit counts, automatic
 // redirects on slug change, CSV import and export, the test endpoint, the 404
 // log and admin-only access. The contract is the 「轉址與 404」 bullet, the 錯誤與

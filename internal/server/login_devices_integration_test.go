@@ -10,7 +10,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/core"
 )
 
-// Signed-in device acceptance (docs/tickets/06-accounts.md, S11 to S13 and the
+// Signed-in device acceptance (ticket 6, S11 to S13 and the
 // login_sessions contract). Helpers live in account_profile_integration_test.go.
 
 const (

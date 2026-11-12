@@ -1,6 +1,6 @@
 package integration
 
-// Unit tests for ticket 14 slot A1 (docs/tickets/14-integration-api.md, `internal/integration` 套件 and 名詞).
+// Unit tests for ticket 14 slot A1 (ticket 14, `internal/integration` 套件 and 名詞).
 // They pin the key format, hashing, display prefix, IP masking, the permission catalogue and the
 // rotation grace bounds. Introduced against the draft skeleton, they now define the regression
 // contract for these helpers. They run without a database.

@@ -3,7 +3,7 @@ package core
 // Additional contract coverage for ticket 07 that the existing shop tests do not reach:
 // money overflow/format boundaries, compare-and-set failures and transaction rollback, stock
 // reservation/lifecycle idempotency under concurrency, and coupon redemption idempotency.
-// These tests are written against the contract in docs/tickets/07-shop.md and must pass once the
+// These tests are written against the contract in ticket 7 and must pass once the
 // skeletons are implemented. Database cases are skipped unless JELLY_TEST_POSTGRES=1.
 //
 // Do not edit production code or the existing tests to make these pass.

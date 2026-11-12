@@ -1,4 +1,4 @@
-// Browser acceptance for docs/tickets/10-theme-followups.md.
+// Browser acceptance for ticket 10.
 // Start internal/server/TestFollowupBrowserFixture first; credentials stay in /tmp.
 import fs from 'node:fs/promises';
 import path from 'node:path';

@@ -36,7 +36,7 @@ func seedSpecs() []Spec {
 		s("payment_newebpay_hash_iv", KindSecret, "", "payment"),
 		s("payment_newebpay_test_mode", KindBool, "true", "payment"),
 
-		// Keys listed in docs/tickets/08-system.md (選項鍵).
+		// Keys listed in ticket 8 (選項鍵).
 		s("site_timezone", KindString, "UTC", "site"),
 		s("comments_enabled", KindBool, "true", "comments"),
 		s("comments_registered_only", KindBool, "false", "comments"),

@@ -1,6 +1,6 @@
 package server
 
-// Acceptance tests for ticket 27 (docs/tickets/27-api-v1-contract.md): the machine API owns its list
+// Acceptance tests for ticket 27 (ticket 27): the machine API owns its list
 // envelopes, the duplicate endpoints are gone, every integration is rate limited and GET /api is the
 // index of the APIs. Each TestAPIV1Contract... function names the contract item it locks. The expected
 // shapes are written from the ticket, not read back from the implementation. They need

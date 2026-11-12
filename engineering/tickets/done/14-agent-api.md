@@ -7,7 +7,7 @@ Epic：帳號與存取
 User Story：站長在後台建立 AI agent 專用身分，勾選它能做的事，拿到一把只顯示一次的金鑰交給 agent；需要時立即或給一段過渡期輪替金鑰、提前撤銷舊金鑰、停用或刪除 agent。agent 拿著金鑰打 `/api/agent/v1`，不需要人教就能從說明端點與 OpenAPI 找到可以做什麼；寫入時帶上讀到的版本，不會蓋掉別人的修改。站長事後能依 agent 查出它做過的每一件事，包含來源 IP 與所用金鑰，跨越輪替也查得到。
 來源：GitHub issue HazelnutParadise/jelly-cms#6。
 Blocked by：無。PR #31 已整合 main `2e1236b`，帳號、系統、商店、編輯器與 WebMCP 的相依整合見「與既有 main 的調和」。
-交付紀錄：已實作並完成本機功能驗收；必要 CI、線上畫布同步及合併清理結果見 STATUS.md 與 PR #31。
+交付紀錄：已實作並完成本機功能驗收；必要 CI、線上畫布同步及合併清理結果見 工單的驗收紀錄 與 PR #31。
 設計稿：`design/project/Agents.dc.html`（清單、建立、金鑰一次性顯示與關閉後的狀態）、`design/project/AgentDetail.dc.html`（詳情、金鑰與過渡倒數、輪替歷史、活動紀錄、輪替對話框的兩種模式、過渡時長錯誤與新金鑰一次性顯示、提前撤銷確認、停用與刪除確認）。兩張板由 `design/gen/gen_agents.py` 產生（`PYTHONDONTWRITEBYTECODE=1 python3 gen_agents.py`，在 `design/gen` 下執行），放在 `canvas.json`「後台 · 帳號與系統」那一排 x = 28880、30400（讓出 06 的 Login2FA、InviteAccept、PasswordReset 位置）。側欄的「AI agent」入口只畫在這兩張板；其他產生板的側欄在下次改 `gen.py` 的 `NAV` 時一起補上。
 
 ## 流程與驗收
@@ -325,3 +325,13 @@ M9 的 `action` 可重複傳入，例如 `action=key.rotate&action=key.revoke`�
 可以自己決定：抽出的具名 handler 名稱（建議 `listMedia`、`uploadMedia`、`replaceMedia`、`deleteMedia`、`renameMedia`、`listThemes`、`activateTheme(tm)`、`getThemeConfig(tm)`、`getThemeSettings(tm)`、`saveThemeSettings(tm)`、`listPlugins`、`reloadPlugin(rt)`、`getSettings`、`saveSettings`、`listProducts`、`createProduct`、`getProduct`、`updateProduct`、`listOrders`）、cursor 的編碼方式、說明文件與 OpenAPI 的描述文字與範例內容、錯誤 `message` 的文字（`grace_out_of_range` 除外）、`last_used_at` 節流的寫法、頁面的 JavaScript 結構與 CSS 類名（不得從外部網址載入）、`agent_events` 額外的索引。
 
 必須回報、不得自行決定：改變 `/api/admin` 任何既有端點的行為或錯誤格式；增減權限或改變權限 → 端點對照；讓 agent 碰到任何未列在權限表的 `/api/admin` 路由；放寬金鑰格式、雜湊或「只顯示一次」；改變過渡期上下限或「最多兩把有效金鑰」；記錄請求本文或回應內容；新增 Go 模組相依；需要修改本單的測試才能通過。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- PR #31：工作單 14 已實作獨立 agent API、16 項權限、金鑰建立／輪替／撤銷／停啟用與軟刪除、探索端點、OpenAPI 與 Agent Skill。共用 main 的 handler、角色、設定登記表與遮罩，新增 0025 遷移，保留既有帳號、商店、系統、編輯器與 WebMCP。
+- PR #31 一致性：獨立審查找到的權限復活、跨文章／頁面刪除、輪替回應金鑰錯配、同名競態、混合型別設定與 chunked／超限／根路徑稽核缺口已補確定性回歸。請求先同交易保留 agent event 與 system log，初寫失敗不執行業務；結算失敗保留 status=0，不偽稱已回滾業務。商品版本防覆蓋涵蓋庫存、規格與分類的整個交易。
+- PR #31 本機驗證：主代理重跑 agent、共用帳號與新增回歸競態批次通過（server 64.767 秒）；NATS 競態、go vet、原生及 Windows／macOS amd64 編譯通過。OpenAPI 標準驗證與 34 個真實正常／錯誤回應的 schema 比對通過。完整 PostgreSQL／Redis 批次曾在 40 分鐘到期，且六個既有外掛案例超過 5 秒握手期限；原失敗案例與到期時的分類案例另批重跑通過（36.974 秒），尚未據此認定根因已修正。
+- PR #31 畫面：主代理完成 B1–B6、刪除後紀錄保留、離線保留輸入與重試、鍵盤關閉與焦點恢復、55 筆請求的篩選／分頁，以及重複送出與離頁事件延遲回應隔離。繁中／英文、1280px／390px、亮／暗的 16 組畫面沒有整頁溢出、JavaScript 例外或瀏覽器外部資源；既有 favicon 404 與預期離線請求錯誤分別辨識。主要按鈕與狀態標籤對比至少 4.76:1，錯誤提示亮／暗為 6.43／5.55:1。原生返回快取恢復未驗證。
+- PR #31 交付：設計產生器、Agents／AgentDetail／Tokens 板與 canvas 索引同版。必要 CI、線上畫布同步回報、合併與分支清理結果見 [PR #31](https://github.com/HazelnutParadise/jelly-cms/pull/31) 的最終紀錄。沒有部署。

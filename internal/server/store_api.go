@@ -30,7 +30,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Plugin store and plugin installs from URLs (docs/tickets/08-system.md, 08d).
+// Plugin store and plugin installs from URLs (ticket 8, 08d).
 //
 // Official items must carry a minisign signature over the archive. Other items
 // install only when the admin accepts exactly the permissions the catalog

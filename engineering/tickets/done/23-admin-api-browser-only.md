@@ -23,7 +23,7 @@ Blocked by：22。
 - 測試輔助函式：目前許多整合測試用 `Authorization: Bearer <JWT>` 打 `/api/admin/*`（主要在 `access_control_integration_test.go` 的 `accessHarness.token()`／`request`，另有 `tokTestReq`、`acctCall`、`agtAdmin` 等各檔自有輔助函式）。全部改成以 `jwt_token` Cookie 登入（寫入同時帶 `X-Jelly-CSRF` 以及測試環境下能通過來源檢查的標頭），行為與斷言不變。這一步在規則實作之前就必須全綠（現況程式接受 Cookie）。
 - 仍須保留 Bearer 的測試：驗證 `/api/auth/*`、`/api/account/*` 的 Bearer 行為者，不改。
 - `scripts/acceptance/mermaid.spec.mjs` 改為用登入回應的 Cookie 呼叫後台 API。
-- 文件：README「管理後台 API」改成：後台 API 僅供網頁使用，程式請用存取金鑰；`docs/tickets/03-access-control.md`、`06-accounts.md`、`08-system.md` 中描述舊互動限定規則處加一行指向本工單；`STATUS.md` 記錄。
+- 文件：README「管理後台 API」改成：後台 API 僅供網頁使用，程式請用存取金鑰；工單 03、`06-accounts.md`、`08-system.md` 中描述舊互動限定規則處加一行指向本工單；工單的驗收紀錄 記錄。
 
 ## 驗收（測試契約）
 
@@ -40,3 +40,9 @@ Blocked by：22。
 - 對外改名（`/api/v1`、「串接」用語、頁面與設計板文字）。
 - 資料表、Go 套件的內部改名；刪除 `api_tokens` 資料表。
 - 讓 `/api/account/*`、`/api/auth/*` 只收瀏覽器登入。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- 工單 23：後台 `/api/admin/*` 只接受瀏覽器登入。總閘門 `enforceStaffAdminAPIs` 對任何帶 `Authorization` 標頭的後台請求在認證前回 401 `Browser login required`；`auth.RequireInteractive` 成為唯一的互動限定規則（Bearer 回 403，寫入要 `X-Jelly-CSRF`），原本散在備份、外掛、商店、注入等檔案的三份重複寫法已刪。`/api/auth/*`、`/api/account/*` 的認證來源與 `/api/agent/v1` 不變。驗證：新規則的 10 個契約測試、整套 server 測試（624 秒）、auth 與 agent 套件皆通過；測試輔助函式先改為 Cookie 登入並在現況程式上全綠，再加規則。隔離站瀏覽器實測：主要後台頁面的讀取全是 200；介面建立存取金鑰成功，新 `jly_` 金鑰打 `/api/agent/v1` 回 200、未授權路徑 403、打 `/api/admin` 回 401；介面改密碼的請求通過互動規則。瀏覽器實測找到工單 22 留下的缺口並修正：存取金鑰管理頁腳本只認 `jla_`，建立或輪替金鑰時 API 成功但畫面報「金鑰回應不完整」，已改為認 `jly_` 並加守護測試。未驗證：完整 `-race` 全套件交由 CI；英文介面與手機版面；`scripts/acceptance/mermaid.spec.mjs` 只做語法檢查，沒對真實站跑過。已知小問題：個人資料頁把所有 401 顯示為「登入已過期」，包含目前密碼錯誤。後續尚未做：對外改名（網址、「串接」用語）、`api_tokens` 資料表移除、內部名稱。沒有部署。

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// Acceptance test for ticket 25a (docs/tickets/25-integration-internal-rename.md):
+// Acceptance test for ticket 25a (ticket 25):
 // creating an integration through the admin API records the renamed audit
 // values, and using the returned access key records actor_type integration.
 // The external URL and JSON use the integration names required by 25b.

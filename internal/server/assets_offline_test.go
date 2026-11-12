@@ -2,7 +2,7 @@ package server
 
 // Offline-asset acceptance tests for ticket 05 slot B4 (public theme). A page must never load scripts,
 // styles, fonts or icons from an external URL, and the fonts must be vendored with their LICENSE and VERSION
-// files. The contract is the 契約 section of docs/tickets/05-public-theme.md and the 工作規則 in AGENTS.md
+// files. The contract is the 契約 section of ticket 5 and the 工作規則 in AGENTS.md
 // (vendored packages live under web/ with LICENSE and VERSION; scripts/vendor/ rebuilds them). These tests
 // are expected to fail now: the layout still loads Google Fonts and the woff2 files, LICENSE and VERSION
 // files, scripts/vendor/fonts.sh and scripts/vendor/fonts-charset.txt do not exist yet. Do not edit them to

@@ -1,4 +1,4 @@
-// Package integration holds the pure parts of the AI integration API (docs/tickets/14-integration-api.md):
+// Package integration holds the pure parts of the AI integration API (ticket 14):
 // the permission catalogue, key generation and hashing, IP masking and the
 // rotation grace bounds. It has no database or HTTP dependencies.
 package integration

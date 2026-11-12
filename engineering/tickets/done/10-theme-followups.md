@@ -144,7 +144,7 @@ Blocked by：05（前台主題，PR #23 已合併）。無其他前置工作單�
 4. **10-D 維護模式**（`maintenance.go` 的路徑、`maintenance.html` 的圖形位置、按鈕圖示、時區）：`TestFollowupMaintenanceEncodedPathsAreNotBypassed`、`TestFollowupMaintenanceBypassMatchesEscapedSegments`、`TestMaintenance*`、`TestPublicThemeEdgeMaintenance*`；B3。
 5. **10-C1 主題 CSS 與單篇／搜尋／首頁**（`layout.html`、`post.html`、`search.html`、`index.html`）：`TestThemeCSS*`、`TestFollowupPostNavLinksCarryTheirDirection`；B1、B2、B4、B7（搜尋與首頁部分）、B8、B9。
 6. **10-C2 列表與靜態頁**（`posts.html`、`page.html`、`layout.html` 的 `.page-head`／`.article-head` 斜線）：`TestFollowupStripeDecorationDrawnOnce`、`TestFollowupStaticPageHasQuickLinksPanel`、`TestFollowupPostListCoverPlaceholder`、`TestFollowupPostListCategoryDotSharesRowWithCategory`；B5、B6、B7。
-7. **10-F 收尾**：主代理以真實伺服器跑完整 B1–B10（亮／暗、1280／390），更新 `STATUS.md`。
+7. **10-F 收尾**：主代理以真實伺服器跑完整 B1–B10（亮／暗、1280／390），更新 工單的驗收紀錄。
 
 ### 測試另外釘下的約定
 
@@ -218,3 +218,13 @@ Blocked by：05（前台主題，PR #23 已合併）。無其他前置工作單�
 - 完整競態測試與最新提交的遠端 CI 結果以 PR #29 最終驗證紀錄為準。七張設計板隨實作提交，線上畫布依 PR 的同步回報確認。沒有部署或發版。
 
 - 收尾完整競態批次找到外掛搜尋排序一項回歸，改用 GORM 支援的 `clause.OrderBy` 後，主代理重跑原失敗 HTTP 測試與相關搜尋競態回歸，全部通過（25.143 秒）；原測試斷言保持不變。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- PR #29：工作單 10 的 13 項修正與 B1–B10 已完成實作及本機功能驗收，已整合 main `c954b88`。搜尋先 trim、限制 100 字，再以共用可見文字及 Unicode fold 的三個內部欄位進行 SQL 計數與分頁，維持既有公開範圍、排序及回應格式。新增 0024 遷移與建立、更新、匯入、媒體改寫、版本還原及備份還原的同交易維護。
+- PR #29 資料驗證：主代理重跑專用 PostgreSQL 競態回歸通過（data 7.786、backup 33.333、importer 8.816、server 32.983 秒），涵蓋 201 筆跨批回填失敗回滾與重試、舊備份與不可信衍生值、設定／附件部分還原不改文章、SQL expression 拒絕、NULL 與軟刪除保留、搜尋列數上限及計數／分頁共用發布截止時間。獨立複審修正已確認問題後，沒有新增確認缺陷。
+- PR #29 畫面：主代理以最終版本執行 Chromium B1–B10，642 項通過、0 項失敗，證據 `/tmp/jelly29-browser/evidence.json`。涵蓋 1280px／390px、亮／暗、間距與對比、列表與靜態頁、目錄與上下篇、維護頁、實際點擊、字型載入及快取，外部請求與非預期錯誤皆為零。七張設計板與維護頁產生腳本隨實作更新，線上畫布同步完成與否以 PR 回報為準。
+- PR #29 完整測試收尾：主代理完整 PostgreSQL／Redis 競態批次僅外掛搜尋 HTTP 排序回歸失敗，其餘套件通過。原因是 GORM 忽略 `Order(clause.Expr)`，已改用明確的 `clause.OrderBy`，保持參數綁定、公開過濾與外掛排序。主代理重跑原失敗 HTTP 測試及搜尋、發布截止時間、寫入一致性競態回歸，全部通過（server 25.143 秒），go vet 與差異檢查通過；最終完整套件由最新提交 CI 驗證。
+- PR #29 交付驗證：NATS JetStream 競態測試、theme 競態測試、格式、go vet、原生／Windows／macOS 編譯及差異檢查通過。完整 PostgreSQL／Redis 競態測試、必要 CI、合併與分支清理結果見 [PR #29](https://github.com/HazelnutParadise/jelly-cms/pull/29) 的最終紀錄。沒有部署。

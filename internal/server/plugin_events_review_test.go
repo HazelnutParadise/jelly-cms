@@ -15,7 +15,7 @@ import (
 )
 
 // Review-found defect tests for the plugin event wiring
-// (docs/tickets/28-plugin-events.md). Each test is written to fail on the
+// (ticket 28). Each test is written to fail on the
 // current implementation where the ticket's contract is not met, and to pass
 // once it is. Controls (expected to pass today) are labelled in comments.
 // Helpers come from plugin_events_harness_test.go, plugin_events_content_test.go,

@@ -1,6 +1,6 @@
 package server
 
-// Cart integration tests for ticket 07, section E4 (contract: /api/cart* in docs/tickets/07-shop.md). They call the
+// Cart integration tests for ticket 07, section E4 (contract: /api/cart* in ticket 7). They call the
 // public routes against the dedicated PostgreSQL database and are skipped unless JELLY_TEST_POSTGRES=1. They are
 // written before the implementation and must fail until it exists. Do not edit them to match an implementation.
 //

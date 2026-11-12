@@ -86,3 +86,15 @@ qjs v0.0.6 的 Eval 參數是檔名，內嵌程式需 Code 選項。SetFunc 綁�
 本段已由主代理先重現假成功，再驗證八個新增 HTTP 案例及完整 PostgreSQL 競態測試：332 個頂層案例通過、7 個子程序 helper 跳過，零失敗與競態警告。gofmt、go vet、原生／Windows amd64／macOS amd64 編譯通過，獨立對抗性審查沒有已確認缺陷。隔離瀏覽器以 main 原頁完成成功換版、損壞候選、ID 不符與取消操作，真實 JavaScript 輸出證明版本與外掛隔離；UI 與設計沒有改動。交付與 CI 結果見 [PR #21](https://github.com/HazelnutParadise/jelly-cms/pull/21)，本段結束後依使用者指示暫停。
 
 首次兩組 Linux CI 均在整套 180 秒上限到期時停在既有回收桶測試初始化，並非重載案例的斷言失敗。保留原始紀錄，整套 watchdog 調為 240 秒；單次取消與載入逾時的測試限制及所有斷言保持不變，結果追蹤於 PR #21。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- 外掛停止測試偶發失敗已修正：外掛 worker 回完 shutdown 就結束行程，父端 readLoop 先把回應放進緩衝再關閉 readDone；`request()` 的 select 同時遇到兩者時隨機挑選，挑到 readDone 就回 `worker exited during shutdown`，丟掉已到的回應。改為觀察到 readDone 時先取出緩衝回應，回應處理抽成共用函式，沒有回應才回報結束。驗證：新增 `worker_process_race_test.go` 以模擬 worker『回應後立刻結束』穩定重現（修正前 200/200 失敗、修正後全過，worker 沒回應就結束的對照維持報錯）；原測試在 6 個並行行程各跑 40 次的壓力下，修正前 240 次失敗 6 次、修正後 0 次；`go test -race ./internal/plugin/`、gofmt、go vet 通過。沒有部署。
+- 外掛驗證：主代理重跑基本生命週期、逾時、日誌阻塞、閒置與忙碌子程序回收、網站檔案隔離及暫存目錄回收的競態測試通過；Linux 短日誌壓力測試的事件／關閉耗時約 1 秒。
+- 外掛回收驗證：主代理先重現 Linux 單 CPU 下父程序結束後 worker 超過三秒未退出，再驗證修正後原始案例與三條真實程序測試連跑三次通過；單 Go 執行槽及垃圾回收的獨立探針也確認恢復退出。完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷。原始 CI 沒有程序 stat，確切失敗原因仍未知。
+- 外掛回收交付：[PR #13](https://github.com/HazelnutParadise/jelly-cms/pull/13) 四項 CI 通過後合併為 `ef0932b`；遠端與本機分支已刪除，未部署。
+- 外掛重載驗收（2026-10-23）：主代理先以獨立 HTTP 測試與 main 原畫面重現假成功，再確認修正後同一 runtime 真實 JavaScript 回呼由 v1 換至 v2，另一外掛維持 v1。八個新增 HTTP 案例涵蓋權限、未知 ID、無 runtime、候選失敗、ID 不符、取消與逾時。完整 `JELLY_TEST_POSTGRES=1 go test -race ./... -count=1 -timeout=180s` 由主代理重跑，332 個頂層案例通過、7 個子程序 helper 跳過、零失敗與競態警告；server 耗時 161.670 秒。gofmt、go vet、原生／Windows amd64／macOS amd64 編譯及差異檢查通過，獨立對抗性審查沒有已確認缺陷。
+- 外掛重載 CI 時間額度：首次兩組 Linux CI 均在整套 180 秒到期時停止，當時已完成重載案例，正在初始化既有回收桶測試；原始失敗紀錄保留於 PR #21。主分支先前 server 測試耗時 143.657 秒，新增重載案例在兩組 CI 的首末建立間隔均約 16.8 秒。整套測試上限改為 240 秒，所有案例、斷言、競態檢查、取消與單次重載期限保持不變；最終驗證結果見 PR #21。
+- 外掛重載畫面：主代理在隔離本機站 `127.0.0.1:56098` 以 1280×720 原畫面完成登入、成功換版、損壞候選及 ID 不符時顯示一般錯誤、取消時保留版本。每次操作均以真實 JavaScript 輸出回查，外掛頁 console 沒有警告或錯誤；沒有錯誤覆蓋層。截圖保存在本機 `jelly-plugin-reload-final-20261023.png`。事件探針只屬測試工具，不表示網站業務事件已串接。UI、設計及 ENG 與 main 無差異；本機站已停止並清理測試資料。

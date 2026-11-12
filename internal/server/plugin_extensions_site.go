@@ -1,6 +1,6 @@
 package server
 
-// Site extension points (docs/tickets/29-plugin-read-api-and-extensions.md, PR B):
+// Site extension points (ticket 29, PR B):
 // theme.inject, content.render and comments.component. notify.channel lives in
 // plugin_extensions_notify.go. The generation counter and the provider list
 // cache here are shared by all four points.

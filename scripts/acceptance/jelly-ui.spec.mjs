@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Browser acceptance for ticket 12 (docs/tickets/12-zero-cdn-jelly-ui.md), slot Z7. These checks pin visible
+// Browser acceptance for ticket 12 (ticket 12), slot Z7. These checks pin visible
 // behavior for Jelly UI controls, confirmations, notifications, settings, and posts filtering against a real
 // server. This is a plain Node script rather than @playwright/test; Playwright loads through createRequire.
 //
@@ -21,7 +21,7 @@
 // shop settings interactions save through /api/admin/shop/settings. Never point it at production data.
 // The design canvas check starts a static server on design/project and needs design/project/fonts/
 // (run scripts/vendor/fonts.sh). JELLY_ONLY=admin|public|design|consistency runs one group; consistency is the
-// ticket 26 group (docs/tickets/26-jelly-ui-consistency.md, slot 26-B). JELLY_SCREENSHOT_DIR enables
+// ticket 26 group (ticket 26, slot 26-B). JELLY_SCREENSHOT_DIR enables
 // the bounded 24-image locale/width/theme visual matrix. Exit code 1 on any failure.
 
 import http from 'node:http';
@@ -1227,7 +1227,7 @@ async function runAdmin(browser) {
 }
 
 // ---------------------------------------------------------------------------------------------------------
-// Ticket 26 (docs/tickets/26-jelly-ui-consistency.md), slot 26-B: JELLY_ONLY=consistency. Every admin page
+// Ticket 26 (ticket 26), slot 26-B: JELLY_ONLY=consistency. Every admin page
 // shows only Jelly UI selection controls and dialogs, keyboard operation works on the replaced controls, the
 // requests the pages send keep the same JSON fields and value types (expected bodies recorded on main
 // fc6ab71 before the replacement), notices that used alert() are Jelly toasts, and nothing overflows at

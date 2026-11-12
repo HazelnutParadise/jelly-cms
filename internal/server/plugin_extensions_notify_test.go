@@ -1,6 +1,6 @@
 package server
 
-// notify.channel end-to-end tests (docs/tickets/29-plugin-read-api-and-extensions.md, PR B3).
+// notify.channel end-to-end tests (ticket 29, PR B3).
 //
 // Control cases: none. Every test here must FAIL on the empty skeleton, where
 // notifyPluginChannelProviders returns nil (so no plugin rows are queued) and

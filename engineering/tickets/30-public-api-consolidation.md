@@ -92,7 +92,7 @@ Blocked by：27（`/api/v1` 契約與 `GET /api` 總索引，已合併）。與 
 5. `internal/server/public_api_docs.go`、`public_api_schemas.go`（新檔）：`publicAPIOverview` 與 `publicAPIOpenAPI` 改為從一張匿名路由表產生（仿 `integrationRouteTable`：方法、路徑、摘要、是否限流與視窗、query 參數、request body struct、回應 struct）；`shop_api_documentation.go` 的匿名與金流回呼部分併入、帳號部分經 `auth.RegisterAPIDocumentation` 注入 auth 文件、後台部分刪除；`shop_api_documentation.go` 刪除。`internal/auth/api_documentation.go`：新增註冊點、刪除 11 條 `/api/admin/*` 操作。
 6. `internal/server/webmcp.go:256-259`：端點改新路徑。
 7. `web/themes/default/assets/shop.js`、`web/themes/default/_comments.html`：R3、R4。依 AGENTS.md，畫面文字沒變但 JS 有改，瀏覽器驗收要跑購物車、結帳、留言三條流程；設計板不用動。
-8. 文件：README 的「支付 API」與商店段落的路徑；`docs/webmcp.md` 若列出端點路徑；`docs/tickets/05-public-theme.md`、`07-shop.md`、`13-webmcp.md` 開頭各加一行指向本工單；`STATUS.md`。
+8. 文件：README 的「支付 API」與商店段落的路徑；`docs/webmcp.md` 若列出端點路徑；工單 05、`07-shop.md`、`13-webmcp.md` 開頭各加一行指向本工單；工單的驗收紀錄。
 
 ## 驗收（測試契約）
 

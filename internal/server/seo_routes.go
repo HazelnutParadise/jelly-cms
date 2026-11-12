@@ -264,7 +264,7 @@ func applyPublicSEO(c echo.Context, db *gorm.DB, file string, values map[string]
 	contentPage := file == "post.html" || (file == "page.html" && !home)
 	inject := publicInjectionFor(c.Request().URL.Path, opts, contentPage)
 	// theme.inject providers follow the admin's code injection and obey the
-	// same commerce-page rule (docs/tickets/29-plugin-read-api-and-extensions.md).
+	// same commerce-page rule (ticket 29).
 	if !isCommercePath(c.Request().URL.Path) || opts[keyInjectOnCommerce] == "true" {
 		extra := pluginThemeInjectionFor(c.Request().Context(), db)
 		inject.Head += extra.Head

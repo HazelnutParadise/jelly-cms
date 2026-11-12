@@ -1,6 +1,6 @@
 package assetcheck
 
-// Vendored-package acceptance tests for ticket 12 slots Z1 and Z2 (docs/tickets/12-zero-cdn-jelly-ui.md).
+// Vendored-package acceptance tests for ticket 12 slots Z1 and Z2 (ticket 12).
 // Every third-party front-end package under web/ ships built files with LICENSE and VERSION, and a script in
 // scripts/vendor/ rebuilds it (AGENTS.md 工作規則). Most of these tests are expected to fail now: Jelly UI,
 // marked's LICENSE and VERSION, the vendor scripts, the release checklist entries and the system
@@ -172,7 +172,7 @@ func TestMarkedIsVendoredAsAPackageDirectory(t *testing.T) {
 
 // firstPartyAssets are files this repository authors itself; every other loose file next to the
 // package directories is treated as an unlabelled third-party file. sortable.js, jelly-motion.js and
-// jelly-components.js arrive with ticket 09 (docs/tickets/09-editor.md on its branch) and are first-party.
+// jelly-components.js arrive with ticket 09 (ticket 9 on its branch) and are first-party.
 var firstPartyAssets = map[string]bool{
 	"jelly-mark.svg":      true,
 	"sortable.js":         true,

@@ -301,7 +301,7 @@ OAuth 入口另使用與本機登入獨立的既有來源限流器，每個連�
 
 ### 固定身分的資料格子
 
-入口 `data.MigrateDB(db *gorm.DB) error` 保持不變。新增私有 `migrateOAuthIdentities(db *gorm.DB) error`，在既有模型遷移成功後執行。資料與索引依 ENG.md 的關係模型。`core.OAuthIdentity` 放在 `internal/core/oauth_identity.go`，欄位為 ID、UserID、Provider、Subject、CreatedAt、UpdatedAt、DeletedAt，JSON 不暴露 Subject；SQL 是新表結構的依據，不另外對新表執行可能漂移的 AutoMigrate。
+入口 `data.MigrateDB(db *gorm.DB) error` 保持不變。新增私有 `migrateOAuthIdentities(db *gorm.DB) error`，在既有模型遷移成功後執行。資料與索引依 架構文件 的關係模型。`core.OAuthIdentity` 放在 `internal/core/oauth_identity.go`，欄位為 ID、UserID、Provider、Subject、CreatedAt、UpdatedAt、DeletedAt，JSON 不暴露 Subject；SQL 是新表結構的依據，不另外對新表執行可能漂移的 AutoMigrate。
 
 `oauth_identity_audit_log` 使用 id、identity_id、user_id、provider、action、old_state、new_state、actor_id、actor_email、created_at。old_state／new_state 是只含 id、user_id、provider、deleted_at 的 JSONB 快照。identity_id／user_id 是當時的識別值，不作會改動歷史的外鍵。actor_id 可空，外鍵 ON DELETE SET NULL，並有索引；actor_email 是不可隨父帳號變動的快照。交易透過 `set_config('jelly.actor_id', ..., true)` 傳入已認證操作者，沒有此設定時記空操作者。稽核 trigger 由此讀取 email。兩個資料表均不存第三方 token。
 
@@ -440,3 +440,49 @@ ReloadOAuthProviders 與公開 /api/oauth/status 查詢不得重用帶有非零�
 首次 push 與 PR 的兩組 CI 都在復原成功後的 User 全欄位比對失敗，差異僅為建立／更新時間的奈秒與資料庫微秒精度。既有測試 helper 把 Create 後尚未回查的記憶體物件當成資料庫原值。修正先以含非零次微秒的固定時間重現，再於建立後回查持久化 User 作為操作前快照，保留原本全欄位 DeepEqual、角色、文章所有權、憑證、一次性消耗及正常重新登入斷言。不得放寬比較或修改產品邏輯。
 
 主代理已在本機以相同固定時間先重現失敗，再重跑修正版同一案例通過。完整 `JELLY_TEST_POSTGRES=1 go test -race ./... -count=1 -timeout=180s` 及 go vet 通過。修正只改 fixture 的建立時間與操作前 DB 回查，產品來源與既有測試本文、全欄位斷言均保持一致。首輪 CI 失敗紀錄保留。新版四項 CI 全綠後，PR #16 已合併為 `23bbf6b`，遠端與本機分支已清理。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- main 優先裁決（2026-10-23）：依使用者指示，五個媒體後端接點與 架構文件 還原為 main，18 個本次新增的媒體程式、遷移與測試移出 repo，工作單 03 撤下草稿章節，保留 PR #16 已交付更正。全部 26 個撤出前檔案與差異已備份至本機 `jelly-main-priority-withdraw-20261023-voarzkkm`；沒有修改資料庫或實體媒體。撤出當時 main 為 `7ef9ddd`，已包含於本機 merge commit `640fee0`。當時逐檔比對產品來源、UI、設計及 ENG 與 main 無差異，沒有遺留未追蹤檔案。主代理重跑與 CI 相同的 `JELLY_TEST_POSTGRES=1 go test -race ./... -count=1 -timeout=180s`，324 個頂層案例通過，7 個子程序 helper 在一般入口跳過，沒有失敗或競態警告，server 套件耗時 158.665 秒。gofmt、go vet、原生／Windows amd64／macOS amd64 編譯及差異檢查通過；獨立審查沒有已確認阻礙。撤出階段沒有推送或部署。先前媒體測試只屬已撤下草稿，不能作為目前 main 的通過或失敗證據。
+- UI 來源裁決（2026-10-23）：依使用者最新指示，全部 UI 採用合併進來的 main，不保留本分支先前的媒體頁改動，也不另改樣式。`web/`、`design/` 與 `DESIGN.md` 已逐一比對 main `7ef9ddd`，差異為零；舊媒體頁另存本機備份。主代理重跑後台導覽與模板競態測試通過（1.635 秒），隔離瀏覽器確認 main 的附件頁實際顯示，當次 console 無警告或錯誤。後續接續後端驗收，UI 調整須另有明確指示。
+- 權限驗證：主代理重現匿名 API、敏感設定、文章所有權與降權後存取的失敗，代理修正後已由主代理執行全套 PostgreSQL 競態測試與 go vet 通過；額外發現的尾端多餘 JSON 也經獨立重現、修正與回歸驗證。
+- 審查結果：HTTP 權限與文章處理的對抗性審查沒有其他已確認回歸；既有編輯器使用 JSON，其他外部輸入格式尚無相容性證據。發布時間是可編輯內容欄位，建立與修改時間由伺服器管理。
+- HTTP 權限交付：[PR #2](https://github.com/HazelnutParadise/jelly-cms/pull/2) 四項 CI 通過後合併為 `73065ea`；遠端與本機 `codex/access-control` 分支已刪除，未部署。
+- 憑證驗證：主代理重現缺少到期時間及不合法使用者 ID 仍通過的問題；代理修正後，主代理完整 PostgreSQL 競態測試、go vet 與 Linux 386 測試編譯通過。憑證限制 HS256、必要到期時間與可安全轉換的正整數 ID；已隨 PR #3 交付，登出撤銷另隨 PR #4 交付。
+- 金鑰保存驗證：獨立亂數、跨程序重啟、並行首次啟動、環境覆寫、損毀拒絕啟動及安裝後保留登入狀態通過主代理全套 PostgreSQL 競態測試與 go vet。審查發現的 Unix 目錄同步缺口已修正並複審，隨 PR #3 交付；Windows 只完成編譯，不保證目錄更新的斷電持久性，真實斷電尚未驗證。
+- 驗證異常：測試代理違反程序操作限制，停止並以同一執行檔重啟本機驗收站；首頁已確認恢復，重啟前後登入狀態尚未確認一致。
+- 金鑰保存交付：[PR #3](https://github.com/HazelnutParadise/jelly-cms/pull/3) 四項 CI 通過後合併為 `a4175d3`，遠端與本機 `codex/auth-lifecycle` 已刪除；未部署。
+- 登出驗證：主代理重現並驗證成對撤銷、不同登入隔離、跨程序拒絕重放與資料庫故障拒絕存取；OAuth 重簽延長登入期限的 P1 已加入失敗測試並修正，對抗性複審沒有其他已確認缺陷。主代理全套 PostgreSQL 競態測試、go vet、Windows amd64 編譯及 Linux 386 認證測試編譯通過，已隨 PR #4 交付。
+- 登出畫面：修正前的 12 個瀏覽器負向案例全部重現問題；修正後，繁中／英文、1280px／360px 的失敗留頁、離線提示、雙擊限制與重試共 12 個案例由主代理重跑通過。四個成功操作均回登入頁且 API 回查 401；console 的 404 已由瀏覽器追蹤定位到 `/favicon.ico`，介面整合階段須補齊，尚未宣稱 console 全部通過。
+- 重啟回查：最新執行檔重啟前後設定與登入金鑰檔雜湊一致，首頁內容相同；四個瀏覽器登出成功案例均回登入頁且 API 回查 401。登入頁尚未保留英文選擇，與 favicon 缺漏一併留待介面整合。
+- 登出交付：[PR #4](https://github.com/HazelnutParadise/jelly-cms/pull/4) 四項 CI 通過後合併為 `c9ca3c9`，遠端與本機 `codex/auth-revocation` 已刪除；未部署。
+- 請求保護驗證：IPv6 等價位址誤擋與 IPv4／mapped IPv6 混淆已經失敗測試、修正與對抗性複審；同步主分支的 Go 1.27.3 與套件升級後，主代理重跑全套 PostgreSQL 競態測試、go vet、Windows amd64 編譯、Linux 386 認證測試編譯及 8 個瀏覽器案例通過，沒有其他已確認缺陷。
+- 請求保護畫面：主代理在 Chrome 的 1280px／360px 完成 8 個案例；正常登入、草稿建立回查與刪除、登出通過，另一來源的登入及登出表單回 403。跨站頂層登出不再送出清除登入 Cookie 的回應，原登入保留。既有 favicon 404 另列，沒有新增相關 console 錯誤。
+- 請求保護交付：[PR #8](https://github.com/HazelnutParadise/jelly-cms/pull/8) 同步 Go 1.27.3 升級後通過四項 CI，已合併為 `96935ba`；未部署。
+- 返回網址驗證：本機登入、OAuth 入口與回呼、登入頁共用站內網址檢查；主代理重現修正前的站外導向與 JavaScript 執行，修正後 18 個桌面／手機案例全數通過。全套 PostgreSQL 競態測試、go vet、Windows amd64 與 Linux 386 編譯通過，對抗性審查沒有已確認缺陷。
+- 返回網址交付：[PR #9](https://github.com/HazelnutParadise/jelly-cms/pull/9) 四項 CI 通過後合併為 `e23d809`；遠端與本機 `codex/login-return` 分支已刪除，未部署。
+- 當時手機差異：360px 中文文章標題擠成直排，已由工作單 19 保留 12rem 標題欄修正；主代理實測寬 192px、長標題正常換行，鍵盤 Tab 會將操作連結捲入可視範圍，整頁不溢出。
+- 登入限制驗證：主代理重現第 31 次仍可登入並查詢 DB 的問題；固定 60 秒內最多 30 次的修正已通過全套 PostgreSQL 競態測試、go vet、Windows amd64 與 Linux 386 編譯，對抗性審查沒有已確認缺陷。容量、來源正規化、並行與到期恢復均有公開路由測試。
+- 登入限制畫面：主代理在 1280px／360px 完成錯誤密碼 401、超量 429 留頁並顯示等待秒數、實際等待到期後登入 302／API 200、登出後 API 401 的完整流程。429 沒有送出登入 Cookie；預期的 401／429 console 與既有 favicon 404 分別記錄，沒有其他相關錯誤。
+- 登入限制交付：[PR #10](https://github.com/HazelnutParadise/jelly-cms/pull/10) 四項 CI 通過後合併為 `d073628`；未部署。
+- OAuth 輸入驗證：主代理先重現提供者與 state 被查詢覆蓋、無效 state 與 Session 保存失敗仍進入授權的問題；修正後完整 PostgreSQL 競態測試、go vet、Windows amd64 與 Linux 386 編譯通過，對抗性審查沒有其他已確認缺陷。Google／GitHub 替身的正常登入、JSON token 回查與站內返回通過；真實提供者授權尚未驗證。
+- OAuth 輸入交付：[PR #11](https://github.com/HazelnutParadise/jelly-cms/pull/11) 四項 CI 通過後合併為 `0da59e9`；遠端與本機 `codex/oauth-protocol` 分支已刪除，未部署。
+- OAuth 一次性驗證：主代理以提供者替身重現已授權 Cookie 重放、並行重複授權、跨提供者重簽續期及整秒到期窗口；修正後完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性複審沒有其他已確認缺陷。簽章十分鐘、一次性紀錄跨程序保存，回呼不再把提供者權杖寫入 Cookie；真實 Google／GitHub 授權尚未驗證。
+- OAuth 一次性交付：[PR #12](https://github.com/HazelnutParadise/jelly-cms/pull/12) 四項 CI 通過後合併為 `3b6e014`；遠端與本機分支已刪除，未部署。首次 CI 的外掛回收失敗原始紀錄保留，重跑通過不視為缺陷已修正。
+- 日誌保護驗證：主代理先以 12 個 HTTP 情境重現查詢外洩，再驗證修正後 OAuth、一般路由、404、錯誤與導向的日誌只保留路徑；輸入、回應與錯誤處理保持一致。完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷，已隨 PR #14 交付。
+- 日誌保護交付：[PR #14](https://github.com/HazelnutParadise/jelly-cms/pull/14) 四項 CI 通過後合併為 `73eb610`，遠端與本機分支已刪除，未部署。
+- OAuth 請求驗證：主代理以同一份測試重現原版的 14 個負向失敗，再驗證修正版的共用 30 秒期限、較短期限、標頭與本文取消及並行隔離。真實 Goth 經本機假上游的 JSON 登入、API 回查與站內導向通過；完整 PostgreSQL 競態測試、go vet、原生／Windows amd64／Linux 386 編譯通過，對抗性審查沒有已確認缺陷。真實外部授權尚未驗證，已隨 PR #15 交付。
+- OAuth 請求交付：[PR #15](https://github.com/HazelnutParadise/jelly-cms/pull/15) 四項 CI 通過後合併為 `cade274`，遠端與本機分支已刪除，未部署。
+- 固定身分驗證：主代理已重現不同第三方 ID 依同信箱取得既有管理員憑證、同一 ID 改信箱後建立另一帳號，以及查詢故障仍建立帳號。代理修正後，主代理已重跑公開 HTTP 競態測試通過，涵蓋四種各 12 並行、新帳號與關聯同成同敗；審查另找到回查時序的誤判，獨立測試以固定排程先重現 409，再由代理修正；主代理重跑固定身分及完整 auth 套件競態測試通過，已隨 PR #16 交付。獨立 PostgreSQL 的三種 12 並行交易各重跑三次通過，寫入失敗一併回滾且沒有多餘帳號，測試資料庫已清理。
+- 連結補充驗證：主代理先重現無限流、舊 Goth Cookie 阻擋重試、查詢等待後登入過期仍寫入及操作紀錄缺漏；修正後親跑公開 HTTP 與完整 auth 套件競態測試通過，已隨 PR #16 交付。
+- 提供者設定驗證：三處 Option 主鍵累加問題已修正，公開／管理員查詢及真實提供者載入測試通過。瀏覽器確認完整／部分設定載入沒有自動 POST，兩個提供者能獨立停用、保留憑證重新啟用及失敗重試；停用狀態同步至本人帳號頁。
+- 復原工具驗證：主代理先驗證合法操作未實作，再重現 DB 連線錯誤污染 stdout；修正後主代理重跑完整 CLI 競態測試通過，站檔、帳號與關聯沒有被工具改寫，已隨 PR #16 交付。
+- 帳號頁驗證：主代理以本機替身完成連結、解除、Google／GitHub 舊帳號復原、最後登入方式保護及三角色入口。繁中／英文、360px／1280px、深／淺色、鍵盤焦點、載入、失敗、離線、逾時與重試已實際操作。兩個新頁面的 Lighthouse 效能與無障礙均為 100，最佳實務為 96，既有 favicon 404 另列；沒有量測實際使用者 INP，也沒有完成真實外部授權。
+- 當時後台差異：author／editor 儀表板讀取管理員設定造成 403 與 settings.find 例外，已由工作單 20 依角色移除不允許的操作與請求。主代理實際登入兩角色，受限請求與 JavaScript 例外均為零。
+- 本批完整檢查：主代理重跑全套 PostgreSQL 競態測試、go vet、原生／Windows amd64 編譯及 Linux 386 認證測試編譯通過；最後的設定頁變更另重跑受影響競態測試與瀏覽器驗收通過。對抗性審查發現的 SQL 日誌洩漏及啟停無法儲存均已重現、修正與複審。
+- 首次 CI 差異：兩組 Linux CI 都在復原測試的 User 時間比對失敗，記憶體奈秒值與 DB 微秒值不同。主代理以固定時間重現後，測試改用操作前的 DB 原值，保留全部斷言。相同案例、與 CI 相同 180 秒設定的完整競態測試及 go vet 已重跑通過，新版四項 CI 全數通過。
+- 固定身分遷移：兩張相容新增資料表、有效關聯唯一鍵、外鍵、軟刪、更新時間、稽核及重跑相容性通過主代理真實資料庫驗證。只套用於任務專用資料庫，未部署或更動正式資料。
+- 身分與復原交付：[PR #16](https://github.com/HazelnutParadise/jelly-cms/pull/16) 修正測試精度後四項 CI 全綠，已合併為 `23bbf6b`。遠端與本機 `codex/oauth-identity` 分支已刪除，未部署。
+- 已撤下媒體草稿：先前所有權、特殊檔名、保存、故障與畫面驗證紀錄隨原始來源保留於本機撤出備份。本次依使用者裁決移除整組草稿，先前結果不列入目前 main 的驗收。

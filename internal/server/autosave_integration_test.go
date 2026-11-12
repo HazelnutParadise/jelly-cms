@@ -1,6 +1,6 @@
 package server
 
-// Ticket 09 autosave contract (docs/tickets/09-editor.md, 流程與驗收 and API table):
+// Ticket 09 autosave contract (ticket 9, 流程與驗收 and API table):
 //
 //	POST /api/admin/posts/:id/autosave {title, source, excerpt}   owner or editor; writes an autosave revision only
 //	GET  /api/admin/posts/:id                                    returns autosave when it is newer than updated_at

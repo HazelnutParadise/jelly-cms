@@ -1,6 +1,6 @@
 package server
 
-// Acceptance tests for ticket 14 (docs/tickets/14-integration-api.md): AI integration identities and keys.
+// Acceptance tests for ticket 14 (ticket 14): AI integration identities and keys.
 // Slots: A1 (schema), A2 (management API M1–M9: create, rotate, revoke, disable, enable, delete and
 // their events), A5 (admin event log across rotations) and A6 (admin-only pages). The contract is the
 // 契約 section of the ticket plus its 「測試另外釘下的約定」. Several tests also call GET

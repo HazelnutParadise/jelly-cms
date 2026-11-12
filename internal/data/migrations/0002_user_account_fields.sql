@@ -1,4 +1,4 @@
--- Account self-service columns on users (docs/tickets/06-accounts.md, 資料表 users).
+-- Account self-service columns on users (ticket 6, 資料表 users).
 -- Idempotent: every change checks for prior application.
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(120) NOT NULL DEFAULT '';

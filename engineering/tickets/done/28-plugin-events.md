@@ -188,4 +188,10 @@ func Transaction(ctx context.Context, db *gorm.DB, fn func(tx *gorm.DB) error) e
 - 測試先於實作：七個測試檔（`internal/events/events_test.go`、`internal/plugin/events_test.go`、`internal/server/plugin_events_{harness,content,shop,users,misc}_test.go`）在空格子上全部失敗（server 21 個整合案例、plugin 13 個、events 6 個），實作後全部通過。
 - 實作過程中修正的規格偏差：零元結帳的 `OnOrderCreate` 帶建立當下的 `pending` 狀態，付款由 `OnOrderUpdate`／`OnOrderPaid` 表示（原測試要求帶提交後的 paid 快照，改回真實狀態）；`TestPluginEventsContentWithoutEventsPermission` 的 `reset` 原本會清掉第二個外掛的載入日誌，調整順序。
 - 已知未接線的寫入路徑：`PurgeExpiredTrash`（保留期限到期自動清除）不發 `OnPostDelete purge`；自動儲存、WXR 匯入、批次操作不發 `OnPostSave`。記在 AGENTS.md Follow-ups。
-- 完整套件、gofmt、go vet、獨立對抗式審查與 CI 結果見 STATUS.md 的本工作單條目。
+- 完整套件、gofmt、go vet、獨立對抗式審查與 CI 結果見 工單的驗收紀錄 的本工作單條目。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- 工作單 28：外掛事件接線。先前 `types.go` 宣告了 17 種鉤子但伺服器從未呼叫 `CallHook`，外掛註冊任何網站事件都收不到。本輪新增程序內事件匯流排 `internal/events`（交易內 Stage、提交後 Flush、沒有 outbox 就丟棄並記錄）、外掛 runtime 的每外掛獨立事件佇列（非阻塞 Emit、鉤子快照、`events` 權限過濾、連續 5 次失敗暫停、Flush／Close 有界）、伺服器橋接（薄事件補讀訂單與操作者、外掛日誌寫進 `system_logs` 讓後台日誌分頁可用、`posts.publish_due` 每分鐘排程發布），並把 28 種鉤子接到真實操作：文章／頁面（儲存、發布、回收桶、還原、版本還原、公開瀏覽）、商品、訂單（所有狀態轉換走 `core.OrderService.Transition`）、付款回呼、退款、逾期、邀請、接受邀請、後台修改與刪除使用者、OAuth 與結帳建立帳號、登入、登入失敗、登出、留言、附件、主題切換、系統設定。移除從未觸發的 `OnRequest`／`OnResponse`；新增強制權限 `events`，沒有宣告並核准的外掛收不到網站事件。文件：`docs/plugin-events.md`（鉤子目錄與 payload）、README 外掛章節、工單 28（設計與決策紀錄）。驗證：測試先於實作，七個新測試檔在空骨架上全部失敗後才派實作；獨立設計諮詢（取消交易外即時發布、每外掛獨立佇列、權限閘門、日誌 sink 非同步、排程漏發窗口）與獨立對抗式審查（17 項發現，8 項先寫成失敗測試再修：私密文章不算公開、水位不倒退、回收桶與版本還原補發、trash payload 帶分類、留言核准冪等、公開頁只發一次；另修登入方式標記、請求斷線不回滾、補讀 2 秒上限）均已處理。主代理重跑 `JELLY_TEST_POSTGRES=1 JELLY_TEST_REDIS_URL=… go test ./... -count=1`：27 個套件全部通過（server 632 秒）；`internal/events` 與 `internal/plugin` 另以 `-race` 通過；gofmt、go vet 通過。CI 的 `-race` 全套件在 server 套件抓到一個測試專屬競態：外掛日誌轉寫到 `system_logs` 的背景 goroutine 在測試清理換回全域 `data.DB` 時仍在讀它；新增 `plugin.FlushLogs` 與伺服器端轉寫佇列的 flush，`newAccessHarness` 清理時先排空兩段管線再還原資料庫，`-race` 重跑 plugin、reload、WebMCP 與 misc 事件測試兩輪通過，CI 在修正後的 head 兩次都在 server 套件的 20 分鐘上限到期（面板顯示測試仍在正常推進，沒有卡住）：本工作單新增 49 個 server 測試，本機 `-race` 全套件 server 耗時 968 秒，而 PR 前 CI 已達 888 秒，餘裕不足以吸收 runner 的波動；整套 `-race` 的 `-timeout` 由 1200 秒調為 1800 秒，所有案例與斷言不變。最終完整 `-race` 以 CI 為準。沒有畫面改動（權限頁以既有方式顯示 `events` 為 enforced）。未接線路徑記在 AGENTS.md Follow-ups（自動清除回收桶、自動儲存、WXR 匯入、批次操作；OAuth 建立帳號的事件沒有自動化測試）。沒有部署。

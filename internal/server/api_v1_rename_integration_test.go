@@ -1,6 +1,6 @@
 package server
 
-// Acceptance tests for ticket 24 (docs/tickets/24-api-v1-rename.md) and ticket 25b:
+// Acceptance tests for ticket 24 (ticket 24) and ticket 25b:
 // the machine API moves from /api/agent/v1 to /api/v1, the admin pages move from
 // /admin/agents to /admin/integrations, and the user-visible wording changes from "AI agent"
 // and "agent key" to "API integration" and "access key". Ticket 25b removes the old admin-page

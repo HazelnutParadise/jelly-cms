@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Plugin read API (docs/tickets/29-plugin-read-api-and-extensions.md, PR A).
+// Plugin read API (ticket 29, PR A).
 //
 // Plugins with the content.read permission may read posts and pages; plugins
 // with shop.read may read products and orders. The objects reuse the event

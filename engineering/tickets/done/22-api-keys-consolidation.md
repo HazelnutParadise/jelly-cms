@@ -45,7 +45,7 @@ scope 對應：
 2. 建立與輪替金鑰（`internal/agent/agent.go` 的 `KeyPrefix` 與產生函式、`agents_admin.go`）：新金鑰前綴 `jly_`，顯示前綴 `jly_` 加 8 個字元；`jla_` 仍可驗證。
 3. 後台 API 不再解析 `jly_`：`internal/auth/principal.go` 的 `jly_` 分支（`resolveTokenPrincipal`）改為拒絕（等同無效憑證，回 401）；移除 `middleware.go` 中 `content_read`／`orders_read` 的 GET 特例與 `RequirePermission` 內的權杖分支；`admin_render.go` 的 `enforceStaffAdminAPIs` 移除 api_token 分支；`handlers_ecommerce.go`、`handlers_admin.go` 中僅為權杖而設的讀取群組併回一般角色群組。登入 JWT（Bearer 與 cookie）行為不變。
 4. 移除個人權杖功能：`/api/account/tokens*`（`account_routes.go`、`account_tokens.go`）端點下線（路由不存在，回 404）；個人資料頁的「API 權杖」分頁改為說明文字：管理員附連結到存取金鑰管理頁（`/admin/agents`），其他角色說明「請洽管理員建立存取金鑰」。`web/locales` 同步，兩個語系。
-5. 文件：README 的後台 API 驗證說明改為：程式請使用存取金鑰打 `/api/agent/v1`（附 curl 範例）；`api_documentation.go` 與 `shop_api_documentation.go` 的 `ApiTokenAuth` 說明移除或改指向存取金鑰；`docs/tickets/06-accounts.md` 加一行註記本工單取代權杖段落。
+5. 文件：README 的後台 API 驗證說明改為：程式請使用存取金鑰打 `/api/agent/v1`（附 curl 範例）；`api_documentation.go` 與 `shop_api_documentation.go` 的 `ApiTokenAuth` 說明移除或改指向存取金鑰；工單 06 加一行註記本工單取代權杖段落。
 6. 稽核：遷移後的金鑰與新金鑰的每次請求都寫 `agent_events`（既有行為，不變）。
 
 ## 驗收（測試契約）
@@ -67,3 +67,9 @@ scope 對應：
 - 對外改名（網址 `/api/v1`、「串接」用語、頁面路徑、設計板文字）。
 - 資料表、Go 套件的內部改名。
 - 刪除 `api_tokens` 資料表。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- 工作單 22：個人 API 權杖已併入存取金鑰。遷移 0026 把每筆 `api_tokens` 轉成一個 agent 與一把金鑰（雜湊相同、顯示前綴 `jly_`＋末四碼、權限依 scope 對應、`role_cap` 取最高角色 scope，保住舊權杖降成作者的限制）；新金鑰改發 `jly_` 前綴，舊 `jla_` 仍有效；`jly_`／`jla_` 打 `/api/admin` 與 `/api/account` 一律 401；`/api/account/tokens*` 與權杖頁已下線，個人資料頁的「API 權杖」分頁改為說明（管理員連到 `/admin/agents`、其他角色請洽管理員）。驗證：資料套件完整測試、auth 套件、agent 套件、`TokensIntoKeys`／`APIKeys`／`TestAgent`／權限相關 server 測試與一輪涵蓋文件、商店、後台、備份、外掛、媒體等的廣範圍回歸（server 271 秒）皆通過；隔離站瀏覽器實測管理員與編輯者的個人資料頁、連結與遷移後金鑰列表。瀏覽器驗收找到並修正「API 權杖」分頁載入提示不消失的缺漏。未驗證：完整 `-race` 全套件僅交由 CI 跑；英文介面、390px 手機版面與設計板截圖（本機沒有 Playwright）沒有實測。已知後續：`/api/admin/*` 仍接受登入 JWT 的 Bearer，改成只收網頁登入、對外改名（網址、「串接」用語）與內部名稱尚未做；`api_tokens` 資料表保留未刪。沒有部署。

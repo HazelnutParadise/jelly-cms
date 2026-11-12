@@ -1,7 +1,7 @@
 package server
 
 // Storefront catalog integration tests for ticket 07, section E3 (contract: 公開路由 in
-// docs/tickets/07-shop.md). They render the public theme through archivesHarness and run against the
+// ticket 7). They render the public theme through archivesHarness and run against the
 // dedicated PostgreSQL database; they are skipped unless JELLY_TEST_POSTGRES=1. They are written before the
 // implementation and must fail until it exists (/shop and /shop/c/:slug currently fall through to the
 // catch-all and answer 404). Do not edit them to match an implementation.

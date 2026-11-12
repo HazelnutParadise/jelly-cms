@@ -9,7 +9,7 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 現況（行號以 main `0dc56d9` 為準）：
 
 - `/api/v1` 路由表有 37 條（`integration_routes.go:40-76`），`/api/admin` 有 216 條。`GET /api/v1` 的 `not_exposed` 列了留言、選單、分類寫入、標籤寫入、回收桶、版本、金流憑證、OAuth 憑證、外掛上傳、串接管理、檔名式媒體、系統日誌共 12 項（`integrations_discovery.go:77`）；折扣碼與訂單寫入連列都沒列。
-- 權限字串：常數與 `AllPermissions()` 在 `internal/integration/integration.go:30-77`（16 個）；中文說明 `permissionDescription` 在 `internal/server/integrations_discovery.go:50`；角色 `permissionRoles` 在 `integrations_admin.go:54`，由路由表的 `RequiredRoles` 推導，不用手改。資料庫以 `integrations_permissions_check`（`internal/data/migrations/0025_agents.sql:18-26`，0027 改名）限制為同一份清單；遷移檔交付後不可變（ENG.md），目前最新是 0027。
+- 權限字串：常數與 `AllPermissions()` 在 `internal/integration/integration.go:30-77`（16 個）；中文說明 `permissionDescription` 在 `internal/server/integrations_discovery.go:50`；角色 `permissionRoles` 在 `integrations_admin.go:54`，由路由表的 `RequiredRoles` 推導，不用手改。資料庫以 `integrations_permissions_check`（`internal/data/migrations/0025_agents.sql:18-26`，0027 改名）限制為同一份清單；遷移檔交付後不可變（架構文件），目前最新是 0027。
 - 後台的權限勾選格由 `GET /api/v1` 的 `permissions` 動態產生（`web/admin/assets/integrations.js:295-312,1217-1223`），但資源的中英文標籤寫死在 `:53-63`（posts、pages、media、products、orders、themes、plugins、settings、logs），沒有的資源會直接顯示原始鍵名。
 - 後台 handler 現況：留言（`handlers_comments.go:76-89`，角色 admin／editor）、分類標籤（`handlers_taxonomy.go:43-53`，寫入 admin／editor，建立標籤連 author 都可以）、訂單（`shop_admin_routes.go:135-140`，admin）、折扣碼（`shop_admin_routes.go:142-148`，admin）。都用 `currentUser(c)` 取身分，沒有依賴 CSRF 或 Session，可以直接掛到 v1。
 - 事件與通知都在 handler 內：留言審核發 `OnCommentUpdate`（`handlers_comments.go:700-712`）、回覆發 `OnCommentCreate`、刪除發 `OnCommentDelete`；訂單轉換經 `core.OrderService.Transition` 寫 `OrderEvent` 並發 `OnOrderUpdate`，出貨寄信（`shop_orders_admin.go:428-436`）、退款發 `OnOrderRefund` 並通知（`:785-797`）、標記已付通知（`:835-845`）。沿用 handler 就不會漏事件。
@@ -84,7 +84,7 @@ Blocked by：27（v1 契約，已合併）、28（外掛事件，已合併）、
 - `permissionDescription` 補六項中文說明；`GET /api/v1` 的 `permissions` 自然多六筆。
 - `web/admin/assets/integrations.js:53-63` 的資源標籤表補 `comments`（留言／Comments）、`taxonomy`（分類與標籤／Taxonomy）、`coupons`（折扣碼／Coupons）。依 AGENTS.md，權限勾選格多了三列，`design/gen/gen_integrations.py` 產生的 `design/project/Integrations.dc.html`、`IntegrationDetail.dc.html` 的權限區塊同一次提交更新並重新產生，線上畫布同步。
 - OpenAPI：每條新路由的 request body 與回應 schema 由工單 34 的 `integrationSchemaOf` 從 struct 產生：留言用 `adminCommentRow`、分類標籤用 `core.Category`／`core.Tag`、訂單用 `integrationOrderDetail`、折扣碼用 `core.Coupon` 加 `targets` 的包裝 struct。工單 34 的「每條路由實打比對」測試要涵蓋這些新路由。
-- `skills/jelly-cms/SKILL.md` 加「審留言」「處理訂單」兩段短流程；README 權限表；`STATUS.md`；工單 14 開頭加一行。
+- `skills/jelly-cms/SKILL.md` 加「審留言」「處理訂單」兩段短流程；README 權限表；工單的驗收紀錄；工單 14 開頭加一行。
 
 ## 程式（格子）
 

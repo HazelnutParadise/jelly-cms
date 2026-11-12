@@ -4,7 +4,7 @@ Epic：前台主題與 AI 代理
 來源：GitHub issue HazelnutParadise/jelly-cms#7
 User Story：訪客請瀏覽器裡的 AI 代理「找這個網站上講某主題的文章」「摘要這篇」時，代理不必讀畫面、猜按鈕，而是在任何前台頁面直接呼叫網站宣告的唯讀工具，拿到結構化結果。不論用哪個主題都一樣；草稿、私密、排程與回收桶內容照樣拿不到；站長可以在後台關掉；外掛與主題可以用宣告的方式加自己的唯讀工具。
 Blocked by：無。05、07、08、09 已在 main，已沿用公開範圍、商店主題渲染、動態設定頁、外掛啟停及 Request ID。
-交付紀錄：W1–W7 已實作並完成本機功能驗收，完整測試與交付結果見 STATUS.md 及 PR #30。
+交付紀錄：W1–W7 已實作並完成本機功能驗收，完整測試與交付結果見 工單的驗收紀錄 及 PR #30。
 設計稿：`design/project/SettingsCrawlers.dc.html`，由 `design/gen/gen_crawlers.py` 產生，開關位於「搜尋引擎與 AI 爬蟲」分頁。前台畫面沒有改變，WebMCP 沒有可見介面。
 
 ## 規格查證（2026-10-24）
@@ -208,7 +208,7 @@ Blocked by：無。05、07、08、09 已在 main，已沿用公開範圍、商�
 4. W4 外掛與主題宣告：`Runtime.LoadedPlugins`、宣告驗證與合併、警告。測試：`TestWebMCPPluginToolsFollowLoadState`、`TestWebMCPSecondPluginDuplicateNameIsSkipped`、`TestWebMCPThemeToolsOnlyForActiveTheme`。
 5. W5 開關與後台：選項讀取、關閉時的 404 與標頭、設定寫入驗證、crawlers 分頁的動態開關。測試：`TestWebMCPDisabledSwitchesOffScriptAndSendsPolicy`、`TestWebMCPSettingAcceptsOnlyBooleans`、`TestWebMCPAdminSettingsPageHasSwitch`。
 6. W6 瀏覽器驗收：`scripts/acceptance/webmcp.spec.mjs` 依「驗收步驟」全數通過；同時人工確認後台開關在 1280px 與 390px 和 `SettingsCrawlers.dc.html` 一致。
-7. W7 文件與狀態：`docs/webmcp.md`；`STATUS.md` 記錄驗收結果。
+7. W7 文件與狀態：`docs/webmcp.md`；工單的驗收紀錄 記錄驗收結果。
 
 `TestWebMCPDoesNotInjectOutsideThemePages`、`TestWebMCPMaintenancePageHasNoScript`、`TestWebMCPPlainTextParagraphsEmpty` 是防護測試，骨架階段就會通過，實作後必須維持通過。
 
@@ -282,3 +282,12 @@ JELLY_BASE_URL=http://127.0.0.1:8080 JELLY_ADMIN_USER=admin JELLY_ADMIN_PASSWORD
 ```
 
 腳本最後印出「N/N checks passed」並以 0 結束才算通過。要驗外掛工具在瀏覽器裡註冊，把 `internal/server/testdata/webmcp/plugins/webmcp-fixture/` 的內容打包成 ZIP，經 `POST /api/admin/plugins/upload` 上傳後，以 `POST /api/admin/plugins/webmcp-fixture/enable` 啟用，再跑一次：情境 1 會要求清單裡的每一個工具（含外掛的）都被註冊。結束後停止伺服器、刪除工作目錄與 `jelly_webmcp_acceptance` 資料庫。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- PR #30：工作單 13 的四個唯讀 WebMCP 工具、公開 API／OpenAPI、主題與商店頁注入、外掛與主題宣告、crawlers 開關及說明文件已實作。關閉後清單與腳本回 404，公開 API 保持可用，非公開內容維持相同 404。
+- PR #30 功能驗證：主代理重跑 WebMCP、外掛複本與主題輔助函式競態回歸全部通過（server 25.972、plugin 1.416、theme 1.173 秒），Node 腳本回歸 11/11、瀏覽器邊界與設定互動 35/35 通過。獨立複審發現返回快取後工具未恢復，已用每次註冊獨立的控制器修正，並驗證舊請求不能延後註冊、舊工具保持取消及重新取得最新清單。
+- PR #30 畫面：繁中／英文、1280px／390px、亮／暗共八組檢查通過，沒有頁面錯誤、外部請求或整頁溢出；離線保留輸入、恢復後儲存及關閉／重開均已操作。SettingsCrawlers 產生板與腳本同版。最終瀏覽器核心流程含外掛工具 85/85 通過，ZIP 安裝、外掛啟停與另一主題的工具優先順序亦已實測。Lighthouse 效能 100、無障礙 92，扣分位於既有導覽與按鈕，新增開關沒有被列為問題。瀏覽器工具使用可控宿主；原生 AI 代理與原生返回快取恢復未驗證。
+- PR #30 完整驗證：本機 PostgreSQL／Redis 全套競態測試在 1200 秒套件時限內沒有斷言失敗，但於建立測試資料庫時逾時，已延長本機時限重跑；遠端 CI 保持原 1200 秒。NATS 競態、go vet、原生／Windows／macOS 編譯通過。最終完整套件、必要 CI、合併與分支清理結果見 [PR #30](https://github.com/HazelnutParadise/jelly-cms/pull/30)。沒有部署。

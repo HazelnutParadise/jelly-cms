@@ -1,6 +1,6 @@
 package server
 
-// Attachment API (docs/tickets/08-system.md, 08d): storage policies, groups,
+// Attachment API (ticket 8, 08d): storage policies, groups,
 // files and remote fetch. Bytes go through internal/storage. A local file is
 // public at /uploads/<path>, which uploads.go serves. Policy, group and fetch
 // endpoints are admin only. File endpoints also accept editors and authors,

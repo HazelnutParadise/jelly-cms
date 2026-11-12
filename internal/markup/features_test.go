@@ -1,6 +1,6 @@
 package markup
 
-// Motion, component and embed contract (docs/tickets/09-editor.md, G4 動效與互動元件, 語法表, 錯誤與邊界).
+// Motion, component and embed contract (ticket 9, G4 動效與互動元件, 語法表, 錯誤與邊界).
 // Motion attributes become data-* only and are styled by content.css and jelly-motion.js. Built-in
 // components must still show their content without JavaScript. Embeds are limited to an allow-list. They
 // are written before the renderer exists and are expected to fail against the skeleton. Do not edit them

@@ -1,4 +1,4 @@
--- Two-step verification (docs/tickets/06-accounts.md, 資料表 user_totp / user_recovery_codes).
+-- Two-step verification (ticket 6, 資料表 user_totp / user_recovery_codes).
 -- secret_enc is AES-GCM ciphertext under the totp_key in auth-secrets.json.
 -- enabled_at NULL while the secret is enrolled but not yet verified.
 

@@ -1,6 +1,6 @@
 package server
 
-// Shop plugin event tests for docs/tickets/28-plugin-events.md (product, public product page, order, payment and
+// Shop plugin event tests for ticket 28 (product, public product page, order, payment and
 // refund hooks). They drive real HTTP routes through the plugin runtime with the fixture plugin from
 // plugin_events_harness_test.go and are skipped unless JELLY_TEST_POSTGRES=1. They must fail until the event bridge
 // and the store wiring exist. Do not edit them to match an implementation.

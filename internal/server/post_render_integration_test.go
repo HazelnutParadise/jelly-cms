@@ -1,6 +1,6 @@
 package server
 
-// Ticket 09 G0 post-save contract (docs/tickets/09-editor.md, 流程與驗收 and 儲存). The server renders
+// Ticket 09 G0 post-save contract (ticket 9, 流程與驗收 and 儲存). The server renders
 // posts from source through internal/markup, ignores client content when source is present, sanitizes
 // content-only writes by the caller's role, and backfills source for legacy rows. Requests go through
 // the real route table on the dedicated PostgreSQL database; stored state is read with raw SQL so the

@@ -13,7 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Acceptance tests for the notification center (docs/tickets/06-accounts.md,
+// Acceptance tests for the notification center (ticket 6,
 // D5: 通知、S19 to S21、A-series 待審與安全事件). Fixtures and login helpers are
 // shared with the token tests (tokTest*).
 

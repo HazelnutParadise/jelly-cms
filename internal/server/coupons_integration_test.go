@@ -1,6 +1,6 @@
 package server
 
-// Coupon integration tests for ticket 07, section E4 (contract: 折扣碼 in docs/tickets/07-shop.md and the
+// Coupon integration tests for ticket 07, section E4 (contract: 折扣碼 in ticket 7 and the
 // core.Evaluate / core.Redeem / core.ReleaseRedemption functions). Math tests call core.Evaluate directly; the rest
 // go through /api/cart/coupon, /api/checkout and /api/admin/coupons on the dedicated PostgreSQL database. They are
 // skipped unless JELLY_TEST_POSTGRES=1 and must fail until the implementation exists. Do not edit them to match an

@@ -10,7 +10,7 @@ import (
 	"github.com/HazelnutParadise/jelly-cms/internal/plugin"
 )
 
-// User event tests (docs/tickets/28-plugin-events.md, 帳號 rows of the
+// User event tests (ticket 28, 帳號 rows of the
 // acceptance table). Every request goes through the real HTTP stack and every
 // assertion waits for the runtime to flush before it reads a payload. A
 // payload must never carry a password, so each check that reads a user object

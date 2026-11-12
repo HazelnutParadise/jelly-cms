@@ -1,6 +1,6 @@
 package server
 
-// Ticket 08b (docs/tickets/08-system.md): code injection. Covers the three raw
+// Ticket 08b (ticket 8): code injection. Covers the three raw
 // HTML slots (<head> site-wide, <head> on content pages, footer), output on public
 // pages only, commerce pages skipping injection by default, the interactive-only
 // admin write that re-checks the password, the 64 KiB limit with its audit row, and

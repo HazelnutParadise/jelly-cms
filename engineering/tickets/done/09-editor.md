@@ -3,7 +3,7 @@
 Epic：編輯與發布
 User Story：作者在一個比 WordPress 好用的編輯器裡寫 Markdown：有大綱、斜線選單、即時預覽、專心模式、自動儲存與版本；能用 `:::` 版面區塊排出多欄與英雄區、用屬性加上動效、插入內建互動元件；能寫 GFM、腳註、待辦、警示框、YAML 表格、KaTeX 數學、LaTeX 文件、HTML 區塊；能把單篇匯出成 Jelly MD、純 MD、HTML、PDF。伺服器是唯一的渲染器，所有輸出經淨化。
 Blocked by：05 前台主題的 `content.css` 抽出與字型自帶（PR #23 已合併）、04 的版本（已合併）。07 只影響 `:::products` 區塊。
-交付紀錄：功能與本機畫面驗收完成（完整測試、必要 CI、合併與清理紀錄見 [PR #26](https://github.com/HazelnutParadise/jelly-cms/pull/26) 及 STATUS.md，沒有部署）
+交付紀錄：功能與本機畫面驗收完成（完整測試、必要 CI、合併與清理紀錄見 [PR #26](https://github.com/HazelnutParadise/jelly-cms/pull/26) 及 工單的驗收紀錄，沒有部署）
 設計稿：`design/project/Editor、EditorFull、EditorFocus、EditorFocus2、EditorLayout、EditorMotion、EditorExport、Widgets、Revisions、Post.dc.html`；本工作單先補：手機版編輯器（單欄）、斜線選單的三種狀態（開啟、篩選、空）、診斷列（YAML 錯誤、未知屬性）、`Widgets` 板的 `::tabs` 改成 `:::tabs`。
 
 ## 先修的安全問題（G0 第一件事）
@@ -122,3 +122,13 @@ jmd 原樣；md 依 AST 行範圍展平（欄位→連續段落、products→連
 6. G5 匯出：`Flatten`、HTML 獨立文件、zip、列印 PDF。測試：`export_test.go`、`export_integration_test.go`。
 7. G6 自訂元件與 `latex`：登錄、自動檢查、frame 端點與 CSP、tectonic 工作。測試：`widgets_integration_test.go`。
 8. G7 驗收：真實伺服器寫一篇含所有語法的文章、三種模式操作、匯出四種格式、前台渲染與無外部資源檢查。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- PR #26 編輯器與內容元件已完成本機瀏覽器驗收：CodeMirror 6、原稿／分割／預覽／版面、專心與滿版、斜線選單、大綱、自動儲存、還原、離線續寫、衝突保護、圖片貼上及四種匯出入口已接上。繁中／英文、390px／1280px、亮／暗版面已實測。
+- PR #26 資料與原稿回歸：舊 Markdown 預覽與自動儲存保持 md 語意，非物件 meta 及明確 null 原樣保存；延遲儲存保留後續設定、同名貼圖產生獨立檔案、段落搬移保留分隔、檢視器只修改目標屬性。主代理重跑元件使用量／frame／倒數回歸通過（6.167 秒），匯出／frame／版本／倒數競態回歸通過（15.580 秒）。
+- PR #26 離線與資產：前台 27 項、元件登錄 28 項及封鎖所有網站連線後的離線 ZIP 21 項瀏覽器檢查通過，沒有資產或 JavaScript 錯誤。HTML 元件以受相同 CSP／sandbox 限制的 srcdoc 封裝，保留精確發布版本、參數、主題色與無 JavaScript 倒數備援，展開內容上限 8 MiB。隔離重建 CodeMirror 三個及 KaTeX 24 個產出檔的 SHA-256 全部一致，六張產生板也與腳本產出一致。
+- PR #26 最終修正：純 Markdown 匯出保留實際跨行程式碼、只移除真正連結後的屬性，舊 md 原稿逐位元組匯出。主代理重跑 markup 競態測試、匯出與舊資料整合回歸，以及真實登入後的 HTTP 匯出通過；獨立複審沒有新確認缺陷。既有 MFA 回歸改用明確未來截止時間，保留真實撤銷及登入斷言，主代理連跑三次通過（12.594 秒）。
+- PR #26 交付驗證：完整測試使用專用 PostgreSQL，命令為 `GORACE=atexit_sleep_ms=0 JELLY_TEST_POSTGRES=1 go test -race -p 1 ./... -count=1 -timeout=1200s`。15 秒模糊測試以 11,888 次輸入通過，go vet、原生／Windows／macOS 編譯及差異檢查通過。最新完整測試、必要 CI、合併及分支清理紀錄見 [PR #26](https://github.com/HazelnutParadise/jelly-cms/pull/26)。九張本機設計板已隨畫面提交，已在 PR 請 Claude 同步線上畫布，尚未收到完成回報。沒有部署。

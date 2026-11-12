@@ -1,6 +1,6 @@
 // Package notify turns domain events into notification rows, honours each
 // user's preferences and queues Email and Webhook deliveries
-// (docs/tickets/06-accounts.md, 通知).
+// (ticket 6, 通知).
 package notify
 
 import (
@@ -184,7 +184,7 @@ func Emit(ctx context.Context, db *gorm.DB, ev Event) error {
 	}
 	// Plugin notifiers receive every notification-center event once,
 	// independent of recipients and their preferences; the required customer
-	// emails stay in the core (docs/tickets/29-plugin-read-api-and-extensions.md).
+	// emails stay in the core (ticket 29).
 	if !PluginChannelCarries(ev.Kind) {
 		return nil
 	}

@@ -15,7 +15,7 @@ import (
 )
 
 // Acceptance tests for migration 0026_tokens_into_keys.sql
-// (docs/tickets/22-api-keys-consolidation.md, 資料：遷移 0026). The migration
+// (ticket 22, 資料：遷移 0026). The migration
 // turns every personal API token in api_tokens into one agent and one agent
 // key. Each test migrates a fresh database, seeds api_tokens rows, and then
 // runs the 0026 SQL from the embedded migrations.

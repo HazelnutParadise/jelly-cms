@@ -1,6 +1,6 @@
 package server
 
-// Event gap tests for docs/tickets/29-plugin-read-api-and-extensions.md (事件缺口 and the 驗收 rows for trash purge,
+// Event gap tests for ticket 29 (事件缺口 and the 驗收 rows for trash purge,
 // WXR import, OAuth first login and autosave). They drive the real routes, the importer, the OAuth callback and the
 // trash purge through the plugin runtime with the fixture plugin from plugin_events_harness_test.go. They are skipped
 // unless the harness runs (JELLY_TEST_POSTGRES=1).

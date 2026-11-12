@@ -2,7 +2,7 @@
 
 Epic：帳號與存取
 User Story：程式與 AI agent 用存取金鑰打 `/api/v1` 時，拿到的回應形狀由機器 API 自己決定，不再跟著後台畫面的 handler 走。每個清單端點都用同一種分頁信封；只有一條路做同一件事；一個串接每分鐘有上限，猜金鑰的來源會被擋；`GET /api` 一眼看到這個站有哪幾套 API、各自給誰用、文件在哪。
-交付紀錄：已實作並完成本機驗收，結果見 STATUS.md。
+交付紀錄：已實作並完成本機驗收，結果見 工單的驗收紀錄。
 Blocked by：24（`/api/v1` 改名，已合併）。專案沒有任何已部署站台或版本標籤，所以拿掉的端點直接回 404，不留別名。
 
 ## 背景與決定
@@ -114,7 +114,7 @@ Blocked by：24（`/api/v1` 改名，已合併）。專案沒有任何已部署�
 4. `internal/server/integration_routes.go`：路由表依 R1、R3 換 handler 與刪列；`registerIntegrationRoutes` 建一個 limiter 實例並依格子 3 掛中介層；`/*` 兜底與 `Match("")` 套 `limitAuthFailures` 與 `limitPerIntegration`。`internal/server/integrations_auth.go`：`integrationKeyMiddleware` 在回 401 前 `c.Set("integration.auth_failure", code)`；`integrationErrorEnvelope` 的對映表加 `429: "rate_limited"`。`internal/server/errors.go` 對 `/api/v1` 的對映加 429。
 5. `internal/server/integrations_discovery.go`：`integrationSuccessSchema` 依 R1 改（分頁信封、集合信封、摘要與訂單摘要 schema 由格子 1、2 的欄位清單產生）；`integrationQueryParameters` 為 `/posts`、`/pages` 加 `page`、`per_page`、`status`、`q`；`integrationOperationResponses` 每個操作加 `429`（含 headers）；`integrationErrorCodes` 與 `integrationErrorDescription` 加 `rate_limited`；`integrationNotExposed` 加 R3 的兩列；索引加 `pagination` 區塊；刪 R3 列出的死分支。
 6. `internal/server/public_api.go`：`GET`／`HEAD /api` 依 R5；`internal/server/maintenance.go` 的 `maintenanceBypass` 加 `path == "/api"`。
-7. 文件：`skills/jelly-cms/SKILL.md`（`/logs` 改 `/me/events`；清單是摘要、全文要打單筆；分頁；429 時依 `Retry-After` 等待再重試）；`README.md` 的機器 API 段落補分頁、限流與三個環境變數、拿掉的端點；`docs/tickets/14-agent-api.md` 與 `24-api-v1-rename.md` 開頭各加一行指向本工單；`STATUS.md` 記錄。不改設計板（沒有畫面變更）。
+7. 文件：`skills/jelly-cms/SKILL.md`（`/logs` 改 `/me/events`；清單是摘要、全文要打單筆；分頁；429 時依 `Retry-After` 等待再重試）；`README.md` 的機器 API 段落補分頁、限流與三個環境變數、拿掉的端點；工單 14 與 `24-api-v1-rename.md` 開頭各加一行指向本工單；工單的驗收紀錄 記錄。不改設計板（沒有畫面變更）。
 
 ## 驗收（測試契約）
 
@@ -161,3 +161,9 @@ Blocked by：24（`/api/v1` 改名，已合併）。專案沒有任何已部署�
 - `RateLimit-*` 三欄位而不是 IETF 草案的結構化欄位：客戶端函式庫對三欄位支援最廣，草案未定稿；之後要加 `RateLimit`／`RateLimit-Policy` 是純增量。文件不宣稱對應 IETF。
 - 429 放在稽核之後：超限的請求仍會寫兩筆交易，600／分的量可接受，換來站長在活動紀錄看得到被擋的請求。
 - 限流預設值：600／分是單一 agent 正常使用的數倍；需要更高的站台用環境變數調整，之後再做每個串接自訂。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- 工作單 27：機器 API `/api/v1` 有自己的契約，不再直接掛後台 handler。清單一律回物件：文章、頁面、商品、訂單、`media/files` 用 `{items,total,page,per_page}`（`page` 預設 1、最大 1,000,000；`per_page` 預設 20、最大 100；不合法回 400 `bad_request` 加 `details.param`），分類、標籤、主題、外掛、設定用 `{items,total}`，`/me/events` 維持游標。文章與頁面清單是固定欄位的摘要（沒有 `content`、`source`，也沒有原本沒 preload 的空 `author`），支援 `status` 與 `q`；訂單清單是自己的摘要，沒有後台畫面的 `counts`、`kpi` 與 `qty`／`total` 重複鍵。拿掉 `GET /logs`、檔名式 `/media*` 五條與 `POST /settings`（回 404／405，不留別名）。限流三個計數器：每個串接每分鐘 600 次、金鑰驗證失敗每個來源 IP 60 次（超限只擋查不到的金鑰，有效金鑰不受影響，IPv6 以 /64 分桶）、公開說明端點每 IP 120 次；環境變數 `JELLY_API_RATE_LIMIT_PER_INTEGRATION`、`JELLY_API_RATE_LIMIT_AUTH_FAILURES_PER_IP`、`JELLY_API_RATE_LIMIT_PUBLIC_PER_IP`，`0` 關閉；429 回 `rate_limited` 並帶 `Retry-After` 與 `RateLimit-*`，計數器存程序內記憶體快取。新增 `GET /api` 總索引列出四套 API 與後台私有 API 的用途。後台 `/api/admin/*` 的回應與參數處理不變，由守門測試鎖住。驗證：主代理重跑 `gofmt`、`go vet ./...`、`JELLY_TEST_POSTGRES=1 go test ./... -count=1 -timeout 45m`：server 套件（707 秒）等全部通過，`internal/plugin` 的 `TestRuntimeCallsPluginHooksAndPreservesThemOnFailedReload` 在併入 #46 的修正前並行時偶發失敗一次（本次沒改該套件，單獨重跑 5 次與整個套件重跑都通過；併入 main 後該套件以 `-race` 重跑通過），新測試 34 個全過（含 `GET /api` 四個 `openapi_url` 各實際打過一次）；沒有畫面變更，沒有部署。設計方案先經獨立模型審查後改定（詳見工單決策紀錄）。

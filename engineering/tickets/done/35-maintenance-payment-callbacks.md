@@ -29,4 +29,10 @@ Blocked by：無。
 |---|---|
 | 放行清單 | `internal/server/maintenance.go` |
 | 測試 | `internal/server/maintenance_payment_integration_test.go`（新） |
-| 文件 | `docs/system-operations.md` 維護模式段、`STATUS.md` |
+| 文件 | `docs/system-operations.md` 維護模式段、工單的驗收紀錄 |
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- 工單 35：維護模式放行金流回呼。`maintenanceBypass` 加入 `/api/payment` 子樹，維護中 `notify`／`callback` 照常把訂單轉為已付款、簽章錯誤仍回 400，`return` 不再 503；其他匿名 API 維持 503。還原備份時通知經共用寫入租約等待還原完成才寫入。驗證：`internal/server/maintenance_payment_integration_test.go` 先於實作且在原程式上 4 條失敗；主代理重跑 `JELLY_TEST_POSTGRES=1 go test ./internal/server -run 'TestMaintenance|TestNotify'` 通過。文件：`docs/system-operations.md`。沒有部署。

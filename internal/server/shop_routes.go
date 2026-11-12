@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Public shop routes (docs/tickets/07-shop.md, 契約). Everything here is
+// Public shop routes (ticket 7, 契約). Everything here is
 // registered before the /:slug catch-all.
 //
 // Pages (theme templates under web/themes/default):

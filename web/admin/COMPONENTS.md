@@ -1,6 +1,6 @@
 # Jelly CMS Admin Components
 
-這是 Jelly CMS 後台管理界面的組件系統。自家組件定義在 `components.html`，Jelly UI 元件由 `layout.html` 載入的 `/admin/assets/jelly-ui/jelly.js` 提供；兩者怎麼分工看下面的〈界線〉。決定與理由在 `docs/tickets/26-jelly-ui-consistency.md`，設計板上的樣子在 `design/README.md`〈Jelly UI 元件對照（界線）〉。
+這是 Jelly CMS 後台管理界面的組件系統。自家組件定義在 `components.html`，Jelly UI 元件由 `layout.html` 載入的 `/admin/assets/jelly-ui/jelly.js` 提供；兩者怎麼分工看下面的〈界線〉。決定與理由在 工單 26，設計板上的樣子在 `design/README.md`〈Jelly UI 元件對照（界線）〉。
 
 ## 界線：同一類控制項在整個後台只有一種實作
 

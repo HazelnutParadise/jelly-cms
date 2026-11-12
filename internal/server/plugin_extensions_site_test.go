@@ -1,6 +1,6 @@
 package server
 
-// Site extension tests (docs/tickets/29-plugin-read-api-and-extensions.md, PR B): theme.inject, content.render,
+// Site extension tests (ticket 29, PR B): theme.inject, content.render,
 // comments.component and the admin extension settings API.
 //
 // Control case: TestPluginExtensionsSiteAdminSettingsAPI. It covers GET /api/admin/extensions and

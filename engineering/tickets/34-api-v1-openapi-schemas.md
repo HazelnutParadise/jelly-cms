@@ -70,12 +70,12 @@ Blocked by：27（契約與 struct 產 schema 的做法，已合併）。工單 
 5. `internal/server/integrations_auth.go` 的 `integrationMe` handler 改回 `integrationMeResponse` struct。
 6. `internal/server/media_api.go`：`mediaFileJSON` 改回 `integrationMediaFile` struct（後台與 v1 共用，鍵不變）。
 7. `internal/settings`：`Specs()` 已匯出；新增 `WritableSpecs()` 回傳扣掉 `settings_api.go:87-97` 拒絕清單後的規格，`handleSettingsWrite` 與 schema 都用它（拒絕清單只寫一次）。
-8. 文件：`STATUS.md`；工單 27 開頭加一行指向本工單。
+8. 文件：工單的驗收紀錄；工單 27 開頭加一行指向本工單。
 
 ## 驗收（測試契約）
 
 - R2 的比對測試對所有 v1 路由通過。
-- 「測試有牙齒」：`mediaFileJSON` 在格子 6 改成 struct 之前，先在它的 map 多加一個鍵跑一次 R2 測試，必須失敗；審查時主代理執行並把輸出記在 STATUS.md。
+- 「測試有牙齒」：`mediaFileJSON` 在格子 6 改成 struct 之前，先在它的 map 多加一個鍵跑一次 R2 測試，必須失敗；審查時主代理執行並把輸出記在 工單的驗收紀錄。
 - OpenAPI 文件驗證：不加依賴，自寫檢查：所有 `$ref` 可解析、每個 schema 都有 `type`、`oneOf` 或 `$ref`（空 schema `{}` 豁免，它是 RawMessage 的「任意 JSON」）、除例外清單外沒有 `additionalProperties: true`。
 - `GET /orders/:id`（v1）的鍵集合等於 `integrationOrderDetail`，`items[]` 沒有 `qty`、`price`，`timeline[]` 沒有 `status`、`from_status`、`to_status`；三種 `payment` 情況各植一筆訂單驗證；後台 `GET /api/admin/orders/:id` 仍有 `total`、`snapshot`、`items[].qty`（守門）。
 - `GET /posts/:id`（v1）的 `author` 恰好 `{id, username, display_name}` 且值正確，沒有 `deleted_at`；`PUT /posts/:id` 的回應有 `diagnostics` 且元素鍵為 `line`、`col`、`severity`、`code`、`message`，含 diagnostics 的 400 回應亦同；後台 `GET /api/admin/posts/:id` 的 `author` 形狀與後台 diagnostics 的大寫鍵不變（守門）。

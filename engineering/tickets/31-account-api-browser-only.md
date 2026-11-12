@@ -56,7 +56,7 @@ Blocked by：23（後台 API 只收網頁登入，已合併）。與 30 同時�
 ### R4 文件
 
 - `internal/auth/api_documentation.go`：`securitySchemes` 的 `BearerAuth`（`:602`）刪除，保留既有的 `JWTTokenCookie` 與 `SessionCookie`；`:332` 依 `access` 加安全方案的邏輯改成 `self`、`admin` → `[JWTTokenCookie, SessionCookie]`，`interactive`、`admin-interactive` → 同上並在描述加「寫入需 `X-Jelly-CSRF`」；`:146`、`:198`、`:229`、`:261` 四處直接寫的 `security` 同樣改掉 `BearerAuth`；R2 改成互動限定的四條 account 寫入（`PATCH profile`、`read-all`、`:id/read`、`PUT notification-preferences`），`access` 由 `self` 改 `interactive`（`:284,299,300,302`）；若工單 30 已把 12 條會員商店端點注入這份文件，其中的寫入同樣改 `interactive`；`:241` 的「此互動流程禁止 Authorization 標頭」升級為所有端點共通的一句。登入回應的 `token` 描述依「背景與決定」改寫。工單 30 未做時，`internal/server/shop_api_documentation.go:309-310,334` 宣告的 `BearerAuth` 一併拿掉（改 `JWTTokenCookie`／`SessionCookie`）。
-- README：`:107` 的「無 Cookie 的 Bearer API 保留原有認證方式」改寫為「登入 JWT 只能放 Cookie；程式請用存取金鑰」；`docs/tickets/03-access-control.md`、`06-accounts.md`、`07-shop.md`、`23-admin-api-browser-only.md` 開頭各加一行指向本工單；`STATUS.md`。
+- README：`:107` 的「無 Cookie 的 Bearer API 保留原有認證方式」改寫為「登入 JWT 只能放 Cookie；程式請用存取金鑰」；工單 03、`06-accounts.md`、`07-shop.md`、`23-admin-api-browser-only.md` 開頭各加一行指向本工單；工單的驗收紀錄。
 
 ## 程式（格子）
 

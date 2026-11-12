@@ -1,4 +1,4 @@
--- Ticket 25a (docs/tickets/25-integration-internal-rename.md): rename the
+-- Ticket 25a (ticket 25): rename the
 -- remaining agent internals to integration without changing the public API.
 -- The runner applies this file in one transaction. Every step is guarded so a
 -- direct rerun is a no-op.

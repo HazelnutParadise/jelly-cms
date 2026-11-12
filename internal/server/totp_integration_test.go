@@ -19,7 +19,7 @@ import (
 	"github.com/markbates/goth"
 )
 
-// Acceptance tests for two-step verification (docs/tickets/06-accounts.md, D6:
+// Acceptance tests for two-step verification (ticket 6, D6:
 // S6 to S10, S22, 登入兩步驟, OAuth 不再要求驗證碼). Login and token fixtures
 // come from the tokTest helpers.
 

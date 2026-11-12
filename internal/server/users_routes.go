@@ -5,7 +5,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// User administration and invitations (docs/tickets/06-accounts.md).
+// User administration and invitations (ticket 6).
 func registerUserRoutes(e *echo.Echo, renderAdmin func(c echo.Context, file, active string) error) {
 	admins := e.Group("/api/admin/users", auth.RequireRole("admin"))
 	interactive := auth.RequireInteractive()

@@ -8,7 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// System routes (docs/tickets/08-system.md). Handlers for these endpoints are
+// System routes (ticket 8). Handlers for these endpoints are
 // filled in by tickets 08a-08d. Until then every endpoint below answers 501
 // Not Implemented, except /healthz, which is live.
 //

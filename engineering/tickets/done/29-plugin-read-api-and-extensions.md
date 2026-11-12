@@ -3,12 +3,12 @@
 Epic：外觀與擴充
 User Story：外掛開發者可以讀文章、商品與訂單，可以把 HTML 注入主題、後處理文章內容、替換留言元件、把通知送到自己的通路；所有寫入路徑都會發事件。
 Blocked by：28（事件接線）。
-交付紀錄：驗收結果見 STATUS.md
+交付紀錄：驗收結果見 工單的驗收紀錄
 
 ## 痛點
 
 - 外掛只收得到事件 payload，沒有任何讀取 API：想做「同步到外部搜尋」「定時整理草稿」都做不到。
-- `ext` 只出貨 `search.engine` 與 `media.storage`。ENG.md 要求的「內容渲染後處理、主題 head／footer 注入、留言元件、通知器」只有名字沒有實作，外掛無法改變網站輸出或把通知送到 Slack／LINE。
+- `ext` 只出貨 `search.engine` 與 `media.storage`。架構文件 要求的「內容渲染後處理、主題 head／footer 注入、留言元件、通知器」只有名字沒有實作，外掛無法改變網站輸出或把通知送到 Slack／LINE。
 - 工作單 28 留下的寫入路徑沒有事件：回收桶到期自動清除、WXR 匯入。
 
 ## 目標與範圍
@@ -147,3 +147,10 @@ PR B：
 | B4 文件 | `docs/plugin-extensions.md`、README |
 
 測試檔：PR A `internal/server/plugin_read_api_integration_test.go`、`internal/server/plugin_events_gaps_test.go`；PR B `internal/server/plugin_extensions_site_test.go`、`internal/server/plugin_extensions_notify_test.go`、`internal/notify/plugin_channel_test.go`、`internal/plugin/extensions_points_test.go`。實作者不得修改測試檔。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- 工作單 29 PR B：四個外掛擴充點。`ext` 新增出貨點 `theme.inject`、`content.render`、`comments.component`、`notify.channel`，並區分有內建提供者的點（`HasBuiltin`）；plugin runtime 的出貨判斷一般化為 `ext.Shipped`、快照上限改為出貨點數量、新增 `ExtensionCalls()` 計數。主題注入接在程式碼注入之後並沿用商務頁規則；內容渲染在文章、頁面與首頁指定頁面的公開 HTML 之後、標題編號之前串接多個提供者；留言元件由單一提供者取代主題的 `comments` 區塊（核心包 `<section class="comments" id="comments">`，單篇關閉留言時兩者都不顯示）；通知器在 `notify.Emit` 對每個生效提供者各排一筆 `channel = plugin` 的投遞列（`notification_id` NULL，遷移 0028 以 `NOT VALID` 加 `VALIDATE` 擴充 CHECK），送出時重新確認外掛可用與 `events` 權限，只送通知中心事件，單一顧客的交易信（帶存取權杖）不送。網站熱路徑不逐請求呼叫外掛：結果以外掛世代為鍵快取在程序記憶體（啟用、停用、重載、安裝、解除安裝、設定值變更、擴充設定變更都遞增，另有 60 秒安全上限與 30 秒負快取），多提供者的點沿用 `media.storage` 語意（清單空時全部生效），後台 `GET /api/admin/extensions` 新增 `multiple` 欄位、沒有內建的點不列 `builtin`。驗證：測試先於實作，`internal/plugin/extensions_points_test.go`、`internal/server/plugin_extensions_site_test.go`、`plugin_extensions_notify_test.go`、`internal/notify/plugin_channel_test.go` 在空骨架上失敗後才派實作；獨立對抗式審查 3 高 6 中 7 低全部處理，其中三項先寫成失敗測試再修（`plugin_extensions_site_fix_test.go`）：訪客中斷連線會殺掉外掛 worker（runtime 在呼叫端 ctx 取消時終止 worker 且不重啟，改為外掛呼叫脫離請求 ctx、各自預算）、注入與留言元件缺單飛且失敗會覆寫成功、1 MiB 上限量錯對象（worker 框架的 `json.Marshal` 會轉義 HTML 讓體積膨脹三倍，改為不轉義）；另修通知器送出所有通知類型（含訂單查閱權杖與設定密碼連結）、排隊時不過濾沒有 `events` 權限的外掛、提供者查詢另開連線（這也是 OAuth synctest 測試整套崩潰的根因，`PluginChannelFunc` 改帶 `Emit` 的 db）、文章頁多出未快取的提供者查詢、鏈中不可用提供者讓整鏈失敗、外掛每次 `settings.set` 都清全站快取。主代理重跑 `JELLY_TEST_POSTGRES=1 JELLY_TEST_REDIS_URL=… go test ./... -count=1`：全部套件通過；plugin 套件與 server 的擴充、通知、主題、留言測試另以 `-race` 通過；gofmt、go vet 通過；完整 `-race` 以 CI 為準。畫面：`post.html` 在有外掛留言區時輸出 `{{.CommentsHTML}}`、留言按鈕不帶數字；設計板 `PluginDetail.dc.html`（擴充設定表新增主題注入與內容渲染，通知器改列外掛提供者）與 `Post.dc.html`（留言區註記可由外掛取代）同批更新，線上畫布同步待 PR 回報。文件：`docs/plugin-extensions.md` 四個擴充點的契約與限制、`docs/plugin-events.md` 權限交叉連結、README 連結。沒有部署。
+- 工作單 29 PR A：外掛讀取 API 與事件缺口。新增 host API `content.get`／`content.list`（權限 `content.read`）與 `shop.product.get`／`shop.product.list`／`shop.order.get`／`shop.order.list`（權限 `shop.read`），JS 包裝為 `JellyCMS.content` 與 `JellyCMS.shop`；物件沿用事件 payload 的建構函式，回收桶不回傳，清單分頁預設 20、最大 100，結果上限 1 MiB，每次讀取 2 秒逾時。事件缺口：回收桶到期自動清除每筆發 purge 事件（actor null）；WXR 匯入建立文章發 `OnPostSave`（action `import`）與到期的 `OnPostPublish`；沒有日期的已發布匯入項目以匯入時間為 `published_at`（否則永遠不會公開可讀）；自動儲存只寫版本、不發事件，文件已註明；OAuth 首次登入的 `OnUserCreate`／`OnUserLogin` 補了假上游的整合測試。驗證：`plugin_read_api_integration_test.go`（7 案例）與 `plugin_events_gaps_test.go`（4 案例）先在空格子上失敗再實作，read／host、plugin events、importer、Import／Trash 回歸通過；獨立對抗式審查 7 項發現已處理（讀取改用 host 呼叫的 ctx 加 2 秒上限、清單只讀必要欄位、超大 id 拒絕、超限時改省略內容、文件訊息對齊）；主代理重跑 `JELLY_TEST_POSTGRES=1 JELLY_TEST_REDIS_URL=… go test ./... -count=1`：27 個套件全部通過；gofmt、go vet 通過；完整 `-race` 以 CI 為準。沒有畫面改動。沒有部署。

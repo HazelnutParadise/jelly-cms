@@ -28,7 +28,7 @@
 
 - `gofmt -l .` 空、`go vet ./...`、`JELLY_TEST_POSTGRES=1 go test -race ./... -count=1`、Windows 與 macOS 交叉編譯通過。
 - 後台與前台截圖對照 `design/project/` 的板，線上畫布與 repo 同版。
-- STATUS.md 的驗收狀態與實際相符。
+- `engineering/tickets/` 裡每張工單所在的資料夾與實際狀態相符。
 
 ## 4. 打版本
 

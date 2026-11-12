@@ -26,7 +26,7 @@ Blocked by：24。專案沒有任何已部署站台或版本標籤，所以舊�
 | 前端檔與鍵 | `agents.html`、`agent_detail.html`、`agents.js`、`agents.css`、locale 鍵 `agents`、側欄 Key `agents`、元素 id／CSS 類別／JS 變數含 agent | 全部改為 integration(s) |
 | 設計板 | `Agents.dc.html`、`AgentDetail.dc.html`、`gen_agents.py`、canvas 鍵、範例金鑰 `jla_…` | `Integrations.dc.html`、`IntegrationDetail.dc.html`、`gen_integrations.py`、範例金鑰 `jly_…` |
 
-不改：舊 `jla_` 金鑰仍可驗證（`integration_keys` 的前綴 CHECK 內容不變）；HTTP `User-Agent`（`user_agent`）；已提交的遷移 0025、0026；歷史工單 14、22–24 與 STATUS.md 既有段落的敘述。
+不改：舊 `jla_` 金鑰仍可驗證（`integration_keys` 的前綴 CHECK 內容不變）；HTTP `User-Agent`（`user_agent`）；已提交的遷移 0025、0026；歷史工單 14、22–24 與 工單的驗收紀錄 既有段落的敘述。
 
 ## 25a 內部
 
@@ -60,3 +60,9 @@ Blocked by：24。專案沒有任何已部署站台或版本標籤，所以舊�
 - 既有測試的 JSON 欄位、錯誤碼、路徑改為新名稱，斷言不得放寬。
 - 新測試：`/api/admin/agents`、`/admin/agents`、`/admin/agents/1` 回 404；`/api/v1/me/events` 回應有 `integration_id`、`integration_name`，沒有 `agent_id`；說明端點與 OpenAPI 整份字串不含 `agent`（`User-Agent` 除外）；`web/admin`、`web/locales`、`internal/server` 非測試程式、`design/project` 中除 `User-Agent` 外不含 `agent` 字樣（靜態掃描）。
 - 瀏覽器實測：串接列表、詳情、建立與輪替金鑰、停用與啟用、中英文。
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- 工單 25：內部與剩餘對外名稱全部由 agent 改為 integration。25a（PR #42，已合併）：遷移 0027 改名三張表、欄位、約束、索引、觸發器、函式與序列，改寫稽核歷史值，刪除 `api_tokens`；Go 套件 `internal/integration` 與 `core.Integration*`。25b：JSON 欄位 `integration_id`、`integration_name`、`integration`，錯誤碼 `integration_*`，查詢參數，後台 API `/api/admin/integrations*`，前端檔名、元素 id、語系鍵、側欄 Key、驗收腳本、設計板（`Integrations.dc.html`、`IntegrationDetail.dc.html`、範例金鑰 `jly_`）與文件；舊 `/admin/agents*` 轉址移除，回 404。沒有別名，因為專案沒有部署也沒有版本標籤。保留：既有 `jla_` 金鑰仍可驗證；HTTP `User-Agent` 與爬蟲名 `meta-externalagent`；已提交的遷移與歷史工單。驗證：整套 `internal/server`（900 秒）、data、auth、integration、assetcheck 通過；跨平台編譯通過。隔離站瀏覽器實測：舊後台頁、舊後台 API、舊機器 API 皆 404；中文列表頁以介面建立串接並一次性顯示 `jly_` 金鑰；英文詳情頁以介面停用；以 API 啟用與輪替金鑰；停用時金鑰回 `integration_disabled`、不存在回 `integration_not_found`、金鑰打後台回 401；活動紀錄欄位與值皆為新名稱；資料庫沒有名稱含 agent 的物件、`api_tokens` 不存在。未驗證：完整 `-race` 全套件交由 CI；手機版面；設計板沒有截圖比對（本機沒有 Playwright）；`scripts/acceptance/jelly-ui.spec.mjs` 只做語法檢查，沒對真實站跑過。確認視窗原本把說明與名稱黏在一起，已改為以空格分隔並在瀏覽器確認。沒有部署。

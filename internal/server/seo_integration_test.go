@@ -1,6 +1,6 @@
 package server
 
-// Ticket 08b (docs/tickets/08-system.md): crawler policy and SEO output. Covers
+// Ticket 08b (ticket 8): crawler policy and SEO output. Covers
 // robots.txt presets and custom rules, the robots file beating a slug catch-all,
 // meta robots and X-Robots-Tag per type, per-post noindex, the sitemap scope and
 // split, TDM reservation, llms.txt, server-side 403 for crawlers that ignore

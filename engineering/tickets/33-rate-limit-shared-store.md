@@ -42,7 +42,7 @@ Blocked by：27（限流，已合併）。
 - README 限流段補：單機預設記憶體，多實例請把 `cache_driver` 設為 redis 並給 URL；切換後端時進行中的視窗計數重新開始（可接受）。
 - `internal/cache/cache.go` 的過時註解改正，`ErrNotImplemented` 刪除。
 - `go.mod`：若用 `go.uber.org/goleak` 驗證 goroutine 結束，加入 test 依賴。
-- `STATUS.md`；工單 27 開頭加一行指向本工單（27 的決策紀錄「鍵不帶視窗戳」「TTL 等於剩餘秒數」由本工單改定）。
+- 工單的驗收紀錄；工單 27 開頭加一行指向本工單（27 的決策紀錄「鍵不帶視窗戳」「TTL 等於剩餘秒數」由本工單改定）。
 
 ## 程式（格子）
 
