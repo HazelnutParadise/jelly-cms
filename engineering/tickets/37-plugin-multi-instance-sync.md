@@ -1,71 +1,89 @@
 # 37 — 多台伺服器的外掛狀態與擴充點快取保持一致
 
-User Story：網站跑在多台伺服器時，站長在任一台啟用、停用、升級、重新載入外掛或改設定，其他台在幾秒內跟上；訪客不論打到哪一台，看到的外掛輸出都一樣。
+User Story：網站跑在多台伺服器時，站長在任一台安裝、啟用、停用、升級、解除安裝外掛或改設定，其他台在幾秒內跟上；訪客不論打到哪一台，看到的外掛輸出都一樣。多台之間只需要共用資料庫，不需要共用磁碟。
 Blocked by：36（已合併）。
 
 ## 現況
 
 - 擴充點結果（`theme.inject`、`content.render`、`comments.component`）快取在每台伺服器自己的記憶體，以程序內的世代計數失效（`/internal/server/plugin_extensions_site.go` 的 `pluginExtensionGen`）。世代只在本機遞增，其他台要等最多 60 秒的安全上限才會重算。
-- 外掛的載入狀態也只在本機：A 台啟用外掛只會在 A 台載入；B 台要到重啟時才依 `plugins.enabled` 載入。停用、升級、解除安裝同樣只影響執行操作的那一台。
-- 外掛檔案放在每台自己的 `data/plugins/`，啟用或升級時只寫到執行操作的那一台。
+- 外掛的載入狀態只在本機：A 台啟用外掛只會在 A 台載入；B 台要到重啟時才依 `plugins.enabled` 載入。停用、升級、解除安裝同樣只影響執行操作的那一台。
+- 外掛檔案放在每台自己的 `data/plugins/`，安裝或升級時只寫到執行操作的那一台。
+- 啟動時，`data/plugins/` 裡沒有 `plugins` 列的目錄照樣載入（`/internal/server/plugin_detail_api.go` 的 `PluginEnabledFilter`），這是手動放進目錄的外掛的既有行為。
 - `plugins.updated_at` 是安裝交易的提交識別，崩潰復原以它判斷交易是否提交，不能拿來當變更訊號。
+- 外掛安裝鎖由程序內的 `pluginFilesMu` 加上 PostgreSQL 的 session 層級咨詢鎖組成。咨詢鎖對連同一個資料庫的所有伺服器都有效。
 
 ## 規則
 
 ### R1 共用的變更序號
 
-- 新增資料表 `plugin_state_versions`，只有一列，存一個整數序號。
-- 每個會改變外掛狀態或擴充點輸出的操作，在本機遞增世代的同時，把資料庫序號加一：啟用、停用、重新載入、安裝、升級、解除安裝、外掛設定寫入（含外掛自己的 `settings.set`）、擴充點設定寫入。
-- 自動重啟與失效不寫資料庫：那是單一台的程序狀態。
+- 新增 PostgreSQL SEQUENCE `plugin_state_seq`。每個會改變外掛狀態或擴充點輸出的操作，在本機遞增世代的同時呼叫一次 `nextval`。用 SEQUENCE 而不是一列計數，是為了讓外掛頻繁的 `settings.set` 不必搶同一列的鎖；序號跳號沒有關係。
+- 要遞增的操作：啟用、停用、重新載入、安裝（含全新安裝，原本 `installPluginFileLocked` 成功時沒有遞增世代，一併補上）、升級、解除安裝、外掛設定寫入（含外掛自己的 `settings.set`）、擴充點設定寫入。
+- 不遞增的：自動重啟、失效、擴充點提供者暫時不可用、替換 runtime。這些是單一台的程序狀態。
 
 ### R2 每台定期對齊
 
-- 每台每 3 秒讀一次序號。序號比上次看到的大時：遞增本機世代（讓擴充點快取全部失效），再依 `plugins` 表對齊本機 runtime：
-  - 列為啟用、本機沒載入：載入。
-  - 列為停用或已刪除、本機有載入：卸載。
-  - 列上的版本和本機載入的版本不同：重新載入。
-  - 狀態一致的不動，不重跑 `OnBoot`。
-  - 本機處於「已停止運作」的外掛，只在列的版本或啟用狀態有變時才重新載入。
+- 每台每 3 秒讀一次 `plugin_state_seq` 的目前值。比上次看到的大時，遞增本機世代（讓擴充點快取全部失效），再對齊所有外掛。另外每 60 秒不論序號都完整對齊一次，處理「資料庫已寫入、還沒遞增序號就當機」的情況。
+- 對齊一個外掛時，先以不等待的方式取得與安裝相同的咨詢鎖（`pg_try_advisory_lock`）。取不到代表有一台正在安裝或升級它，記為待處理，下一輪即使序號沒變也重試。拿到鎖後先依本機的交易紀錄做崩潰復原檢查，再判斷。
+- 判斷是否一致不用版本號（同版本重新上傳時版本號不變），而是用解壓後目錄的雜湊：每台在載入外掛當下記下它的目錄雜湊，和 `plugins.archive_tree_sha256` 比對。
+- 對齊動作：
+  - 列為啟用、本機沒載入或載入的雜湊不同：先依 R3 補齊本機目錄，再載入或重新載入。換檔前先暫停該外掛的自動重啟（`HoldRestart`）。
+  - 列為停用、本機有載入：卸載。
+  - 列不存在、但有 R3 的移除紀錄、本機有載入或有目錄：卸載，並用解除安裝的交易紀錄流程刪除本機目錄。
+  - 列不存在、也沒有移除紀錄的目錄（手動放進目錄的外掛）：維持既有行為，不動。
+  - 一致的不動，不重跑 `OnBoot`。執行操作的那一台在自己的對齊中看到的是一致的狀態，不會重複載入。
+  - 本機處於「已停止運作」（自動重啟被禁止）的外掛，只在列的雜湊或啟用狀態有變時才重新載入。
 - 讀取或對齊失敗只記日誌，下次再試，不影響網站服務。
-- 執行操作的那一台在自己的對齊中看到的是已一致的狀態，不會重複載入。
+- 啟動時，在載入外掛之前先做一次完整對齊：先完成交易紀錄復原，再套用上面的規則補齊或刪除本機目錄，最後才依既有規則載入。
 
 ### R3 外掛壓縮檔存在 Postgres
 
-多台部署不需要共用磁碟：外掛的壓縮檔本身存在資料庫，`data/plugins/` 只是每台自己的解壓副本。
+多台部署不需要共用磁碟：外掛的壓縮檔存在資料庫，`data/plugins/` 是每台自己的解壓副本。
 
-- 新增資料表 `plugin_archives`：每個外掛一列，存目前版本的版本號、壓縮檔 SHA-256、壓縮檔大小與解壓後目錄的雜湊（安裝交易紀錄已在算的 tree digest）。
-- 壓縮檔內容切成每段 1 MiB，存在 `plugin_archive_chunks`（外掛 ID、段落序號、位元組）。寫入與讀出都一段一段處理，記憶體用量不隨外掛大小增加；讀出後比對 SHA-256，不符就不使用。
-- 存資料庫不另設大小上限：能通過既有上傳檢查的外掛都存得進去。
-- 安裝、升級：在寫 `plugins` 列的同一筆交易裡寫入或取代 `plugin_archives` 的那一列，兩者一起提交或一起不提交。崩潰復原仍以 `plugins` 列判斷交易是否提交，壓縮檔跟著同一個結論。
-- 熱升級失敗還原：連同壓縮檔一起還原成舊版。
-- 解除安裝：刪除壓縮檔列。保留設定的解除安裝也刪除壓縮檔，因為檔案已不在。
-- 補齊本機副本：啟動時與每次對齊時，對每個有壓縮檔列的外掛，若本機目錄不存在或解壓後的雜湊與資料庫不同，就從資料庫取出壓縮檔，用既有的暫存加交換流程寫入 `data/plugins/<id>`，再依 R2 載入。寫入用和安裝相同的檔案鎖，不與本機的安裝互相干擾。
-- 既有網站：升級後第一次啟動時，對已有 `plugins` 列但沒有壓縮檔列的外掛，把本機目錄重新打包存入資料庫。打包失敗只記錄，不影響載入。
+- 新增資料表 `plugin_archives`，以（外掛 ID、解壓後目錄雜湊）為主鍵，存壓縮檔 SHA-256 與大小。壓縮檔內容切成每段 1 MiB，存在 `plugin_archive_chunks`（外掛 ID、目錄雜湊、段落序號、位元組）。同一個版本的內容寫入後就不再修改。
+- `plugins` 新增欄位 `archive_tree_sha256`，指向目前使用的那份壓縮檔。
+- 安裝與升級：在交換本機檔案之前，先把壓縮檔寫入（已存在相同主鍵就略過）；再在 `writePluginRow` 的那筆交易裡更新 `archive_tree_sha256`。崩潰復原仍以 `plugins` 列判斷交易是否提交，指標跟著同一個結論。
+- 熱升級失敗還原：還原 `plugins` 列的同一條 UPDATE 一併把指標改回舊值。舊版的壓縮檔內容沒有被覆蓋，所以不需要再寫入任何位元組。
+- 解除安裝：在刪除 `plugins` 列的同一筆交易裡寫入一筆移除紀錄（外掛 ID），並刪除該外掛的壓縮檔。重新安裝同一個外掛時刪除它的移除紀錄。
+- 沒有被任何 `plugins` 列引用的壓縮檔，在安裝、升級或解除安裝提交後清掉。
+- 讀寫都一段一段處理：寫入時邊讀壓縮檔邊寫入段落，補齊時邊讀段落邊寫進暫存檔，記憶體用量不隨外掛大小增加。組完後比對 SHA-256，不符就不使用。
+- 存資料庫不另設大小上限：能通過既有上傳檢查的外掛都存得進去。每段 1 MiB，備份時單一資料列約 2 MiB，不受備份的單列大小影響。
+- 補齊本機副本：用既有的暫存、交易紀錄、交換流程寫入 `data/plugins/<id>`，交易紀錄的提交戳記填 `plugins.updated_at`。補齊途中當機，啟動時的交易紀錄復原會依 `plugins` 列和目錄雜湊得出正確結論。
+- 既有網站：升級後第一次啟動、交易紀錄復原之後，對已有 `plugins` 列但 `archive_tree_sha256` 是空的外掛，在持有外掛鎖時把本機目錄重新打包（包含空目錄）。打包後解到暫存目錄重算目錄雜湊，和本機目錄相同才存入並設定指標；不同或打包失敗只記錄，不影響本機載入。
 - 本機副本與資料庫都取不到時：記錄錯誤，該外掛在本機為未載入，不影響其他外掛。
-- 備份與還原：壓縮檔在資料庫裡，會跟著資料庫備份；還原後各台依 R2 自動補齊副本。
+- 備份與還原：新表會跟著資料庫備份；還原後各台依 R2 自動補齊副本。
+
+## 已知的多台行為（寫進文件）
+
+- 外掛的 `OnBoot` 與排程在每一台都會執行一次。外掛若要做一次性的全站動作，要自己用 `store` 記錄是否已做過。
+- 「重新載入」只會讓其他台的擴充點快取失效。其他台載入的檔案沒有變，所以不會跟著重新載入。
 
 ## 不改
 
-- 單台部署的行為：序號照樣遞增，壓縮檔照樣存，對齊不會做任何事。
+- 單台部署的使用方式：序號照樣遞增、壓縮檔照樣存，對齊時狀態都已一致，不會重複載入。
+- 手動放進 `data/plugins/` 而沒有 `plugins` 列的外掛照樣載入。
 - 安裝交易、崩潰復原與 `plugins.updated_at` 的意義。
-- 既有的上傳限制（解壓後總共 100 MiB、單一檔案 20 MiB）。
+- 既有的上傳限制（解壓後總共 100 MiB、單一檔案 20 MiB、上傳本文 64 MB、商店下載 50 MiB）。
 - 擴充點快取原本的 60 秒安全上限與 30 秒失敗快取。
 
 ## 驗收
 
+以兩個 runtime 模擬兩台伺服器，共用同一個資料庫，各用自己的外掛目錄。
+
 | 情境 | 預期 |
 |---|---|
-| 兩個 runtime 共用同一個資料庫與外掛目錄，A 啟用外掛 | B 在 5 秒內載入該外掛，`OnBoot` 跑一次 |
+| A 安裝並啟用外掛 | B 在 5 秒內從資料庫補齊目錄並載入，`OnBoot` 跑一次 |
 | A 停用外掛 | B 在 5 秒內卸載 |
-| A 熱升級外掛 | B 在 5 秒內載入新版 |
+| A 熱升級外掛 | B 在 5 秒內換成新版目錄並載入新版 |
+| A 熱升級，新版起不來 | `plugins` 列與 `archive_tree_sha256` 都還原成舊版；B 在 A 完成還原前不會載入新版，之後仍是舊版 |
+| A 同版本重新上傳內容不同的外掛 | B 換成新內容 |
 | A 改外掛設定 | B 的 `theme.inject` 結果在 5 秒內變成新值 |
 | A 執行任一操作後 | A 自己不會因為對齊而重複載入或重跑 `OnBoot` |
-| A、B 各用自己的 `data/plugins/`，A 安裝並啟用外掛 | B 在 5 秒內從資料庫補齊目錄並載入 |
-| A 熱升級外掛 | B 的目錄換成新版，`plugin_archives` 是新版 |
-| 熱升級新版起不來 | `plugins` 列與 `plugin_archives` 都還原成舊版，B 不會載入新版 |
-| 解除安裝 | `plugin_archives` 列刪除，B 卸載 |
-| B 的外掛目錄被刪掉或改壞 | B 從資料庫重新補齊後載入 |
-| 升級前就裝好的外掛（沒有壓縮檔列） | 第一次啟動後資料庫有了它的壓縮檔列 |
+| A 解除安裝外掛 | B 在 5 秒內卸載並刪除本機目錄；B 重啟後外掛不會復活 |
+| B 有一個手動放進目錄、沒有 `plugins` 列的外掛 | B 照樣載入，對齊不會刪除它 |
+| B 的外掛目錄被刪掉或改壞 | B 下一輪完整對齊時從資料庫補齊後載入 |
+| A 正在升級某外掛時 B 對齊 | B 不會被卡住，該外掛記為待處理，A 完成後下一輪補上 |
+| 升級前就裝好的外掛（沒有指標） | 第一次啟動後資料庫有了它的壓縮檔與指標，目錄雜湊和本機相同 |
+| 超過 1 MiB 的外掛 | 分成多段存入，補齊後 SHA-256 相同 |
 | B 的目錄與資料庫都取不到 | B 記錄錯誤、該外掛在 B 為未載入，其他外掛照常 |
 | 資料庫暫時連不上 | 對齊記錄錯誤後下次再試，網站照常服務 |
 
@@ -73,8 +91,10 @@ Blocked by：36（已合併）。
 
 | 格子 | 檔案 |
 |---|---|
-| 序號資料表與讀寫 | `/internal/data/migrations/0029_plugin_state_versions.sql`（新）、`/internal/server/plugin_cluster_sync.go`（新） |
-| 各操作遞增序號 | `/internal/server/plugin_detail_api.go`、`/internal/server/store_api.go`、`/internal/server/integration_shared_handlers.go`、`/internal/server/plugin_extensions.go`、`/internal/server/plugin_host.go` |
-| 定期對齊 | `/internal/server/plugin_cluster_sync.go`、`/cmd/server/main.go` |
-| 壓縮檔存取、補齊與回填 | `/internal/data/migrations/0029_plugin_state_versions.sql`（同一個遷移）、`/internal/server/plugin_archive_store.go`（新）、`/internal/server/store_api.go`、`/internal/server/plugin_install_recovery.go`、`/internal/server/plugin_detail_api.go` |
-| 文件 | `/docs/system-operations.md`、`/docs/plugin-extensions.md`、`/AGENTS.md` follow-up |
+| 遷移：序號、壓縮檔表、指標欄位、移除紀錄 | `/internal/data/migrations/0029_plugin_cluster_sync.sql`（新） |
+| 壓縮檔分段讀寫、補齊與回填 | `/internal/server/plugin_archive_store.go`（新） |
+| 安裝、升級、還原、解除安裝接上壓縮檔與序號 | `/internal/server/store_api.go`、`/internal/server/plugin_detail_api.go`、`/internal/server/plugin_install_recovery.go` |
+| 其他遞增序號的位置 | `/internal/server/integration_shared_handlers.go`、`/internal/server/plugin_host.go`、`/internal/server/plugin_extensions.go` |
+| 載入時記錄目錄雜湊 | `/internal/plugin/manager.go`、`/internal/plugin/supervisor.go` |
+| 定期對齊與啟動對齊 | `/internal/server/plugin_cluster_sync.go`（新）、`/cmd/server/main.go`、`/internal/server/installation_http.go` |
+| 文件 | `/docs/system-operations.md`、`/docs/plugin-development.md`、`/docs/plugin-extensions.md`、`/AGENTS.md` follow-up |
