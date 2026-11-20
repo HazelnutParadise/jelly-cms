@@ -31,13 +31,26 @@ var (
 	pluginSyncFullInterval = 60 * time.Second
 )
 
-// readPluginStateSeq returns the current value of plugin_state_seq.
+// pluginSyncQueryTimeout bounds one database query of a sync pass, so a stalled
+// database cannot hold the pass or the plugin files lock forever.
+const pluginSyncQueryTimeout = 10 * time.Second
+
+// pluginSyncQueryContext returns ctx limited to one sync query.
+func pluginSyncQueryContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(ctx, pluginSyncQueryTimeout)
+}
+
+// readPluginStateSeq returns the value of plugin_state_seq as a change marker.
+// A fresh sequence reports last_value 1 with is_called false, the same as one
+// nextval, so an unused sequence reads as 0 and the first change reads as 1.
 func readPluginStateSeq(ctx context.Context) (int64, error) {
 	if data.DB == nil {
 		return 0, errors.New("plugin database is unavailable")
 	}
+	qctx, cancel := pluginSyncQueryContext(ctx)
+	defer cancel()
 	var value int64
-	err := data.DB.WithContext(ctx).Raw(`SELECT last_value FROM plugin_state_seq`).Row().Scan(&value)
+	err := data.DB.WithContext(qctx).Raw(`SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM plugin_state_seq`).Row().Scan(&value)
 	return value, err
 }
 
@@ -98,6 +111,40 @@ func loadedPluginTree(rt *plugin.Runtime, id string) (string, bool) {
 	return tree, ok
 }
 
+// forgetLoadedPluginTree drops the digest of a plugin that was unloaded or
+// uninstalled, so a later load records a fresh one.
+func forgetLoadedPluginTree(rt *plugin.Runtime, id string) {
+	loadedPluginTrees.Lock()
+	defer loadedPluginTrees.Unlock()
+	delete(loadedPluginTrees.byRuntime[rt], id)
+}
+
+// loadedPluginStale reports whether a loaded plugin runs from files other than
+// the ones now in its directory. A plugin with no recorded digest is not stale.
+func loadedPluginStale(rt *plugin.Runtime, id string) (bool, error) {
+	tree, known := loadedPluginTree(rt, id)
+	if !known {
+		return false, nil
+	}
+	local, present, err := localPluginDigest(pluginDirRoot, id)
+	if err != nil {
+		return false, err
+	}
+	return !present || local != tree, nil
+}
+
+// ClosePluginRuntime stops the sync loop, then closes rt and drops its digests.
+// The loop must end first: it loads and unloads plugins in rt.
+func ClosePluginRuntime(rt *plugin.Runtime) {
+	StopPluginSync()
+	if rt != nil {
+		loadedPluginTrees.Lock()
+		delete(loadedPluginTrees.byRuntime, rt)
+		loadedPluginTrees.Unlock()
+		rt.Close()
+	}
+}
+
 // pluginAdvisoryKey is the second advisory-lock key withPluginAdvisoryLock uses.
 func pluginAdvisoryKey(id string) int32 {
 	h := fnv.New32a()
@@ -118,7 +165,10 @@ func withPluginAdvisoryTryLock(ctx context.Context, id string, fn func() error) 
 	key := pluginAdvisoryKey(id)
 	err = data.DB.Connection(func(conn *gorm.DB) (callbackErr error) {
 		var got bool
-		if err := conn.WithContext(ctx).Raw(`SELECT pg_try_advisory_lock(?, ?)`, pluginAdvisoryClass, key).Row().Scan(&got); err != nil {
+		qctx, cancel := pluginSyncQueryContext(ctx)
+		err := conn.WithContext(qctx).Raw(`SELECT pg_try_advisory_lock(?, ?)`, pluginAdvisoryClass, key).Row().Scan(&got)
+		cancel()
+		if err != nil {
 			discardPluginDBConnection(conn)
 			return err
 		}
@@ -158,7 +208,9 @@ func readPluginSyncRow(ctx context.Context, id string) (pluginSyncRow, error) {
 		UpdatedAt       time.Time `gorm:"column:updated_at"`
 		ArchiveSHA      *string   `gorm:"column:archive_tree_sha256"`
 	}
-	if err := data.DB.WithContext(ctx).Raw(`SELECT enabled, version, permissions_granted_hash, updated_at, archive_tree_sha256 FROM plugins WHERE id = ?`, id).Scan(&rows).Error; err != nil {
+	qctx, cancel := pluginSyncQueryContext(ctx)
+	defer cancel()
+	if err := data.DB.WithContext(qctx).Raw(`SELECT enabled, version, permissions_granted_hash, updated_at, archive_tree_sha256 FROM plugins WHERE id = ?`, id).Scan(&rows).Error; err != nil {
 		return pluginSyncRow{}, err
 	}
 	if len(rows) == 0 {
@@ -175,8 +227,10 @@ func readPluginSyncRow(ctx context.Context, id string) (pluginSyncRow, error) {
 }
 
 func pluginRemovalRecorded(ctx context.Context, id string) (bool, error) {
+	qctx, cancel := pluginSyncQueryContext(ctx)
+	defer cancel()
 	var n int64
-	err := data.DB.WithContext(ctx).Raw(`SELECT COUNT(*) FROM plugin_removals WHERE plugin_id = ?`, id).Row().Scan(&n)
+	err := data.DB.WithContext(qctx).Raw(`SELECT COUNT(*) FROM plugin_removals WHERE plugin_id = ?`, id).Row().Scan(&n)
 	return n > 0, err
 }
 
@@ -323,14 +377,24 @@ type pluginNode struct {
 	files *sync.Mutex
 	// seen is the plugin_state_seq value of the last pass that reconciled everything.
 	seen int64
-	// pending holds plugins whose install lock another server held; they are
-	// retried on every pass.
+	// pending holds plugins whose pass failed or whose install lock another
+	// server held; they are retried on every pass.
 	pending map[string]bool
+	// failedLoads holds, per plugin, the load target of its last failed load
+	// (ticket 37 review 2). A failed target is not loaded again.
+	failedLoads map[string]pluginLoadTarget
+}
+
+// pluginLoadTarget is what a load was for: the archive digest and the enabled
+// flag of the plugins row.
+type pluginLoadTarget struct {
+	digest  string
+	enabled bool
 }
 
 // newPluginNode returns the node for runtime with plugin files under root.
 func newPluginNode(runtime *plugin.Runtime, root string) *pluginNode {
-	n := &pluginNode{runtime: runtime, root: root, files: &sync.Mutex{}, pending: map[string]bool{}}
+	n := &pluginNode{runtime: runtime, root: root, files: &sync.Mutex{}, pending: map[string]bool{}, failedLoads: map[string]pluginLoadTarget{}}
 	if root == pluginDirRoot {
 		n.files = &pluginFilesMu
 	}
@@ -347,14 +411,13 @@ func newPluginNode(runtime *plugin.Runtime, root string) *pluginNode {
 // invalidates local extension caches when the sequence moved, then for every
 // plugin materializes, loads, reloads, unloads or removes the local copy.
 // full forces a pass over every plugin even when the sequence did not move.
-// A plugin whose install lock another node holds is retried on the next pass.
-// Per-plugin failures are logged and do not stop the pass.
+// A plugin whose install lock another node holds, or whose pass failed, is
+// retried on the next pass even when the sequence did not move. Per-plugin
+// failures are returned and do not stop the pass.
 func (n *pluginNode) ReconcileOnce(ctx context.Context, full bool) error {
 	if n.runtime == nil {
 		return errors.New("plugin runtime is unavailable")
 	}
-	n.files.Lock()
-	defer n.files.Unlock()
 
 	seq, err := readPluginStateSeq(ctx)
 	if err != nil {
@@ -386,7 +449,7 @@ func (n *pluginNode) ReconcileOnce(ctx context.Context, full bool) error {
 	var errs []error
 	for _, id := range ids {
 		acquired, err := n.reconcilePlugin(ctx, id)
-		if !acquired {
+		if !acquired || err != nil {
 			n.pending[id] = true
 		}
 		if err != nil {
@@ -396,9 +459,13 @@ func (n *pluginNode) ReconcileOnce(ctx context.Context, full bool) error {
 	return errors.Join(errs...)
 }
 
-// reconcilePlugin syncs one plugin under its install lock. acquired is false
-// when another server holds the lock; the plugin is then left alone.
+// reconcilePlugin syncs one plugin under its install lock. The files lock is
+// held for this plugin only. acquired is false when another server holds the
+// install lock; the plugin is then left alone.
 func (n *pluginNode) reconcilePlugin(ctx context.Context, id string) (bool, error) {
+	n.files.Lock()
+	defer n.files.Unlock()
+
 	return withPluginAdvisoryTryLock(ctx, id, func() error {
 		return n.syncLocked(ctx, id, true)
 	})
@@ -423,19 +490,26 @@ func (n *pluginNode) syncLocked(ctx context.Context, id string, load bool) error
 
 	if !row.Exists {
 		// A directory with no row and no removal record is a manual install and stays.
+		delete(n.failedLoads, id)
 		if !removed {
 			return nil
 		}
 		if loaded {
-			if err := n.runtime.Unload(ctx, id); err != nil {
+			err := n.runtime.Unload(ctx, id)
+			forgetLoadedPluginTree(n.runtime, id)
+			if err != nil {
 				return err
 			}
 		}
 		return n.removeLocalCopy(id)
 	}
 	if !row.Enabled {
+		// The target is now "disabled"; enabling it again is a new target.
+		delete(n.failedLoads, id)
 		if loaded {
-			return n.runtime.Unload(ctx, id)
+			err := n.runtime.Unload(ctx, id)
+			forgetLoadedPluginTree(n.runtime, id)
+			return err
 		}
 		return nil
 	}
@@ -444,7 +518,8 @@ func (n *pluginNode) syncLocked(ctx context.Context, id string, load bool) error
 		return nil
 	}
 
-	want := *row.ArchiveSHA
+	target := pluginLoadTarget{digest: *row.ArchiveSHA, enabled: row.Enabled}
+	want := target.digest
 	local, present, err := localPluginDigest(n.root, id)
 	if err != nil {
 		return err
@@ -461,6 +536,12 @@ func (n *pluginNode) syncLocked(ctx context.Context, id string, load bool) error
 		} else {
 			needLoad = true
 		}
+	}
+	// A load that failed on this target is not tried again until the target
+	// changes (archive digest or enabled flag). This covers a crashed or
+	// restart-forbidden instance too.
+	if failed, ok := n.failedLoads[id]; needLoad && ok && failed == target {
+		needLoad = false
 	}
 	if !needFiles && !needLoad {
 		return nil
@@ -488,6 +569,7 @@ func (n *pluginNode) syncLocked(ctx context.Context, id string, load bool) error
 		err = n.runtime.Load(ctx, dir)
 	}
 	if err != nil {
+		n.failedLoads[id] = target
 		if loaded {
 			// The old instance keeps running, but its directory now holds the new
 			// files, so an automatic restart must not load them.
@@ -495,6 +577,7 @@ func (n *pluginNode) syncLocked(ctx context.Context, id string, load bool) error
 		}
 		return err
 	}
+	delete(n.failedLoads, id)
 	noteLoadedPluginTree(n.runtime, id, dir)
 	return nil
 }
@@ -558,11 +641,17 @@ func (n *pluginNode) removeLocalCopy(id string) error {
 func (n *pluginNode) pluginIDs(ctx context.Context) ([]string, error) {
 	set := map[string]bool{}
 	var fromRows []string
-	if err := data.DB.WithContext(ctx).Table("plugins").Pluck("id", &fromRows).Error; err != nil {
+	rowsCtx, cancelRows := pluginSyncQueryContext(ctx)
+	err := data.DB.WithContext(rowsCtx).Table("plugins").Pluck("id", &fromRows).Error
+	cancelRows()
+	if err != nil {
 		return nil, err
 	}
 	var removed []string
-	if err := data.DB.WithContext(ctx).Table("plugin_removals").Pluck("plugin_id", &removed).Error; err != nil {
+	removedCtx, cancelRemoved := pluginSyncQueryContext(ctx)
+	err = data.DB.WithContext(removedCtx).Table("plugin_removals").Pluck("plugin_id", &removed).Error
+	cancelRemoved()
+	if err != nil {
 		return nil, err
 	}
 	for _, id := range append(fromRows, removed...) {
@@ -619,9 +708,9 @@ func (n *pluginNode) Run(ctx context.Context) {
 // never loads a plugin; LoadWhere does that.
 func (n *pluginNode) ReconcileAtStartup(ctx context.Context) error {
 	n.files.Lock()
-	defer n.files.Unlock()
-
-	if err := recoverPluginInstallJournalsIn(n.root); err != nil {
+	err := recoverPluginInstallJournalsIn(n.root)
+	n.files.Unlock()
+	if err != nil {
 		return err
 	}
 	seq, err := readPluginStateSeq(ctx)
@@ -633,9 +722,10 @@ func (n *pluginNode) ReconcileAtStartup(ctx context.Context) error {
 		return err
 	}
 
+	// The files lock is held per plugin, as in ReconcileOnce.
 	var errs []error
 	for _, id := range ids {
-		err := withPluginAdvisoryLock(ctx, id, func() error {
+		err := n.withPluginFiles(ctx, id, func() error {
 			row, err := readPluginSyncRow(ctx, id)
 			if err != nil || !row.Exists || row.ArchiveSHA != nil {
 				return err
@@ -647,7 +737,7 @@ func (n *pluginNode) ReconcileAtStartup(ctx context.Context) error {
 		}
 	}
 	for _, id := range ids {
-		err := withPluginAdvisoryLock(ctx, id, func() error {
+		err := n.withPluginFiles(ctx, id, func() error {
 			return n.syncLocked(ctx, id, false)
 		})
 		if err != nil {
@@ -656,6 +746,15 @@ func (n *pluginNode) ReconcileAtStartup(ctx context.Context) error {
 	}
 	n.seen = seq
 	return errors.Join(errs...)
+}
+
+// withPluginFiles runs fn under this node's files lock and the install lock of
+// id. It waits for the install lock, unlike reconcilePlugin.
+func (n *pluginNode) withPluginFiles(ctx context.Context, id string, fn func() error) error {
+	n.files.Lock()
+	defer n.files.Unlock()
+
+	return withPluginAdvisoryLock(ctx, id, fn)
 }
 
 // PluginSync is this process's plugin sync (ticket 37): the process directory
@@ -678,16 +777,117 @@ func (s *PluginSync) ReconcileAtStartup(ctx context.Context) error {
 // remembers the digest each one was loaded from.
 func (s *PluginSync) LoadEnabled(ctx context.Context) error {
 	rt := s.node.runtime
-	if err := rt.LoadWhere(ctx, pluginDirRoot, PluginEnabledFilter()); err != nil {
-		return err
-	}
+	include := PluginEnabledFilter()
+	loadErr := rt.LoadWhere(ctx, pluginDirRoot, include)
+	// Record the digests even when some plugin failed, so the loaded ones are not
+	// reloaded by the first pass.
 	for _, meta := range rt.LoadedPlugins() {
 		noteLoadedPluginTree(rt, meta.ID, filepath.Join(pluginDirRoot, meta.ID))
+	}
+	if err := s.node.recordStartupLoadFailures(ctx, include); err != nil {
+		log.Printf("plugin sync: record start-up load failures: %v", err)
+	}
+	return loadErr
+}
+
+// recordStartupLoadFailures remembers the target of each enabled plugin that
+// start-up did not load, so the first pass does not try it again. A plugin that
+// include rejects is not recorded: include rejects everything while plugin
+// recovery is pending or the database cannot be read, and such a plugin must be
+// tried later.
+func (n *pluginNode) recordStartupLoadFailures(ctx context.Context, include func(pluginID string) bool) error {
+	ids, err := n.pluginIDs(ctx)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if n.runtime.IsLoaded(id) || !include(id) {
+			continue
+		}
+		row, err := readPluginSyncRow(ctx, id)
+		if err != nil {
+			return err
+		}
+		if !row.Exists || !row.Enabled || row.ArchiveSHA == nil {
+			continue
+		}
+		n.failedLoads[id] = pluginLoadTarget{digest: *row.ArchiveSHA, enabled: row.Enabled}
 	}
 	return nil
 }
 
 // Run keeps the plugins in line until ctx is done. Call it after LoadEnabled.
+// Use StartPluginSync to run it in the background.
 func (s *PluginSync) Run(ctx context.Context) {
 	s.node.Run(ctx)
+}
+
+// shutdownContext is this process's shutdown context. Sync work started after
+// start-up, such as the sync the installer starts, derives from it.
+var shutdownContext = struct {
+	sync.Mutex
+	ctx context.Context
+}{ctx: context.Background()}
+
+// SetShutdownContext sets the context that ends when this process shuts down.
+// Call it once at start-up.
+func SetShutdownContext(ctx context.Context) {
+	shutdownContext.Lock()
+	defer shutdownContext.Unlock()
+	shutdownContext.ctx = ctx
+}
+
+func processShutdownContext() context.Context {
+	shutdownContext.Lock()
+	defer shutdownContext.Unlock()
+	return shutdownContext.ctx
+}
+
+// pluginSyncStopTimeout bounds how long StopPluginSync waits for the loop.
+const pluginSyncStopTimeout = 60 * time.Second
+
+// pluginSyncLoop is the one background sync loop of this process.
+var pluginSyncLoop = struct {
+	sync.Mutex
+	cancel context.CancelFunc
+	done   chan struct{}
+}{}
+
+// StartPluginSync runs s.Run in the background until the process shuts down or
+// StopPluginSync is called. At most one loop runs per process; a second start
+// while one runs does nothing. Call it after LoadEnabled.
+func StartPluginSync(s *PluginSync) {
+	pluginSyncLoop.Lock()
+	defer pluginSyncLoop.Unlock()
+	if pluginSyncLoop.done != nil {
+		return
+	}
+	ctx, cancel := context.WithCancel(processShutdownContext())
+	done := make(chan struct{})
+	pluginSyncLoop.cancel = cancel
+	pluginSyncLoop.done = done
+	go func() {
+		defer close(done)
+		s.Run(ctx)
+	}()
+}
+
+// StopPluginSync cancels the loop started by StartPluginSync and waits for it to
+// return, for at most pluginSyncStopTimeout. It does nothing when no loop runs.
+func StopPluginSync() {
+	pluginSyncLoop.Lock()
+	cancel, done := pluginSyncLoop.cancel, pluginSyncLoop.done
+	pluginSyncLoop.cancel, pluginSyncLoop.done = nil, nil
+	pluginSyncLoop.Unlock()
+	if done == nil {
+		return
+	}
+	cancel()
+	timer := time.NewTimer(pluginSyncStopTimeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+	case <-timer.C:
+		log.Printf("plugin sync did not stop within %s; the plugin runtime closes anyway", pluginSyncStopTimeout)
+	}
 }

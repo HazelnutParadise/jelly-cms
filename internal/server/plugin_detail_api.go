@@ -92,8 +92,10 @@ func registerPluginDetailRoutes(e *echo.Echo, runtime *plugin.Runtime) {
 }
 
 // PluginEnabledFilter decides which plugin directories load at start-up. A
-// plugin whose row says disabled stays unloaded. A directory without a row
-// keeps loading, as it did before the plugins table existed.
+// plugin whose row says disabled stays unloaded, and so does one whose row was
+// removed (plugin_removals records it) while its directory is still on disk. A
+// directory with neither a row nor a removal record keeps loading, as it did
+// before the plugins table existed.
 func PluginEnabledFilter() func(pluginID string) bool {
 	recoveryErr := recoverPluginInstallJournals()
 	if recoveryErr != nil {
@@ -112,7 +114,14 @@ func PluginEnabledFilter() func(pluginID string) bool {
 			return false
 		}
 		if len(rows) == 0 {
-			return true
+			removed, err := pluginRemovalRecorded(context.Background(), pluginID)
+			if err != nil {
+				log.Printf("plugin %s: read removal record: %v", pluginID, err)
+
+				return false
+			}
+
+			return !removed
 		}
 
 		return rows[0].Enabled
@@ -293,7 +302,15 @@ func (a *pluginDetailAPI) enableLocked(c echo.Context) error {
 		}
 		if a.loaded(row.ID) {
 			status, ok := a.runtime.Status(row.ID)
-			if !ok || status.State != plugin.StateRunning {
+			// The running instance may come from files that ensurePluginLocalCopy
+			// just replaced; it must then be reloaded, not kept.
+			stale, staleErr := loadedPluginStale(a.runtime, row.ID)
+			if staleErr != nil {
+				log.Printf("plugin %s: check loaded files for enable: %v", row.ID, staleErr)
+
+				return infraError(c, http.StatusConflict, "Plugin failed to start")
+			}
+			if !ok || status.State != plugin.StateRunning || stale {
 				if err := a.runtime.ReloadForID(ctx, row.ID, filepath.Join(pluginDirRoot, row.ID)); err != nil {
 					log.Printf("plugin %s: reload for enable failed: %v", row.ID, err)
 
@@ -314,6 +331,7 @@ func (a *pluginDetailAPI) enableLocked(c echo.Context) error {
 	if err := data.DB.Exec(`UPDATE plugins SET enabled = TRUE, updated_at = now() WHERE id = ?`, row.ID).Error; err != nil {
 		if startedHere {
 			_ = unloadDetached(ctx, a.runtime, row.ID)
+			forgetLoadedPluginTree(a.runtime, row.ID)
 		}
 
 		return pluginFailure(c, err)
@@ -366,6 +384,7 @@ func (a *pluginDetailAPI) disableLocked(c echo.Context) error {
 		if err := unloadDetached(ctx, a.runtime, row.ID); err != nil {
 			log.Printf("plugin %s: unload after disable: %v", row.ID, err)
 		}
+		forgetLoadedPluginTree(a.runtime, row.ID)
 	}
 	bumpPluginExtensionGeneration()
 	markPluginStateChanged(ctx)
@@ -407,6 +426,7 @@ func (a *pluginDetailAPI) uninstallLocked(c echo.Context) error {
 		if err := unloadDetached(ctx, a.runtime, row.ID); err != nil {
 			log.Printf("plugin %s: unload before uninstall: %v", row.ID, err)
 		}
+		forgetLoadedPluginTree(a.runtime, row.ID)
 	}
 	if a.runtime != nil {
 		if err := ensurePluginLocalCopy(ctx, a.runtime, row.ID); err != nil {

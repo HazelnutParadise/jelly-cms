@@ -79,6 +79,8 @@ func run(parent context.Context) error {
 	// An update restart request stops the server the same way a signal does.
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
+	// Background plugin sync started later, after installation, stops with this context.
+	server.SetShutdownContext(ctx)
 	go func() {
 		select {
 		case <-update.RestartRequested():
@@ -133,7 +135,9 @@ func run(parent context.Context) error {
 		log.Printf("Failed to initialize plugin runtime: %v", err)
 	} else {
 		server.ConfigurePluginHost(pluginRuntime)
-		defer pluginRuntime.Close()
+		// Registered before the sync stop below is, so it runs after it: the sync
+		// loop ends before the runtime closes (ticket 37 review 6).
+		defer server.ClosePluginRuntime(pluginRuntime)
 
 		// Load all plugins if database is connected. Other servers share the
 		// database, so the local directory is first made to match it (ticket 37).
@@ -143,12 +147,10 @@ func run(parent context.Context) error {
 			if err := pluginSync.ReconcileAtStartup(ctx); err != nil {
 				log.Printf("Plugin sync at start-up: %v", err)
 			}
-			if err := pluginSync.LoadEnabled(context.Background()); err != nil {
+			if err := pluginSync.LoadEnabled(ctx); err != nil {
 				log.Printf("Failed to load plugins: %v", err)
 			}
-			syncCtx, stopSync := context.WithCancel(ctx)
-			defer stopSync()
-			go pluginSync.Run(syncCtx)
+			server.StartPluginSync(pluginSync)
 		}
 	}
 
