@@ -98,3 +98,9 @@ Blocked by：36（已合併）。
 | 載入時記錄目錄雜湊 | `/internal/plugin/manager.go`、`/internal/plugin/supervisor.go` |
 | 定期對齊與啟動對齊 | `/internal/server/plugin_cluster_sync.go`（新）、`/cmd/server/main.go`、`/internal/server/installation_http.go` |
 | 文件 | `/docs/system-operations.md`、`/docs/plugin-development.md`、`/docs/plugin-extensions.md`、`/AGENTS.md` follow-up |
+
+## 驗收紀錄
+
+交付時記下的驗證結果與裁決，依時間由新到舊。
+
+- 多台同步：外掛壓縮檔以每段 1 MiB 存在 PostgreSQL（`plugin_archives`、`plugin_archive_chunks`），以解壓後目錄雜湊為鍵、不可修改，`plugins.archive_tree_sha256` 指向目前使用的那份；每次狀態變更遞增 `plugin_state_seq`，每台每 3 秒輪詢、每 60 秒完整對齊，補齊、載入、重新載入、卸載或刪除本機副本；解除安裝留下移除紀錄，其他台與重啟後都不會復活；手動放進目錄的外掛照舊載入。設計先經獨立審查（3 個高風險缺口：解除安裝在他台復活、他台載入會被退回的新版、單列壓縮檔無法原子還原），改為內容定址加指標、不等待的安裝鎖、目錄雜湊比對與移除紀錄後才實作。驗證：測試先於實作（`plugin_cluster_sync_integration_test.go` 15 條在骨架上失敗），以兩個 runtime 共用資料庫、各用自己的外掛目錄模擬兩台；實作後獨立審查 0 個 P0／P1、2 個 P2、6 個 P3，四項先寫成失敗測試（`plugin_cluster_sync_review_integration_test.go`）再修，其餘四項以程式審查確認。主代理重跑：外掛相關測試在 `-race` 下通過，`cmd/server` 通過；完整套件以 CI 為準。使用者決定壓縮檔存 PostgreSQL、不另設大小上限。沒有部署。
