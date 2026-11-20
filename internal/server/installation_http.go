@@ -207,7 +207,14 @@ func initializeAfterInstallation(pluginRuntime *plugin.Runtime) {
 	if err := os.MkdirAll("data/plugins", 0755); err != nil {
 		log.Printf("plugin directory setup failed after installation: %v", err)
 	}
-	if err := pluginRuntime.LoadWhere(context.Background(), "data/plugins", PluginEnabledFilter()); err != nil {
+	// This server joins the plugin sync the same way a restarted one does
+	// (ticket 37). The sync runs for the life of the process.
+	pluginSync := NewPluginSync(pluginRuntime)
+	if err := pluginSync.ReconcileAtStartup(ctx); err != nil {
+		log.Printf("plugin sync after installation: %v", err)
+	}
+	if err := pluginSync.LoadEnabled(ctx); err != nil {
 		log.Printf("plugin loading failed after installation: %v", err)
 	}
+	go pluginSync.Run(context.Background())
 }

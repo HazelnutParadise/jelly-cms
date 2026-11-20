@@ -61,10 +61,10 @@ func validatePluginInstallJournal(j pluginInstallJournal) error {
 	return nil
 }
 
-func validateExistingPluginTransactionPaths(j pluginInstallJournal) error {
-	paths := []string{filepath.Join(pluginDirRoot, j.ID), pluginTransactionPath(j.Backup)}
+func validateExistingPluginTransactionPathsIn(root string, j pluginInstallJournal) error {
+	paths := []string{filepath.Join(root, j.ID), pluginTransactionPathIn(root, j.Backup)}
 	if j.Stage != "" {
-		paths = append(paths, pluginTransactionPath(j.Stage))
+		paths = append(paths, pluginTransactionPathIn(root, j.Stage))
 	}
 	for _, p := range paths {
 		info, err := os.Lstat(p)
@@ -81,14 +81,14 @@ func validateExistingPluginTransactionPaths(j pluginInstallJournal) error {
 	return nil
 }
 
-func writePluginInstallJournal(path string, j pluginInstallJournal) error {
+func writePluginInstallJournalIn(root string, path string, j pluginInstallJournal) error {
 	if err := validatePluginInstallJournal(j); err != nil {
 		return err
 	}
-	if err := validateExistingPluginTransactionPaths(j); err != nil {
+	if err := validateExistingPluginTransactionPathsIn(root, j); err != nil {
 		return err
 	}
-	if path != pluginInstallJournalPath(j.ID) {
+	if path != pluginInstallJournalPathIn(root, j.ID) {
 		return fmt.Errorf("invalid plugin transaction journal path")
 	}
 	raw, err := json.Marshal(j)
@@ -200,10 +200,8 @@ func hashPluginArchive(path string) (string, error) {
 
 // recoverPluginInstallJournals resolves interrupted disk/DB swaps before the
 // runtime decides whether a plugin directory is loadable.
-func recoverPluginInstallJournals() error {
-	pluginFilesMu.Lock()
-	defer pluginFilesMu.Unlock()
-	entries, err := os.ReadDir(pluginDirRoot)
+func recoverPluginInstallJournalsIn(root string) error {
+	entries, err := os.ReadDir(root)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -214,13 +212,13 @@ func recoverPluginInstallJournals() error {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".journal" {
 			continue
 		}
-		path := filepath.Join(pluginDirRoot, entry.Name())
+		path := filepath.Join(root, entry.Name())
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("read plugin transaction journal %s: %w", path, err)
 		}
 		var j pluginInstallJournal
-		if err := json.Unmarshal(raw, &j); err != nil || validatePluginInstallJournal(j) != nil || path != pluginInstallJournalPath(j.ID) {
+		if err := json.Unmarshal(raw, &j); err != nil || validatePluginInstallJournal(j) != nil || path != pluginInstallJournalPathIn(root, j.ID) {
 			return fmt.Errorf("invalid plugin transaction journal %s", path)
 		}
 		id := j.ID
@@ -233,10 +231,10 @@ func recoverPluginInstallJournals() error {
 				return err
 			}
 			var current pluginInstallJournal
-			if err := json.Unmarshal(fresh, &current); err != nil || validatePluginInstallJournal(current) != nil || current.ID != id || path != pluginInstallJournalPath(current.ID) {
+			if err := json.Unmarshal(fresh, &current); err != nil || validatePluginInstallJournal(current) != nil || current.ID != id || path != pluginInstallJournalPathIn(root, current.ID) {
 				return fmt.Errorf("invalid plugin transaction journal %s", path)
 			}
-			return recoverPluginInstallJournal(path, current)
+			return recoverPluginInstallJournalIn(root, path, current)
 		})
 		if err != nil {
 			return err
@@ -245,11 +243,11 @@ func recoverPluginInstallJournals() error {
 	return nil
 }
 
-func recoverPluginInstallJournal(path string, j pluginInstallJournal) error {
-	if err := validateExistingPluginTransactionPaths(j); err != nil {
+func recoverPluginInstallJournalIn(root string, path string, j pluginInstallJournal) error {
+	if err := validateExistingPluginTransactionPathsIn(root, j); err != nil {
 		return fmt.Errorf("invalid plugin transaction paths %s: %w", j.ID, err)
 	}
-	target := filepath.Join(pluginDirRoot, j.ID)
+	target := filepath.Join(root, j.ID)
 	var rows []struct {
 		Version         string    `gorm:"column:version"`
 		PermissionsHash string    `gorm:"column:permissions_granted_hash"`
@@ -277,7 +275,7 @@ func recoverPluginInstallJournal(path string, j pluginInstallJournal) error {
 		} else if !os.IsNotExist(err) {
 			return err
 		}
-		backup := pluginTransactionPath(j.Backup)
+		backup := pluginTransactionPathIn(root, j.Backup)
 		if _, err := os.Lstat(backup); err == nil {
 			digest, digestErr := pluginTreeDigest(backup)
 			if digestErr != nil || digest != j.TreeSHA256 {
@@ -288,19 +286,19 @@ func recoverPluginInstallJournal(path string, j pluginInstallJournal) error {
 		}
 	}
 	if committed {
-		if err := os.RemoveAll(pluginTransactionPath(j.Backup)); err != nil {
+		if err := os.RemoveAll(pluginTransactionPathIn(root, j.Backup)); err != nil {
 			return fmt.Errorf("remove committed plugin backup %s: %w", j.ID, err)
 		}
 		if j.Stage != "" {
-			if err := os.RemoveAll(pluginTransactionPath(j.Stage)); err != nil {
+			if err := os.RemoveAll(pluginTransactionPathIn(root, j.Stage)); err != nil {
 				return fmt.Errorf("remove plugin stage %s: %w", j.ID, err)
 			}
 		}
 	} else {
-		backup := pluginTransactionPath(j.Backup)
+		backup := pluginTransactionPathIn(root, j.Backup)
 		stageMissing := false
 		if j.Stage != "" {
-			_, stageErr := os.Stat(pluginTransactionPath(j.Stage))
+			_, stageErr := os.Stat(pluginTransactionPathIn(root, j.Stage))
 			stageMissing = os.IsNotExist(stageErr)
 			if stageErr != nil && !stageMissing {
 				return fmt.Errorf("inspect plugin stage %s: %w", j.ID, stageErr)
@@ -323,7 +321,7 @@ func recoverPluginInstallJournal(path string, j pluginInstallJournal) error {
 			return fmt.Errorf("plugin uninstall %s has no backup to restore", j.ID)
 		}
 		if j.Stage != "" {
-			if err := os.RemoveAll(pluginTransactionPath(j.Stage)); err != nil {
+			if err := os.RemoveAll(pluginTransactionPathIn(root, j.Stage)); err != nil {
 				return fmt.Errorf("remove plugin stage %s: %w", j.ID, err)
 			}
 		}
@@ -334,12 +332,12 @@ func recoverPluginInstallJournal(path string, j pluginInstallJournal) error {
 	return nil
 }
 
-func pluginInstallJournalPath(id string) string {
-	return filepath.Join(pluginDirRoot, ".install-"+id+".journal")
+func pluginInstallJournalPathIn(root string, id string) string {
+	return filepath.Join(root, ".install-"+id+".journal")
 }
 
-func pluginTransactionPath(name string) string {
-	return filepath.Join(filepath.Dir(pluginDirRoot), name)
+func pluginTransactionPathIn(root string, name string) string {
+	return filepath.Join(filepath.Dir(root), name)
 }
 
 var errPluginRecoveryPending = errors.New("plugin recovery is pending")
@@ -397,7 +395,7 @@ func discardPluginDBConnection(conn *gorm.DB) {
 	}
 }
 
-func commitPluginArchive(staged *plugin.StagedArchive, ctxVersion, permissionsHash string, stamp time.Time) (pluginInstallJournal, error) {
+func commitPluginArchiveIn(root string, staged *plugin.StagedArchive, ctxVersion, permissionsHash string, stamp time.Time) (pluginInstallJournal, error) {
 	meta, digest, err := pluginManifestDigest(staged.Stage)
 	if err != nil {
 		return pluginInstallJournal{}, err
@@ -411,21 +409,21 @@ func commitPluginArchive(staged *plugin.StagedArchive, ctxVersion, permissionsHa
 	}
 	backupName := fmt.Sprintf(".jelly-plugin-install-%s-%d", staged.ID, time.Now().UnixNano())
 	j := pluginInstallJournal{Action: "install", ID: staged.ID, Version: staged.Version, PermissionsHash: permissionsHash, ManifestSHA256: digest, TreeSHA256: treeDigest, CommitStamp: stamp, Stage: filepath.Base(staged.Stage), Backup: backupName, Phase: "prepared"}
-	if staged.Target != filepath.Join(pluginDirRoot, staged.ID) || filepath.Base(staged.Stage) != j.Stage {
+	if staged.Target != filepath.Join(root, staged.ID) || filepath.Base(staged.Stage) != j.Stage {
 		return pluginInstallJournal{}, fmt.Errorf("invalid staged plugin transaction paths")
 	}
 	if err := validatePluginInstallJournal(j); err != nil {
 		return pluginInstallJournal{}, err
 	}
-	if err := validateExistingPluginTransactionPaths(j); err != nil {
+	if err := validateExistingPluginTransactionPathsIn(root, j); err != nil {
 		return pluginInstallJournal{}, err
 	}
-	jp := pluginInstallJournalPath(staged.ID)
-	if err := writePluginInstallJournal(jp, j); err != nil {
+	jp := pluginInstallJournalPathIn(root, staged.ID)
+	if err := writePluginInstallJournalIn(root, jp, j); err != nil {
 		return j, err
 	}
 	j.Journaled = true
-	backup := pluginTransactionPath(backupName)
+	backup := pluginTransactionPathIn(root, backupName)
 	if _, err := os.Stat(staged.Target); err == nil {
 		if err := os.Rename(staged.Target, backup); err != nil {
 			_ = os.Remove(jp)
@@ -449,48 +447,48 @@ func commitPluginArchive(staged *plugin.StagedArchive, ctxVersion, permissionsHa
 		return j, err
 	}
 	j.Phase = "swapped"
-	if err := writePluginInstallJournal(jp, j); err != nil {
+	if err := writePluginInstallJournalIn(root, jp, j); err != nil {
 		return j, err
 	}
 	return j, nil
 }
 
-func finishPluginArchiveCommit(j pluginInstallJournal) error {
+func finishPluginArchiveCommitIn(root string, j pluginInstallJournal) error {
 	if !j.Journaled {
 		return fmt.Errorf("plugin transaction journal was not persisted")
 	}
 	if err := validatePluginInstallJournal(j); err != nil {
 		return err
 	}
-	if err := validateExistingPluginTransactionPaths(j); err != nil {
+	if err := validateExistingPluginTransactionPathsIn(root, j); err != nil {
 		return err
 	}
-	if err := os.RemoveAll(pluginTransactionPath(j.Backup)); err != nil {
+	if err := os.RemoveAll(pluginTransactionPathIn(root, j.Backup)); err != nil {
 		return err
 	}
 	if j.Stage != "" {
-		if err := os.RemoveAll(pluginTransactionPath(j.Stage)); err != nil {
+		if err := os.RemoveAll(pluginTransactionPathIn(root, j.Stage)); err != nil {
 			return err
 		}
 	}
-	if err := os.Remove(pluginInstallJournalPath(j.ID)); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(pluginInstallJournalPathIn(root, j.ID)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil
 }
 
-func rollbackPluginArchive(j pluginInstallJournal) error {
+func rollbackPluginArchiveIn(root string, j pluginInstallJournal) error {
 	if !j.Journaled {
 		return fmt.Errorf("plugin transaction journal was not persisted")
 	}
 	if err := validatePluginInstallJournal(j); err != nil {
 		return err
 	}
-	if err := validateExistingPluginTransactionPaths(j); err != nil {
+	if err := validateExistingPluginTransactionPathsIn(root, j); err != nil {
 		return err
 	}
-	target := filepath.Join(pluginDirRoot, j.ID)
-	backup := pluginTransactionPath(j.Backup)
+	target := filepath.Join(root, j.ID)
+	backup := pluginTransactionPathIn(root, j.Backup)
 	if _, err := os.Stat(backup); err == nil {
 		if err := os.RemoveAll(target); err != nil {
 			return err
@@ -506,12 +504,42 @@ func rollbackPluginArchive(j pluginInstallJournal) error {
 		}
 	}
 	if j.Stage != "" {
-		if err := os.RemoveAll(pluginTransactionPath(j.Stage)); err != nil {
+		if err := os.RemoveAll(pluginTransactionPathIn(root, j.Stage)); err != nil {
 			return err
 		}
 	}
-	if err := os.Remove(pluginInstallJournalPath(j.ID)); err != nil && !os.IsNotExist(err) {
+	if err := os.Remove(pluginInstallJournalPathIn(root, j.ID)); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil
+}
+
+func pluginInstallJournalPath(id string) string { return pluginInstallJournalPathIn(pluginDirRoot, id) }
+
+func pluginTransactionPath(name string) string { return pluginTransactionPathIn(pluginDirRoot, name) }
+
+func validateExistingPluginTransactionPaths(j pluginInstallJournal) error {
+	return validateExistingPluginTransactionPathsIn(pluginDirRoot, j)
+}
+
+func writePluginInstallJournal(path string, j pluginInstallJournal) error {
+	return writePluginInstallJournalIn(pluginDirRoot, path, j)
+}
+
+func recoverPluginInstallJournals() error {
+	pluginFilesMu.Lock()
+	defer pluginFilesMu.Unlock()
+	return recoverPluginInstallJournalsIn(pluginDirRoot)
+}
+
+func commitPluginArchive(staged *plugin.StagedArchive, ctxVersion, permissionsHash string, stamp time.Time) (pluginInstallJournal, error) {
+	return commitPluginArchiveIn(pluginDirRoot, staged, ctxVersion, permissionsHash, stamp)
+}
+
+func finishPluginArchiveCommit(j pluginInstallJournal) error {
+	return finishPluginArchiveCommitIn(pluginDirRoot, j)
+}
+
+func rollbackPluginArchive(j pluginInstallJournal) error {
+	return rollbackPluginArchiveIn(pluginDirRoot, j)
 }

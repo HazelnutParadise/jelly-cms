@@ -135,12 +135,20 @@ func run(parent context.Context) error {
 		server.ConfigurePluginHost(pluginRuntime)
 		defer pluginRuntime.Close()
 
-		// Load all plugins if database is connected
+		// Load all plugins if database is connected. Other servers share the
+		// database, so the local directory is first made to match it (ticket 37).
 		if config.GlobalConfig != nil && data.DB != nil {
 			os.MkdirAll("data/plugins", 0755)
-			if err := pluginRuntime.LoadWhere(context.Background(), "data/plugins", server.PluginEnabledFilter()); err != nil {
+			pluginSync := server.NewPluginSync(pluginRuntime)
+			if err := pluginSync.ReconcileAtStartup(ctx); err != nil {
+				log.Printf("Plugin sync at start-up: %v", err)
+			}
+			if err := pluginSync.LoadEnabled(context.Background()); err != nil {
 				log.Printf("Failed to load plugins: %v", err)
 			}
+			syncCtx, stopSync := context.WithCancel(ctx)
+			defer stopSync()
+			go pluginSync.Run(syncCtx)
 		}
 	}
 

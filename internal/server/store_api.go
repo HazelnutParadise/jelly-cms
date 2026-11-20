@@ -794,7 +794,7 @@ func upgradePluginFileLocked(ctx context.Context, runtime *plugin.Runtime, zipPa
 	upgradeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), pluginUpgradeTimeout)
 	defer cancel()
 
-	staged, err := plugin.StageArchive(zipPath, pluginDirRoot, in.Want)
+	staged, err := stagePluginArchive(zipPath, pluginDirRoot, in.Want)
 	if err != nil {
 		return pluginFileResult{}, err
 	}
@@ -810,6 +810,15 @@ func upgradePluginFileLocked(ctx context.Context, runtime *plugin.Runtime, zipPa
 	stamp, err := newPluginCommitStamp(upgradeCtx, id)
 	if err != nil {
 		return pluginFileResult{}, err
+	}
+	// The archive is stored before any file is swapped, so another server that
+	// sees the new pointer can always fetch it.
+	treeSHA256, err := pluginTreeDigest(staged.Stage)
+	if err != nil {
+		return pluginFileResult{}, err
+	}
+	if _, err := storePluginArchive(upgradeCtx, id, treeSHA256, zipPath); err != nil {
+		return pluginFileResult{}, fmt.Errorf("store plugin archive: %w", err)
 	}
 	before, err := readPluginUpgradeRow(upgradeCtx, id)
 	if err != nil {
@@ -841,13 +850,14 @@ func upgradePluginFileLocked(ctx context.Context, runtime *plugin.Runtime, zipPa
 	}
 
 	previous, err := writePluginRow(upgradeCtx, pluginRowWrite{
-		ID:              id,
-		Version:         installed.Version,
-		Source:          in.Source,
-		Signature:       in.Signature,
-		PermissionsHash: permissionsHash,
-		CommitStamp:     stamp,
-		EnableOnInsert:  true,
+		ID:                id,
+		Version:           installed.Version,
+		Source:            in.Source,
+		Signature:         in.Signature,
+		PermissionsHash:   permissionsHash,
+		CommitStamp:       stamp,
+		EnableOnInsert:    true,
+		ArchiveTreeSHA256: j.TreeSHA256,
 	})
 	if err != nil {
 		committed, checkErr := pluginInstallRowCommitted(upgradeCtx, id, installed.Version, permissionsHash, stamp, j.TreeSHA256)
@@ -888,10 +898,15 @@ func upgradePluginFileLocked(ctx context.Context, runtime *plugin.Runtime, zipPa
 
 		return pluginFileResult{}, fmt.Errorf("%w: %v", errPluginUpgradeFailed, err)
 	}
+	noteLoadedPluginTree(runtime, id, filepath.Join(pluginDirRoot, id))
 	if cleanupErr := finishPluginArchiveCommit(j); cleanupErr != nil {
 		log.Printf("plugin %s: post-upgrade cleanup deferred: %v", id, cleanupErr)
 	}
+	if pruneErr := prunePluginArchives(upgradeCtx, id); pruneErr != nil {
+		log.Printf("plugin %s: archive prune deferred: %v", id, pruneErr)
+	}
 	bumpPluginExtensionGeneration()
+	markPluginStateChanged(upgradeCtx)
 
 	enabled := true
 	if before.Exists {
@@ -910,6 +925,8 @@ type pluginUpgradeRow struct {
 	PermissionsHash string
 	PreviousVersion *string
 	UpdatedAt       time.Time
+	// ArchiveTreeSHA256 is the archive pointer; nil when the row had none.
+	ArchiveTreeSHA256 *string
 }
 
 func readPluginUpgradeRow(ctx context.Context, id string) (pluginUpgradeRow, error) {
@@ -921,8 +938,9 @@ func readPluginUpgradeRow(ctx context.Context, id string) (pluginUpgradeRow, err
 		PermissionsHash string    `gorm:"column:permissions_granted_hash"`
 		PreviousVersion *string   `gorm:"column:previous_version"`
 		UpdatedAt       time.Time `gorm:"column:updated_at"`
+		ArchiveSHA256   *string   `gorm:"column:archive_tree_sha256"`
 	}
-	if err := data.DB.WithContext(ctx).Raw(`SELECT enabled, version, source, signature, permissions_granted_hash, previous_version, updated_at FROM plugins WHERE id = ?`, id).Scan(&rows).Error; err != nil {
+	if err := data.DB.WithContext(ctx).Raw(`SELECT enabled, version, source, signature, permissions_granted_hash, previous_version, updated_at, archive_tree_sha256 FROM plugins WHERE id = ?`, id).Scan(&rows).Error; err != nil {
 		return pluginUpgradeRow{}, err
 	}
 	if len(rows) == 0 {
@@ -930,14 +948,15 @@ func readPluginUpgradeRow(ctx context.Context, id string) (pluginUpgradeRow, err
 	}
 
 	return pluginUpgradeRow{
-		Exists:          true,
-		Enabled:         rows[0].Enabled,
-		Version:         rows[0].Version,
-		Source:          rows[0].Source,
-		Signature:       rows[0].Signature,
-		PermissionsHash: rows[0].PermissionsHash,
-		PreviousVersion: rows[0].PreviousVersion,
-		UpdatedAt:       rows[0].UpdatedAt,
+		Exists:            true,
+		Enabled:           rows[0].Enabled,
+		Version:           rows[0].Version,
+		Source:            rows[0].Source,
+		Signature:         rows[0].Signature,
+		PermissionsHash:   rows[0].PermissionsHash,
+		PreviousVersion:   rows[0].PreviousVersion,
+		UpdatedAt:         rows[0].UpdatedAt,
+		ArchiveTreeSHA256: rows[0].ArchiveSHA256,
 	}, nil
 }
 
@@ -946,8 +965,8 @@ func restorePluginUpgradeRow(ctx context.Context, id string, row pluginUpgradeRo
 		return data.DB.WithContext(ctx).Exec(`DELETE FROM plugins WHERE id = ?`, id).Error
 	}
 
-	return data.DB.WithContext(ctx).Exec(`UPDATE plugins SET version = ?, source = ?, signature = ?, permissions_granted_hash = ?, previous_version = ?, updated_at = ? WHERE id = ?`,
-		row.Version, row.Source, row.Signature, row.PermissionsHash, row.PreviousVersion, row.UpdatedAt, id).Error
+	return data.DB.WithContext(ctx).Exec(`UPDATE plugins SET version = ?, source = ?, signature = ?, permissions_granted_hash = ?, previous_version = ?, updated_at = ?, archive_tree_sha256 = ? WHERE id = ?`,
+		row.Version, row.Source, row.Signature, row.PermissionsHash, row.PreviousVersion, row.UpdatedAt, row.ArchiveTreeSHA256, id).Error
 }
 
 // restoreFailedPluginUpgrade puts back the row and then the files of a loaded
@@ -987,7 +1006,7 @@ func restoreFailedPluginUpgrade(id string, before pluginUpgradeRow, newVersion s
 }
 
 func installPluginFileLocked(ctx context.Context, zipPath string, in pluginFileInstall, stamp time.Time) (pluginFileResult, error) {
-	staged, err := plugin.StageArchive(zipPath, pluginDirRoot, in.Want)
+	staged, err := stagePluginArchive(zipPath, pluginDirRoot, in.Want)
 	if err != nil {
 		return pluginFileResult{}, err
 	}
@@ -997,24 +1016,30 @@ func installPluginFileLocked(ctx context.Context, zipPath string, in pluginFileI
 		return pluginFileResult{}, fmt.Errorf("read staged manifest: %w", err)
 	}
 	permissionsHash := plugin.PermissionNamesHash(plugin.ManifestPermissionNames(installed))
+	treeSHA256, err := pluginTreeDigest(staged.Stage)
+	if err != nil {
+		return pluginFileResult{}, err
+	}
+	if _, err := storePluginArchive(ctx, staged.ID, treeSHA256, zipPath); err != nil {
+		return pluginFileResult{}, fmt.Errorf("store plugin archive: %w", err)
+	}
 	j, err := commitPluginArchive(staged, installed.Version, permissionsHash, stamp)
 	if err != nil {
 		return pluginFileResult{}, errors.Join(fmt.Errorf("activate plugin files: %w", err), rollbackPluginArchive(j))
 	}
 	previous, err := writePluginRow(ctx, pluginRowWrite{
-		ID:              staged.ID,
-		Version:         installed.Version,
-		Source:          in.Source,
-		Signature:       in.Signature,
-		PermissionsHash: permissionsHash,
-		CommitStamp:     stamp,
+		ID:                staged.ID,
+		Version:           installed.Version,
+		Source:            in.Source,
+		Signature:         in.Signature,
+		PermissionsHash:   permissionsHash,
+		CommitStamp:       stamp,
+		ArchiveTreeSHA256: j.TreeSHA256,
 	})
 	if err != nil {
 		committed, checkErr := pluginInstallRowCommitted(ctx, staged.ID, installed.Version, permissionsHash, stamp, j.TreeSHA256)
 		if checkErr == nil && committed {
-			if cleanupErr := finishPluginArchiveCommit(j); cleanupErr != nil {
-				log.Printf("plugin %s: post-commit cleanup deferred: %v", staged.ID, cleanupErr)
-			}
+			finishInstalledPlugin(ctx, staged.ID, j)
 			return pluginFileResult{ID: staged.ID, Version: installed.Version, Enabled: false}, nil
 		}
 		if checkErr == nil {
@@ -1022,11 +1047,22 @@ func installPluginFileLocked(ctx context.Context, zipPath string, in pluginFileI
 		}
 		return pluginFileResult{}, errors.Join(fmt.Errorf("record plugin %s: %w", staged.ID, err), fmt.Errorf("verify plugin row commit: %w", checkErr))
 	}
-	if cleanupErr := finishPluginArchiveCommit(j); cleanupErr != nil {
-		log.Printf("plugin %s: post-commit cleanup deferred: %v", staged.ID, cleanupErr)
-	}
+	finishInstalledPlugin(ctx, staged.ID, j)
 
 	return pluginFileResult{ID: staged.ID, Version: installed.Version, PreviousVersion: previous, Enabled: false}, nil
+}
+
+// finishInstalledPlugin cleans up after a committed install: the journal and
+// backup go, unreferenced archives are pruned, and the change is published.
+func finishInstalledPlugin(ctx context.Context, id string, j pluginInstallJournal) {
+	if cleanupErr := finishPluginArchiveCommit(j); cleanupErr != nil {
+		log.Printf("plugin %s: post-commit cleanup deferred: %v", id, cleanupErr)
+	}
+	if pruneErr := prunePluginArchives(ctx, id); pruneErr != nil {
+		log.Printf("plugin %s: archive prune deferred: %v", id, pruneErr)
+	}
+	bumpPluginExtensionGeneration()
+	markPluginStateChanged(ctx)
 }
 
 func pluginInstallRowCommitted(ctx context.Context, id, version, permissionsHash string, stamp time.Time, treeSHA256 string) (bool, error) {
@@ -1080,6 +1116,8 @@ type pluginRowWrite struct {
 	PermissionsHash string
 	CommitStamp     time.Time
 	EnableOnInsert  bool
+	// ArchiveTreeSHA256 points the row at the archive of the files just swapped in.
+	ArchiveTreeSHA256 string
 }
 
 // writePluginRow inserts or updates the plugins row. An existing row keeps its
@@ -1095,17 +1133,23 @@ func writePluginRow(ctx context.Context, w pluginRowWrite) (string, error) {
 			return err
 		}
 		if len(rows) == 0 {
-			return tx.Exec(`INSERT INTO plugins (id, kind, version, source, enabled, signature, permissions_granted_hash, installed_at, updated_at)
-				VALUES (?, 'plugin', ?, ?, ?, ?, ?, ?, ?)`,
-				w.ID, w.Version, w.Source, w.EnableOnInsert, w.Signature, w.PermissionsHash, w.CommitStamp, w.CommitStamp).Error
+			if err := tx.Exec(`INSERT INTO plugins (id, kind, version, source, enabled, signature, permissions_granted_hash, installed_at, updated_at, archive_tree_sha256)
+				VALUES (?, 'plugin', ?, ?, ?, ?, ?, ?, ?, ?)`,
+				w.ID, w.Version, w.Source, w.EnableOnInsert, w.Signature, w.PermissionsHash, w.CommitStamp, w.CommitStamp, w.ArchiveTreeSHA256).Error; err != nil {
+				return err
+			}
+		} else {
+			replaced = rows[0].Version
+			if err := tx.Exec(`UPDATE plugins SET
+					previous_version = CASE WHEN version <> ? THEN version ELSE previous_version END,
+				version = ?, source = ?, signature = ?, permissions_granted_hash = ?, updated_at = ?, archive_tree_sha256 = ?
+				WHERE id = ?`,
+				w.Version, w.Version, w.Source, w.Signature, w.PermissionsHash, w.CommitStamp, w.ArchiveTreeSHA256, w.ID).Error; err != nil {
+				return err
+			}
 		}
-		replaced = rows[0].Version
-
-		return tx.Exec(`UPDATE plugins SET
-				previous_version = CASE WHEN version <> ? THEN version ELSE previous_version END,
-			version = ?, source = ?, signature = ?, permissions_granted_hash = ?, updated_at = ?
-			WHERE id = ?`,
-			w.Version, w.Version, w.Source, w.Signature, w.PermissionsHash, w.CommitStamp, w.ID).Error
+		// A reinstall ends the removal record, so other servers keep the directory.
+		return tx.Exec(`DELETE FROM plugin_removals WHERE plugin_id = ?`, w.ID).Error
 	})
 	if err != nil {
 		return "", err

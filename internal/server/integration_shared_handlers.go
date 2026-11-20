@@ -237,7 +237,15 @@ func reloadPlugin(c echo.Context, rt *plugin.Runtime) error {
 	ctx := c.Request().Context()
 	dir := filepath.Join("data", "plugins", meta.ID)
 	err = withPluginInstallLock(ctx, meta.ID, func() error {
-		return rt.ReloadForID(ctx, meta.ID, dir)
+		if err := ensurePluginLocalCopy(ctx, rt, meta.ID); err != nil {
+			return err
+		}
+		if err := rt.ReloadForID(ctx, meta.ID, dir); err != nil {
+			return err
+		}
+		noteLoadedPluginTree(rt, meta.ID, dir)
+		markPluginStateChanged(ctx)
+		return nil
 	})
 	if errors.Is(err, errPluginNotFound) {
 		return c.JSON(404, map[string]string{"error": "Plugin not found"})

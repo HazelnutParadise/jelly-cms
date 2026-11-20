@@ -284,6 +284,13 @@ func (a *pluginDetailAPI) enableLocked(c echo.Context) error {
 
 	startedHere := false
 	if a.runtime != nil {
+		// Another server may have enabled or upgraded this plugin: make the local
+		// directory match the database before it is loaded.
+		if err := ensurePluginLocalCopy(ctx, a.runtime, row.ID); err != nil {
+			log.Printf("plugin %s: local copy for enable failed: %v", row.ID, err)
+
+			return infraError(c, http.StatusConflict, "Plugin failed to start")
+		}
 		if a.loaded(row.ID) {
 			status, ok := a.runtime.Status(row.ID)
 			if !ok || status.State != plugin.StateRunning {
@@ -292,6 +299,7 @@ func (a *pluginDetailAPI) enableLocked(c echo.Context) error {
 
 					return infraError(c, http.StatusConflict, "Plugin failed to start")
 				}
+				noteLoadedPluginTree(a.runtime, row.ID, filepath.Join(pluginDirRoot, row.ID))
 			}
 		} else if err := a.runtime.Load(ctx, filepath.Join(pluginDirRoot, row.ID)); err != nil {
 			log.Printf("plugin %s: start failed: %v", row.ID, err)
@@ -299,6 +307,7 @@ func (a *pluginDetailAPI) enableLocked(c echo.Context) error {
 			return infraError(c, http.StatusConflict, "Plugin failed to start")
 		} else {
 			startedHere = true
+			noteLoadedPluginTree(a.runtime, row.ID, filepath.Join(pluginDirRoot, row.ID))
 		}
 	}
 
@@ -310,6 +319,7 @@ func (a *pluginDetailAPI) enableLocked(c echo.Context) error {
 		return pluginFailure(c, err)
 	}
 	bumpPluginExtensionGeneration()
+	markPluginStateChanged(ctx)
 	syslog.Audit(ctx, pluginActorID(c), "plugin.enable", map[string]any{"plugin": row.ID})
 
 	return c.JSON(http.StatusOK, map[string]any{"id": row.ID, "enabled": true, "loaded": a.loaded(row.ID)})
@@ -358,6 +368,7 @@ func (a *pluginDetailAPI) disableLocked(c echo.Context) error {
 		}
 	}
 	bumpPluginExtensionGeneration()
+	markPluginStateChanged(ctx)
 	syslog.Audit(ctx, pluginActorID(c), "plugin.disable", map[string]any{"plugin": row.ID})
 
 	return c.JSON(http.StatusOK, map[string]any{"id": row.ID, "enabled": false, "loaded": a.loaded(row.ID)})
@@ -395,6 +406,13 @@ func (a *pluginDetailAPI) uninstallLocked(c echo.Context) error {
 	if a.loaded(row.ID) {
 		if err := unloadDetached(ctx, a.runtime, row.ID); err != nil {
 			log.Printf("plugin %s: unload before uninstall: %v", row.ID, err)
+		}
+	}
+	if a.runtime != nil {
+		if err := ensurePluginLocalCopy(ctx, a.runtime, row.ID); err != nil {
+			log.Printf("plugin %s: local copy before uninstall: %v", row.ID, err)
+
+			return infraError(c, http.StatusConflict, "Plugin files could not be safely removed")
 		}
 	}
 
@@ -435,6 +453,16 @@ func (a *pluginDetailAPI) uninstallLocked(c echo.Context) error {
 			}
 		}
 
+		// The archive goes with the row, and the removal record tells the other
+		// servers to unload and delete their copies.
+		if err := tx.Exec(`DELETE FROM plugin_archives WHERE plugin_id = ?`, row.ID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec(`INSERT INTO plugin_removals (plugin_id, removed_at) VALUES (?, now())
+			ON CONFLICT (plugin_id) DO UPDATE SET removed_at = EXCLUDED.removed_at`, row.ID).Error; err != nil {
+			return err
+		}
+
 		return tx.Exec(`DELETE FROM plugins WHERE id = ?`, row.ID).Error
 	})
 	if err != nil {
@@ -444,6 +472,7 @@ func (a *pluginDetailAPI) uninstallLocked(c echo.Context) error {
 				log.Printf("plugin %s: post-uninstall cleanup deferred: %v", row.ID, cleanupErr)
 			}
 			bumpPluginExtensionGeneration()
+			markPluginStateChanged(ctx)
 			return c.JSON(http.StatusOK, map[string]any{"removed": row.ID})
 		}
 		if checkErr == nil {
@@ -455,6 +484,7 @@ func (a *pluginDetailAPI) uninstallLocked(c echo.Context) error {
 		log.Printf("plugin %s: post-uninstall cleanup deferred: %v", row.ID, cleanupErr)
 	}
 	bumpPluginExtensionGeneration()
+	markPluginStateChanged(ctx)
 	syslog.Audit(ctx, pluginActorID(c), "plugin.uninstall", map[string]any{"plugin": row.ID, "keep_settings": keep})
 
 	return c.JSON(http.StatusOK, map[string]any{"removed": row.ID})
@@ -705,6 +735,7 @@ func writePluginSettings(ctx context.Context, id string, mutate func(plain map[s
 	// every event) must not invalidate every extension cache on the site.
 	if err == nil && changed {
 		bumpPluginExtensionGeneration()
+		markPluginStateChanged(ctx)
 	}
 
 	return version, err
@@ -1006,6 +1037,7 @@ func (a *pluginDetailAPI) putExtension(c echo.Context) error {
 		return pluginFailure(c, err)
 	}
 	bumpPluginExtensionGeneration()
+	markPluginStateChanged(ctx)
 	syslog.Audit(ctx, pluginActorID(c), "extension.bind", map[string]any{"point": point, "count": len(body.Active)})
 
 	view, err := buildExtensionView(point, ctx)
