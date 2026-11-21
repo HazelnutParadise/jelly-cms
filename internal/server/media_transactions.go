@@ -389,7 +389,7 @@ func freeReplacementPath(ctx context.Context, drv storage.Driver, row mediaFileR
 
 func moveLegacyMedia(c echo.Context, oldName, newName string) error {
 	ctx := c.Request().Context()
-	oldRow, policy, err := legacyMediaRow(ctx, oldName)
+	oldRow, policy, err := legacyMediaRow(c, oldName)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.JSON(404, map[string]string{"error": "File not found"})
