@@ -16,6 +16,9 @@ import (
 )
 
 func listLegacyMedia(c echo.Context) error {
+	if _, scoped := mediaOwnerScope(c); scoped {
+		return listOwnedLegacyMedia(c)
+	}
 	files, err := os.ReadDir("data/uploads")
 	if err != nil {
 		return c.JSON(200, []string{})
