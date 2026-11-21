@@ -441,6 +441,14 @@ ReloadOAuthProviders 與公開 /api/oauth/status 查詢不得重用帶有非零�
 
 主代理已在本機以相同固定時間先重現失敗，再重跑修正版同一案例通過。完整 `JELLY_TEST_POSTGRES=1 go test -race ./... -count=1 -timeout=180s` 及 go vet 通過。修正只改 fixture 的建立時間與操作前 DB 回查，產品來源與既有測試本文、全欄位斷言均保持一致。首輪 CI 失敗紀錄保留。新版四項 CI 全綠後，PR #16 已合併為 `23bbf6b`，遠端與本機分支已清理。
 
+## 固定身分的遷移步驟
+
+（工單 38 從架構文件移入。）
+
+沿用 `data.MigrateDB` 入口，既有 GORM 遷移完成後執行版控中的新增 SQL。SQL 與函式放在 `internal/data/migrations/0001_oauth_identities.sql`、`internal/data/oauth_identity_migration.go`，Go 使用 embed。新表、索引及 trigger 在同一交易內建立，並以交易 advisory lock 協調重複啟動。重跑不變更既有資料，不從信箱回填，也不修改既有資料表欄位。此檔交付後保持不可變，後續結構調整使用新檔案。只對任務專用開發資料庫套用及測試。
+
+測試使用公開 HTTP 路由、現有 Goth 替身與專用 PostgreSQL。遷移另透過公開 MigrateDB 加 SQL 驗證資料完整性、軟刪唯一鍵、外鍵、時間 trigger、稽核及重跑相容性。完整連結、解除、舊帳號復原與畫面驗收屬同一功能，不能只完成新帳號解析就宣稱交付。
+
 ## 驗收紀錄
 
 交付時記下的驗證結果與裁決，依時間由新到舊。
