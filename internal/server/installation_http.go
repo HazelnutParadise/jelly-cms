@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"errors"
 	"html/template"
 	"log"
@@ -188,7 +187,9 @@ func initializeAfterInstallation(pluginRuntime *plugin.Runtime) {
 		return
 	}
 	SetSystemDatabase(db)
-	ctx := context.Background()
+	// Work started here ends with the process shutdown, so it never outlives the
+	// plugin runtime that main closes (ticket 37 review 6).
+	ctx := processShutdownContext()
 	if err := ensureDefaultMediaPolicy(ctx); err != nil {
 		log.Printf("media: ensure default policy after installation: %v", err)
 	} else if n, err := importLegacyUploads(ctx); err != nil {
@@ -207,7 +208,14 @@ func initializeAfterInstallation(pluginRuntime *plugin.Runtime) {
 	if err := os.MkdirAll("data/plugins", 0755); err != nil {
 		log.Printf("plugin directory setup failed after installation: %v", err)
 	}
-	if err := pluginRuntime.LoadWhere(context.Background(), "data/plugins", PluginEnabledFilter()); err != nil {
+	// This server joins the plugin sync the same way a restarted one does
+	// (ticket 37). The sync runs until the process shuts down or ClosePluginRuntime.
+	pluginSync := NewPluginSync(pluginRuntime)
+	if err := pluginSync.ReconcileAtStartup(ctx); err != nil {
+		log.Printf("plugin sync after installation: %v", err)
+	}
+	if err := pluginSync.LoadEnabled(ctx); err != nil {
 		log.Printf("plugin loading failed after installation: %v", err)
 	}
+	StartPluginSync(pluginSync)
 }
