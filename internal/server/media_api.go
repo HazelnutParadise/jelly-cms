@@ -944,6 +944,40 @@ func loadMediaFile(ctx context.Context, id int64) (mediaFileRow, error) {
 	return row, err
 }
 
+// mediaOwnerScope reports whether the request may only reach files the caller
+// uploaded, and the owner id to match. Admins and editors manage every file.
+// Anyone else, including a request with no user, is limited to their own
+// files; files without an owner belong to no author.
+func mediaOwnerScope(c echo.Context) (int64, bool) {
+	user, ok := auth.GetUserFromContext(c)
+	if ok && user != nil && (user.Role == "admin" || user.Role == "editor") {
+		return 0, false
+	}
+	if ok && user != nil {
+		return int64(user.ID), true
+	}
+	return 0, true
+}
+
+// whereMediaOwner adds the caller's owner condition on column to tx.
+func whereMediaOwner(c echo.Context, tx *gorm.DB, column string) *gorm.DB {
+	if owner, scoped := mediaOwnerScope(c); scoped {
+		return tx.Where(column+" = ?", owner)
+	}
+	return tx
+}
+
+// loadOwnedMediaFile is loadMediaFile limited to the files the caller may
+// manage. A file outside that set is reported as not found.
+func loadOwnedMediaFile(c echo.Context, id int64) (mediaFileRow, error) {
+	var row mediaFileRow
+	tx := mediaDB(c.Request().Context()).Table("media_files AS media_files").
+		Joins("JOIN media_policies ON media_policies.id = media_files.policy_id AND media_policies.purpose = ?", mediaPurposeMedia).
+		Where("media_files.id = ? AND media_files.deleted_at IS NULL", id)
+	err := whereMediaOwner(c, tx, "media_files.owner_id").Take(&row).Error
+	return row, err
+}
+
 func fileLoadError(c echo.Context, err error) error {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return c.JSON(http.StatusNotFound, map[string]any{"code": "not_found", "error": "File not found"})
@@ -1051,6 +1085,7 @@ func listMediaFiles(c echo.Context, page, perPage int) error {
 	ctx := c.Request().Context()
 	apply := func(tx *gorm.DB) (*gorm.DB, *mediaFailure) {
 		tx = tx.Table("media_files").Where("policy_id IN (SELECT id FROM media_policies WHERE purpose = ? AND deleted_at IS NULL)", mediaPurposeMedia)
+		tx = whereMediaOwner(c, tx, "owner_id")
 		if c.QueryParam("trashed") == "1" {
 			tx = tx.Where("deleted_at IS NOT NULL")
 		} else {
@@ -1350,10 +1385,33 @@ func handleLegacyMediaUpload(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"url": file["url"].(string)})
 }
 
-func legacyMediaRow(ctx context.Context, filename string) (mediaFileRow, mediaPolicyRow, error) {
+// listOwnedLegacyMedia answers the legacy list for a caller limited to their
+// own files: the local uploads URLs of the live files they own. The folder
+// itself is not read, because files on disk carry no owner.
+func listOwnedLegacyMedia(c echo.Context) error {
+	ctx := c.Request().Context()
+	var paths []string
+	tx := mediaDB(ctx).Table("media_files").
+		Joins("JOIN media_policies ON media_policies.id = media_files.policy_id AND media_policies.purpose = ? AND media_policies.driver = ?", mediaPurposeMedia, storage.DriverLocal).
+		Where("media_files.deleted_at IS NULL")
+	if err := whereMediaOwner(c, tx, "media_files.owner_id").Order("media_files.id").Pluck("media_files.path", &paths).Error; err != nil {
+		return mediaServerError(c, "list files", err)
+	}
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		out = append(out, mediaPublicURL(storage.DriverLocal, p))
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
+// legacyMediaRow finds the live media file stored at filename among the files
+// the caller may manage.
+func legacyMediaRow(c echo.Context, filename string) (mediaFileRow, mediaPolicyRow, error) {
+	ctx := c.Request().Context()
 	var row mediaFileRow
-	err := mediaDB(ctx).Table("media_files").Joins("JOIN media_policies ON media_policies.id = media_files.policy_id AND media_policies.purpose = ?", mediaPurposeMedia).
-		Where("media_files.path = ? AND media_files.deleted_at IS NULL", filename).Take(&row).Error
+	tx := mediaDB(ctx).Table("media_files").Joins("JOIN media_policies ON media_policies.id = media_files.policy_id AND media_policies.purpose = ?", mediaPurposeMedia).
+		Where("media_files.path = ? AND media_files.deleted_at IS NULL", filename)
+	err := whereMediaOwner(c, tx, "media_files.owner_id").Take(&row).Error
 	if err != nil {
 		return mediaFileRow{}, mediaPolicyRow{}, err
 	}
@@ -1375,14 +1433,19 @@ func handleLegacyMediaReplace(c echo.Context) error {
 	if fail != nil {
 		return fail.send(c)
 	}
-	row, policy, err := legacyMediaRow(ctx, filename)
+	row, policy, err := legacyMediaRow(c, filename)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// The file belongs to someone else or to no one: an author may not
+		// adopt it by replacing it.
+		if _, scoped := mediaOwnerScope(c); scoped {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "File not found"})
+		}
 		policy, err = legacyLocalMediaPolicy(ctx)
 		if err == nil {
 			if _, statErr := storage.NewLocal(uploadsRoot).Stat(ctx, filename); statErr == nil {
 				_, err = importLegacyFile(ctx, policy, filename, filepath.Join(uploadsRoot, filepath.FromSlash(filename)))
 				if err == nil {
-					row, policy, err = legacyMediaRow(ctx, filename)
+					row, policy, err = legacyMediaRow(c, filename)
 				}
 			} else if mediaObjectMissing(statErr) {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": "File not found"})
@@ -1412,8 +1475,11 @@ func handleLegacyMediaDelete(c echo.Context) error {
 	if filepath.Base(filename) != filename {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid filename"})
 	}
-	row, policy, err := legacyMediaRow(ctx, filename)
+	row, policy, err := legacyMediaRow(c, filename)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if _, scoped := mediaOwnerScope(c); scoped {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "File not found"})
+		}
 		if err := os.Remove(filepath.Join(uploadsRoot, filename)); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
@@ -1592,12 +1658,16 @@ func handleMediaFileUpdate(c echo.Context) error {
 	if len(updates) == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]any{"code": "nothing_to_update", "error": "No changes given"})
 	}
-	if _, err := loadMediaFile(ctx, id); err != nil {
+	if _, err := loadOwnedMediaFile(c, id); err != nil {
 		return fileLoadError(c, err)
 	}
 	updates["updated_at"] = time.Now()
-	if err := mediaDB(ctx).Table("media_files").Where("id = ? AND deleted_at IS NULL", id).Updates(updates).Error; err != nil {
-		return mediaServerError(c, "update file", err)
+	res := whereMediaOwner(c, mediaDB(ctx).Table("media_files").Where("id = ? AND deleted_at IS NULL", id), "owner_id").Updates(updates)
+	if res.Error != nil {
+		return mediaServerError(c, "update file", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return c.JSON(http.StatusNotFound, map[string]any{"code": "not_found", "error": "File not found"})
 	}
 	row, err := loadMediaFile(ctx, id)
 	if err != nil {
@@ -1618,12 +1688,12 @@ func handleMediaFileTrash(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]any{"code": "not_found", "error": "File not found"})
 	}
-	before, err := loadMediaFile(ctx, id)
+	before, err := loadOwnedMediaFile(c, id)
 	if err != nil {
 		return fileLoadError(c, err)
 	}
 	now := time.Now()
-	res := mediaDB(ctx).Table("media_files").Where("id = ? AND deleted_at IS NULL", id).
+	res := whereMediaOwner(c, mediaDB(ctx).Table("media_files").Where("id = ? AND deleted_at IS NULL", id), "owner_id").
 		Updates(map[string]any{"deleted_at": now, "updated_at": now})
 	if res.Error != nil {
 		return mediaServerError(c, "trash file", res.Error)
@@ -1652,7 +1722,7 @@ func handleMediaFileReplace(c echo.Context) error {
 	if !ok {
 		return c.JSON(http.StatusNotFound, map[string]any{"code": "not_found", "error": "File not found"})
 	}
-	row, err := loadMediaFile(ctx, id)
+	row, err := loadOwnedMediaFile(c, id)
 	if err != nil {
 		return fileLoadError(c, err)
 	}
